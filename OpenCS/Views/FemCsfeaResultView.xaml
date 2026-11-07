@@ -212,6 +212,19 @@
                             <DataGridTextColumn Header="{DynamicResource FemImperfectionColSource}" Binding="{Binding Source}"/>
                         </DataGrid.Columns>
                     </DataGrid>
+                    <TextBlock DockPanel.Dock="Top" Text="{DynamicResource FemImperfectionModeTable}" FontWeight="SemiBold" Margin="6,6,6,2"
+                               Visibility="{Binding HasImperfectionModes, Converter={StaticResource BoolToVis}}"/>
+                    <DataGrid DockPanel.Dock="Top" ItemsSource="{Binding ImperfectionModeRows}" Style="{StaticResource FieldGrid}" MaxHeight="160"
+                              Visibility="{Binding HasImperfectionModes, Converter={StaticResource BoolToVis}}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColName}" Binding="{Binding Label}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColAnalysis}" Binding="{Binding Analysis}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColCase}" Binding="{Binding Case}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColMode}" Binding="{Binding Mode}"/>
+                            <DataGridTextColumn Header="λ" Binding="{Binding Lambda}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColAmplitude}" Binding="{Binding AmplitudeMm}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
                     <TextBlock DockPanel.Dock="Top" Text="{DynamicResource FemImperfectionBowTable}" FontWeight="SemiBold" Margin="6,6,6,2"/>
                     <DataGrid ItemsSource="{Binding ImperfectionBowRows}" Style="{StaticResource FieldGrid}">
                         <DataGrid.RowStyle>

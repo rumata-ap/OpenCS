@@ -337,11 +337,8 @@ namespace OpenCS
                      () => vm.CreateFemImperfection(loadCaseItem, CScore.Fem.Imperfections.FemImperfectionKinds.Sway)));
                   menu.Items.Add(Views.FemMemberTreeMenus.Item("FemImperfectionAddBow",
                      () => vm.CreateFemImperfection(loadCaseItem, CScore.Fem.Imperfections.FemImperfectionKinds.Bow)));
-                  var modes = Views.FemMemberTreeMenus.Item("FemImperfectionAddModes", () => { });
-                  modes.IsEnabled = false;
-                  modes.ToolTip = Loc.S("FemImperfectionModesLater");
-                  ToolTipService.SetShowOnDisabled(modes, true);
-                  menu.Items.Add(modes);
+                  menu.Items.Add(Views.FemMemberTreeMenus.Item("FemImperfectionAddModes",
+                     () => vm.CreateFemImperfection(loadCaseItem, CScore.Fem.Imperfections.FemImperfectionKinds.Modes)));
                }
                menu.Items.Add(new Separator());
                menu.Items.Add(Views.FemMemberTreeMenus.Item("FemLoadCaseCreate", () => vm.CreateFemLoadCase(loadCaseItem.Schema)));

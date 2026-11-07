@@ -53,6 +53,12 @@ public sealed record FemImperfectionContext
 {
     /// <summary>Подготовленное сечение CScore стержневого КЭ (с материалами); null — нет.</summary>
     public Func<string, CrossSection?>? BeamCross { get; init; }
+
+    /// <summary>
+    /// Формы постановки устойчивости для несовершенства «Формы» (сводка, записи форм, сверка отпечатка геометрии с
+    /// текущей схемой); null — формы недоступны (ошибка <c>imperfection_modes_source</c>).
+    /// </summary>
+    public Func<FemModesParams, FemModesLookup>? Modes { get; init; }
 }
 
 /// <summary>
@@ -294,14 +300,95 @@ public static partial class FemImperfectionResolver
                     break;
                 }
                 case FemImperfectionKinds.Modes:
-                    Error("imperfection_modes", $"Несовершенство «{label}»: формы потери устойчивости пока не поддержаны.");
+                    if (ResolveModes(label, FemModesParams.Parse(imp.ParamsJson), factor, context, Error) is { } modes) items.Add(modes);
                     break;
                 default:
                     Error("imperfection_kind_invalid", $"Несовершенство «{label}»: неизвестный вид «{imp.Kind}».");
                     break;
             }
         }
+        // П. 5.3.2(11): форма — «взамен» крена (3) и погибей (6); в одном варианте не сочетаются.
+        if (items.Any(i => i is FemResolvedModes) && items.Any(i => i is FemResolvedSway or FemResolvedBow))
+            Error("imperfection_modes_mixed",
+                $"Несовершенства по формам ({string.Join(", ", items.OfType<FemResolvedModes>().Select(m => $"«{m.Label}»"))}) не сочетаются " +
+                "с креном и погибями в одном варианте расчёта (EN 1993-1-1 п. 5.3.2(11) — взамен п. (3) и (6)).");
         return new FemImperfectionResolution(items, diag);
+    }
+
+    /// <summary>
+    /// «Формы»: проверка параметров, формы постановки (<see cref="FemImperfectionContext.Modes"/>), сумма u₀ = Σ aᵢ·φᵢ
+    /// с коэффициентом загружения; null — ошибка (в <paramref name="error"/>).
+    /// </summary>
+    static FemResolvedModes? ResolveModes(string label, FemModesParams p, double factor, FemImperfectionContext? context,
+        Action<string, string> error)
+    {
+        if (p.AnalysisId <= 0)
+        {
+            error("imperfection_modes_source", $"Формы «{label}»: не выбрана постановка устойчивости.");
+            return null;
+        }
+        if (p.Modes.Count == 0)
+        {
+            error("imperfection_modes_empty", $"Формы «{label}»: не заданы формы и амплитуды.");
+            return null;
+        }
+        if (p.Modes.Any(m => m.Mode < 1 || !double.IsFinite(m.AmplitudeMm)))
+        {
+            error("imperfection_modes_invalid", $"Формы «{label}»: номер формы — целое не меньше 1, амплитуда — число (мм).");
+            return null;
+        }
+        if (p.Modes.Select(m => m.Mode).Distinct().Count() != p.Modes.Count)
+        {
+            error("imperfection_modes_invalid", $"Формы «{label}»: форма указана дважды.");
+            return null;
+        }
+        if (context?.Modes == null)
+        {
+            error("imperfection_modes_source", $"Формы «{label}»: формы постановки устойчивости недоступны.");
+            return null;
+        }
+        var found = context.Modes(p);
+        if (found.ErrorCode != null)
+        {
+            error(found.ErrorCode, $"Формы «{label}»: {found.Error}");
+            return null;
+        }
+        var missing = p.Modes.Where(m => m.Mode > found.Lambda.Count || !found.Shapes.ContainsKey(m.Mode)).Select(m => m.Mode).ToList();
+        if (missing.Count > 0)
+        {
+            error("imperfection_modes_missing",
+                $"Формы «{label}»: в задаче «{found.CaseTag}» постановки «{found.AnalysisTag}» форм {found.Lambda.Count}, нет форм {string.Join(", ", missing)}.");
+            return null;
+        }
+        var nodes = new Dictionary<int, double[]>();
+        var bars = new Dictionary<int, double[][]>();
+        var rows = new List<FemResolvedMode>();
+        foreach (var m in p.Modes)
+        {
+            double a = factor * m.AmplitudeMm / 1000.0;
+            var shape = found.Shapes[m.Mode];
+            rows.Add(new FemResolvedMode(m.Mode, found.Lambda[m.Mode - 1], a));
+            foreach (var (id, u) in shape.Nodes)
+            {
+                var acc = nodes.TryGetValue(id, out var x) ? x : nodes[id] = new double[6];
+                for (int k = 0; k < Math.Min(6, u.Length); k++) acc[k] += a * u[k];
+            }
+            foreach (var (id, points) in shape.BarPoints)
+            {
+                if (!bars.TryGetValue(id, out var acc)) bars[id] = acc = points.Select(_ => new double[3]).ToArray();
+                if (acc.Length != points.Length)
+                {
+                    error("imperfection_modes_invalid", $"Формы «{label}»: у КЭ {id} формы с разным дроблением — пересчитайте постановку устойчивости.");
+                    return null;
+                }
+                for (int i = 0; i < points.Length; i++)
+                    for (int k = 0; k < 3; k++) acc[i][k] += a * points[i][k];
+            }
+        }
+        return new FemResolvedModes(label, found.AnalysisTag, found.CaseTag, rows, nodes, bars)
+        {
+            AlphaCr = found.Lambda.Count > 0 ? found.Lambda[0] : null,
+        };
     }
 
     /// <summary>

@@ -1,7 +1,9 @@
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows.Input;
 using CScore.En1993;
 using CScore.Fem.Imperfections;
+using OpenCS.Services;
 using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
@@ -14,7 +16,9 @@ public static class FemImperfectionText
     {
         if (items.Count == 0) return Loc.S("FemImperfectionCaseEmpty");
         int sways = items.Count(i => i.Kind == FemImperfectionKinds.Sway), bows = items.Count(i => i.Kind == FemImperfectionKinds.Bow);
-        return string.Format(CultureInfo.CurrentCulture, Loc.S("FemImperfectionCaseSummary"), sways, bows);
+        int modes = items.Count(i => i.Kind == FemImperfectionKinds.Modes);
+        string text = string.Format(CultureInfo.CurrentCulture, Loc.S("FemImperfectionCaseSummary"), sways, bows);
+        return modes == 0 ? text : text + string.Format(CultureInfo.CurrentCulture, Loc.S("FemImperfectionCaseSummaryModes"), modes);
     }
 
     /// <summary>Сводка элемента серым: охват и способ задания φ (крен) или число элементов и e₀ (погибь).</summary>
@@ -46,8 +50,14 @@ public static class FemImperfectionText
                 };
                 return $"{targets}; {p.Plane}; {e0}";
             }
+            case FemImperfectionKinds.Modes:
+            {
+                var p = FemModesParams.Parse(item.ParamsJson);
+                return string.Format(c, Loc.S("FemImperfectionModesShort"), p.CaseIndex + 1,
+                    string.Join(", ", p.Modes.Select(m => string.Format(c, "{0}: {1:0.##}", m.Mode, m.AmplitudeMm))));
+            }
             default:
-                return Loc.S("FemImperfectionModesLater");
+                return item.Kind;
         }
     }
 }
@@ -68,15 +78,18 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
     /// <param name="spanZ">Размах z охвата крена, м (h по умолчанию для (5.5)); null или null-ответ — не определён.</param>
     /// <param name="mHint">Подсказка m по последнему расчёту (стойки с N_Ed больше 50 % средней); null — нет.</param>
     /// <param name="selection">Выделение 3D редактора схемы: КонЭ и КЭ сетки; null — редактор не открыт.</param>
+    /// <param name="bucklingSources">Постановки устойчивости схемы для вида «Формы» (состояние форм, задачи, λ).</param>
     public FemImperfectionDialogVM(FemImperfection item, Func<FemSwayParams, double?>? spanZ = null, int? mHint = null,
-        Func<(IReadOnlyCollection<string> Members, IReadOnlyCollection<string> Elements)>? selection = null)
+        Func<(IReadOnlyCollection<string> Members, IReadOnlyCollection<string> Elements)>? selection = null,
+        IReadOnlyList<FemBucklingSourceChoice>? bucklingSources = null)
     {
         ArgumentNullException.ThrowIfNull(item);
         _source = item;
         _spanZ = spanZ;
         _selection = selection;
         MHint = mHint;
-        _kind = item.Kind == FemImperfectionKinds.Bow ? FemImperfectionKinds.Bow : FemImperfectionKinds.Sway;
+        BucklingSources = bucklingSources ?? [];
+        _kind = item.Kind is FemImperfectionKinds.Bow or FemImperfectionKinds.Modes ? item.Kind : FemImperfectionKinds.Sway;
         _tag = item.Tag;
         _comment = item.Comment ?? "";
         var c = CultureInfo.CurrentCulture;
@@ -91,6 +104,13 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
             _hText = p.HeightM?.ToString("0.###", c) ?? "";
             _mText = p.M.ToString(c);
             _phiInvText = p.PhiInv?.ToString("0.#", c) ?? "200";
+        }
+        else if (_kind == FemImperfectionKinds.Modes)
+        {
+            var p = FemModesParams.Parse(item.ParamsJson);
+            _bucklingSource = BucklingSources.FirstOrDefault(s => s.AnalysisId == p.AnalysisId) ?? BucklingSources.FirstOrDefault();
+            _bucklingCase = _bucklingSource?.Cases.FirstOrDefault(k => k.Index == p.CaseIndex) ?? _bucklingSource?.Cases.FirstOrDefault();
+            foreach (var m in p.Modes) ModeRows.Add(new FemModeAmplitudeRow(m.Mode.ToString(c), m.AmplitudeMm.ToString("0.##", c)));
         }
         else
         {
@@ -109,6 +129,9 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
         SetAngleCommand = new RelayCommand(a => { if (a is string s) AngleText = s; });
         ComputePhiCommand = new RelayCommand(_ => ComputePhi());
         TakeSelectionCommand = new RelayCommand(_ => TakeSelection(), _ => _selection != null);
+        AddModeCommand = new RelayCommand(_ => AddMode());
+        RemoveModeCommand = new RelayCommand(r => { if (r is FemModeAmplitudeRow row) ModeRows.Remove(row); });
+        if (_kind == FemImperfectionKinds.Modes && ModeRows.Count == 0) AddMode();
     }
 
     // ------------------------------------------------------------ общее
@@ -122,20 +145,31 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
         get => _kind;
         set
         {
-            if (value is not (FemImperfectionKinds.Sway or FemImperfectionKinds.Bow) || value == _kind) return;
+            if (value is not (FemImperfectionKinds.Sway or FemImperfectionKinds.Bow or FemImperfectionKinds.Modes) || value == _kind) return;
             _kind = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsSway));
             OnPropertyChanged(nameof(IsBow));
+            OnPropertyChanged(nameof(IsModes));
+            OnPropertyChanged(nameof(HasTargets));
             OnPropertyChanged(nameof(IsListScope));
             OnPropertyChanged(nameof(Title));
+            if (IsModes)
+            {
+                if (_bucklingSource == null) BucklingSource = BucklingSources.FirstOrDefault();
+                if (ModeRows.Count == 0) AddMode();
+            }
         }
     }
 
     public bool IsSway { get => _kind == FemImperfectionKinds.Sway; set { if (value) Kind = FemImperfectionKinds.Sway; } }
     public bool IsBow { get => _kind == FemImperfectionKinds.Bow; set { if (value) Kind = FemImperfectionKinds.Bow; } }
+    public bool IsModes { get => _kind == FemImperfectionKinds.Modes; set { if (value) Kind = FemImperfectionKinds.Modes; } }
 
-    public string Title => Loc.S(IsSway ? "FemImperfectionDialogTitleSway" : "FemImperfectionDialogTitleBow");
+    /// <summary>Блок «Относительно» (охват крена, элементы погиби) виден — не у форм.</summary>
+    public bool HasTargets => !IsModes;
+
+    public string Title => Loc.S(IsSway ? "FemImperfectionDialogTitleSway" : IsBow ? "FemImperfectionDialogTitleBow" : "FemImperfectionDialogTitleModes");
 
     /// <summary>Норма (одна): EN 1993-1-1:2005+AC:2009.</summary>
     public static string NormText => "EN 1993-1-1:2005+AC:2009";
@@ -166,7 +200,7 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
     public bool ScopeList { get => !_scopeAll; set => ScopeAll = !value; }
 
     /// <summary>Поля перечня видны: погибь или крен по перечню.</summary>
-    public bool IsListScope => IsBow || !_scopeAll;
+    public bool IsListScope => IsBow || (IsSway && !_scopeAll);
 
     string _membersText = "";
     /// <summary>Теги КонЭ через запятую или пробел.</summary>
@@ -382,6 +416,95 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
     string _activity = FemBowParams.ActivityEn1993;
     public string Activity { get => _activity; set { if (value != null) { _activity = value; OnPropertyChanged(); } } }
 
+    // ------------------------------------------------------------ формы потери устойчивости
+
+    /// <summary>Постановки «Расчётные длины — CSfea» схемы.</summary>
+    public IReadOnlyList<FemBucklingSourceChoice> BucklingSources { get; }
+
+    public bool HasBucklingSources => BucklingSources.Count > 0;
+
+    FemBucklingSourceChoice? _bucklingSource;
+    public FemBucklingSourceChoice? BucklingSource
+    {
+        get => _bucklingSource;
+        set
+        {
+            if (value == _bucklingSource) return;
+            _bucklingSource = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(BucklingCases));
+            OnPropertyChanged(nameof(BucklingStatus));
+            BucklingCase = value?.Cases.FirstOrDefault();
+        }
+    }
+
+    /// <summary>Задачи выбранной постановки (сочетания или огибающая).</summary>
+    public IReadOnlyList<FemBucklingCaseChoice> BucklingCases => _bucklingSource?.Cases ?? [];
+
+    FemBucklingCaseChoice? _bucklingCase;
+    public FemBucklingCaseChoice? BucklingCase
+    {
+        get => _bucklingCase;
+        set
+        {
+            if (value == _bucklingCase) return;
+            _bucklingCase = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(LambdaText));
+        }
+    }
+
+    /// <summary>Состояние форм постановки: не посчитана / устарела / нет постановок; пусто — годятся.</summary>
+    public string BucklingStatus => !HasBucklingSources ? Loc.S("FemImperfectionModesNoSources") : _bucklingSource?.Status ?? "";
+
+    /// <summary>λ форм выбранной задачи: «1: 3,21; 2: 5,4; …».</summary>
+    public string LambdaText => _bucklingCase is { Lambda.Count: > 0 } k
+        ? string.Format(CultureInfo.CurrentCulture, Loc.S("FemImperfectionModesLambda"),
+            string.Join("; ", k.Lambda.Take(12).Select((l, i) => string.Format(CultureInfo.CurrentCulture, "{0}: {1:0.###}", i + 1, l)))
+            + (k.Lambda.Count > 12 ? "; …" : ""))
+        : "";
+
+    /// <summary>Формы и амплитуды (мм со знаком).</summary>
+    public ObservableCollection<FemModeAmplitudeRow> ModeRows { get; } = [];
+
+    public ICommand AddModeCommand { get; }
+    public ICommand RemoveModeCommand { get; }
+
+    void AddMode()
+    {
+        var c = CultureInfo.CurrentCulture;
+        int next = ModeRows.Select(r => int.TryParse(r.ModeText, NumberStyles.Integer, c, out int m) ? m : 0).DefaultIfEmpty(0).Max() + 1;
+        ModeRows.Add(new FemModeAmplitudeRow(next.ToString(c), ""));
+    }
+
+    FemModesParams? BuildModes(out string? error)
+    {
+        error = null;
+        if (_bucklingSource == null) { error = Loc.S("FemImperfectionModesNoSource"); return null; }
+        if (_bucklingCase == null) { error = Loc.S("FemImperfectionModesNoCase"); return null; }
+        var c = CultureInfo.CurrentCulture;
+        var modes = new List<FemModeAmplitude>();
+        foreach (var r in ModeRows)
+        {
+            if (string.IsNullOrWhiteSpace(r.ModeText) && string.IsNullOrWhiteSpace(r.AmplitudeText)) continue;
+            if (!int.TryParse(r.ModeText.Trim(), NumberStyles.Integer, c, out int mode) || mode < 1
+                || (_bucklingCase.Lambda.Count > 0 && mode > _bucklingCase.Lambda.Count))
+            {
+                error = string.Format(c, Loc.S("FemImperfectionModesBadMode"), r.ModeText, _bucklingCase.Lambda.Count);
+                return null;
+            }
+            if (!Pars.ParseAny(r.AmplitudeText.Trim(), out double a) || !double.IsFinite(a) || a == 0)
+            {
+                error = string.Format(c, Loc.S("FemImperfectionModesBadAmplitude"), mode);
+                return null;
+            }
+            if (modes.Any(m => m.Mode == mode)) { error = string.Format(c, Loc.S("FemImperfectionModesDuplicate"), mode); return null; }
+            modes.Add(new FemModeAmplitude { Mode = mode, AmplitudeMm = a });
+        }
+        if (modes.Count == 0) { error = Loc.S("FemImperfectionModesEmpty"); return null; }
+        return new FemModesParams { AnalysisId = _bucklingSource.AnalysisId, CaseIndex = _bucklingCase.Index, Modes = modes };
+    }
+
     // ------------------------------------------------------------ результат
 
     /// <summary>
@@ -394,6 +517,11 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
         if (IsSway)
         {
             if (BuildSway(out error) is not { } p) return null;
+            json = p.ToJson();
+        }
+        else if (IsModes)
+        {
+            if (BuildModes(out error) is not { } p) return null;
             json = p.ToJson();
         }
         else
@@ -505,4 +633,12 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
         }
         return result.Distinct(StringComparer.Ordinal).ToList();
     }
+}
+
+/// <summary>Строка таблицы форм диалога: номер формы и амплитуда, мм (текстом — проверка при OK).</summary>
+public sealed class FemModeAmplitudeRow(string mode, string amplitude) : ViewModelBase
+{
+    string _mode = mode, _amplitude = amplitude;
+    public string ModeText { get => _mode; set { _mode = value ?? ""; OnPropertyChanged(); } }
+    public string AmplitudeText { get => _amplitude; set { _amplitude = value ?? ""; OnPropertyChanged(); } }
 }

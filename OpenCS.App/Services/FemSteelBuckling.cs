@@ -16,6 +16,9 @@ public sealed record FemSteelBucklingInput(FemRcModelResult? Adapted, IReadOnlyL
 {
     public bool HasErrors => Diagnostics.Any(d => d.IsError) || Adapted is not { HasErrors: false };
 
+    /// <summary>Отпечаток геометрии схемы (<see cref="FemGeometryFingerprint"/>) — привязка форм к сетке для несовершенств.</summary>
+    public string Geometry { get; init; } = "";
+
     /// <summary>Строки отчёта: ошибки, затем предупреждения и сведения.</summary>
     public IEnumerable<string> Report => Diagnostics.Concat(Adapted?.Diagnostics ?? []).OrderByDescending(d => d.IsError)
         .Select(d => (d.IsError ? "Ошибка: " : "") + d.Message);
@@ -100,7 +103,7 @@ public static class FemSteelBuckling
                 $"Элементы без стержней в модели CSfea — расчётные длины не определяются: {FemLoadTargets.Sample(lost)}.", false, lost));
         if (kept.Count == 0) diag.Add(new("buckling_no_units", "В схеме нет стержней для расчётных длин.", true));
         if (input.Stages.Count == 0) diag.Add(new("buckling_no_combinations", "В постановке нет сочетаний (стадий).", true));
-        return new FemSteelBucklingInput(adapted, kept, unitBeams, input.Stages, diag);
+        return new FemSteelBucklingInput(adapted, kept, unitBeams, input.Stages, diag) { Geometry = input.GeometryFingerprint };
     }
 
     /// <summary>

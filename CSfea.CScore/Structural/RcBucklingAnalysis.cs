@@ -66,6 +66,66 @@ public sealed class RcBucklingResult
 
     /// <summary>Замечания расчёта (например, заданные перемещения сочетаний, не вошедшие в нагрузку).</summary>
     public IReadOnlyList<string> Warnings { get; init; } = [];
+
+    /// <summary>
+    /// Форма <paramref name="mode"/> (полные DOF сетки дробления) на узлах исходной модели <paramref name="nodeIds"/>
+    /// (6 DOF) и промежуточных точках дробления её стержней (поступательные, по порядку от I к J, равномерно по длине);
+    /// нормирование — наибольший модуль поступательного перемещения узла или точки = 1 (повороты — тем же множителем).
+    /// </summary>
+    public RcBucklingModeShape ModeShape(double[] mode, IEnumerable<int> nodeIds)
+    {
+        ArgumentNullException.ThrowIfNull(mode);
+        ArgumentNullException.ThrowIfNull(nodeIds);
+        var nodes = new Dictionary<int, double[]>();
+        foreach (int id in nodeIds)
+            if (Build.NodeIndex.TryGetValue(id, out int i)) nodes[id] = mode[(6 * i)..(6 * i + 6)];
+        var bars = new Dictionary<int, double[][]>();
+        foreach (var (beam, subs) in SubBeams)
+            if (subs.Length >= 2)
+                bars[beam] = subs.Take(subs.Length - 1).Select(s => mode[(6 * Build.Mesh.Beams[s].J)..(6 * Build.Mesh.Beams[s].J + 3)]).ToArray();
+        static double Norm(double[] u) => Math.Sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2]);
+        double max = nodes.Values.Concat(bars.Values.SelectMany(p => p)).Select(Norm).DefaultIfEmpty(0).Max();
+        if (max > 0)
+        {
+            foreach (var u in nodes.Values) for (int k = 0; k < 6; k++) u[k] /= max;
+            foreach (var p in bars.Values) foreach (var u in p) for (int k = 0; k < 3; k++) u[k] /= max;
+        }
+        return new RcBucklingModeShape(nodes, bars);
+    }
+}
+
+/// <summary>
+/// Форма потери устойчивости на узлах исходной модели (<see cref="RcBucklingResult.ModeShape"/>): узел → 6 DOF
+/// (перемещения и повороты), стержень → поступательные перемещения промежуточных точек дробления от I к J; нормирована
+/// на наибольшее поступательное перемещение = 1.
+/// </summary>
+public sealed record RcBucklingModeShape(IReadOnlyDictionary<int, double[]> Nodes, IReadOnlyDictionary<int, double[][]> BarPoints)
+{
+    /// <summary>Несовершенство u₀ = Σ aᵢ·φᵢ по формам с амплитудами (м — множитель нормированной формы).</summary>
+    public static RcModesImperfection Sum(IEnumerable<(RcBucklingModeShape Shape, double Amplitude)> modes)
+    {
+        ArgumentNullException.ThrowIfNull(modes);
+        var nodes = new Dictionary<int, double[]>();
+        var bars = new Dictionary<int, double[][]>();
+        foreach (var (shape, a) in modes)
+        {
+            foreach (var (id, u) in shape.Nodes)
+            {
+                var acc = nodes.TryGetValue(id, out var x) ? x : nodes[id] = new double[6];
+                for (int k = 0; k < 6; k++) acc[k] += a * u[k];
+            }
+            foreach (var (id, points) in shape.BarPoints)
+            {
+                if (!bars.TryGetValue(id, out var acc))
+                    bars[id] = acc = points.Select(_ => new double[3]).ToArray();
+                if (acc.Length != points.Length)
+                    throw new ArgumentException($"Формы: у стержня {id} разное число точек дробления ({acc.Length} и {points.Length}).");
+                for (int i = 0; i < points.Length; i++)
+                    for (int k = 0; k < 3; k++) acc[i][k] += a * points[i][k];
+            }
+        }
+        return new RcModesImperfection(nodes, bars);
+    }
 }
 
 /// <summary>

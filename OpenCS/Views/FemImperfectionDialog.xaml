@@ -56,8 +56,8 @@
                                      ToolTip="{DynamicResource FemImperfectionKindSwayTip}" Margin="0,0,14,0"/>
                         <RadioButton GroupName="kind" Content="{DynamicResource FemImperfectionKindBow}" IsChecked="{Binding IsBow}"
                                      ToolTip="{DynamicResource FemImperfectionKindBowTip}" Margin="0,0,14,0"/>
-                        <RadioButton GroupName="kind" Content="{DynamicResource FemImperfectionKindModes}" IsEnabled="False"
-                                     ToolTip="{DynamicResource FemImperfectionModesLater}"/>
+                        <RadioButton GroupName="kind" Content="{DynamicResource FemImperfectionKindModes}" IsChecked="{Binding IsModes}"
+                                     ToolTip="{DynamicResource FemImperfectionKindModesTip}"/>
                     </StackPanel>
                     <TextBlock Grid.Row="2" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionNorm}"/>
                     <TextBlock Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" Text="{x:Static vm:FemImperfectionDialogVM.NormText}"
@@ -65,7 +65,8 @@
                 </Grid>
 
                 <!-- Относительно: охват крена или элементы погиби -->
-                <GroupBox Header="{DynamicResource FemImperfectionTargets}">
+                <GroupBox Header="{DynamicResource FemImperfectionTargets}"
+                          Visibility="{Binding HasTargets, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,2"
                                     Visibility="{Binding IsSway, Converter={StaticResource BoolToVis}}">
@@ -207,6 +208,57 @@
                     </Grid>
                 </GroupBox>
 
+                <!-- Формы потери устойчивости: постановка, задача, формы и амплитуды (п. 5.3.2(11)) -->
+                <GroupBox Header="{DynamicResource FemImperfectionModesGroup}"
+                          Visibility="{Binding IsModes, Converter={StaticResource BoolToVis}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionModesAnalysis}"/>
+                        <ComboBox Grid.Column="1" ItemsSource="{Binding BucklingSources}" SelectedItem="{Binding BucklingSource}"
+                                  DisplayMemberPath="Tag" ToolTip="{DynamicResource FemImperfectionModesAnalysisTip}"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Foreground="Crimson" TextWrapping="Wrap" Margin="0,2"
+                                   Text="{Binding BucklingStatus}"/>
+                        <TextBlock Grid.Row="2" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionModesCase}"/>
+                        <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding BucklingCases}" SelectedItem="{Binding BucklingCase}"
+                                  DisplayMemberPath="Tag" ToolTip="{DynamicResource FemImperfectionModesCaseTip}"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" Foreground="DimGray" TextWrapping="Wrap" FontSize="11" Margin="0,2"
+                                   Text="{Binding LambdaText}"/>
+                        <TextBlock Grid.Row="4" Style="{StaticResource Caption}" VerticalAlignment="Top"
+                                   Text="{DynamicResource FemImperfectionModesList}"/>
+                        <StackPanel Grid.Row="4" Grid.Column="1">
+                            <DataGrid ItemsSource="{Binding ModeRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                                      CanUserDeleteRows="False" HeadersVisibility="Column" MaxHeight="150" Margin="0,2">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="{DynamicResource FemImperfectionColMode}" Width="90"
+                                                        Binding="{Binding ModeText, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <DataGridTextColumn Header="{DynamicResource FemImperfectionColAmplitude}" Width="140"
+                                                        Binding="{Binding AmplitudeText, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <DataGridTemplateColumn Width="Auto">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button Content="✕" Padding="6,0" ToolTip="{DynamicResource FemImperfectionModesRemove}"
+                                                        Command="{Binding DataContext.RemoveModeCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                        CommandParameter="{Binding}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <Button HorizontalAlignment="Left" Padding="8,1" Content="{DynamicResource FemImperfectionModesAdd}"
+                                    Command="{Binding AddModeCommand}"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="5" Grid.ColumnSpan="2" Foreground="Gray" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0"
+                                   Text="{DynamicResource FemImperfectionModesHint}"/>
+                    </Grid>
+                </GroupBox>
+
                 <TextBlock Text="{DynamicResource FemImperfectionComment}" Margin="0,8,0,2"/>
                 <TextBox Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="40"
                          TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"/>
@@ -247,6 +299,18 @@
                         <TextBlock Canvas.Left="20" Canvas.Top="138" Text="L" FontStyle="Italic" Foreground="DimGray"/>
                         <TextBlock Canvas.Left="4" Canvas.Top="282" Width="186" TextWrapping="Wrap" FontSize="10" Foreground="Gray"
                                    Text="{DynamicResource FemImperfectionSketchBow}"/>
+                    </Canvas>
+
+                    <!-- Формы: полуволна формы потери устойчивости с амплитудой a -->
+                    <Canvas Visibility="{Binding IsModes, Converter={StaticResource BoolToVis}}">
+                        <Path Stroke="#C03030" StrokeThickness="2.5" Data="M70,260 C120,200 120,90 70,30"/>
+                        <Ellipse Canvas.Left="66" Canvas.Top="26" Width="8" Height="8" Fill="White" Stroke="Black"/>
+                        <TextBlock Canvas.Left="52" Canvas.Top="20" Text="j" FontStyle="Italic"/>
+                        <Line X1="70" Y1="145" X2="107" Y2="145" Stroke="DimGray" StrokeThickness="1"/>
+                        <Path Stroke="DimGray" Fill="DimGray" Data="M107,145 L100,142 L100,148 Z"/>
+                        <TextBlock Canvas.Left="114" Canvas.Top="134" Text="a·φ" FontSize="15" Foreground="#C03030"/>
+                        <TextBlock Canvas.Left="4" Canvas.Top="282" Width="186" TextWrapping="Wrap" FontSize="10" Foreground="Gray"
+                                   Text="{DynamicResource FemImperfectionSketchModes}"/>
                     </Canvas>
                 </Canvas>
             </Border>

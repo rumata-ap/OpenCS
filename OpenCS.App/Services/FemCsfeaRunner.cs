@@ -625,13 +625,15 @@ public static class FemCsfeaRunner
         ArgumentNullException.ThrowIfNull(adapted);
         RcFirstOrderState? state = null;
         string? error = null;
-        try { state = RcFirstOrderState.Run(adapted.Model, options, ct); }
-        catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException or ArgumentException)
-        {
-            error = "предварительный расчёт не выполнен: " + ex.Message;
-        }
+        // Формам потери устойчивости предварительный расчёт не нужен (знака «авто» и активности у них нет).
+        if (input.Imperfections.Any(i => i is not CScore.Fem.Imperfections.FemResolvedModes))
+            try { state = RcFirstOrderState.Run(adapted.Model, options, ct); }
+            catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException or ArgumentException)
+            {
+                error = "предварительный расчёт не выполнен: " + ex.Message;
+            }
         var decision = CScore.Fem.Imperfections.FemImperfectionResolver.Decide(input.Imperfections, state, input.MeshElements,
-            input.MeshNodes, error);
+            input.MeshNodes, error, input.AlphaCr);
         var replaced = FemRcModelAdapter.ReplaceImperfections(adapted.Model, decision.Items);
         var diag = adapted.Diagnostics.Where(d => d.Code is not ("imperfections" or "imperfection_outside_model"))
             .Concat(replaced).Concat(decision.Diagnostics)
@@ -672,7 +674,11 @@ public static class FemCsfeaRunner
         model.Imperfections.Clear();
         RcFirstOrderState? state = null;
         string? error = null;
-        try { state = RcFirstOrderState.Run(model, options, ct); }
+        try
+        {
+            if (input.StageImperfections[stage].Any(i => i is not CScore.Fem.Imperfections.FemResolvedModes))
+                state = RcFirstOrderState.Run(model, options, ct);
+        }
         catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException or ArgumentException)
         {
             error = "предварительный расчёт не выполнен: " + ex.Message;
@@ -683,7 +689,7 @@ public static class FemCsfeaRunner
             model.Stages.AddRange(keep);
         }
         var decision = CScore.Fem.Imperfections.FemImperfectionResolver.Decide(input.StageImperfections[stage], state,
-            input.MeshElements, input.MeshNodes, error);
+            input.MeshElements, input.MeshNodes, error, input.AlphaCr);
         return (decision.Items, decision.Report, decision.Diagnostics);
     }
 

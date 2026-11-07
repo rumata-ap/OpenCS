@@ -621,7 +621,8 @@ namespace OpenCS
             return;
          }
          bool sway = kind == CScore.Fem.Imperfections.FemImperfectionKinds.Sway;
-         string prefix = Loc.S(sway ? "FemImperfectionDefaultSway" : "FemImperfectionDefaultBow");
+         bool modes = kind == CScore.Fem.Imperfections.FemImperfectionKinds.Modes;
+         string prefix = Loc.S(sway ? "FemImperfectionDefaultSway" : modes ? "FemImperfectionDefaultModes" : "FemImperfectionDefaultBow");
          var taken = item.Imperfections.Select(i => i.Item.Tag).ToHashSet(StringComparer.CurrentCultureIgnoreCase);
          string tag = prefix + " 1";
          for (int n = 2; taken.Contains(tag); n++) tag = $"{prefix} {n}";
@@ -630,6 +631,7 @@ namespace OpenCS
             SchemaId = item.Schema.Id, LoadCaseId = item.LoadCase.Id, Kind = kind, Tag = tag,
             ParamsJson = sway
                ? new CScore.Fem.Imperfections.FemSwayParams { PhiMode = CScore.Fem.Imperfections.FemSwayParams.PhiEn1993 }.ToJson()
+               : modes ? new CScore.Fem.Imperfections.FemModesParams().ToJson()
                : new CScore.Fem.Imperfections.FemBowParams { E0Mode = CScore.Fem.Imperfections.FemBowParams.E0Table }.ToJson(),
          };
          EditFemImperfectionCore(item.Schema, imperfection);
@@ -658,8 +660,15 @@ namespace OpenCS
             return elements.Count == 0 ? null
                : CScore.Fem.Imperfections.FemImperfectionResolver.SwaySpanZ(sway, elements, db.GetFemMeshNodes(schema.Id));
          }
+         // Формы: постановки устойчивости схемы и состояние их форм против текущей геометрии.
+         IReadOnlyList<FemBucklingSourceChoice> sources = [];
+         try { sources = FemBucklingModes.Sources(db, schema.Id, FemCsfeaInputBuilder.GeometryFingerprint(db, schema.Id)); }
+         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or JsonException)
+         {
+            LogService.Warning(ex.Message);
+         }
          var vm = new ViewModels.FemImperfectionDialogVM(imperfection, SpanZ, FemImperfectionMHint(schema, imperfection),
-            page != null ? page.ImperfectionSelection : null);
+            page != null ? page.ImperfectionSelection : null, sources);
          var dialog = new Views.FemImperfectionDialog(vm) { Owner = Application.Current.MainWindow };
          if (dialog.ShowDialog() != true || dialog.Result is not { } result) return;
          bool isNew = result.Id == 0;

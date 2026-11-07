@@ -159,7 +159,7 @@ public sealed class RcStructuralMeshBuild
     /// </summary>
     public ImperfectionField? Imperfection(RcStructuralModel model) =>
         Imperfection(model, Mesh.Nodes, Mesh.Beams.Select(b => (b.I, b.J)).ToArray(),
-            Mesh.Shells.Select(s => s.Nodes).ToArray(), BeamIds, ShellIds);
+            Mesh.Shells.Select(s => s.Nodes).ToArray(), BeamIds, ShellIds, NodeIds, Mesh.Beams.Select(b => b.Releases).ToArray());
 
     /// <summary>
     /// Поступательные u₀ несовершенств модели в узлах (номер узла модели → ux, uy, uz, м; глобальные оси) — для показа
@@ -181,7 +181,7 @@ public sealed class RcStructuralMeshBuild
         var beamEnds = beams.Select(b => (index[b.NodeI], index[b.NodeJ])).ToArray();
         var shellNodes = shells.Select(s => s.NodeIds.Select(id => index[id]).ToArray()).ToArray();
         if (Imperfection(model, coords, beamEnds, shellNodes, beams.Select(b => b.Id).ToArray(),
-                shells.Select(s => s.Id).ToArray()) is not { } field)
+                shells.Select(s => s.Id).ToArray(), nodeIds, null) is not { } field)
             return result;
         void Put(int node, double x, double y, double z)
         {
@@ -204,10 +204,13 @@ public sealed class RcStructuralMeshBuild
     /// <summary>
     /// u₀ несовершенств модели на сетке из координат узлов <paramref name="nodes"/>, концов стержней <paramref name="beams"/>
     /// и узлов оболочек <paramref name="shells"/> (индексы узлов), номера КЭ модели — <paramref name="beamIds"/>,
-    /// <paramref name="shellIds"/>; общий расчёт для решателя и показа (<see cref="ImperfectionNodeTranslations"/>).
+    /// <paramref name="shellIds"/>, номера узлов модели — <paramref name="nodeIds"/>; общий расчёт для решателя и показа
+    /// (<see cref="ImperfectionNodeTranslations"/>). <paramref name="beamReleases"/> — 12-битные маски шарниров стержней
+    /// (край сплайна формы у шарнира по изгибу — нулевая кривизна); null — внутренний член форм не готовится (показ).
     /// </summary>
     internal static ImperfectionField? Imperfection(RcStructuralModel model, IReadOnlyList<double[]> nodes,
-        IReadOnlyList<(int I, int J)> beams, IReadOnlyList<int[]> shells, int[] beamIds, int[] shellIds)
+        IReadOnlyList<(int I, int J)> beams, IReadOnlyList<int[]> shells, int[] beamIds, int[] shellIds, int[] nodeIds,
+        IReadOnlyList<int>? beamReleases)
     {
         if (model.Imperfections.Count == 0) return null;
         var field = new ImperfectionField(beams.Count, shells.Count);
@@ -277,6 +280,41 @@ public sealed class RcStructuralMeshBuild
                             double w = 4.0 * bow.E0 * s * (len - s) / (len * len);
                             double dw = 4.0 * bow.E0 * (len - 2.0 * s) / (len * len);
                             AddBeam(e, end, Scale(d, w), Scale(txd, dw));
+                        }
+                    }
+                    break;
+                }
+                case RcModesImperfection modes:
+                {
+                    double[] At(int node) => modes.Nodes.TryGetValue(nodeIds[node], out var u) ? u : new double[6];
+                    for (int e = 0; e < beams.Count; e++)
+                    {
+                        var b = beams[e];
+                        var ui = At(b.I);
+                        var uj = At(b.J);
+                        if (ui.Length != 6 || uj.Length != 6)
+                            throw new ArgumentException($"Формы: у узлов стержня {beamIds[e]} нужно 6 чисел.");
+                        bool hasPoints = modes.BarPoints.TryGetValue(beamIds[e], out var points) && points.Length > 0;
+                        if (!hasPoints && ui.All(v => v == 0) && uj.All(v => v == 0)) continue;
+                        AddBeam(e, 0, ui[..3], ui[3..]);
+                        AddBeam(e, 1, uj[..3], uj[3..]);
+                        if (!hasPoints || beamReleases == null) continue;
+                        // Шарнир по изгибу (θy или θz местных осей) — край сплайна с нулевой кривизной.
+                        int mask = beamReleases[e];
+                        var g = ImperfectionField.Interior(nodes[b.I], nodes[b.J], ui, uj, points!,
+                            hingeI: (mask & 0b110000) != 0, hingeJ: (mask & (0b110000 << 6)) != 0);
+                        var acc = field.BeamInterior[e] ??= new double[12];
+                        for (int k = 0; k < 12; k++) acc[k] += g[k];
+                    }
+                    for (int e = 0; e < shells.Count; e++)
+                    {
+                        var sn = shells[e];
+                        if (sn.All(i => !modes.Nodes.ContainsKey(nodeIds[i]))) continue;
+                        var a = field.Shell[e] ??= new double[3 * sn.Length];
+                        for (int i = 0; i < sn.Length; i++)
+                        {
+                            var u = At(sn[i]);
+                            for (int c = 0; c < 3; c++) a[3 * i + c] += u[c];
                         }
                     }
                     break;

@@ -73,14 +73,27 @@ public sealed class FemBowReportRow
     public string SignSource { get; set; } = "";
 }
 
+/// <summary>Строка отчёта форм потери устойчивости (спека 5.5): элемент, постановка и задача, форма, λ, амплитуда.</summary>
+public sealed class FemModeReportRow
+{
+    public string Label { get; set; } = "";
+    public string Analysis { get; set; } = "";
+    public string Case { get; set; } = "";
+    public int Mode { get; set; }
+    public double Lambda { get; set; }
+    /// <summary>Амплитуда, м, со знаком и коэффициентом загружения.</summary>
+    public double Amplitude { get; set; }
+}
+
 /// <summary>Отчёт несовершенств варианта расчёта (<c>FemCsfeaResultSummary.Imperfections</c>).</summary>
 public sealed class FemImperfectionReport
 {
     public List<FemSwayReportRow> Sways { get; set; } = [];
     public List<FemBowReportRow> Bows { get; set; } = [];
+    public List<FemModeReportRow> Modes { get; set; } = [];
     /// <summary>Предварительный упругий расчёт выполнен.</summary>
     public bool FirstOrder { get; set; }
-    /// <summary>Наибольшее |u₀| (крен — |φ|·размах z охвата, погибь — |e₀| активных), м.</summary>
+    /// <summary>Наибольшее |u₀| (крен — |φ|·размах z охвата, погибь — |e₀| активных, формы — max поступательного суммы), м.</summary>
     public double MaxU0 { get; set; }
     /// <summary>Сведения об α_cr (п. 5.2.1(3)).</summary>
     public string AlphaCr { get; set; } = "";
@@ -105,7 +118,10 @@ public sealed class FemImperfectionReport
                 $"Погибь «{b.Label}»: L = {b.LengthM:0.###} м, плоскость {b.Plane}, {b.E0Source}; e₀ = {b.E0 * 1000:0.##} мм"
                 + $"{n}; {(b.Active ? "активна" : "не учитывается")} — {b.ActiveReason}; знак {b.Sign} — {b.SignSource}.");
         }
-        if (Sways.Count + Bows.Count > 0)
+        foreach (var m in Modes)
+            yield return string.Create(c,
+                $"Формы «{m.Label}»: постановка «{m.Analysis}», задача «{m.Case}», форма {m.Mode} (λ = {m.Lambda:0.###}), амплитуда {m.Amplitude * 1000:0.##} мм.");
+        if (Sways.Count + Bows.Count + Modes.Count > 0)
         {
             yield return string.Create(c, $"Несовершенства: max|u₀| = {MaxU0 * 1000:0.##} мм.");
             if (!string.IsNullOrEmpty(AlphaCr)) yield return AlphaCr;
@@ -124,6 +140,8 @@ public sealed class FemImperfectionReport
         var sways = items.OfType<FemResolvedSway>().ToList();
         var bows = items.OfType<FemResolvedBow>().ToList();
         if (sways.Count != Sways.Count || bows.Count != Bows.Count) return null;
+        var modes = items.OfType<FemResolvedModes>().ToList();
+        if (modes.Select(m => m.Label).Distinct().Count() != Modes.Select(m => m.Label).Distinct().Count()) return null;
         if (sways.Where((s, i) => s.Label != Sways[i].Label).Any() || bows.Where((b, i) => b.Label != Bows[i].Label).Any()) return null;
         var result = new List<FemResolvedImperfection>(items.Count);
         int k = 0;
@@ -145,9 +163,22 @@ public sealed record FemImperfectionDecision(IReadOnlyList<FemResolvedImperfecti
 
 public static partial class FemImperfectionResolver
 {
-    /// <summary>Сведения об α_cr до отпечатка геометрии форм потери устойчивости (срез 5).</summary>
+    /// <summary>Сведения об α_cr без посчитанной постановки устойчивости с совпадающим отпечатком геометрии.</summary>
     public const string AlphaCrNotComputed =
-        "α_cr не посчитан (сверка с постановкой форм потери устойчивости — позже); при α_cr ≥ 10 расчёт второго порядка не обязателен (EN 1993-1-1 п. 5.2.1(3)).";
+        "α_cr не посчитан (нет посчитанной постановки «Расчётные длины — CSfea» с той же геометрией схемы); при α_cr ≥ 10 расчёт второго порядка не обязателен (EN 1993-1-1 п. 5.2.1(3)).";
+
+    /// <summary>
+    /// Строка α_cr отчёта по λ₁ задачи постановки устойчивости (п. 5.2.1(3): ≥ 10 — второй порядок при упругом расчёте
+    /// не обязателен; п. 5.2.2(5)B — множитель 1/(1 − 1/α_cr) при α_cr ≥ 3).
+    /// </summary>
+    public static string AlphaCrLine(double alphaCr, string analysis, string caseTag)
+    {
+        var c = CultureInfo.CurrentCulture;
+        string verdict = alphaCr >= 10 ? "≥ 10 — расчёт второго порядка не обязателен (EN 1993-1-1 п. 5.2.1(3), упругий расчёт)"
+            : alphaCr > 1 ? string.Create(c, $"< 10 — эффекты второго порядка учитываются (п. 5.2.1(3)); 1/(1 − 1/α_cr) = {1 / (1 - 1 / alphaCr):0.###}")
+            : "≤ 1 — схема неустойчива при нагрузке задачи";
+        return string.Create(c, $"α_cr = λ₁ = {alphaCr:0.###} (постановка «{analysis}», задача «{caseTag}»): {verdict}.");
+    }
 
     /// <summary>
     /// Второй этап (спека 5.4): по предварительному расчёту <paramref name="state"/> — знак «авто» (прогиб середины
@@ -157,14 +188,17 @@ public static partial class FemImperfectionResolver
     /// <paramref name="state"/> null (расчёт не выполнен, <paramref name="stateError"/> — почему) — знак «+», погиби
     /// всегда, с предупреждениями.
     /// </summary>
+    /// <param name="alphaCr">Строка α_cr по постановке устойчивости схемы с совпадающей геометрией
+    /// (<see cref="AlphaCrLine"/>); null — <see cref="AlphaCrNotComputed"/>. У несовершенства по формам — λ₁ его задачи.</param>
     public static FemImperfectionDecision Decide(IReadOnlyList<FemResolvedImperfection> items, IFemFirstOrderState? state,
-        IReadOnlyList<FemElement> meshElements, IReadOnlyList<FemMeshNode> meshNodes, string? stateError = null)
+        IReadOnlyList<FemElement> meshElements, IReadOnlyList<FemMeshNode> meshNodes, string? stateError = null,
+        string? alphaCr = null)
     {
         ArgumentNullException.ThrowIfNull(items);
         var c = CultureInfo.CurrentCulture;
         var result = new List<FemResolvedImperfection>();
         var diag = new List<FemValidationDiagnostic>();
-        var report = new FemImperfectionReport { FirstOrder = state != null, AlphaCr = AlphaCrNotComputed };
+        var report = new FemImperfectionReport { FirstOrder = state != null, AlphaCr = alphaCr ?? AlphaCrNotComputed };
         var elements = new Dictionary<string, FemElement>(StringComparer.Ordinal);
         foreach (var e in meshElements) elements.TryAdd(e.ElemTag, e);
         var nodes = new Dictionary<string, PlanarVector3>(StringComparer.Ordinal);
@@ -265,6 +299,19 @@ public static partial class FemImperfectionResolver
                     if (!active) continue;
                     report.MaxU0 = Math.Max(report.MaxU0, Math.Abs(e0));
                     result.Add(bow with { E0 = e0 });
+                    break;
+                }
+                case FemResolvedModes modes:
+                {
+                    foreach (var m in modes.Modes)
+                        report.Modes.Add(new FemModeReportRow
+                        {
+                            Label = modes.Label, Analysis = modes.AnalysisTag, Case = modes.CaseTag, Mode = m.Mode, Lambda = m.Lambda,
+                            Amplitude = m.AmplitudeM,
+                        });
+                    report.MaxU0 = Math.Max(report.MaxU0, modes.MaxU0);
+                    if (modes.AlphaCr is { } a) report.AlphaCr = AlphaCrLine(a, modes.AnalysisTag, modes.CaseTag);
+                    result.Add(modes);
                     break;
                 }
                 default:

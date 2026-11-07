@@ -1952,7 +1952,14 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     public CScore.Fem.Imperfections.FemImperfectionReport? Imperfections =>
         IsBatch ? _shownCombination?.Batch?.Imperfections : Summary.Imperfections;
 
-    public bool HasImperfections => Imperfections is { } r && r.Sways.Count + r.Bows.Count > 0;
+    public bool HasImperfections => Imperfections is { } r && r.Sways.Count + r.Bows.Count + r.Modes.Count > 0;
+
+    /// <summary>В отчёте есть формы потери устойчивости (таблица форм видна).</summary>
+    public bool HasImperfectionModes => Imperfections is { Modes.Count: > 0 };
+
+    /// <summary>Таблица форм: элемент, постановка, задача, форма, λ, амплитуда.</summary>
+    public IReadOnlyList<FemImperfectionModeRow> ImperfectionModeRows =>
+        Imperfections?.Modes.Select(FemImperfectionModeRow.Of).ToList() ?? [];
 
     /// <summary>Пакет: показан другой вариант — отчёт и поле u₀ несовершенств заново (поле — по запросу показа).</summary>
     void BatchImperfectionsChanged()
@@ -1961,7 +1968,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         _imperfectionField = null;
         if (_showImperfection && EnsureImperfectionField() == null) _showImperfection = false;
         foreach (var name in new[] { nameof(Imperfections), nameof(HasImperfections), nameof(ImperfectionSwayRows),
-                     nameof(ImperfectionBowRows), nameof(ImperfectionSummaryText), nameof(ShowImperfection) })
+                     nameof(ImperfectionBowRows), nameof(HasImperfectionModes), nameof(ImperfectionModeRows),
+                     nameof(ImperfectionSummaryText), nameof(ShowImperfection) })
             OnPropertyChanged(name);
     }
 
@@ -2517,6 +2525,17 @@ public sealed record FemImperfectionSwayRow(string Label, string Phi, string Ang
         string phi = r.Phi == 0 ? "0" : string.Create(c, $"{(r.Phi < 0 ? "−" : "")}1/{1 / Math.Abs(r.Phi):0.#}");
         return new(r.Label, phi, N(r.AngleDeg, "0.#"), N(r.H, "0.###"), N(r.AlphaH, "0.###"), r.M?.ToString(c) ?? "—", N(r.AlphaM, "0.###"),
             r.MHint is { } m ? string.Create(c, $"{m} ({r.Columns})") : "—", N(r.HOverV, "0.###"), r.Source);
+    }
+}
+
+/// <summary>Строка таблицы форм потери устойчивости окна результата (спека несовершенств 5.5): элемент, постановка, задача,
+/// форма, λ, амплитуда, мм.</summary>
+public sealed record FemImperfectionModeRow(string Label, string Analysis, string Case, int Mode, string Lambda, string AmplitudeMm)
+{
+    public static FemImperfectionModeRow Of(CScore.Fem.Imperfections.FemModeReportRow r)
+    {
+        var c = CultureInfo.CurrentCulture;
+        return new(r.Label, r.Analysis, r.Case, r.Mode, r.Lambda.ToString("0.###", c), (r.Amplitude * 1000).ToString("0.##", c));
     }
 }
 

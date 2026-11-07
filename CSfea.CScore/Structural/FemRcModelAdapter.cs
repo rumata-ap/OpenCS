@@ -99,6 +99,14 @@ public sealed class FemRcModelInput
 
     /// <summary>Диагностики подготовки входа (допущения источника свойств, сечения, стадии) — в начало отчёта.</summary>
     public IReadOnlyList<FemValidationDiagnostic> Diagnostics { get; init; } = [];
+
+    /// <summary>Отпечаток геометрии схемы (<see cref="FemGeometryFingerprint"/>; пусто — не считался): привязка форм потери
+    /// устойчивости к сетке.</summary>
+    public string GeometryFingerprint { get; init; } = "";
+
+    /// <summary>Строка α_cr отчёта несовершенств по постановке устойчивости с той же геометрией
+    /// (<see cref="FemImperfectionResolver.AlphaCrLine"/>); null — не найдена.</summary>
+    public string? AlphaCr { get; init; }
 }
 
 /// <summary>Итог адаптации: модель (номера узлов и КЭ — теги сетки), диагностики, суммарные нагрузки стадий.</summary>
@@ -251,9 +259,17 @@ public static class FemRcModelAdapter
                         [bow.Direction.X, bow.Direction.Y, bow.Direction.Z]));
                     break;
                 }
+                case FemResolvedModes modes:
+                {
+                    // Номера узлов и стержней формы — теги сетки (как у модели адаптера); узлы и КЭ вне модели не влияют.
+                    model.Imperfections.Add(new RcModesImperfection(modes.Nodes, modes.BarPoints));
+                    break;
+                }
             }
-        int sways = model.Imperfections.OfType<RcSway>().Count(), bows = model.Imperfections.OfType<RcBow>().Count();
+        int sways = model.Imperfections.OfType<RcSway>().Count(), bows = model.Imperfections.OfType<RcBow>().Count(),
+            forms = model.Imperfections.OfType<RcModesImperfection>().Count();
         if (sways + bows > 0) Info(diag, "imperfections", $"Несовершенства: кренов {sways}, погибей {bows}.");
+        if (forms > 0) Info(diag, "imperfections", $"Несовершенства по формам потери устойчивости: {forms}.");
     }
 
     /// <summary>

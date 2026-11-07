@@ -10,7 +10,7 @@ public static class FemImperfectionKinds
     public const string Sway = "sway";
     /// <summary>Местная погибь стержня (п. 5.3.2(3)b, табл. 5.1) — парабола, параметры <see cref="FemBowParams"/>.</summary>
     public const string Bow = "bow";
-    /// <summary>Формы потери устойчивости (п. 5.3.2(11)) — далее, не поддержано.</summary>
+    /// <summary>Формы потери устойчивости постановки <c>csfea_buckling</c> (п. 5.3.2(11)), параметры <see cref="FemModesParams"/>.</summary>
     public const string Modes = "modes";
 }
 
@@ -29,7 +29,7 @@ public sealed class FemImperfection
     public string Kind { get; set; } = FemImperfectionKinds.Sway;
     /// <summary>Имя элемента (для отчёта); пусто — «вид #Id».</summary>
     public string Tag { get; set; } = "";
-    /// <summary>Параметры вида: <see cref="FemSwayParams"/> или <see cref="FemBowParams"/>.</summary>
+    /// <summary>Параметры вида: <see cref="FemSwayParams"/>, <see cref="FemBowParams"/> или <see cref="FemModesParams"/>.</summary>
     public string ParamsJson { get; set; } = "{}";
     public string? Comment { get; set; }
 
@@ -39,6 +39,7 @@ public sealed class FemImperfection
     {
         FemImperfectionKinds.Sway => $"Крен #{Id}",
         FemImperfectionKinds.Bow => $"Погибь #{Id}",
+        FemImperfectionKinds.Modes => $"Формы #{Id}",
         _ => $"Несовершенство #{Id}",
     };
 

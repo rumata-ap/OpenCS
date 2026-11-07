@@ -136,6 +136,17 @@ public sealed record RcSway(double Phi, double[] Direction, double Z0 = 0.0, IRe
 public sealed record RcBow(IReadOnlyList<int> Beams, double E0, double[] Direction) : RcImperfection;
 
 /// <summary>
+/// Несовершенство по формам потери устойчивости (EN 1993-1-1 п. 5.3.2(11)): u₀ = Σ aᵢ·φᵢ, уже просуммированное.
+/// <paramref name="Nodes"/> — номер узла модели → 6 чисел (ux, uy, uz, м; θx, θy, θz, рад; глобальные оси);
+/// <paramref name="BarPoints"/> — номер стержня модели → поступательные u₀ промежуточных равноотстоящих точек дробления
+/// формы по порядку от I к J (по 3 числа); нет записи — форма на КЭ кубика по концам. Узлы без записи — u₀ = 0.
+/// Стержню — u₀ концов из узлов и внутренний член по сплайну через точки (<see cref="ImperfectionField.Interior"/>),
+/// оболочке — поступательные u₀ узлов.
+/// </summary>
+public sealed record RcModesImperfection(IReadOnlyDictionary<int, double[]> Nodes, IReadOnlyDictionary<int, double[][]> BarPoints)
+    : RcImperfection;
+
+/// <summary>
 /// Нейтральная модель ЖБ оболочечно-стержневой схемы для расчётов CSfea (СИ: Н, м, Па). Никакой логики
 /// источника (SCAD, ЛИРА, схема OpenCS) — источники переводятся в неё адаптерами.
 /// </summary>

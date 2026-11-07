@@ -145,12 +145,20 @@ public static class FemCsfeaInputBuilder
         var lines = db.ResolveFemLineSupports(schemaId, data.Members, data.MeshNodes, data.Mesh, data.Regions);
         diag.AddRange(lines.Diagnostics);
         var (supports, springs) = lines.AppendTo(db.GetFemMeshNodeSupports(schemaId), FemFieldService.Effective(db, schemaId).Springs.ToList());
+        var rigidBodies = db.GetFemRigidBodies(schemaId);
+        // Отпечаток геометрии (до ГУ разрезов фрагмента — одинаково у постановки устойчивости и расчёта CSfea).
+        string geometry = FemGeometryFingerprint.Compute(data.MeshNodes, data.Mesh, supports, springs, rigidBodies);
 
         var nodes = db.GetFemNodes(schemaId);
         var kinematic = db.GetFemKinematicLoads(schemaId);
         var stages = Stages(setup.Stages, loadCases, diag, out var imperfectionTerms, out var stageTerms, setup.IndependentStages);
         var imperfectionItems = imperfectionTerms.Count == 0 ? [] : db.GetFemImperfections(schemaId);
-        var imperfectionContext = new FemImperfectionContext { BeamCross = beams.Count == 0 ? null : tag => beams.GetValueOrDefault(tag)?.Section };
+        var imperfectionContext = new FemImperfectionContext
+        {
+            BeamCross = beams.Count == 0 ? null : tag => beams.GetValueOrDefault(tag)?.Section,
+            Modes = p => FemBucklingModes.Lookup(db, schemaId, geometry, p),
+        };
+        string? alphaCr = imperfectionTerms.Count == 0 ? null : FemBucklingModes.AlphaCr(db, schemaId, geometry);
         // Пакет: стадии — независимые варианты, у каждого свои несовершенства (подставляются раннером на вариант).
         var imperfections = setup.IndependentStages ? []
             : Imperfections(imperfectionTerms, imperfectionItems, loadCases, setup, data.Mesh, data.MeshNodes, data.Members, diag,
@@ -161,7 +169,6 @@ public static class FemCsfeaInputBuilder
         IReadOnlyList<FemLoadCase> cases = loadCases;
         IReadOnlyList<FemMeshNodeLoad> meshNodeLoads = db.GetFemMeshNodeLoads(schemaId);
         IReadOnlyList<FemMeshNodeKinematicLoad> meshKinematic = [];
-        var rigidBodies = db.GetFemRigidBodies(schemaId);
         fragmentBc = null;
         if (schema is { IsFragment: true })
         {
@@ -217,7 +224,22 @@ public static class FemCsfeaInputBuilder
             Imperfections = imperfections,
             StageImperfections = stageImperfections,
             Diagnostics = diag,
+            GeometryFingerprint = geometry,
+            AlphaCr = alphaCr,
         };
+    }
+
+    /// <summary>
+    /// Отпечаток геометрии схемы (<see cref="FemGeometryFingerprint"/>) — тот же, что пишет <see cref="Build"/> во вход
+    /// (сетка, линейные связи как узловые закрепления и пружины, жёсткие тела): сверка форм постановок устойчивости в UI.
+    /// </summary>
+    public static string GeometryFingerprint(DatabaseService db, int schemaId)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        var data = FemCheckSchemaData.Load(db, schemaId);
+        var lines = db.ResolveFemLineSupports(schemaId, data.Members, data.MeshNodes, data.Mesh, data.Regions);
+        var (supports, springs) = lines.AppendTo(db.GetFemMeshNodeSupports(schemaId), FemFieldService.Effective(db, schemaId).Springs.ToList());
+        return FemGeometryFingerprint.Compute(data.MeshNodes, data.Mesh, supports, springs, db.GetFemRigidBodies(schemaId));
     }
 
     // ---------------------------------------------------------------- ГУ разрезов фрагмента

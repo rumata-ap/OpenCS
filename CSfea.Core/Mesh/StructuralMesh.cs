@@ -407,7 +407,8 @@ public sealed class StructuralMesh : IFeaMesh
     /// <summary>
     /// Вклад КЭ единой нумерации <paramref name="e"/> в <see cref="ImperfectionForce"/> по его DOF
     /// (<see cref="ElementDofs"/>); null — у КЭ нет u₀ или продольная сила стержня нулевая. Оболочка —
-    /// <see cref="ShellKGeometric"/>·u₀ (u₀ на поступательных DOF узлов, повороты — 0). Стержень — Tᵀ·K_σ,loc(N)·T·u₀; у
+    /// <see cref="ShellKGeometric"/>·u₀ (u₀ на поступательных DOF узлов, повороты — 0). Стержень — Tᵀ·[K_σ,loc(N)·T·u₀ +
+    /// N·T·ĝ] (ĝ — <see cref="ImperfectionField.BeamInterior"/>, форма между концами не кубика); у
     /// КЭ с шарнирами вектор приводится к сохранённым DOF как нагрузка (<see cref="BeamReleases.CondenseLoad"/>) по
     /// матрице K + K_σ — той же, что конденсирует <see cref="ElementKSecondOrder"/>.
     /// </summary>
@@ -423,7 +424,9 @@ public sealed class StructuralMesh : IFeaMesh
             return Dense.MatVec(ShellKGeometric(e, uState, shellInPlane), u0);
         }
         int bi = e - Shells.Count;
-        if (field.Beam[bi] is not { } b0) return null;
+        var b0 = field.Beam[bi];
+        var interior = field.BeamInterior[bi];
+        if (b0 == null && interior == null) return null;
         var b = Beams[bi];
         var (t, l) = BeamElements.Beam3dT(BeamCoords(bi), b.RefVec);
         var kl = BeamElements.Beam3dKLocal(b.Section, l);
@@ -432,7 +435,13 @@ public sealed class StructuralMesh : IFeaMesh
         if (axial == 0.0) return null;
         var kg = new double[12, 12];
         AddBeamKGeometric(kg, axial, l);
-        var f = Dense.MatVec(kg, Dense.MatVec(t, b0));
+        var f = b0 != null ? Dense.MatVec(kg, Dense.MatVec(t, b0)) : new double[12];
+        if (interior != null)
+        {
+            // Внутренний член (форма между концами не кубика): N·ĝ в местных осях.
+            var gi = Dense.MatVec(t, interior);
+            for (int k = 0; k < 12; k++) f[k] += axial * gi[k];
+        }
         if (b.Releases != 0)
         {
             var k = (double[,])kl.Clone();
