@@ -79,6 +79,10 @@ public sealed class FemImperfectionDemoDbManualTests
         var path = Environment.GetEnvironmentVariable("OPENCS_IMPERFECTION_DEMO_CHECK");
         if (string.IsNullOrWhiteSpace(path)) return;
         var root = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path))!, "gmsh");
+        // Русские строки — как в приложении: имена задач устойчивости («огибающая сжатия») и тексты отчётов
+        // записываются в результат; без языка в базу попали бы ключи ресурсов.
+        var language = Loc.Language;
+        Loc.SetLanguage(Loc.Russian);
         try
         {
             using var db = new DatabaseService(path);
@@ -122,7 +126,11 @@ public sealed class FemImperfectionDemoDbManualTests
                 }
             }
         }
-        finally { SqliteConnection.ClearAllPools(); }
+        finally
+        {
+            Loc.SetLanguage(language);
+            SqliteConnection.ClearAllPools();
+        }
     }
 
     readonly Xunit.Abstractions.ITestOutputHelper output;

@@ -321,7 +321,8 @@
                         <TextBlock Grid.Row="5" Style="{StaticResource Caption}" VerticalAlignment="Top"
                                    Text="{DynamicResource FemImperfectionModes59}"/>
                         <StackPanel Grid.Row="5" Grid.Column="1" Margin="0,2">
-                            <StackPanel Orientation="Horizontal">
+                            <!-- WrapPanel: «Крит. КЭ» переносится на следующую строку, а не обрезается по ширине окна -->
+                            <WrapPanel Orientation="Horizontal">
                                 <TextBlock Text="{DynamicResource FemImperfectionModesGammaM1}" VerticalAlignment="Center" Margin="0,0,4,0"/>
                                 <TextBox Width="50" Text="{Binding GammaM1Text, UpdateSourceTrigger=PropertyChanged}"
                                          ToolTip="{DynamicResource FemImperfectionModesGammaM1Tip}"/>
@@ -329,10 +330,12 @@
                                 <ComboBox Width="170" ItemsSource="{x:Static vm:FemImperfectionDialogVM.Curves}" SelectedValuePath="Key"
                                           DisplayMemberPath="Label" SelectedValue="{Binding ModeCurve}"
                                           ToolTip="{DynamicResource FemImperfectionModesCurveTip}"/>
-                                <TextBlock Text="{DynamicResource FemImperfectionModesCritical}" VerticalAlignment="Center" Margin="12,0,4,0"/>
-                                <TextBox Width="70" Text="{Binding CriticalText, UpdateSourceTrigger=PropertyChanged}"
-                                         ToolTip="{DynamicResource FemImperfectionModesCriticalTip}"/>
-                            </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                    <TextBlock Text="{DynamicResource FemImperfectionModesCritical}" VerticalAlignment="Center" Margin="12,0,4,0"/>
+                                    <TextBox Width="70" Text="{Binding CriticalText, UpdateSourceTrigger=PropertyChanged}"
+                                             ToolTip="{DynamicResource FemImperfectionModesCriticalTip}"/>
+                                </StackPanel>
+                            </WrapPanel>
                             <Button HorizontalAlignment="Left" Padding="8,1" Margin="0,4,0,0" Content="{DynamicResource FemImperfectionModesPreview}"
                                     Command="{Binding PreviewModesCommand}" ToolTip="{DynamicResource FemImperfectionModesPreviewTip}"/>
                             <TextBox Text="{Binding ModesPreviewText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" FontSize="11"

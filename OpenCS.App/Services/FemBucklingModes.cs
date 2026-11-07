@@ -89,8 +89,13 @@ public static class FemBucklingModes
         return result;
     }
 
+    /// <summary>
+    /// Имя задачи в списке диалога; у огибающей — с пометкой «(огибающая)», кроме штатного имени «огибающая сжатия»
+    /// (<c>FemBucklingEnvelopeTag</c>), где пометка повторяла бы слово.
+    /// </summary>
     static string CaseLabel(FemBucklingCaseSummary c) =>
-        c.Envelope ? string.Format(CultureInfo.CurrentCulture, Loc.S("FemImperfectionModesEnvelopeCase"), c.Tag) : c.Tag;
+        c.Envelope && c.Tag != Loc.S("FemBucklingEnvelopeTag")
+            ? string.Format(CultureInfo.CurrentCulture, Loc.S("FemImperfectionModesEnvelopeCase"), c.Tag) : c.Tag;
 
     static FemBucklingSummary? Summary(DatabaseService db, FemAnalysis analysis, out CalcResult? saved)
     {
