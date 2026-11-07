@@ -185,13 +185,13 @@
 
                         <TextBlock Grid.Row="2" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionCurve}"
                                    Visibility="{Binding IsE0Table, Converter={StaticResource BoolToVis}}"/>
-                        <!-- DockPanel: подсказка занимает остаток строки и переносится, список «авто — по сечению (табл. 6.2)» не обрезается -->
-                        <DockPanel Grid.Row="2" Grid.Column="1" LastChildFill="True"
-                                   Visibility="{Binding IsE0Table, Converter={StaticResource BoolToVis}}">
-                            <ComboBox DockPanel.Dock="Left" Width="250" ItemsSource="{x:Static vm:FemImperfectionDialogVM.Curves}" SelectedValuePath="Key"
+                        <!-- Список — на всю ширину, как соседние; подсказка табл. 5.1 — строкой под ним (не обрезает «авто — по сечению (табл. 6.2)») -->
+                        <StackPanel Grid.Row="2" Grid.Column="1"
+                                    Visibility="{Binding IsE0Table, Converter={StaticResource BoolToVis}}">
+                            <ComboBox ItemsSource="{x:Static vm:FemImperfectionDialogVM.Curves}" SelectedValuePath="Key"
                                       DisplayMemberPath="Label" SelectedValue="{Binding Curve}" ToolTip="{DynamicResource FemImperfectionCurveTip}"/>
-                            <TextBlock Style="{StaticResource Hint}" Text="{Binding TableValueText}"/>
-                        </DockPanel>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" Text="{Binding TableValueText}"/>
+                        </StackPanel>
                         <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,2"
                                     Visibility="{Binding IsE0Table, Converter={StaticResource BoolToVis}}">
                             <RadioButton Content="{DynamicResource FemImperfectionElastic}" IsChecked="{Binding Elastic}"
