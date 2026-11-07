@@ -319,6 +319,25 @@ public sealed class RcStructuralMeshBuild
                     }
                     break;
                 }
+                case RcWallTierBow wall:
+                {
+                    double h = wall.ZTop - wall.ZBottom;
+                    if (!(h > 0)) throw new ArgumentException("Погибь стены: высота яруса должна быть положительной.");
+                    var n = Unit(wall.Normal, "Погибь стены: нормаль");
+                    for (int e = 0; e < shells.Count; e++)
+                    {
+                        if (!wall.Shells.Contains(shellIds[e])) continue;
+                        var sn = shells[e];
+                        var a = field.Shell[e] ??= new double[3 * sn.Length];
+                        for (int i = 0; i < sn.Length; i++)
+                        {
+                            double zeta = Math.Clamp((nodes[sn[i]][2] - wall.ZBottom) / h, 0.0, 1.0);
+                            double w = 4.0 * wall.E0 * zeta * (1.0 - zeta);
+                            for (int c = 0; c < 3; c++) a[3 * i + c] += w * n[c];
+                        }
+                    }
+                    break;
+                }
                 default:
                     throw new NotSupportedException($"Несовершенство «{imp.GetType().Name}» не поддержано.");
             }

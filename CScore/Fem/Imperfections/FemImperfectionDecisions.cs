@@ -48,6 +48,28 @@ public sealed class FemSwayReportRow
     public int? Columns { get; set; }
     /// <summary>H_Ed/V_Ed реакций (п. 5.3.2(4)B, справочно); null — без предварительного расчёта.</summary>
     public double? HOverV { get; set; }
+    /// <summary>θᵢ по EN 1992-1-1 (5.1) — подсказка m: все сжатые стойки (без правила 50 %).</summary>
+    public bool En1992 { get; set; }
+}
+
+/// <summary>Строка отчёта погиби стены — один ярус.</summary>
+public sealed class FemWallBowReportRow
+{
+    public string Label { get; set; } = "";
+    /// <summary>Стенка и ярус («КонЭ 12, z 0…3 м»).</summary>
+    public string Tier { get; set; } = "";
+    public double ZBottom { get; set; }
+    public double ZTop { get; set; }
+    /// <summary>Толщина стены, м.</summary>
+    public double Thickness { get; set; }
+    public string E0Source { get; set; } = "";
+    /// <summary>Итоговая стрелка, м, со знаком (вдоль нормали стенки).</summary>
+    public double E0 { get; set; }
+    /// <summary>Нормаль стенки (для подписи знака), глобальные оси.</summary>
+    public double NormalX { get; set; }
+    public double NormalY { get; set; }
+    public string Sign { get; set; } = "+";
+    public string SignSource { get; set; } = "";
 }
 
 /// <summary>Строка отчёта погиби (спека 5.5).</summary>
@@ -91,6 +113,8 @@ public sealed class FemImperfectionReport
     public List<FemSwayReportRow> Sways { get; set; } = [];
     public List<FemBowReportRow> Bows { get; set; } = [];
     public List<FemModeReportRow> Modes { get; set; } = [];
+    /// <summary>Ярусы погибей стен.</summary>
+    public List<FemWallBowReportRow> WallBows { get; set; } = [];
     /// <summary>Предварительный упругий расчёт выполнен.</summary>
     public bool FirstOrder { get; set; }
     /// <summary>Наибольшее |u₀| (крен — |φ|·размах z охвата, погибь — |e₀| активных, формы — max поступательного суммы), м.</summary>
@@ -105,7 +129,10 @@ public sealed class FemImperfectionReport
         foreach (var s in Sways)
         {
             string line = string.Create(c, $"Крен «{s.Label}»: φ = {Ratio(s.Phi)} по направлению {s.AngleDeg:0.#}° от +X; {s.Source}");
-            if (s.MHint is { } m) line += string.Create(c, $"; подсказка m = {m} (стоек со сжатием {s.Columns}, N_Ed > 50 % средней)");
+            if (s.MHint is { } m)
+                line += s.En1992
+                    ? string.Create(c, $"; подсказка m = {m} (сжатых вертикальных элементов охвата, EN 1992-1-1 п. 5.2(6))")
+                    : string.Create(c, $"; подсказка m = {m} (стоек со сжатием {s.Columns}, N_Ed > 50 % средней)");
             if (s.HOverV is { } hv)
                 line += string.Create(c, $"; H_Ed/V_Ed = {hv:0.###}{(hv >= 0.15 ? " ≥ 0,15 — по п. 5.3.2(4)B креном можно пренебречь (справочно)" : "")}");
             yield return line + ".";
@@ -121,7 +148,11 @@ public sealed class FemImperfectionReport
         foreach (var m in Modes)
             yield return string.Create(c,
                 $"Формы «{m.Label}»: постановка «{m.Analysis}», задача «{m.Case}», форма {m.Mode} (λ = {m.Lambda:0.###}), амплитуда {m.Amplitude * 1000:0.##} мм.");
-        if (Sways.Count + Bows.Count + Modes.Count > 0)
+        foreach (var w in WallBows)
+            yield return string.Create(c,
+                $"Погибь стены «{w.Label}», {w.Tier}: h_яр = {w.ZTop - w.ZBottom:0.###} м, t = {w.Thickness * 1000:0.#} мм, {w.E0Source}; "
+                + $"e₀ = {w.E0 * 1000:0.##} мм вдоль нормали ({w.NormalX:0.###}; {w.NormalY:0.###}); знак {w.Sign} — {w.SignSource}.");
+        if (Sways.Count + Bows.Count + Modes.Count + WallBows.Count > 0)
         {
             yield return string.Create(c, $"Несовершенства: max|u₀| = {MaxU0 * 1000:0.##} мм.");
             if (!string.IsNullOrEmpty(AlphaCr)) yield return AlphaCr;
@@ -143,13 +174,27 @@ public sealed class FemImperfectionReport
         var modes = items.OfType<FemResolvedModes>().ToList();
         if (modes.Select(m => m.Label).Distinct().Count() != Modes.Select(m => m.Label).Distinct().Count()) return null;
         if (sways.Where((s, i) => s.Label != Sways[i].Label).Any() || bows.Where((b, i) => b.Label != Bows[i].Label).Any()) return null;
+        var walls = items.OfType<FemResolvedWallBow>().ToList();
+        if (walls.Sum(w => w.Tiers.Count) != WallBows.Count) return null;
         var result = new List<FemResolvedImperfection>(items.Count);
-        int k = 0;
+        int k = 0, kw = 0;
         foreach (var item in items)
         {
+            if (item is FemResolvedWallBow wall)
+            {
+                var tiers = new List<FemResolvedWallTier>(wall.Tiers.Count);
+                foreach (var tier in wall.Tiers)
+                {
+                    var row = WallBows[kw++];
+                    if (row.Label != wall.Label || row.Tier != tier.Panel) return null;
+                    tiers.Add(tier with { E0 = row.E0 });
+                }
+                result.Add(wall with { Tiers = tiers });
+                continue;
+            }
             if (item is not FemResolvedBow bow) { result.Add(item); continue; }
-            var row = Bows[k++];
-            if (row.Active) result.Add(bow with { E0 = row.E0 });
+            var brow = Bows[k++];
+            if (brow.Active) result.Add(bow with { E0 = brow.E0 });
         }
         return result;
     }
@@ -214,13 +259,18 @@ public static partial class FemImperfectionResolver
                     var row = new FemSwayReportRow
                     {
                         Label = sw.Label, Phi = sw.Phi, AngleDeg = Math.Atan2(sw.Direction.Y, sw.Direction.X) * 180 / Math.PI,
-                        H = sw.Norm?.H, AlphaH = sw.Norm?.AlphaH, M = sw.Norm?.M, AlphaM = sw.Norm?.AlphaM,
+                        H = sw.Norm?.H ?? sw.Theta?.L, AlphaH = sw.Norm?.AlphaH ?? sw.Theta?.AlphaH,
+                        M = sw.Norm?.M ?? sw.Theta?.M, AlphaM = sw.Norm?.AlphaM ?? sw.Theta?.AlphaM, En1992 = sw.Theta != null,
                         Source = sw.Norm is { } norm ? $"(5.5), {sw.HeightSource}: {norm.Describe()}"
+                            : sw.Theta is { } theta
+                                ? $"EN 1992-1-1 (5.1), {sw.HeightSource}: {theta.Describe()}; случай п. 5.2(6) — раскрепляющая система " +
+                                  "(охват — один элемент: l — его длина, m = 1); силы в диафрагмах (5.5), (5.6) не моделируются"
                             : string.Create(c, $"1/φ = {1 / Math.Abs(sw.Phi):0.#} вручную"),
                     };
                     if (state != null)
                     {
                         (row.MHint, row.Columns) = ColumnHint(sw.ElemTags, meshElements, elements, nodes, state);
+                        if (row.En1992 && row.Columns is { } cols) row.MHint = cols;
                         var (h, v) = state.ReactionSums;
                         if (v > 0) row.HOverV = h / v;
                     }
@@ -257,7 +307,8 @@ public static partial class FemImperfectionResolver
 
                     // Активность.
                     bool active = true;
-                    if (!bow.ActivityEn1993) row.ActiveReason = "задано «всегда»";
+                    if (bow.Concrete) row.ActiveReason = "ЖБ — учитывается всегда (EN 1992-1-1 п. 5.2(1)P)";
+                    else if (!bow.ActivityEn1993) row.ActiveReason = "задано «всегда»";
                     else if (state == null || row.NEd == null || momentEnd == null)
                     {
                         row.ActiveReason = state == null ? $"критерий п. 5.3.2(6) не проверен ({why}) — учитывается всегда"
@@ -314,6 +365,42 @@ public static partial class FemImperfectionResolver
                     result.Add(modes);
                     break;
                 }
+                case FemResolvedWallBow wall:
+                {
+                    var tiers = new List<FemResolvedWallTier>(wall.Tiers.Count);
+                    foreach (var tier in wall.Tiers)
+                    {
+                        var row = new FemWallBowReportRow
+                        {
+                            Label = wall.Label, Tier = tier.Panel, ZBottom = tier.ZBottom, ZTop = tier.ZTop, Thickness = tier.Thickness,
+                            E0Source = tier.E0Source, NormalX = tier.Normal.X, NormalY = tier.Normal.Y,
+                        };
+                        double e0 = tier.E0;
+                        double sign = 1;
+                        if (!wall.SignAuto) row.SignSource = "задан (по нормали стенки)";
+                        else if (state == null || TierDeflection(tier, elements, nodes, state) is not { } s)
+                        {
+                            row.SignSource = state == null ? $"«авто» не определён ({why}) — принят «+» нормали"
+                                : "«авто» не определён (узлы яруса не найдены) — принят «+» нормали";
+                            diag.Add(new("imperfection_sign_auto", $"Погибь стены «{wall.Label}», {tier.Panel}: знак {row.SignSource}.", false));
+                        }
+                        else if (Math.Abs(s) < 1e-9 * tier.Height)
+                            row.SignSource = "«авто»: прогиба первого порядка из плоскости нет — «+» нормали";
+                        else
+                        {
+                            sign = Math.Sign(s);
+                            row.SignSource = string.Create(c, $"«авто»: прогиб яруса первого порядка из плоскости {s * 1000:0.###} мм");
+                        }
+                        if (wall.SignAuto) e0 *= sign;
+                        row.E0 = e0;
+                        row.Sign = e0 < 0 ? "−" : "+";
+                        report.WallBows.Add(row);
+                        report.MaxU0 = Math.Max(report.MaxU0, Math.Abs(e0));
+                        tiers.Add(tier with { E0 = e0 });
+                    }
+                    result.Add(wall with { Tiers = tiers });
+                    break;
+                }
                 default:
                     result.Add(item);
                     break;
@@ -323,6 +410,41 @@ public static partial class FemImperfectionResolver
             diag.Add(new("imperfection_bow_inactive",
                 $"Погибей не учитывается по п. 5.3.2(6): {off} из {report.Bows.Count} (см. отчёт несовершенств).", false));
         return new FemImperfectionDecision(result, report, diag);
+    }
+
+    /// <summary>
+    /// Прогиб яруса стены первого порядка из плоскости в мере параболы погиби, м: s = Σφ(ζ_k)·(u_k·n − ū(ζ_k)) / Σφ(ζ_k)
+    /// по узлам КЭ яруса, φ(ζ) = 4ζ(1 − ζ), ū — линейная интерполяция средних нормальных перемещений узлов нижнего и
+    /// верхнего уровней (смещение яруса как целого не влияет). null — нет узлов или перемещений.
+    /// </summary>
+    static double? TierDeflection(FemResolvedWallTier tier, IReadOnlyDictionary<string, FemElement> elements,
+        IReadOnlyDictionary<string, PlanarVector3> nodes, IFemFirstOrderState state)
+    {
+        const double tol = 1e-3;
+        var pts = new List<(double Zeta, double W)>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var tag in tier.ElemTags)
+        {
+            if (!elements.TryGetValue(tag, out var e)) continue;
+            foreach (var raw in FemMeshTopology.ReadNodeTags(e) ?? [])
+            {
+                if (FemMeshTopology.CanonicalNodeTag(raw) is not { } nt || !seen.Add(nt) || !nodes.TryGetValue(nt, out var p)) continue;
+                if (state.NodeDisplacement(nt) is not { Length: >= 3 } u) return null;
+                double zeta = Math.Clamp((p.Z - tier.ZBottom) / tier.Height, 0, 1);
+                pts.Add((zeta, u[0] * tier.Normal.X + u[1] * tier.Normal.Y + u[2] * tier.Normal.Z));
+            }
+        }
+        var bottom = pts.Where(q => q.Zeta * tier.Height < tol).Select(q => q.W).ToList();
+        var top = pts.Where(q => (1 - q.Zeta) * tier.Height < tol).Select(q => q.W).ToList();
+        double wb = bottom.Count > 0 ? bottom.Average() : 0, wt = top.Count > 0 ? top.Average() : 0;
+        double num = 0, den = 0;
+        foreach (var (zeta, w) in pts)
+        {
+            double phi = 4 * zeta * (1 - zeta);
+            num += phi * (w - (wb + (wt - wb) * zeta));
+            den += phi;
+        }
+        return den > 0 ? num / den : null;
     }
 
     /// <summary>Концевой КЭ цепочки у узла <paramref name="node"/> передаёт момент в плоскости погиби.</summary>

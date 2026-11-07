@@ -265,10 +265,27 @@ public static class FemRcModelAdapter
                     model.Imperfections.Add(new RcModesImperfection(modes.Nodes, modes.BarPoints));
                     break;
                 }
+                case FemResolvedWallBow wall:
+                {
+                    var outside = new List<string>();
+                    foreach (var tier in wall.Tiers)
+                    {
+                        var ids = new HashSet<int>();
+                        foreach (var tag in tier.ElemTags)
+                            if (FemImperfectionResolver.ElementNumber(tag) is int id && shells.Contains(id)) ids.Add(id);
+                            else outside.Add(tag);
+                        if (ids.Count == 0 || tier.E0 == 0) continue;
+                        model.Imperfections.Add(new RcWallTierBow(ids, tier.ZBottom, tier.ZTop,
+                            [tier.Normal.X, tier.Normal.Y, tier.Normal.Z], tier.E0));
+                    }
+                    Add(diag, "imperfection_outside_model", $"Погибь стены «{wall.Label}»: КЭ вне расчётной модели не учтены", outside, false);
+                    break;
+                }
             }
         int sways = model.Imperfections.OfType<RcSway>().Count(), bows = model.Imperfections.OfType<RcBow>().Count(),
-            forms = model.Imperfections.OfType<RcModesImperfection>().Count();
+            forms = model.Imperfections.OfType<RcModesImperfection>().Count(), walls = model.Imperfections.OfType<RcWallTierBow>().Count();
         if (sways + bows > 0) Info(diag, "imperfections", $"Несовершенства: кренов {sways}, погибей {bows}.");
+        if (walls > 0) Info(diag, "imperfections", $"Погибь стен: ярусов {walls}.");
         if (forms > 0) Info(diag, "imperfections", $"Несовершенства по формам потери устойчивости: {forms}.");
     }
 

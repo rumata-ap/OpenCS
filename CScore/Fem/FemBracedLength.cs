@@ -13,6 +13,16 @@ namespace CScore.Fem;
 public sealed record FemWallStrip(double HeightM, double VerticalAngleDeg);
 
 /// <summary>
+/// Ярус стенки — часть стены между соседними уровнями раскрепления (перекрытиями), к которой относится КЭ
+/// (<see cref="FemBracedLength.WallTier"/>): та же разбивка, что у <see cref="FemWallStrip"/>.
+/// </summary>
+/// <param name="Panel">Номер стенки (связные КЭ стен одной плоскости) — одинаков у КЭ одной стенки.</param>
+/// <param name="ZBottom">Отметка нижнего уровня яруса, м.</param>
+/// <param name="ZTop">Отметка верхнего уровня яруса, м.</param>
+/// <param name="Normal">Единичная нормаль стенки (нормаль её первого КЭ), глобальные оси.</param>
+public sealed record FemWallTier(int Panel, double ZBottom, double ZTop, (double X, double Y, double Z) Normal);
+
+/// <summary>
 /// Длина элемента между раскреплениями по сетке схемы — база расчётной длины l0 = μ·l (п. 8.1.17 СП 63)
 /// при учёте продольного изгиба в проверке по КЭ.
 /// <para>
@@ -46,6 +56,7 @@ public sealed class FemBracedLength
     readonly Dictionary<string, int> _byTag = new(StringComparer.Ordinal);
     readonly Dictionary<int, double?> _barLength = [];
     Dictionary<int, FemWallStrip?>? _wallStrips;
+    Dictionary<int, FemWallTier>? _wallTiers;
     readonly object _lock = new();
 
     /// <param name="mesh">КЭ сетки схемы (все, не только КЭ цели).</param>
@@ -125,8 +136,23 @@ public sealed class FemBracedLength
         if (!_byTag.TryGetValue(element.ElemTag, out int index)) return null;
         lock (_lock)
         {
-            _wallStrips ??= BuildWallStrips();
-            return _wallStrips.GetValueOrDefault(index);
+            if (_wallStrips == null) BuildWallStrips();
+            return _wallStrips!.GetValueOrDefault(index);
+        }
+    }
+
+    /// <summary>
+    /// Ярус стенки, к которому относится КЭ (уровни — как у <see cref="WallStrip"/>); null — КЭ не пластина-стена, нет
+    /// координат узлов или нулевая высота яруса.
+    /// </summary>
+    public FemWallTier? WallTier(FemElement element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        if (!_byTag.TryGetValue(element.ElemTag, out int index)) return null;
+        lock (_lock)
+        {
+            if (_wallTiers == null) BuildWallStrips();
+            return _wallTiers!.GetValueOrDefault(index);
         }
     }
 
@@ -198,9 +224,11 @@ public sealed class FemBracedLength
         return null;
     }
 
-    Dictionary<int, FemWallStrip?> BuildWallStrips()
+    void BuildWallStrips()
     {
         var result = new Dictionary<int, FemWallStrip?>();
+        var tiers = new Dictionary<int, FemWallTier>();
+        int panelNo = 0;
         var geometry = new Dictionary<int, ShellGeometry>();
         for (int i = 0; i < _elements.Count; i++)
             if (Geometry(i) is { } g && Math.Abs(g.Normal.Z) < WallNormalZ)
@@ -243,9 +271,12 @@ public sealed class FemBracedLength
                     .DefaultIfEmpty(maxZ).Min();
                 double height = above - below;
                 result[i] = height > LevelTolerance ? new FemWallStrip(height, VerticalAngle(g, _elements[i].LocalAxisAngleDeg)) : null;
+                if (height > LevelTolerance) tiers[i] = new FemWallTier(panelNo, below, above, normal);
             }
+            panelNo++;
         }
-        return result;
+        _wallStrips = result;
+        _wallTiers = tiers;
     }
 
     /// <summary>КЭ раскрепляет стену по высоте: перекрытие (негоризонтальная нормаль) или невертикальный стержень.</summary>

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows.Input;
+using CScore.En1992;
 using CScore.En1993;
 using CScore.Fem.Imperfections;
 using OpenCS.Services;
@@ -17,8 +18,27 @@ public static class FemImperfectionText
         if (items.Count == 0) return Loc.S("FemImperfectionCaseEmpty");
         int sways = items.Count(i => i.Kind == FemImperfectionKinds.Sway), bows = items.Count(i => i.Kind == FemImperfectionKinds.Bow);
         int modes = items.Count(i => i.Kind == FemImperfectionKinds.Modes);
+        int walls = items.Count(i => i.Kind == FemImperfectionKinds.WallBow);
         string text = string.Format(CultureInfo.CurrentCulture, Loc.S("FemImperfectionCaseSummary"), sways, bows);
-        return modes == 0 ? text : text + string.Format(CultureInfo.CurrentCulture, Loc.S("FemImperfectionCaseSummaryModes"), modes);
+        if (modes > 0) text += string.Format(CultureInfo.CurrentCulture, Loc.S("FemImperfectionCaseSummaryModes"), modes);
+        if (walls > 0) text += string.Format(CultureInfo.CurrentCulture, Loc.S("FemImperfectionCaseSummaryWalls"), walls);
+        return text;
+    }
+
+    /// <summary>Подпись способа задания e₀ (погибь и погибь стен).</summary>
+    static string E0Short(string mode, double? lOverE0, double? e0Mm, double? mu, string curve)
+    {
+        var c = CultureInfo.CurrentCulture;
+        return mode switch
+        {
+            FemBowParams.E0Table => string.Format(c, Loc.S("FemImperfectionE0TableShort"),
+                curve == FemBowParams.CurveAuto ? Loc.S("FemImperfectionCurveAuto") : curve),
+            FemBowParams.E0Absolute => string.Format(c, "e₀ = {0:0.##} {1}", e0Mm ?? 0, Loc.S("UnitMm")),
+            FemBowParams.E0En1992 => string.Format(c, Loc.S("FemImperfectionE0En1992Short"), mu ?? 1),
+            FemBowParams.E0En1992Simplified => string.Format(c, Loc.S("FemImperfectionE0En1992SimplifiedShort"), mu ?? 1),
+            FemBowParams.E0Sp63 => Loc.S("FemImperfectionE0Sp63Short"),
+            _ => string.Format(c, "L/e₀ = {0:0.#}", lOverE0 ?? 0),
+        };
     }
 
     /// <summary>Сводка элемента серым: охват и способ задания φ (крен) или число элементов и e₀ (погибь).</summary>
@@ -34,6 +54,8 @@ public static class FemImperfectionText
                     : string.Format(c, Loc.S("FemImperfectionScopeListShort"), p.MemberTags.Count, p.ElementTags.Count);
                 string phi = p.PhiMode == FemSwayParams.PhiEn1993
                     ? string.Format(c, Loc.S("FemImperfectionPhiNormShort"), p.M)
+                    : p.PhiMode == FemSwayParams.PhiEn1992
+                    ? string.Format(c, Loc.S("FemImperfectionThetaNormShort"), p.M)
                     : string.Format(c, "1/φ = {0:0.#}", p.PhiInv ?? 0);
                 return string.Format(c, "{0}; {1}; {2:0.#}°", scope, phi, p.AngleDeg);
             }
@@ -41,14 +63,13 @@ public static class FemImperfectionText
             {
                 var p = FemBowParams.Parse(item.ParamsJson);
                 string targets = string.Format(c, Loc.S("FemImperfectionBowTargetsShort"), p.MemberTags.Count, p.ElementChains.Count);
-                string e0 = p.E0Mode switch
-                {
-                    FemBowParams.E0Table => string.Format(c, Loc.S("FemImperfectionE0TableShort"),
-                        p.Curve == FemBowParams.CurveAuto ? Loc.S("FemImperfectionCurveAuto") : p.Curve),
-                    FemBowParams.E0Absolute => string.Format(c, "e₀ = {0:0.##} {1}", p.E0Mm ?? 0, Loc.S("UnitMm")),
-                    _ => string.Format(c, "L/e₀ = {0:0.#}", p.LOverE0 ?? 0),
-                };
-                return $"{targets}; {p.Plane}; {e0}";
+                return $"{targets}; {p.Plane}; {E0Short(p.E0Mode, p.LOverE0, p.E0Mm, p.Mu, p.Curve)}";
+            }
+            case FemImperfectionKinds.WallBow:
+            {
+                var p = FemWallBowParams.Parse(item.ParamsJson);
+                string targets = string.Format(c, Loc.S("FemImperfectionWallTargetsShort"), p.MemberTags.Count, p.ElementTags.Count);
+                return $"{targets}; {E0Short(p.E0Mode, p.LOverE0, p.E0Mm, p.Mu, FemBowParams.CurveAuto)}";
             }
             case FemImperfectionKinds.Modes:
             {
@@ -79,17 +100,20 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
     /// <param name="mHint">Подсказка m по последнему расчёту (стойки с N_Ed больше 50 % средней); null — нет.</param>
     /// <param name="selection">Выделение 3D редактора схемы: КонЭ и КЭ сетки; null — редактор не открыт.</param>
     /// <param name="bucklingSources">Постановки устойчивости схемы для вида «Формы» (состояние форм, задачи, λ).</param>
+    /// <param name="wallPreview">Предпросмотр ярусов погиби стен по параметрам (строки «стена, ярус: h, e₀» или ошибки); null — нет сетки.</param>
     public FemImperfectionDialogVM(FemImperfection item, Func<FemSwayParams, double?>? spanZ = null, int? mHint = null,
         Func<(IReadOnlyCollection<string> Members, IReadOnlyCollection<string> Elements)>? selection = null,
-        IReadOnlyList<FemBucklingSourceChoice>? bucklingSources = null)
+        IReadOnlyList<FemBucklingSourceChoice>? bucklingSources = null, Func<FemWallBowParams, string>? wallPreview = null)
     {
         ArgumentNullException.ThrowIfNull(item);
         _source = item;
         _spanZ = spanZ;
         _selection = selection;
+        _wallPreview = wallPreview;
         MHint = mHint;
         BucklingSources = bucklingSources ?? [];
-        _kind = item.Kind is FemImperfectionKinds.Bow or FemImperfectionKinds.Modes ? item.Kind : FemImperfectionKinds.Sway;
+        _kind = item.Kind is FemImperfectionKinds.Bow or FemImperfectionKinds.Modes or FemImperfectionKinds.WallBow
+            ? item.Kind : FemImperfectionKinds.Sway;
         _tag = item.Tag;
         _comment = item.Comment ?? "";
         var c = CultureInfo.CurrentCulture;
@@ -100,10 +124,24 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
             _membersText = Join(p.MemberTags);
             _elementsText = Join(p.ElementTags);
             _angleText = p.AngleDeg.ToString("0.###", c);
-            _phiNorm = p.PhiMode == FemSwayParams.PhiEn1993;
+            _phiNorm = p.PhiMode is FemSwayParams.PhiEn1993 or FemSwayParams.PhiEn1992;
+            _norm = p.PhiMode == FemSwayParams.PhiEn1992 ? NormEn1992 : NormEn1993;
             _hText = p.HeightM?.ToString("0.###", c) ?? "";
             _mText = p.M.ToString(c);
             _phiInvText = p.PhiInv?.ToString("0.#", c) ?? "200";
+        }
+        else if (_kind == FemImperfectionKinds.WallBow)
+        {
+            var p = FemWallBowParams.Parse(item.ParamsJson);
+            _membersText = Join(p.MemberTags);
+            _elementsText = Join(p.ElementTags);
+            _norm = p.E0Mode == FemBowParams.E0Sp63 ? NormSp63 : NormEn1992;
+            _e0Mode = p.E0Mode;
+            _muText = p.Mu?.ToString("0.###", c) ?? "1";
+            _lOverE0Text = p.LOverE0?.ToString("0.#", c) ?? "";
+            _e0MmText = p.E0Mm?.ToString("0.##", c) ?? "";
+            _sizeMmText = p.ThicknessMm?.ToString("0.#", c) ?? "";
+            _sign = p.Sign is FemBowParams.SignPlus or FemBowParams.SignMinus ? p.Sign : FemBowParams.SignAuto;
         }
         else if (_kind == FemImperfectionKinds.Modes)
         {
@@ -118,7 +156,11 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
             _membersText = Join(p.MemberTags);
             _chainsText = string.Join("; ", p.ElementChains.Select(Join));
             _plane = p.Plane == FemBowParams.PlaneZ ? FemBowParams.PlaneZ : FemBowParams.PlaneY;
-            _e0Mode = p.E0Mode is FemBowParams.E0Table or FemBowParams.E0Absolute ? p.E0Mode : FemBowParams.E0Relative;
+            _norm = p.E0Mode == FemBowParams.E0Sp63 ? NormSp63
+                : p.E0Mode is FemBowParams.E0En1992 or FemBowParams.E0En1992Simplified ? NormEn1992 : NormEn1993;
+            _e0Mode = p.E0Mode;
+            _muText = p.Mu?.ToString("0.###", c) ?? "1";
+            _sizeMmText = p.SectionHeightMm?.ToString("0.#", c) ?? "";
             _curve = Curves.Any(k => k.Key == p.Curve) ? p.Curve : FemBowParams.CurveAuto;
             _plastic = p.Plastic;
             _lOverE0Text = p.LOverE0?.ToString("0.#", c) ?? "";
@@ -131,8 +173,67 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
         TakeSelectionCommand = new RelayCommand(_ => TakeSelection(), _ => _selection != null);
         AddModeCommand = new RelayCommand(_ => AddMode());
         RemoveModeCommand = new RelayCommand(r => { if (r is FemModeAmplitudeRow row) ModeRows.Remove(row); });
+        PreviewTiersCommand = new RelayCommand(_ => PreviewTiers(), _ => _wallPreview != null);
         if (_kind == FemImperfectionKinds.Modes && ModeRows.Count == 0) AddMode();
+        if (_kind == FemImperfectionKinds.WallBow && _norm == NormEn1993) _norm = NormEn1992;
+        if (!E0ModeChoices.Any(k => k.Key == _e0Mode)) _e0Mode = E0ModeChoices[0].Key;
     }
+
+    // ------------------------------------------------------------ норма
+
+    public const string NormEn1993 = "en1993";
+    public const string NormEn1992 = "en1992";
+    public const string NormSp63 = "sp63";
+
+    /// <summary>Нормы: сталь EN 1993-1-1, ЖБ EN 1992-1-1 и СП 63 (у погиби стен — только ЖБ).</summary>
+    public IReadOnlyList<FemLoadsChoice> Norms => IsWallBow
+        ? [new(NormEn1992, Loc.S("FemImperfectionNormEn1992")), new(NormSp63, Loc.S("FemImperfectionNormSp63"))]
+        : [new(NormEn1993, Loc.S("FemImperfectionNormEn1993")), new(NormEn1992, Loc.S("FemImperfectionNormEn1992")),
+           new(NormSp63, Loc.S("FemImperfectionNormSp63"))];
+
+    string _norm = NormEn1993;
+    /// <summary>Норма элемента — выводится из режимов φ/e₀ и задаёт их список.</summary>
+    public string Norm
+    {
+        get => _norm;
+        set
+        {
+            if (value is not (NormEn1993 or NormEn1992 or NormSp63) || value == _norm) return;
+            if (IsWallBow && value == NormEn1993) return;
+            _norm = value;
+            OnPropertyChanged();
+            OnNormChanged();
+        }
+    }
+
+    void OnNormChanged()
+    {
+        if (_norm == NormSp63 && _phiNorm) PhiNorm = false;
+        OnPropertyChanged(nameof(NormText));
+        OnPropertyChanged(nameof(CanPhiNorm));
+        OnPropertyChanged(nameof(PhiNormLabel));
+        OnPropertyChanged(nameof(IsConcreteNorm));
+        OnPropertyChanged(nameof(ShowActivity));
+        OnPropertyChanged(nameof(E0ModeChoices));
+        if (!E0ModeChoices.Any(k => k.Key == _e0Mode)) E0Mode = E0ModeChoices[0].Key;
+        PhiDescription = "";
+    }
+
+    /// <summary>Полное обозначение нормы.</summary>
+    public string NormText => _norm switch
+    {
+        NormEn1992 => "EN 1992-1-1:2004+AC:2019",
+        NormSp63 => "СП 63.13330.2018",
+        _ => "EN 1993-1-1:2005+AC:2009",
+    };
+
+    /// <summary>ЖБ-норма: активность погиби — всегда (EN 1992-1-1 п. 5.2(1)P).</summary>
+    public bool IsConcreteNorm => _norm != NormEn1993;
+
+    /// <summary>Крен по норме доступен (в СП 63 крена нет — только 1/φ вручную).</summary>
+    public bool CanPhiNorm => _norm != NormSp63;
+
+    public string PhiNormLabel => Loc.S(_norm == NormEn1992 ? "FemImperfectionPhiNormEn1992" : "FemImperfectionPhiNorm");
 
     // ------------------------------------------------------------ общее
 
@@ -145,34 +246,54 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
         get => _kind;
         set
         {
-            if (value is not (FemImperfectionKinds.Sway or FemImperfectionKinds.Bow or FemImperfectionKinds.Modes) || value == _kind) return;
+            if (value is not (FemImperfectionKinds.Sway or FemImperfectionKinds.Bow or FemImperfectionKinds.Modes
+                or FemImperfectionKinds.WallBow) || value == _kind) return;
             _kind = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsSway));
             OnPropertyChanged(nameof(IsBow));
             OnPropertyChanged(nameof(IsModes));
+            OnPropertyChanged(nameof(IsWallBow));
+            OnPropertyChanged(nameof(IsBowLike));
+            OnPropertyChanged(nameof(HasNorm));
             OnPropertyChanged(nameof(HasTargets));
             OnPropertyChanged(nameof(IsListScope));
+            OnPropertyChanged(nameof(HasElementsList));
             OnPropertyChanged(nameof(Title));
+            OnPropertyChanged(nameof(Norms));
+            OnPropertyChanged(nameof(ShowActivity));
+            OnPropertyChanged(nameof(SizeMmLabel));
+            OnPropertyChanged(nameof(RelativeLabel));
             if (IsModes)
             {
                 if (_bucklingSource == null) BucklingSource = BucklingSources.FirstOrDefault();
                 if (ModeRows.Count == 0) AddMode();
             }
+            if (IsWallBow && _norm == NormEn1993)
+            {
+                _norm = NormEn1992;
+                OnPropertyChanged(nameof(Norm));
+            }
+            OnNormChanged();
         }
     }
 
     public bool IsSway { get => _kind == FemImperfectionKinds.Sway; set { if (value) Kind = FemImperfectionKinds.Sway; } }
     public bool IsBow { get => _kind == FemImperfectionKinds.Bow; set { if (value) Kind = FemImperfectionKinds.Bow; } }
     public bool IsModes { get => _kind == FemImperfectionKinds.Modes; set { if (value) Kind = FemImperfectionKinds.Modes; } }
+    public bool IsWallBow { get => _kind == FemImperfectionKinds.WallBow; set { if (value) Kind = FemImperfectionKinds.WallBow; } }
+
+    /// <summary>Блок e₀ виден: погибь стержня или погибь стен.</summary>
+    public bool IsBowLike => IsBow || IsWallBow;
+
+    /// <summary>Выбор нормы виден — не у форм (у форм амплитуда задаётся вручную).</summary>
+    public bool HasNorm => !IsModes;
 
     /// <summary>Блок «Относительно» (охват крена, элементы погиби) виден — не у форм.</summary>
     public bool HasTargets => !IsModes;
 
-    public string Title => Loc.S(IsSway ? "FemImperfectionDialogTitleSway" : IsBow ? "FemImperfectionDialogTitleBow" : "FemImperfectionDialogTitleModes");
-
-    /// <summary>Норма (одна): EN 1993-1-1:2005+AC:2009.</summary>
-    public static string NormText => "EN 1993-1-1:2005+AC:2009";
+    public string Title => Loc.S(IsSway ? "FemImperfectionDialogTitleSway" : IsBow ? "FemImperfectionDialogTitleBow"
+        : IsWallBow ? "FemImperfectionDialogTitleWallBow" : "FemImperfectionDialogTitleModes");
 
     string _tag;
     public string Tag { get => _tag; set { _tag = value ?? ""; OnPropertyChanged(); } }
@@ -200,7 +321,10 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
     public bool ScopeList { get => !_scopeAll; set => ScopeAll = !value; }
 
     /// <summary>Поля перечня видны: погибь или крен по перечню.</summary>
-    public bool IsListScope => IsBow || (IsSway && !_scopeAll);
+    public bool IsListScope => IsBow || IsWallBow || (IsSway && !_scopeAll);
+
+    /// <summary>Поле «КЭ сетки» видно: крен и погибь стен (у погиби стержня — цепочки).</summary>
+    public bool HasElementsList => IsSway || IsWallBow;
 
     string _membersText = "";
     /// <summary>Теги КонЭ через запятую или пробел.</summary>
@@ -235,7 +359,8 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
             return;
         }
         MembersText = Join(members);
-        if (IsSway)
+        if (IsWallBow) ElementsText = Join(elements);
+        else if (IsSway)
         {
             ElementsText = Join(elements);
             ScopeAll = false;
@@ -258,7 +383,14 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
     public bool PhiNorm
     {
         get => _phiNorm;
-        set { if (_phiNorm == value) return; _phiNorm = value; OnPropertyChanged(); OnPropertyChanged(nameof(PhiManual)); }
+        set
+        {
+            if (value && !CanPhiNorm) value = false;
+            if (_phiNorm == value) return;
+            _phiNorm = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(PhiManual));
+        }
     }
 
     public bool PhiManual { get => !_phiNorm; set => PhiNorm = !value; }
@@ -319,9 +451,20 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
             h = span;
             source = string.Format(c, Loc.S("FemImperfectionHSpan"), span);
         }
-        var phi = En1993Imperfections.Phi(h, m);
-        PhiDescription = $"{source}: {phi.Describe()}";
-        if (PhiManual) PhiInvText = (1 / phi.Phi).ToString("0.#", c);
+        double value;
+        if (_norm == NormEn1992)
+        {
+            var theta = En1992Imperfections.Theta(h, m);
+            PhiDescription = $"{source}: EN 1992-1-1 (5.1): {theta.Describe()}";
+            value = theta.Theta;
+        }
+        else
+        {
+            var phi = En1993Imperfections.Phi(h, m);
+            PhiDescription = $"{source}: {phi.Describe()}";
+            value = phi.Phi;
+        }
+        if (PhiManual) PhiInvText = (1 / value).ToString("0.#", c);
         return true;
     }
 
@@ -333,12 +476,26 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
         new(FemBowParams.PlaneZ, Loc.S("FemImperfectionPlaneZ")),
     ];
 
-    public static IReadOnlyList<FemLoadsChoice> E0Modes { get; } =
-    [
-        new(FemBowParams.E0Table, Loc.S("FemImperfectionE0Table")),
-        new(FemBowParams.E0Relative, Loc.S("FemImperfectionE0Relative")),
-        new(FemBowParams.E0Absolute, Loc.S("FemImperfectionE0Absolute")),
-    ];
+    /// <summary>Способы задания e₀ по норме и виду (погибь стен — h_яр вместо L).</summary>
+    public IReadOnlyList<FemLoadsChoice> E0ModeChoices
+    {
+        get
+        {
+            var relative = new FemLoadsChoice(FemBowParams.E0Relative, Loc.S(IsWallBow ? "FemImperfectionE0RelativeWall" : "FemImperfectionE0Relative"));
+            var absolute = new FemLoadsChoice(FemBowParams.E0Absolute, Loc.S("FemImperfectionE0Absolute"));
+            return _norm switch
+            {
+                NormEn1992 =>
+                [
+                    new(FemBowParams.E0En1992Simplified, Loc.S("FemImperfectionE0En1992Simplified")),
+                    new(FemBowParams.E0En1992, Loc.S("FemImperfectionE0En1992")),
+                    relative, absolute,
+                ],
+                NormSp63 => [new(FemBowParams.E0Sp63, Loc.S(IsWallBow ? "FemImperfectionE0Sp63Wall" : "FemImperfectionE0Sp63")), absolute],
+                _ => [new(FemBowParams.E0Table, Loc.S("FemImperfectionE0Table")), relative, absolute],
+            };
+        }
+    }
 
     public static IReadOnlyList<FemLoadsChoice> Curves { get; } =
     [
@@ -374,6 +531,8 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
             OnPropertyChanged(nameof(IsE0Table));
             OnPropertyChanged(nameof(IsE0Relative));
             OnPropertyChanged(nameof(IsE0Absolute));
+            OnPropertyChanged(nameof(IsE0Mu));
+            OnPropertyChanged(nameof(IsE0Sp63));
             OnPropertyChanged(nameof(TableValueText));
         }
     }
@@ -381,6 +540,41 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
     public bool IsE0Table => _e0Mode == FemBowParams.E0Table;
     public bool IsE0Relative => _e0Mode == FemBowParams.E0Relative;
     public bool IsE0Absolute => _e0Mode == FemBowParams.E0Absolute;
+    /// <summary>Поле μ (l₀ = μ·L) видно — режимы EN 1992.</summary>
+    public bool IsE0Mu => _e0Mode is FemBowParams.E0En1992 or FemBowParams.E0En1992Simplified;
+    /// <summary>Поле высоты сечения / толщины стены видно — п. 8.1.7 СП 63.</summary>
+    public bool IsE0Sp63 => _e0Mode == FemBowParams.E0Sp63;
+
+    /// <summary>Критерий активности п. 5.3.2(6) — только у погиби стержня по EN 1993 (ЖБ — всегда).</summary>
+    public bool ShowActivity => IsBow && !IsConcreteNorm;
+
+    public string RelativeLabel => IsWallBow ? "h_яр/e₀" : "L/e₀";
+
+    public string SizeMmLabel => Loc.S(IsWallBow ? "FemImperfectionThicknessMm" : "FemImperfectionSectionHeightMm");
+
+    string _muText = "1";
+    /// <summary>μ расчётной длины l₀ = μ·L (погибь) или μ·h_яр (стены).</summary>
+    public string MuText { get => _muText; set { _muText = value ?? ""; OnPropertyChanged(); } }
+
+    string _sizeMmText = "";
+    /// <summary>Высота сечения h (погибь) или толщина t (стены), мм, для п. 8.1.7; пусто — по сечению / толщине КЭ.</summary>
+    public string SizeMmText { get => _sizeMmText; set { _sizeMmText = value ?? ""; OnPropertyChanged(); } }
+
+    // ------------------------------------------------------------ ярусы стен
+
+    readonly Func<FemWallBowParams, string>? _wallPreview;
+
+    /// <summary>«Ярусы»: предпросмотр ярусов погиби стен по полям (без предварительного расчёта).</summary>
+    public ICommand PreviewTiersCommand { get; }
+
+    string _tiersText = "";
+    public string TiersText { get => _tiersText; private set { _tiersText = value; OnPropertyChanged(); } }
+
+    void PreviewTiers()
+    {
+        if (_wallPreview == null) return;
+        TiersText = BuildWallBow(out string? error) is { } p ? _wallPreview(p) : error ?? "";
+    }
 
     string _curve = FemBowParams.CurveAuto;
     public string Curve
@@ -524,6 +718,11 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
             if (BuildModes(out error) is not { } p) return null;
             json = p.ToJson();
         }
+        else if (IsWallBow)
+        {
+            if (BuildWallBow(out error) is not { } p) return null;
+            json = p.ToJson();
+        }
         else
         {
             if (BuildBow(out error) is not { } p) return null;
@@ -570,7 +769,7 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
             MemberTags = _scopeAll ? [] : members,
             ElementTags = _scopeAll ? [] : elements,
             AngleDeg = angle,
-            PhiMode = _phiNorm ? FemSwayParams.PhiEn1993 : FemSwayParams.PhiManual,
+            PhiMode = !_phiNorm ? FemSwayParams.PhiManual : _norm == NormEn1992 ? FemSwayParams.PhiEn1992 : FemSwayParams.PhiEn1993,
             HeightM = h,
             M = _phiNorm ? m : 1,
             PhiInv = phiInv,
@@ -584,17 +783,7 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
         var chains = ChainsText.Split([';', '\n'], StringSplitOptions.RemoveEmptyEntries)
             .Select(ch => ExpandTags(SplitTags(ch))).Where(ch => ch.Count > 0).ToList();
         if (members.Count + chains.Count == 0) { error = Loc.S("FemImperfectionBowEmpty"); return null; }
-        double? lOverE0 = null, e0Mm = null;
-        if (IsE0Relative)
-        {
-            if (!Pars.ParseAny(LOverE0Text.Trim(), out double v) || !double.IsFinite(v) || v <= 0) { error = Loc.S("FemImperfectionBadLOverE0"); return null; }
-            lOverE0 = v;
-        }
-        else if (IsE0Absolute)
-        {
-            if (!Pars.ParseAny(E0MmText.Trim(), out double v) || !double.IsFinite(v) || v <= 0) { error = Loc.S("FemImperfectionBadE0Mm"); return null; }
-            e0Mm = v;
-        }
+        if (!ParseE0(out double? lOverE0, out double? e0Mm, out double? mu, out double? size, out error)) return null;
         return new FemBowParams
         {
             MemberTags = members,
@@ -605,9 +794,53 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
             Plastic = _plastic,
             LOverE0 = lOverE0,
             E0Mm = e0Mm,
+            Mu = mu,
+            SectionHeightMm = size,
             Sign = _sign,
-            Activity = _activity,
+            // ЖБ (EN 1992-1-1 п. 5.2(1)P) — всегда; критерий п. 5.3.2(6) — только сталь.
+            Activity = IsConcreteNorm ? FemBowParams.ActivityAlways : _activity,
         };
+    }
+
+    FemWallBowParams? BuildWallBow(out string? error)
+    {
+        var members = SplitTags(MembersText);
+        var elements = ExpandTags(SplitTags(ElementsText));
+        if (members.Count + elements.Count == 0) { error = Loc.S("FemImperfectionWallEmpty"); return null; }
+        if (!ParseE0(out double? lOverE0, out double? e0Mm, out double? mu, out double? size, out error)) return null;
+        return new FemWallBowParams
+        {
+            MemberTags = members, ElementTags = elements, E0Mode = _e0Mode, Mu = mu, LOverE0 = lOverE0, E0Mm = e0Mm,
+            ThicknessMm = size, Sign = _sign,
+        };
+    }
+
+    /// <summary>Поля e₀ по режиму: L/e₀ (h_яр/e₀), мм, μ (режимы EN 1992), h или t (п. 8.1.7, пусто — по КЭ).</summary>
+    bool ParseE0(out double? lOverE0, out double? e0Mm, out double? mu, out double? size, out string? error)
+    {
+        lOverE0 = e0Mm = mu = size = null;
+        error = null;
+        if (IsE0Relative)
+        {
+            if (!Pars.ParseAny(LOverE0Text.Trim(), out double v) || !double.IsFinite(v) || v <= 0) { error = Loc.S("FemImperfectionBadLOverE0"); return false; }
+            lOverE0 = v;
+        }
+        else if (IsE0Absolute)
+        {
+            if (!Pars.ParseAny(E0MmText.Trim(), out double v) || !double.IsFinite(v) || v <= 0) { error = Loc.S("FemImperfectionBadE0Mm"); return false; }
+            e0Mm = v;
+        }
+        else if (IsE0Mu)
+        {
+            if (!Pars.ParseAny(MuText.Trim(), out double v) || !double.IsFinite(v) || v <= 0) { error = Loc.S("FemImperfectionBadMu"); return false; }
+            mu = v;
+        }
+        else if (IsE0Sp63 && SizeMmText.Trim().Length > 0)
+        {
+            if (!Pars.ParseAny(SizeMmText.Trim(), out double v) || !double.IsFinite(v) || v <= 0) { error = Loc.S("FemImperfectionBadSizeMm"); return false; }
+            size = v;
+        }
+        return true;
     }
 
     // ------------------------------------------------------------ теги

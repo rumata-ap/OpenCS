@@ -147,6 +147,14 @@ public sealed record RcModesImperfection(IReadOnlyDictionary<int, double[]> Node
     : RcImperfection;
 
 /// <summary>
+/// Погибь яруса стены (EN 1992-1-1 п. 5.2(7)a, (9); п. 8.1.7 СП 63): оболочкам <paramref name="Shells"/> (номера модели) —
+/// поступательные u₀ узлов w₀(z)·n, w₀ = 4e₀·ζ(1 − ζ), ζ = (z − <paramref name="ZBottom"/>)/(<paramref name="ZTop"/> −
+/// <paramref name="ZBottom"/>), обрезка в [0, 1]; <paramref name="E0"/> — м со знаком, <paramref name="Normal"/> — единичная
+/// нормаль стенки (глобальные оси).
+/// </summary>
+public sealed record RcWallTierBow(IReadOnlySet<int> Shells, double ZBottom, double ZTop, double[] Normal, double E0) : RcImperfection;
+
+/// <summary>
 /// Нейтральная модель ЖБ оболочечно-стержневой схемы для расчётов CSfea (СИ: Н, м, Па). Никакой логики
 /// источника (SCAD, ЛИРА, схема OpenCS) — источники переводятся в неё адаптерами.
 /// </summary>

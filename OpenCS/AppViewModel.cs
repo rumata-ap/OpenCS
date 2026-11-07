@@ -622,7 +622,9 @@ namespace OpenCS
          }
          bool sway = kind == CScore.Fem.Imperfections.FemImperfectionKinds.Sway;
          bool modes = kind == CScore.Fem.Imperfections.FemImperfectionKinds.Modes;
-         string prefix = Loc.S(sway ? "FemImperfectionDefaultSway" : modes ? "FemImperfectionDefaultModes" : "FemImperfectionDefaultBow");
+         bool wall = kind == CScore.Fem.Imperfections.FemImperfectionKinds.WallBow;
+         string prefix = Loc.S(sway ? "FemImperfectionDefaultSway" : modes ? "FemImperfectionDefaultModes"
+            : wall ? "FemImperfectionDefaultWallBow" : "FemImperfectionDefaultBow");
          var taken = item.Imperfections.Select(i => i.Item.Tag).ToHashSet(StringComparer.CurrentCultureIgnoreCase);
          string tag = prefix + " 1";
          for (int n = 2; taken.Contains(tag); n++) tag = $"{prefix} {n}";
@@ -632,6 +634,7 @@ namespace OpenCS
             ParamsJson = sway
                ? new CScore.Fem.Imperfections.FemSwayParams { PhiMode = CScore.Fem.Imperfections.FemSwayParams.PhiEn1993 }.ToJson()
                : modes ? new CScore.Fem.Imperfections.FemModesParams().ToJson()
+               : wall ? new CScore.Fem.Imperfections.FemWallBowParams().ToJson()
                : new CScore.Fem.Imperfections.FemBowParams { E0Mode = CScore.Fem.Imperfections.FemBowParams.E0Table }.ToJson(),
          };
          EditFemImperfectionCore(item.Schema, imperfection);
@@ -667,8 +670,26 @@ namespace OpenCS
          {
             LogService.Warning(ex.Message);
          }
+         // Погибь стен: ярусы по текущей сетке схемы (резолвер, без предварительного расчёта).
+         string WallPreview(CScore.Fem.Imperfections.FemWallBowParams p)
+         {
+            var elements = db.GetFemMeshElements(schema.Id);
+            if (elements.Count == 0) return Loc.S("FemImperfectionWallPreviewNoMesh");
+            var probe = new CScore.Fem.Imperfections.FemImperfection
+            {
+               Kind = CScore.Fem.Imperfections.FemImperfectionKinds.WallBow, Tag = imperfection.Tag, ParamsJson = p.ToJson(),
+            };
+            var r = CScore.Fem.Imperfections.FemImperfectionResolver.Resolve([(probe, 1.0)], elements, db.GetFemMeshNodes(schema.Id),
+               db.GetFemMembers(schema.Id));
+            var c = System.Globalization.CultureInfo.CurrentCulture;
+            var lines = r.Diagnostics.Select(d => d.Message).ToList();
+            if (r.Items.OfType<CScore.Fem.Imperfections.FemResolvedWallBow>().FirstOrDefault() is { } w)
+               lines.AddRange(w.Tiers.Select(t => string.Format(c, Loc.S("FemImperfectionWallPreviewRow"), t.Panel,
+                  t.Height, t.Thickness * 1000, t.E0 * 1000, t.E0Source)));
+            return string.Join(Environment.NewLine, lines);
+         }
          var vm = new ViewModels.FemImperfectionDialogVM(imperfection, SpanZ, FemImperfectionMHint(schema, imperfection),
-            page != null ? page.ImperfectionSelection : null, sources);
+            page != null ? page.ImperfectionSelection : null, sources, WallPreview);
          var dialog = new Views.FemImperfectionDialog(vm) { Owner = Application.Current.MainWindow };
          if (dialog.ShowDialog() != true || dialog.Result is not { } result) return;
          bool isNew = result.Id == 0;

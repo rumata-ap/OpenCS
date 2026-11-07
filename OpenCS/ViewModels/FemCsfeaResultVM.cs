@@ -1952,10 +1952,17 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     public CScore.Fem.Imperfections.FemImperfectionReport? Imperfections =>
         IsBatch ? _shownCombination?.Batch?.Imperfections : Summary.Imperfections;
 
-    public bool HasImperfections => Imperfections is { } r && r.Sways.Count + r.Bows.Count + r.Modes.Count > 0;
+    public bool HasImperfections => Imperfections is { } r && r.Sways.Count + r.Bows.Count + r.Modes.Count + r.WallBows.Count > 0;
 
     /// <summary>В отчёте есть формы потери устойчивости (таблица форм видна).</summary>
     public bool HasImperfectionModes => Imperfections is { Modes.Count: > 0 };
+
+    /// <summary>В отчёте есть погиби стен (таблица ярусов видна).</summary>
+    public bool HasImperfectionWallBows => Imperfections is { WallBows.Count: > 0 };
+
+    /// <summary>Таблица ярусов погиби стен: элемент, ярус, h_яр, t, e₀, знак, источник.</summary>
+    public IReadOnlyList<FemImperfectionWallBowRow> ImperfectionWallBowRows =>
+        Imperfections?.WallBows.Select(FemImperfectionWallBowRow.Of).ToList() ?? [];
 
     /// <summary>Таблица форм: элемент, постановка, задача, форма, λ, амплитуда.</summary>
     public IReadOnlyList<FemImperfectionModeRow> ImperfectionModeRows =>
@@ -1969,6 +1976,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         if (_showImperfection && EnsureImperfectionField() == null) _showImperfection = false;
         foreach (var name in new[] { nameof(Imperfections), nameof(HasImperfections), nameof(ImperfectionSwayRows),
                      nameof(ImperfectionBowRows), nameof(HasImperfectionModes), nameof(ImperfectionModeRows),
+                     nameof(HasImperfectionWallBows), nameof(ImperfectionWallBowRows),
                      nameof(ImperfectionSummaryText), nameof(ShowImperfection) })
             OnPropertyChanged(name);
     }
@@ -2530,6 +2538,18 @@ public sealed record FemImperfectionSwayRow(string Label, string Phi, string Ang
 
 /// <summary>Строка таблицы форм потери устойчивости окна результата (спека несовершенств 5.5): элемент, постановка, задача,
 /// форма, λ, амплитуда, мм.</summary>
+/// <summary>Строка таблицы ярусов погиби стен вкладки «Несовершенства».</summary>
+public sealed record FemImperfectionWallBowRow(string Label, string Tier, string HeightM, string ThicknessMm, string E0Mm, string Sign,
+    string Source)
+{
+    public static FemImperfectionWallBowRow Of(CScore.Fem.Imperfections.FemWallBowReportRow r)
+    {
+        var c = CultureInfo.CurrentCulture;
+        return new(r.Label, r.Tier, (r.ZTop - r.ZBottom).ToString("0.###", c), (r.Thickness * 1000).ToString("0.#", c),
+            (r.E0 * 1000).ToString("0.##", c), $"{r.Sign} — {r.SignSource}", r.E0Source);
+    }
+}
+
 public sealed record FemImperfectionModeRow(string Label, string Analysis, string Case, int Mode, string Lambda, string AmplitudeMm)
 {
     public static FemImperfectionModeRow Of(CScore.Fem.Imperfections.FemModeReportRow r)

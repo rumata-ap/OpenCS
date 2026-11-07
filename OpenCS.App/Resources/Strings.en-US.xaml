@@ -6280,4 +6280,44 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FemImperfectionColActiveReason">Reason</system:String>
    <system:String x:Key="FemImperfectionColSign">Sign</system:String>
    <system:String x:Key="FemImperfectionColSignSource">Sign source</system:String>
+   <!-- RC imperfections (slice 6): EN 1992-1-1 5.2, SP 63 8.1.7, wall bows -->
+   <system:String x:Key="FemImperfectionAddWallBow">Wall bow…</system:String>
+   <system:String x:Key="FemImperfectionDefaultWallBow">Wall bow</system:String>
+   <system:String x:Key="FemImperfectionDialogTitleWallBow">Imperfection — wall bow</system:String>
+   <system:String x:Key="FemImperfectionKindWallBow">Wall bow</system:String>
+   <system:String x:Key="FemImperfectionKindWallBowTip">Wall bow per storey between floors: a parabola along the wall normal in each storey (EN 1992-1-1 5.2(7)a, (9); SP 63 8.1.7). Storey levels — connections of floors and beams, bottom and top of the wall panel</system:String>
+   <system:String x:Key="FemImperfectionCaseSummaryWalls">, wall bows {0}</system:String>
+   <system:String x:Key="FemImperfectionWallTargetsShort">walls: members {0}, elements {1}</system:String>
+   <system:String x:Key="FemImperfectionNormEn1993">EN 1993-1-1 (steel)</system:String>
+   <system:String x:Key="FemImperfectionNormEn1992">EN 1992-1-1 (RC)</system:String>
+   <system:String x:Key="FemImperfectionNormSp63">SP 63.13330 (RC)</system:String>
+   <system:String x:Key="FemImperfectionPhiNormEn1992">θᵢ by EN 1992-1-1 (5.1)</system:String>
+   <system:String x:Key="FemImperfectionThetaNormShort">θᵢ by (5.1), m = {0}</system:String>
+   <system:String x:Key="FemImperfectionE0En1992">eᵢ = θᵢ·l₀/2 by (5.2)</system:String>
+   <system:String x:Key="FemImperfectionE0En1992Simplified">eᵢ = l₀/400 (5.2(7)a, (9))</system:String>
+   <system:String x:Key="FemImperfectionE0Sp63">e_a by SP 63 8.1.7: max(L/600, h/30, 10 mm)</system:String>
+   <system:String x:Key="FemImperfectionE0Sp63Wall">e_a by SP 63 8.1.7: max(h_st/600, t/30, 10 mm)</system:String>
+   <system:String x:Key="FemImperfectionE0RelativeWall">h_st/e₀ manually</system:String>
+   <system:String x:Key="FemImperfectionE0En1992Short">eᵢ = θᵢ·l₀/2, μ = {0:0.###}</system:String>
+   <system:String x:Key="FemImperfectionE0En1992SimplifiedShort">eᵢ = l₀/400, μ = {0:0.###}</system:String>
+   <system:String x:Key="FemImperfectionE0Sp63Short">e_a by SP 63 8.1.7</system:String>
+   <system:String x:Key="FemImperfectionMu">μ (l₀ = μ·L)</system:String>
+   <system:String x:Key="FemImperfectionMuTip">Effective length factor: l₀ = μ·L (member bow) or l₀ = μ·h_st (walls)</system:String>
+   <system:String x:Key="FemImperfectionMuHint">bow — braced member (Fig. 5.1 a2); for an unbraced one (μ ≥ 2) use sway</system:String>
+   <system:String x:Key="FemImperfectionSectionHeightMm">Section h, mm</system:String>
+   <system:String x:Key="FemImperfectionThicknessMm">Wall t, mm</system:String>
+   <system:String x:Key="FemImperfectionSizeMmTip">Empty — from the element section (depth in the bow plane) or the wall element thickness</system:String>
+   <system:String x:Key="FemImperfectionSp63Hint">empty — from section / element thickness</system:String>
+   <system:String x:Key="FemImperfectionConcreteHint">RC: the bow is always applied (EN 1992-1-1 5.2(1)P), the EN 1993 5.3.2(6) criterion does not apply. SP 63 8.1.7 is a section-check eccentricity; as a bow it adds to the analysis eccentricity (for statically indeterminate structures — on the safe side versus max(e₀, e_a)).</system:String>
+   <system:String x:Key="FemImperfectionBadMu">μ must be a positive number.</system:String>
+   <system:String x:Key="FemImperfectionBadSizeMm">Section depth or thickness (mm) must be a positive number.</system:String>
+   <system:String x:Key="FemImperfectionWallEmpty">No walls given: members or plate elements.</system:String>
+   <system:String x:Key="FemImperfectionWallPreview">Storeys</system:String>
+   <system:String x:Key="FemImperfectionWallPreviewTip">Show wall storeys between floors and e₀ values on the current scheme mesh (no preliminary analysis)</system:String>
+   <system:String x:Key="FemImperfectionWallPreviewNoMesh">The scheme mesh is not built — storeys are not determined.</system:String>
+   <system:String x:Key="FemImperfectionWallPreviewRow">{0}: h_st = {1:0.###} m, t = {2:0.#} mm, e₀ = {3:0.##} mm — {4}</system:String>
+   <system:String x:Key="FemImperfectionSketchWallBow">Wall bow: in each storey between floors — a parabola along the normal with rise e₀</system:String>
+   <system:String x:Key="FemImperfectionWallBowTable">Wall bows per storey</system:String>
+   <system:String x:Key="FemImperfectionColTier">Storey</system:String>
+   <system:String x:Key="FemImperfectionColThickness">t, mm</system:String>
 </ResourceDictionary>

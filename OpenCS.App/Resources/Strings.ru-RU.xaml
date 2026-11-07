@@ -6280,4 +6280,44 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FemImperfectionColActiveReason">Почему</system:String>
    <system:String x:Key="FemImperfectionColSign">Знак</system:String>
    <system:String x:Key="FemImperfectionColSignSource">Источник знака</system:String>
+   <!-- Несовершенства ЖБ (срез 6): EN 1992-1-1 п. 5.2, п. 8.1.7 СП 63, погибь стен -->
+   <system:String x:Key="FemImperfectionAddWallBow">Погибь стен…</system:String>
+   <system:String x:Key="FemImperfectionDefaultWallBow">Погибь стены</system:String>
+   <system:String x:Key="FemImperfectionDialogTitleWallBow">Несовершенство — погибь стен</system:String>
+   <system:String x:Key="FemImperfectionKindWallBow">Погибь стен</system:String>
+   <system:String x:Key="FemImperfectionKindWallBowTip">Погибь стен по ярусам между перекрытиями: в каждом ярусе — парабола вдоль нормали стены (EN 1992-1-1 п. 5.2(7)a, (9); п. 8.1.7 СП 63). Уровни ярусов — примыкание перекрытий и ригелей, низ и верх стенки</system:String>
+   <system:String x:Key="FemImperfectionCaseSummaryWalls">, погибей стен {0}</system:String>
+   <system:String x:Key="FemImperfectionWallTargetsShort">стены: КонЭ {0}, КЭ {1}</system:String>
+   <system:String x:Key="FemImperfectionNormEn1993">EN 1993-1-1 (сталь)</system:String>
+   <system:String x:Key="FemImperfectionNormEn1992">EN 1992-1-1 (ЖБ)</system:String>
+   <system:String x:Key="FemImperfectionNormSp63">СП 63.13330 (ЖБ)</system:String>
+   <system:String x:Key="FemImperfectionPhiNormEn1992">θᵢ по EN 1992-1-1 (5.1)</system:String>
+   <system:String x:Key="FemImperfectionThetaNormShort">θᵢ по (5.1), m = {0}</system:String>
+   <system:String x:Key="FemImperfectionE0En1992">eᵢ = θᵢ·l₀/2 по (5.2)</system:String>
+   <system:String x:Key="FemImperfectionE0En1992Simplified">eᵢ = l₀/400 (п. 5.2(7)a, (9))</system:String>
+   <system:String x:Key="FemImperfectionE0Sp63">e_a по п. 8.1.7 СП 63: max(L/600, h/30, 10 мм)</system:String>
+   <system:String x:Key="FemImperfectionE0Sp63Wall">e_a по п. 8.1.7 СП 63: max(h_яр/600, t/30, 10 мм)</system:String>
+   <system:String x:Key="FemImperfectionE0RelativeWall">h_яр/e₀ вручную</system:String>
+   <system:String x:Key="FemImperfectionE0En1992Short">eᵢ = θᵢ·l₀/2, μ = {0:0.###}</system:String>
+   <system:String x:Key="FemImperfectionE0En1992SimplifiedShort">eᵢ = l₀/400, μ = {0:0.###}</system:String>
+   <system:String x:Key="FemImperfectionE0Sp63Short">e_a по п. 8.1.7 СП 63</system:String>
+   <system:String x:Key="FemImperfectionMu">μ (l₀ = μ·L)</system:String>
+   <system:String x:Key="FemImperfectionMuTip">Коэффициент расчётной длины: l₀ = μ·L (погибь стержня) или l₀ = μ·h_яр (стены)</system:String>
+   <system:String x:Key="FemImperfectionMuHint">погибь — раскреплённый элемент (рис. 5.1 a2); нераскреплённый (μ ≥ 2) задайте креном</system:String>
+   <system:String x:Key="FemImperfectionSectionHeightMm">h сечения, мм</system:String>
+   <system:String x:Key="FemImperfectionThicknessMm">t стены, мм</system:String>
+   <system:String x:Key="FemImperfectionSizeMmTip">Пусто — по сечению КЭ (высота в плоскости погиби) или толщине КЭ стены</system:String>
+   <system:String x:Key="FemImperfectionSp63Hint">пусто — по сечению / толщине КЭ</system:String>
+   <system:String x:Key="FemImperfectionConcreteHint">ЖБ: погибь учитывается всегда (EN 1992-1-1 п. 5.2(1)P), критерий п. 5.3.2(6) EN 1993 не применяется. П. 8.1.7 СП 63 — эксцентриситет проверки сечения; как погибь он складывается с эксцентриситетом от расчёта (для статически неопределимых конструкций — в запас против max(e₀, e_a)).</system:String>
+   <system:String x:Key="FemImperfectionBadMu">μ должно быть положительным числом.</system:String>
+   <system:String x:Key="FemImperfectionBadSizeMm">Высота сечения или толщина (мм) должна быть положительным числом.</system:String>
+   <system:String x:Key="FemImperfectionWallEmpty">Не заданы стены: КонЭ или КЭ пластин.</system:String>
+   <system:String x:Key="FemImperfectionWallPreview">Ярусы</system:String>
+   <system:String x:Key="FemImperfectionWallPreviewTip">Показать ярусы стен между перекрытиями и стрелки e₀ по текущей сетке схемы (без предварительного расчёта)</system:String>
+   <system:String x:Key="FemImperfectionWallPreviewNoMesh">Сетка схемы не построена — ярусы не определяются.</system:String>
+   <system:String x:Key="FemImperfectionWallPreviewRow">{0}: h_яр = {1:0.###} м, t = {2:0.#} мм, e₀ = {3:0.##} мм — {4}</system:String>
+   <system:String x:Key="FemImperfectionSketchWallBow">Погибь стены: в каждом ярусе между перекрытиями — парабола вдоль нормали со стрелкой e₀</system:String>
+   <system:String x:Key="FemImperfectionWallBowTable">Погибь стен по ярусам</system:String>
+   <system:String x:Key="FemImperfectionColTier">Ярус</system:String>
+   <system:String x:Key="FemImperfectionColThickness">t, мм</system:String>
 </ResourceDictionary>

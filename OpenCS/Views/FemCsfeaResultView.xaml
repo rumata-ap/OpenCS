@@ -225,6 +225,20 @@
                             <DataGridTextColumn Header="{DynamicResource FemImperfectionColAmplitude}" Binding="{Binding AmplitudeMm}"/>
                         </DataGrid.Columns>
                     </DataGrid>
+                    <TextBlock DockPanel.Dock="Top" Text="{DynamicResource FemImperfectionWallBowTable}" FontWeight="SemiBold" Margin="6,6,6,2"
+                               Visibility="{Binding HasImperfectionWallBows, Converter={StaticResource BoolToVis}}"/>
+                    <DataGrid DockPanel.Dock="Top" ItemsSource="{Binding ImperfectionWallBowRows}" Style="{StaticResource FieldGrid}" MaxHeight="160"
+                              Visibility="{Binding HasImperfectionWallBows, Converter={StaticResource BoolToVis}}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColName}" Binding="{Binding Label}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColTier}" Binding="{Binding Tier}"/>
+                            <DataGridTextColumn Header="h_яр, м" Binding="{Binding HeightM}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColThickness}" Binding="{Binding ThicknessMm}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColE0}" Binding="{Binding E0Mm}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColSign}" Binding="{Binding Sign}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColSource}" Binding="{Binding Source}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
                     <TextBlock DockPanel.Dock="Top" Text="{DynamicResource FemImperfectionBowTable}" FontWeight="SemiBold" Margin="6,6,6,2"/>
                     <DataGrid ItemsSource="{Binding ImperfectionBowRows}" Style="{StaticResource FieldGrid}">
                         <DataGrid.RowStyle>

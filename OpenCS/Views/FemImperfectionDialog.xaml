@@ -57,11 +57,18 @@
                         <RadioButton GroupName="kind" Content="{DynamicResource FemImperfectionKindBow}" IsChecked="{Binding IsBow}"
                                      ToolTip="{DynamicResource FemImperfectionKindBowTip}" Margin="0,0,14,0"/>
                         <RadioButton GroupName="kind" Content="{DynamicResource FemImperfectionKindModes}" IsChecked="{Binding IsModes}"
-                                     ToolTip="{DynamicResource FemImperfectionKindModesTip}"/>
+                                     ToolTip="{DynamicResource FemImperfectionKindModesTip}" Margin="0,0,14,0"/>
+                        <RadioButton GroupName="kind" Content="{DynamicResource FemImperfectionKindWallBow}" IsChecked="{Binding IsWallBow}"
+                                     ToolTip="{DynamicResource FemImperfectionKindWallBowTip}"/>
                     </StackPanel>
-                    <TextBlock Grid.Row="2" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionNorm}"/>
-                    <TextBlock Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" Text="{x:Static vm:FemImperfectionDialogVM.NormText}"
-                               ToolTip="{DynamicResource FemImperfectionNormTip}"/>
+                    <TextBlock Grid.Row="2" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionNorm}"
+                               Visibility="{Binding HasNorm, Converter={StaticResource BoolToVis}}"/>
+                    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal"
+                                Visibility="{Binding HasNorm, Converter={StaticResource BoolToVis}}">
+                        <ComboBox Width="230" ItemsSource="{Binding Norms}" SelectedValuePath="Key" DisplayMemberPath="Label"
+                                  SelectedValue="{Binding Norm}" ToolTip="{DynamicResource FemImperfectionNormTip}"/>
+                        <TextBlock Style="{StaticResource Hint}" Text="{Binding NormText}"/>
+                    </StackPanel>
                 </Grid>
 
                 <!-- Относительно: охват крена или элементы погиби -->
@@ -87,10 +94,10 @@
                             <TextBox Grid.Column="1" Text="{Binding MembersText, UpdateSourceTrigger=PropertyChanged}"
                                      ToolTip="{DynamicResource FemImperfectionMembersTip}"/>
                             <TextBlock Grid.Row="1" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionElements}"
-                                       Visibility="{Binding IsSway, Converter={StaticResource BoolToVis}}"/>
+                                       Visibility="{Binding HasElementsList, Converter={StaticResource BoolToVis}}"/>
                             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ElementsText, UpdateSourceTrigger=PropertyChanged}"
                                      ToolTip="{DynamicResource FemImperfectionElementsTip}"
-                                     Visibility="{Binding IsSway, Converter={StaticResource BoolToVis}}"/>
+                                     Visibility="{Binding HasElementsList, Converter={StaticResource BoolToVis}}"/>
                             <TextBlock Grid.Row="2" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionChains}"
                                        Visibility="{Binding IsBow, Converter={StaticResource BoolToVis}}"/>
                             <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ChainsText, UpdateSourceTrigger=PropertyChanged}"
@@ -129,8 +136,8 @@
                         </StackPanel>
 
                         <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,4,0,2">
-                            <RadioButton GroupName="phi" Content="{DynamicResource FemImperfectionPhiNorm}" IsChecked="{Binding PhiNorm}"
-                                         Margin="0,0,14,0"/>
+                            <RadioButton GroupName="phi" Content="{Binding PhiNormLabel}" IsChecked="{Binding PhiNorm}"
+                                         IsEnabled="{Binding CanPhiNorm}" Margin="0,0,14,0"/>
                             <RadioButton GroupName="phi" Content="{DynamicResource FemImperfectionPhiManual}" IsChecked="{Binding PhiManual}"/>
                         </StackPanel>
 
@@ -155,7 +162,7 @@
 
                 <!-- Погибь: плоскость, e₀, знак, активность -->
                 <GroupBox Header="{DynamicResource FemImperfectionBowGroup}"
-                          Visibility="{Binding IsBow, Converter={StaticResource BoolToVis}}">
+                          Visibility="{Binding IsBowLike, Converter={StaticResource BoolToVis}}">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="150"/>
@@ -164,13 +171,16 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionPlane}"/>
+                        <TextBlock Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionPlane}"
+                                   Visibility="{Binding IsBow, Converter={StaticResource BoolToVis}}"/>
                         <ComboBox Grid.Column="1" ItemsSource="{x:Static vm:FemImperfectionDialogVM.Planes}" SelectedValuePath="Key"
-                                  DisplayMemberPath="Label" SelectedValue="{Binding Plane}"/>
+                                  DisplayMemberPath="Label" SelectedValue="{Binding Plane}"
+                                  Visibility="{Binding IsBow, Converter={StaticResource BoolToVis}}"/>
                         <TextBlock Grid.Row="1" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionE0Mode}"/>
-                        <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{x:Static vm:FemImperfectionDialogVM.E0Modes}" SelectedValuePath="Key"
+                        <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding E0ModeChoices}" SelectedValuePath="Key"
                                   DisplayMemberPath="Label" SelectedValue="{Binding E0Mode}"/>
 
                         <TextBlock Grid.Row="2" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionCurve}"
@@ -188,7 +198,7 @@
                             <RadioButton GroupName="column" Content="{DynamicResource FemImperfectionPlastic}" IsChecked="{Binding Plastic}"/>
                         </StackPanel>
 
-                        <TextBlock Grid.Row="4" Style="{StaticResource Caption}" Text="L/e₀"
+                        <TextBlock Grid.Row="4" Style="{StaticResource Caption}" Text="{Binding RelativeLabel}"
                                    Visibility="{Binding IsE0Relative, Converter={StaticResource BoolToVis}}"/>
                         <TextBox Grid.Row="4" Grid.Column="1" Width="90" HorizontalAlignment="Left"
                                  Text="{Binding LOverE0Text, UpdateSourceTrigger=PropertyChanged}"
@@ -199,12 +209,41 @@
                                  Text="{Binding E0MmText, UpdateSourceTrigger=PropertyChanged}"
                                  Visibility="{Binding IsE0Absolute, Converter={StaticResource BoolToVis}}"/>
 
-                        <TextBlock Grid.Row="6" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionSign}"/>
-                        <ComboBox Grid.Row="6" Grid.Column="1" ItemsSource="{x:Static vm:FemImperfectionDialogVM.Signs}" SelectedValuePath="Key"
+                        <TextBlock Grid.Row="6" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionMu}"
+                                   Visibility="{Binding IsE0Mu, Converter={StaticResource BoolToVis}}"/>
+                        <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal"
+                                    Visibility="{Binding IsE0Mu, Converter={StaticResource BoolToVis}}">
+                            <TextBox Width="90" Text="{Binding MuText, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="{DynamicResource FemImperfectionMuTip}"/>
+                            <TextBlock Style="{StaticResource Hint}" Text="{DynamicResource FemImperfectionMuHint}"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="7" Style="{StaticResource Caption}" Text="{Binding SizeMmLabel}"
+                                   Visibility="{Binding IsE0Sp63, Converter={StaticResource BoolToVis}}"/>
+                        <StackPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal"
+                                    Visibility="{Binding IsE0Sp63, Converter={StaticResource BoolToVis}}">
+                            <TextBox Width="90" Text="{Binding SizeMmText, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="{DynamicResource FemImperfectionSizeMmTip}"/>
+                            <TextBlock Style="{StaticResource Hint}" Text="{DynamicResource FemImperfectionSp63Hint}"/>
+                        </StackPanel>
+
+                        <TextBlock Grid.Row="8" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionSign}"/>
+                        <ComboBox Grid.Row="8" Grid.Column="1" ItemsSource="{x:Static vm:FemImperfectionDialogVM.Signs}" SelectedValuePath="Key"
                                   DisplayMemberPath="Label" SelectedValue="{Binding Sign}" ToolTip="{DynamicResource FemImperfectionSignTip}"/>
-                        <TextBlock Grid.Row="7" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionActivity}"/>
-                        <ComboBox Grid.Row="7" Grid.Column="1" ItemsSource="{x:Static vm:FemImperfectionDialogVM.Activities}" SelectedValuePath="Key"
-                                  DisplayMemberPath="Label" SelectedValue="{Binding Activity}" ToolTip="{DynamicResource FemImperfectionActivityTip}"/>
+                        <TextBlock Grid.Row="9" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionActivity}"
+                                   Visibility="{Binding ShowActivity, Converter={StaticResource BoolToVis}}"/>
+                        <ComboBox Grid.Row="9" Grid.Column="1" ItemsSource="{x:Static vm:FemImperfectionDialogVM.Activities}" SelectedValuePath="Key"
+                                  DisplayMemberPath="Label" SelectedValue="{Binding Activity}" ToolTip="{DynamicResource FemImperfectionActivityTip}"
+                                  Visibility="{Binding ShowActivity, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Grid.Row="10" Grid.ColumnSpan="2" Foreground="Gray" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0"
+                                   Text="{DynamicResource FemImperfectionConcreteHint}"
+                                   Visibility="{Binding IsConcreteNorm, Converter={StaticResource BoolToVis}}"/>
+                        <StackPanel Grid.Row="11" Grid.ColumnSpan="2" Margin="0,4,0,0"
+                                    Visibility="{Binding IsWallBow, Converter={StaticResource BoolToVis}}">
+                            <Button HorizontalAlignment="Left" Padding="8,1" Content="{DynamicResource FemImperfectionWallPreview}"
+                                    Command="{Binding PreviewTiersCommand}" ToolTip="{DynamicResource FemImperfectionWallPreviewTip}"/>
+                            <TextBox Text="{Binding TiersText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" FontSize="11"
+                                     MaxHeight="120" VerticalScrollBarVisibility="Auto" Foreground="DimGray" Margin="0,2"/>
+                        </StackPanel>
                     </Grid>
                 </GroupBox>
 
@@ -299,6 +338,23 @@
                         <TextBlock Canvas.Left="20" Canvas.Top="138" Text="L" FontStyle="Italic" Foreground="DimGray"/>
                         <TextBlock Canvas.Left="4" Canvas.Top="282" Width="186" TextWrapping="Wrap" FontSize="10" Foreground="Gray"
                                    Text="{DynamicResource FemImperfectionSketchBow}"/>
+                    </Canvas>
+
+                    <!-- Погибь стен: полуволна в каждом ярусе между перекрытиями -->
+                    <Canvas Visibility="{Binding IsWallBow, Converter={StaticResource BoolToVis}}">
+                        <Line X1="40" Y1="145" X2="130" Y2="145" Stroke="Black" StrokeThickness="3"/>
+                        <Line X1="40" Y1="30" X2="130" Y2="30" Stroke="Black" StrokeThickness="3"/>
+                        <Path Stroke="#C03030" StrokeThickness="2.5" Data="M70,260 Q110,202 70,145 Q110,87 70,30"/>
+                        <Line X1="70" Y1="202" X2="90" Y2="202" Stroke="DimGray" StrokeThickness="1"/>
+                        <Path Stroke="DimGray" Fill="DimGray" Data="M90,202 L83,199 L83,205 Z"/>
+                        <TextBlock Canvas.Left="96" Canvas.Top="192" Text="e₀" FontSize="15" Foreground="#C03030"/>
+                        <Line X1="70" Y1="87" X2="90" Y2="87" Stroke="DimGray" StrokeThickness="1"/>
+                        <Path Stroke="DimGray" Fill="DimGray" Data="M90,87 L83,84 L83,90 Z"/>
+                        <TextBlock Canvas.Left="96" Canvas.Top="77" Text="e₀" FontSize="15" Foreground="#C03030"/>
+                        <TextBlock Canvas.Left="10" Canvas.Top="194" Text="h₁" FontStyle="Italic" Foreground="DimGray"/>
+                        <TextBlock Canvas.Left="10" Canvas.Top="79" Text="h₂" FontStyle="Italic" Foreground="DimGray"/>
+                        <TextBlock Canvas.Left="4" Canvas.Top="282" Width="186" TextWrapping="Wrap" FontSize="10" Foreground="Gray"
+                                   Text="{DynamicResource FemImperfectionSketchWallBow}"/>
                     </Canvas>
 
                     <!-- Формы: полуволна формы потери устойчивости с амплитудой a -->

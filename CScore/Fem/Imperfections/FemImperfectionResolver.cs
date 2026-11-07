@@ -1,6 +1,8 @@
 using System.Globalization;
+using CScore.En1992;
 using CScore.En1993;
 using CScore.Fem.Loads;
+using CScore.Sp63;
 using CScore.Planar;
 
 namespace CScore.Fem.Imperfections;
@@ -15,7 +17,9 @@ public sealed record FemResolvedSway(string Label, double Phi, PlanarVector3 Dir
 {
     /// <summary>Ход вычисления φ по (5.5); null — 1/φ задан вручную.</summary>
     public En1993SwayPhi? Norm { get; init; }
-    /// <summary>Источник h для (5.5): «вручную» или «размах z охвата».</summary>
+    /// <summary>Ход вычисления θᵢ по EN 1992-1-1 (5.1); null — не по EN 1992.</summary>
+    public En1992Theta? Theta { get; init; }
+    /// <summary>Источник h для (5.5) / l для (5.1): «вручную» или «размах z охвата».</summary>
     public string HeightSource { get; init; } = "";
     /// <summary>Размах z охвата, м (для max|u₀| отчёта).</summary>
     public double SpanZ { get; init; }
@@ -33,6 +37,8 @@ public sealed record FemResolvedBow(string Label, IReadOnlyList<string> ElemTags
     public bool SignAuto { get; init; }
     /// <summary>Активность по п. 5.3.2(6) — по предварительному расчёту.</summary>
     public bool ActivityEn1993 { get; init; }
+    /// <summary>e₀ по ЖБ-норме (EN 1992-1-1 / СП 63) — учитывается всегда (EN 1992-1-1 п. 5.2(1)P).</summary>
+    public bool Concrete { get; init; }
     /// <summary>Источник e₀ для отчёта (табл. 5.1 с кривой, L/e₀ или мм вручную).</summary>
     public string E0Source { get; init; } = "";
     /// <summary>Кривая потери устойчивости (табл. 5.1), null — e₀ не по таблице.</summary>
@@ -40,6 +46,28 @@ public sealed record FemResolvedBow(string Label, IReadOnlyList<string> ElemTags
     /// <summary>Концы цепочки — теги узлов сетки (начало хорды, конец хорды).</summary>
     public string StartNode { get; init; } = "";
     public string StopNode { get; init; } = "";
+}
+
+/// <summary>
+/// Ярус погиби стены: КЭ пластин <paramref name="ElemTags"/> между уровнями <paramref name="ZBottom"/>–<paramref name="ZTop"/>,
+/// м; парабола w₀ = 4·<paramref name="E0"/>·ζ(1 − ζ) вдоль единичной горизонтальной нормали <paramref name="Normal"/>
+/// (глобальные оси); <paramref name="E0"/> — м, со знаком и коэффициентом.
+/// </summary>
+public sealed record FemResolvedWallTier(string Panel, IReadOnlyList<string> ElemTags, double ZBottom, double ZTop,
+    PlanarVector3 Normal, double E0)
+{
+    public double Height => ZTop - ZBottom;
+    /// <summary>Толщина стены, м (для отчёта).</summary>
+    public double Thickness { get; init; }
+    /// <summary>Источник e₀ с ходом вычисления.</summary>
+    public string E0Source { get; init; } = "";
+}
+
+/// <summary>Погибь стен по ярусам (<see cref="FemImperfectionKinds.WallBow"/>).</summary>
+public sealed record FemResolvedWallBow(string Label, IReadOnlyList<FemResolvedWallTier> Tiers) : FemResolvedImperfection(Label)
+{
+    /// <summary>Знак «авто» — для каждого яруса по прогибу первого порядка (<see cref="FemImperfectionResolver.Decide"/>).</summary>
+    public bool SignAuto { get; init; }
 }
 
 /// <summary>Итог привязки: несовершенства и диагностики (ошибки — расчёт невозможен).</summary>
@@ -92,6 +120,7 @@ public static partial class FemImperfectionResolver
             .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
 
         void Error(string code, string message) => diag.Add(new(code, message, true));
+        FemBracedLength? braced = null;
 
         foreach (var (imp, factor) in imperfections)
         {
@@ -101,7 +130,9 @@ public static partial class FemImperfectionResolver
                 case FemImperfectionKinds.Sway:
                 {
                     var p = FemSwayParams.Parse(imp.ParamsJson);
-                    bool norm = p.PhiMode == FemSwayParams.PhiEn1993;
+                    bool en1992 = p.PhiMode == FemSwayParams.PhiEn1992;
+                    bool norm = p.PhiMode == FemSwayParams.PhiEn1993 || en1992;
+                    string formula = en1992 ? "(5.1)" : "(5.5)";
                     if (!norm && p.PhiMode != FemSwayParams.PhiManual)
                     {
                         Error("imperfection_phi_invalid", $"Крен «{label}»: неизвестный способ задания φ «{p.PhiMode}».");
@@ -114,12 +145,12 @@ public static partial class FemImperfectionResolver
                     }
                     if (norm && p.M < 1)
                     {
-                        Error("imperfection_phi_invalid", $"Крен «{label}»: число колонн m по (5.5) — целое не меньше 1.");
+                        Error("imperfection_phi_invalid", $"Крен «{label}»: число {(en1992 ? "вертикальных элементов" : "колонн")} m по {formula} — целое не меньше 1.");
                         continue;
                     }
                     if (norm && p.HeightM is { } hm && !(double.IsFinite(hm) && hm > 0))
                     {
-                        Error("imperfection_phi_invalid", $"Крен «{label}»: высота h по (5.5) должна быть положительной.");
+                        Error("imperfection_phi_invalid", $"Крен «{label}»: {(en1992 ? "длина или высота l" : "высота h")} по {formula} должна быть положительной.");
                         continue;
                     }
                     if (!double.IsFinite(p.AngleDeg))
@@ -149,25 +180,35 @@ public static partial class FemImperfectionResolver
                     }
                     double span = SpanZ(scope, meshElements, elements, nodes);
                     En1993SwayPhi? phiNorm = null;
+                    En1992Theta? theta = null;
                     string heightSource = "";
                     double phi;
                     if (norm)
                     {
                         double h = p.HeightM ?? span;
+                        string hName = en1992 ? "l" : "h";
                         if (!(h > 1e-9))
                         {
-                            Error("imperfection_phi_height", $"Крен «{label}»: высота h по (5.5) не определяется (размах z охвата нулевой) — задайте h вручную.");
+                            Error("imperfection_phi_height", $"Крен «{label}»: {hName} по {formula} не определяется (размах z охвата нулевой) — задайте {hName} вручную.");
                             continue;
                         }
-                        phiNorm = En1993Imperfections.Phi(h, p.M);
-                        heightSource = p.HeightM != null ? "h вручную" : "h — размах z охвата";
-                        phi = phiNorm.Phi;
+                        heightSource = p.HeightM != null ? $"{hName} вручную" : $"{hName} — размах z охвата";
+                        if (en1992)
+                        {
+                            theta = En1992Imperfections.Theta(h, p.M);
+                            phi = theta.Theta;
+                        }
+                        else
+                        {
+                            phiNorm = En1993Imperfections.Phi(h, p.M);
+                            phi = phiNorm.Phi;
+                        }
                     }
                     else phi = 1 / p.PhiInv!.Value;
                     double a = p.AngleDeg * Math.PI / 180;
                     items.Add(new FemResolvedSway(label, factor * phi, new PlanarVector3(Math.Cos(a), Math.Sin(a), 0), scope)
                     {
-                        Norm = phiNorm, HeightSource = heightSource, SpanZ = span,
+                        Norm = phiNorm, Theta = theta, HeightSource = heightSource, SpanZ = span,
                     });
                     break;
                 }
@@ -209,9 +250,29 @@ public static partial class FemImperfectionResolver
                         Error("imperfection_e0_invalid", $"Погибь «{label}»: e₀ (мм) должно быть числом.");
                         continue;
                     }
-                    if (p.E0Mode is not (FemBowParams.E0Table or FemBowParams.E0Relative or FemBowParams.E0Absolute))
+                    bool concrete = FemBowParams.IsConcreteMode(p.E0Mode);
+                    if (p.E0Mode is not (FemBowParams.E0Table or FemBowParams.E0Relative or FemBowParams.E0Absolute) && !concrete)
                     {
                         Error("imperfection_e0_invalid", $"Погибь «{label}»: неизвестный способ задания e₀ «{p.E0Mode}».");
+                        continue;
+                    }
+                    double mu = p.Mu ?? 1.0;
+                    if (p.E0Mode is FemBowParams.E0En1992 or FemBowParams.E0En1992Simplified)
+                    {
+                        if (!double.IsFinite(mu) || mu <= 0)
+                        {
+                            Error("imperfection_mu_invalid", $"Погибь «{label}»: μ расчётной длины l₀ = μ·L должно быть положительным числом.");
+                            continue;
+                        }
+                        // П. 5.2(7)a: eᵢ — погибь раскреплённого элемента (рис. 5.1 a2); нераскреплённый — наклон, задаётся креном.
+                        if (mu >= 2 - 1e-9)
+                            diag.Add(new("imperfection_bow_unbraced",
+                                $"Погибь «{label}»: μ = {mu.ToString("0.###", CultureInfo.CurrentCulture)} — нераскреплённый элемент (рис. 5.1 a1): " +
+                                "несовершенство такого элемента — наклон θᵢ, задайте его креном; погибь eᵢ = θᵢ·l₀/2 принята по хорде цепочки.", false));
+                    }
+                    if (p.E0Mode == FemBowParams.E0Sp63 && p.SectionHeightMm is { } shm && !(double.IsFinite(shm) && shm > 0))
+                    {
+                        Error("imperfection_section_height", $"Погибь «{label}»: высота сечения h (мм) должна быть положительной.");
                         continue;
                     }
                     double sign = p.Sign == FemBowParams.SignMinus ? -1 : 1;
@@ -280,6 +341,26 @@ public static partial class FemImperfectionResolver
                             e0 = len / lOverE0;
                             source = string.Create(c, $"табл. 5.1 ({(p.Plastic ? "пластический" : "упругий")} расчёт), кривая {En1993Imperfections.Name(curve.Value)}: e₀ = L/{lOverE0:0} — {curveWhy}");
                         }
+                        else if (p.E0Mode == FemBowParams.E0En1992)
+                            e0 = En1992Imperfections.BowEi(len, mu, out source);
+                        else if (p.E0Mode == FemBowParams.E0En1992Simplified)
+                            e0 = En1992Imperfections.BowSimplified(len, mu, out source);
+                        else if (p.E0Mode == FemBowParams.E0Sp63)
+                        {
+                            double h;
+                            string hWhy;
+                            if (p.SectionHeightMm is { } hmm) { h = hmm / 1000.0; hWhy = "h вручную"; }
+                            else if (SectionHeight(tags, elements, alongY, context, out hWhy) is { } hs) h = hs;
+                            else
+                            {
+                                Error("imperfection_section_height",
+                                    $"Погибь «{label}», {what}: высота сечения для п. 8.1.7 не определена ({hWhy}) — задайте h вручную.");
+                                continue;
+                            }
+                            e0 = Sp63AccidentalEccentricity.Ea(len, h, out string ea);
+                            source = $"{ea} ({hWhy}; l — длина цепочки между концами; как погибь складывается с e₀ расчёта — " +
+                                     "для статически неопределимых в запас против max(e₀, e_a))";
+                        }
                         else if (p.E0Mode == FemBowParams.E0Relative)
                         {
                             e0 = len / p.LOverE0!.Value;
@@ -293,7 +374,8 @@ public static partial class FemImperfectionResolver
                         items.Add(new FemResolvedBow($"{label}, {what}", tags, factor * sign * e0, dir, len)
                         {
                             AlongLocalY = alongY, SignAuto = p.Sign == FemBowParams.SignAuto,
-                            ActivityEn1993 = p.Activity == FemBowParams.ActivityEn1993, E0Source = source, Curve = curve,
+                            ActivityEn1993 = !concrete && p.Activity == FemBowParams.ActivityEn1993, Concrete = concrete,
+                            E0Source = source, Curve = curve,
                             StartNode = start, StopNode = stop,
                         });
                     }
@@ -302,17 +384,205 @@ public static partial class FemImperfectionResolver
                 case FemImperfectionKinds.Modes:
                     if (ResolveModes(label, FemModesParams.Parse(imp.ParamsJson), factor, context, Error) is { } modes) items.Add(modes);
                     break;
+                case FemImperfectionKinds.WallBow:
+                    braced ??= new FemBracedLength(meshElements, meshNodes);
+                    if (ResolveWallBow(label, FemWallBowParams.Parse(imp.ParamsJson), factor, byMember, elements, nodes, braced,
+                            Error, d => diag.Add(d)) is { } wall)
+                        items.Add(wall);
+                    break;
                 default:
                     Error("imperfection_kind_invalid", $"Несовершенство «{label}»: неизвестный вид «{imp.Kind}».");
                     break;
             }
         }
         // П. 5.3.2(11): форма — «взамен» крена (3) и погибей (6); в одном варианте не сочетаются.
-        if (items.Any(i => i is FemResolvedModes) && items.Any(i => i is FemResolvedSway or FemResolvedBow))
+        if (items.Any(i => i is FemResolvedModes) && items.Any(i => i is FemResolvedSway or FemResolvedBow or FemResolvedWallBow))
             Error("imperfection_modes_mixed",
                 $"Несовершенства по формам ({string.Join(", ", items.OfType<FemResolvedModes>().Select(m => $"«{m.Label}»"))}) не сочетаются " +
                 "с креном и погибями в одном варианте расчёта (EN 1993-1-1 п. 5.3.2(11) — взамен п. (3) и (6)).");
         return new FemImperfectionResolution(items, diag);
+    }
+
+    /// <summary>
+    /// Погибь стен: КЭ стен охвата по ярусам стенок (<see cref="FemBracedLength.WallTier"/> — уровни раскрепления
+    /// перекрытиями и ригелями), стрелка по режиму для высоты яруса h_яр; null — ошибка (в <paramref name="error"/>).
+    /// Ярус без узлов строго между уровнями (один КЭ по высоте) — пропуск с предупреждением: парабола в узлах — нули.
+    /// </summary>
+    static FemResolvedWallBow? ResolveWallBow(string label, FemWallBowParams p, double factor,
+        IReadOnlyDictionary<string, List<FemElement>> byMember, IReadOnlyDictionary<string, FemElement> elements,
+        IReadOnlyDictionary<string, PlanarVector3> nodes, FemBracedLength braced, Action<string, string> error,
+        Action<FemValidationDiagnostic> warn)
+    {
+        var c = CultureInfo.CurrentCulture;
+        if (p.E0Mode is not (FemBowParams.E0En1992 or FemBowParams.E0En1992Simplified or FemBowParams.E0Sp63
+            or FemBowParams.E0Relative or FemBowParams.E0Absolute))
+        {
+            error("imperfection_e0_invalid", $"Погибь стены «{label}»: неизвестный способ задания e₀ «{p.E0Mode}».");
+            return null;
+        }
+        double mu = p.Mu ?? 1.0;
+        if (p.E0Mode is FemBowParams.E0En1992 or FemBowParams.E0En1992Simplified && (!double.IsFinite(mu) || mu <= 0))
+        {
+            error("imperfection_mu_invalid", $"Погибь стены «{label}»: μ расчётной длины l₀ = μ·h_яр должно быть положительным числом.");
+            return null;
+        }
+        if (p.E0Mode == FemBowParams.E0Relative && (p.LOverE0 is not { } r || !double.IsFinite(r) || r <= 0))
+        {
+            error("imperfection_e0_invalid", $"Погибь стены «{label}»: h_яр/e₀ должно быть положительным числом.");
+            return null;
+        }
+        if (p.E0Mode == FemBowParams.E0Absolute && (p.E0Mm is not { } mm || !double.IsFinite(mm)))
+        {
+            error("imperfection_e0_invalid", $"Погибь стены «{label}»: e₀ (мм) должно быть числом.");
+            return null;
+        }
+        if (p.ThicknessMm is { } tmm && !(double.IsFinite(tmm) && tmm > 0))
+        {
+            error("imperfection_section_height", $"Погибь стены «{label}»: толщина стены (мм) должна быть положительной.");
+            return null;
+        }
+        if (p.Sign is not (FemBowParams.SignAuto or FemBowParams.SignPlus or FemBowParams.SignMinus))
+        {
+            error("imperfection_sign_invalid", $"Погибь стены «{label}»: неизвестный знак «{p.Sign}».");
+            return null;
+        }
+
+        // Охват: КЭ пластин КонЭ и КЭ из списка.
+        var targets = new List<FemElement>();
+        var missing = new List<string>();
+        foreach (var tag in p.MemberTags)
+            if (byMember.TryGetValue(tag, out var list) && list.Any(e => e.ElemType == "shell"))
+                targets.AddRange(list.Where(e => e.ElemType == "shell"));
+            else missing.Add(tag);
+        foreach (var tag in p.ElementTags)
+            if (elements.TryGetValue(tag, out var e)) targets.Add(e);
+            else missing.Add(tag);
+        if (missing.Count > 0)
+            error("imperfection_target_missing", $"Погибь стены «{label}»: нет КонЭ-пластин или КЭ сетки {FemLoadTargets.Sample(missing)}.");
+        targets = targets.DistinctBy(e => e.ElemTag).ToList();
+        if (targets.Count == 0)
+        {
+            error("imperfection_scope_empty", $"Погибь стены «{label}»: не заданы стены.");
+            return null;
+        }
+        var notWalls = new List<string>();
+        var groups = new Dictionary<(int Panel, double Bottom, double Top), (FemWallTier Tier, List<FemElement> Elements)>();
+        foreach (var e in targets)
+        {
+            if (e.ElemType != "shell" || braced.WallTier(e) is not { } tier) { notWalls.Add(e.ElemTag); continue; }
+            var key = (tier.Panel, Math.Round(tier.ZBottom, 6), Math.Round(tier.ZTop, 6));
+            if (!groups.TryGetValue(key, out var g)) groups[key] = g = (tier, []);
+            g.Elements.Add(e);
+        }
+        if (notWalls.Count > 0)
+        {
+            error("imperfection_wall_not_wall",
+                $"Погибь стены «{label}»: КЭ {FemLoadTargets.Sample(notWalls)} — не пластины-стены (нормаль не горизонтальна или нет узлов).");
+            return null;
+        }
+
+        double sign = p.Sign == FemBowParams.SignMinus ? -1 : 1;
+        var tiers = new List<FemResolvedWallTier>();
+        var coarse = new List<string>();
+        foreach (var ((panel, _, _), (tier, list)) in groups.OrderBy(kv => kv.Key.Panel).ThenBy(kv => kv.Key.Item2))
+        {
+            double h = tier.ZTop - tier.ZBottom;
+            string panelName = list[0].SourceMemberTag is { } mt ? $"КонЭ {mt}" : $"стенка КЭ {list[0].ElemTag}";
+            string tierName = string.Create(c, $"{panelName}, z {tier.ZBottom:0.###}…{tier.ZTop:0.###} м");
+            // Узлы строго внутри яруса: иначе парабола в узлах — нули.
+            const double tol = 1e-3;
+            bool inner = list.SelectMany(e => FemMeshTopology.ReadNodeTags(e) ?? [])
+                .Select(FemMeshTopology.CanonicalNodeTag)
+                .Any(t => t != null && nodes.TryGetValue(t, out var q) && q.Z > tier.ZBottom + tol && q.Z < tier.ZTop - tol);
+            if (!inner) { coarse.Add(tierName); continue; }
+            double t;
+            string tWhy;
+            if (p.ThicknessMm is { } tm) { t = tm / 1000.0; tWhy = "t вручную"; }
+            else
+            {
+                t = list.Select(e => e.ThicknessM ?? 0).Max();
+                tWhy = "t — толщина КЭ";
+            }
+            double e0;
+            string source;
+            switch (p.E0Mode)
+            {
+                case FemBowParams.E0En1992:
+                    e0 = En1992Imperfections.BowEi(h, mu, out source);
+                    break;
+                case FemBowParams.E0En1992Simplified:
+                    e0 = En1992Imperfections.BowSimplified(h, mu, out source);
+                    break;
+                case FemBowParams.E0Sp63:
+                    if (!(t > 0))
+                    {
+                        error("imperfection_section_height", $"Погибь стены «{label}», {tierName}: толщина стены не задана — задайте её вручную.");
+                        return null;
+                    }
+                    e0 = Sp63AccidentalEccentricity.Ea(h, t, out string ea);
+                    source = $"{ea} ({tWhy}; l — высота яруса)";
+                    break;
+                case FemBowParams.E0Relative:
+                    e0 = h / p.LOverE0!.Value;
+                    source = string.Create(c, $"h_яр/e₀ = {p.LOverE0!.Value:0.###} вручную");
+                    break;
+                default:
+                    e0 = p.E0Mm!.Value / 1000.0;
+                    source = string.Create(c, $"e₀ = {p.E0Mm!.Value:0.###} мм вручную");
+                    break;
+            }
+            // Нормаль — детерминированно: n_x > 0, иначе n_y > 0.
+            var n = new PlanarVector3(tier.Normal.X, tier.Normal.Y, 0);
+            double nl = n.Length;
+            if (!(nl > 1e-9)) continue;
+            n = n * (1.0 / nl);
+            if (n.X < -1e-9 || (Math.Abs(n.X) <= 1e-9 && n.Y < 0)) n = n * -1.0;
+            tiers.Add(new FemResolvedWallTier(tierName, list.Select(e => e.ElemTag).ToList(), tier.ZBottom, tier.ZTop, n,
+                factor * sign * e0) { Thickness = t, E0Source = source });
+        }
+        if (coarse.Count > 0)
+            warn(new("imperfection_wall_coarse",
+                $"Погибь стены «{label}»: у ярусов {string.Join("; ", coarse.Take(5))}{(coarse.Count > 5 ? "…" : "")} нет узлов сетки между " +
+                "уровнями — погибь не представима (нужно не меньше 2 КЭ по высоте яруса, лучше 4) и не учтена.", false));
+        if (tiers.Count == 0)
+        {
+            error("imperfection_scope_empty", $"Погибь стены «{label}»: нет ярусов, в которых погибь представима.");
+            return null;
+        }
+        return new FemResolvedWallBow(label, tiers) { SignAuto = p.Sign == FemBowParams.SignAuto };
+    }
+
+    /// <summary>
+    /// Высота сечения в плоскости погиби по сечениям CScore КЭ цепочки (<see cref="FemImperfectionContext.BeamCross"/>):
+    /// размах контуров областей вдоль оси сечения, совпадающей с направлением погиби (у КЭ своей схемы ось Y сечения —
+    /// по местной y, у импортного — ось X); разные по цепочке — наибольшая (в запас). null — не определена.
+    /// </summary>
+    static double? SectionHeight(IReadOnlyList<string> tags, IReadOnlyDictionary<string, FemElement> elements, bool alongLocalY,
+        FemImperfectionContext? context, out string why)
+    {
+        if (context?.BeamCross == null) { why = "нет сечений стержней"; return null; }
+        double best = 0;
+        var distinct = new HashSet<double>();
+        foreach (var tag in tags)
+        {
+            var e = elements[tag];
+            if (context.BeamCross(tag) is not { } cs) { why = $"у КЭ {tag} нет сечения CScore"; return null; }
+            bool yAlongY = e.Origin != FemMember.MeshSourceImported;
+            bool alongSectionY = alongLocalY == yAlongY;
+            double lo = double.PositiveInfinity, hi = double.NegativeInfinity;
+            foreach (var area in cs.Areas)
+                foreach (var pt in area.Hull?.Points ?? [])
+                {
+                    double v = alongSectionY ? pt.Y : pt.X;
+                    lo = Math.Min(lo, v);
+                    hi = Math.Max(hi, v);
+                }
+            if (!(hi > lo)) { why = $"у сечения «{cs.Tag}» КЭ {tag} нет контура"; return null; }
+            distinct.Add(Math.Round(hi - lo, 6));
+            best = Math.Max(best, hi - lo);
+        }
+        why = string.Create(CultureInfo.CurrentCulture, $"h — по сечению{(distinct.Count > 1 ? " (наибольшая по КЭ цепочки)" : "")}, {best * 1000:0.#} мм");
+        return best;
     }
 
     /// <summary>
