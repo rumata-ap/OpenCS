@@ -66,6 +66,24 @@ public sealed class FemImperfectionDialogViewTests
         Assert.Null(error);
     }
 
+    /// <summary>Пакет: «±» у неотмеченного загружения-несовершенства показан снятым, выбор «±» сохраняется до отметки.</summary>
+    [Fact]
+    public void BatchRow_BothSignsShownOnlyWhenIncluded()
+    {
+        var row = new FemAnalysisDialog.BatchImperfectionRow { LoadCaseId = 1, Tag = "Imp" };
+        Assert.True(row.BothSigns);
+        Assert.False(row.ShownBothSigns);
+        row.ShownBothSigns = false;                              // недоступный флажок не меняет выбор
+        Assert.True(row.BothSigns);
+        row.IsIncluded = true;
+        Assert.True(row.ShownBothSigns);
+        row.ShownBothSigns = false;
+        Assert.False(row.BothSigns);
+        row.IsIncluded = false;
+        row.IsIncluded = true;
+        Assert.False(row.ShownBothSigns);
+    }
+
     static (FemImperfectionDialog, FemImperfectionDialogVM) Open(FemImperfection item)
     {
         var vm = new FemImperfectionDialogVM(item);

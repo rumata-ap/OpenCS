@@ -197,8 +197,10 @@
                     <TextBlock DockPanel.Dock="Top" Text="{Binding ImperfectionSummaryText}" TextWrapping="Wrap" Margin="6,4"/>
                     <TextBlock DockPanel.Dock="Top" Text="{DynamicResource FemImperfectionShowHint}" TextWrapping="Wrap" Margin="6,0,6,4"
                                Foreground="Gray"/>
-                    <TextBlock DockPanel.Dock="Top" Text="{DynamicResource FemImperfectionSwayTable}" FontWeight="SemiBold" Margin="6,2"/>
-                    <DataGrid DockPanel.Dock="Top" ItemsSource="{Binding ImperfectionSwayRows}" Style="{StaticResource FieldGrid}" MaxHeight="160">
+                    <TextBlock DockPanel.Dock="Top" Text="{DynamicResource FemImperfectionSwayTable}" FontWeight="SemiBold" Margin="6,2"
+                               Visibility="{Binding HasImperfectionSways, Converter={StaticResource BoolToVis}}"/>
+                    <DataGrid DockPanel.Dock="Top" ItemsSource="{Binding ImperfectionSwayRows}" Style="{StaticResource FieldGrid}" MaxHeight="160"
+                              Visibility="{Binding HasImperfectionSways, Converter={StaticResource BoolToVis}}">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="{DynamicResource FemImperfectionColName}" Binding="{Binding Label}"/>
                             <DataGridTextColumn Header="φ" Binding="{Binding Phi}"/>
@@ -240,8 +242,10 @@
                             <DataGridTextColumn Header="{DynamicResource FemImperfectionColSource}" Binding="{Binding Source}"/>
                         </DataGrid.Columns>
                     </DataGrid>
-                    <TextBlock DockPanel.Dock="Top" Text="{DynamicResource FemImperfectionBowTable}" FontWeight="SemiBold" Margin="6,6,6,2"/>
-                    <DataGrid ItemsSource="{Binding ImperfectionBowRows}" Style="{StaticResource FieldGrid}">
+                    <TextBlock DockPanel.Dock="Top" Text="{DynamicResource FemImperfectionBowTable}" FontWeight="SemiBold" Margin="6,6,6,2"
+                               Visibility="{Binding HasImperfectionBows, Converter={StaticResource BoolToVis}}"/>
+                    <DataGrid ItemsSource="{Binding ImperfectionBowRows}" Style="{StaticResource FieldGrid}"
+                              Visibility="{Binding HasImperfectionBows, Converter={StaticResource BoolToVis}}">
                         <DataGrid.RowStyle>
                             <Style TargetType="DataGridRow">
                                 <Style.Triggers>

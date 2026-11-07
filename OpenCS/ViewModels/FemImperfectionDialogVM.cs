@@ -188,6 +188,9 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
         PreviewTiersCommand = new RelayCommand(_ => PreviewTiers(), _ => _wallPreview != null);
         PreviewModesCommand = new RelayCommand(_ => PreviewModes(), _ => _modesPreview != null);
         if (_kind == FemImperfectionKinds.Modes && ModeRows.Count == 0) AddMode();
+        // Крен «φ по (5.5)»: недоступное поле 1/φ — вычисленное значение (ход — по кнопке «по (5.5)»), а не ручное по умолчанию.
+        if (_kind == FemImperfectionKinds.Sway && _phiNorm && TryPhi(out double phiOpen, out _))
+            _phiInvText = (1 / phiOpen).ToString("0.#", c);
         if (_kind == FemImperfectionKinds.WallBow && _norm == NormEn1993) _norm = NormEn1992;
         if (!E0ModeChoices.Any(k => k.Key == _e0Mode)) _e0Mode = E0ModeChoices[0].Key;
     }
@@ -433,13 +436,26 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
     /// <summary>Ход вычисления φ по (5.5) или почему не посчитан.</summary>
     public string PhiDescription { get => _phiDescription; private set { _phiDescription = value; OnPropertyChanged(); } }
 
-    /// <summary>Считает φ по (5.5) по полям h и m; при «1/φ вручную» подставляет 1/φ. false — данных не хватает (текст — почему).</summary>
+    /// <summary>
+    /// Считает φ по (5.5) по полям h и m и подставляет 1/φ в поле (при «φ по (5.5)» оно недоступно и показывает
+    /// вычисленное значение, а не прежнее ручное). false — данных не хватает (текст — почему).
+    /// </summary>
     public bool ComputePhi()
     {
+        bool ok = TryPhi(out double value, out string description);
+        PhiDescription = description;
+        if (ok) PhiInvText = (1 / value).ToString("0.#", CultureInfo.CurrentCulture);
+        return ok;
+    }
+
+    /// <summary>φ (θᵢ) по полям h и m и ход вычисления; false — данных не хватает (<paramref name="description"/> — почему).</summary>
+    bool TryPhi(out double value, out string description)
+    {
         var c = CultureInfo.CurrentCulture;
+        value = 0;
         if (!int.TryParse(MText.Trim(), NumberStyles.Integer, c, out int m) || m < 1)
         {
-            PhiDescription = Loc.S("FemImperfectionBadM");
+            description = Loc.S("FemImperfectionBadM");
             return false;
         }
         double h;
@@ -448,7 +464,7 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
         {
             if (!Pars.ParseAny(HText.Trim(), out h) || !double.IsFinite(h) || h <= 0)
             {
-                PhiDescription = Loc.S("FemImperfectionBadH");
+                description = Loc.S("FemImperfectionBadH");
                 return false;
             }
             source = Loc.S("FemImperfectionHManual");
@@ -458,26 +474,24 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
             var p = BuildSway(out _);
             if (p == null || _spanZ?.Invoke(p) is not { } span || !(span > 1e-9))
             {
-                PhiDescription = Loc.S("FemImperfectionHUnknown");
+                description = Loc.S("FemImperfectionHUnknown");
                 return false;
             }
             h = span;
             source = string.Format(c, Loc.S("FemImperfectionHSpan"), span);
         }
-        double value;
         if (_norm == NormEn1992)
         {
             var theta = En1992Imperfections.Theta(h, m);
-            PhiDescription = $"{source}: EN 1992-1-1 (5.1): {theta.Describe()}";
+            description = $"{source}: EN 1992-1-1 (5.1): {theta.Describe()}";
             value = theta.Theta;
         }
         else
         {
             var phi = En1993Imperfections.Phi(h, m);
-            PhiDescription = $"{source}: {phi.Describe()}";
+            description = $"{source}: {phi.Describe()}";
             value = phi.Phi;
         }
-        if (PhiManual) PhiInvText = (1 / value).ToString("0.#", c);
         return true;
     }
 

@@ -1954,6 +1954,12 @@ public sealed class FemCsfeaResultVM : ViewModelBase
 
     public bool HasImperfections => Imperfections is { } r && r.Sways.Count + r.Bows.Count + r.Modes.Count + r.WallBows.Count > 0;
 
+    /// <summary>В отчёте есть крен (таблица крена видна).</summary>
+    public bool HasImperfectionSways => Imperfections is { Sways.Count: > 0 };
+
+    /// <summary>В отчёте есть погиби стержней (таблица погибей видна).</summary>
+    public bool HasImperfectionBows => Imperfections is { Bows.Count: > 0 };
+
     /// <summary>В отчёте есть формы потери устойчивости (таблица форм видна).</summary>
     public bool HasImperfectionModes => Imperfections is { Modes.Count: > 0 };
 
@@ -1975,7 +1981,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         _imperfectionField = null;
         if (_showImperfection && EnsureImperfectionField() == null) _showImperfection = false;
         foreach (var name in new[] { nameof(Imperfections), nameof(HasImperfections), nameof(ImperfectionSwayRows),
-                     nameof(ImperfectionBowRows), nameof(HasImperfectionModes), nameof(ImperfectionModeRows),
+                     nameof(ImperfectionBowRows), nameof(HasImperfectionSways), nameof(HasImperfectionBows), nameof(HasImperfectionModes), nameof(ImperfectionModeRows),
                      nameof(HasImperfectionWallBows), nameof(ImperfectionWallBowRows),
                      nameof(ImperfectionSummaryText), nameof(ShowImperfection) })
             OnPropertyChanged(name);
@@ -1997,7 +2003,10 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             if (Imperfections is not { } r) return "";
             var c = CultureInfo.CurrentCulture;
             var lines = new List<string> { string.Format(c, Loc.S("FemImperfectionMaxU0"), r.MaxU0 * 1000) };
-            lines.Add(Loc.S(r.FirstOrder ? "FemImperfectionFirstOrderDone" : "FemImperfectionFirstOrderNone"));
+            // Предварительный расчёт решает только знак «авто» и активность погибей (стержней и стен): у вариантов
+            // с одним креном или формами он не нужен, и строка о нём сбивала бы с толку.
+            if (r.Bows.Count + r.WallBows.Count > 0)
+                lines.Add(Loc.S(r.FirstOrder ? "FemImperfectionFirstOrderDone" : "FemImperfectionFirstOrderNone"));
             if (!string.IsNullOrEmpty(r.AlphaCr)) lines.Add(r.AlphaCr);
             return string.Join(Environment.NewLine, lines);
         }

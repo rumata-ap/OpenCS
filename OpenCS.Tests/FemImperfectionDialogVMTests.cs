@@ -108,8 +108,11 @@ public sealed class FemImperfectionDialogVMTests
         FemSwayParams? asked = null;
         var vm = new FemImperfectionDialogVM(Item(FemImperfectionKinds.Sway, new FemSwayParams { PhiMode = FemSwayParams.PhiEn1993 }.ToJson()),
             spanZ: p => { asked = p; return 9; });
-        // h = 9: α_h = 2/3, m = 1: α_m = 1 → φ = 1/300.
+        // h = 9: α_h = 2/3, m = 1: α_m = 1 → φ = 1/300; поле 1/φ (недоступное при «по (5.5)») — вычисленное уже при открытии.
+        Assert.Equal("300", vm.PhiInvText);
+        Assert.Equal("", vm.PhiDescription);
         Assert.True(vm.ComputePhi());
+        Assert.Equal("300", vm.PhiInvText);
         Assert.NotNull(asked);
         Assert.Contains("1/300", vm.PhiDescription);
         vm.HText = "4";

@@ -38,8 +38,13 @@ public partial class FemAnalysisDialog : Window
         public int LoadCaseId { get; init; }
         public string Tag { get; init; } = "";
         bool _isIncluded, _bothSigns = true;
-        public bool IsIncluded { get => _isIncluded; set { _isIncluded = value; OnPropertyChanged(); } }
-        public bool BothSigns { get => _bothSigns; set { _bothSigns = value; OnPropertyChanged(); } }
+        public bool IsIncluded { get => _isIncluded; set { _isIncluded = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShownBothSigns)); } }
+        public bool BothSigns { get => _bothSigns; set { _bothSigns = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShownBothSigns)); } }
+        /// <summary>
+        /// Флажок «±» в списке: у неотмеченного загружения — снят (недоступный отмеченный читался как «считается с ±»);
+        /// выбор «±» хранится в <see cref="BothSigns"/> и возвращается при отметке.
+        /// </summary>
+        public bool ShownBothSigns { get => _isIncluded && _bothSigns; set { if (_isIncluded) BothSigns = value; } }
     }
 
     /// <summary>Сформированная постановка (валидна после DialogResult == true).</summary>
