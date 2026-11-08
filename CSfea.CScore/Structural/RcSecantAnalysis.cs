@@ -60,6 +60,14 @@ public sealed class RcSecantOptions
     public bool RecordSectionStrains { get; init; }
 
     /// <summary>
+    /// Теория второго порядка «только P-δ» (<see cref="RcLocalPDelta"/>, <see cref="StructuralMesh.SetLocalSecondOrder"/>):
+    /// K_σ вертикальных КЭ — без жёсткого сдвига участков между уровнями, прочие КЭ — без K_σ. Действует только при
+    /// <see cref="SecantPicardOptions.Geometric"/> и <see cref="SecantPicardOptions.GeometricSecondOrder"/>; с «Большими
+    /// перемещениями» — <see cref="NotSupportedException"/>.
+    /// </summary>
+    public bool LocalPDelta { get; init; }
+
+    /// <summary>
     /// Принятый шаг и снятие его полей (вызывать сразу — позже состояния КЭ уже другие). Вызывается в потоке расчёта
     /// после <see cref="SecantPicardOptions.OnStepAccepted"/> решателя.
     /// </summary>
@@ -191,6 +199,18 @@ public static class RcSecantAnalysis
         var solverOptions = options.Solver;
         if (build.Imperfection(model) is { } imperfection) solverOptions = solverOptions.WithImperfection(imperfection);
         bool secondOrder = solverOptions.Geometric && solverOptions.GeometricSecondOrder;
+        if (options.LocalPDelta && solverOptions.Geometric)
+        {
+            if (!secondOrder)
+                throw new NotSupportedException("Режим «только P-δ» — только в теории второго порядка (без «Больших перемещений»).");
+            var local = RcLocalPDelta.Analyze(model);
+            if (local.HasErrors)
+                throw new InvalidOperationException(
+                    $"Режим «только P-δ»: у оболочек {string.Join(", ", local.NoLineShells.Take(10))}" +
+                    (local.NoLineShells.Count > 10 ? " …" : "") + " нет линии уровня (перекрытия или торца) над или под узлом.");
+            build.Mesh.SetLocalSecondOrder(local.Chords);
+            solverOptions.Log?.Invoke(local.Summary);
+        }
         var extractor = new RcSecantFieldExtractor(model, build, shells,
             options.Solver.Geometric && !options.Solver.GeometricSecondOrder, options.ShellForceAngles,
             options.Solver.ShellInPlanePDelta, beams, options.RecordSectionStrains,

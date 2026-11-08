@@ -211,6 +211,18 @@ public sealed class FemAnalysisParams
     }
 }
 
+/// <summary>Охват теории второго порядка секущего расчёта CSfea (<see cref="FemCsfeaParams.SecondOrderScope"/>).</summary>
+public static class FemCsfeaSecondOrderScope
+{
+    /// <summary>Полный: K_σ всех КЭ (P-Δ и P-δ).</summary>
+    public const string Full = "Full";
+    /// <summary>
+    /// Только P-δ (спека второго порядка фрагмента, срез 1а): K_σ вертикальных КЭ по перемещениям без жёсткого сдвига
+    /// участков между уровнями (перекрытия, торцы), горизонтальные КЭ без K_σ.
+    /// </summary>
+    public const string LocalOnly = "LocalOnly";
+}
+
 /// <summary>Какие шаги секущего расчёта CSfea записывают полные поля (сводка шагов пишется всегда).</summary>
 public static class FemCsfeaRecording
 {
@@ -274,6 +286,11 @@ public sealed class FemCsfeaParams
     /// итерации (дольше); false — теория второго порядка: матрица начальных напряжений в секущей матрице системы.
     /// </summary>
     public bool GeomLargeDisplacements { get; set; }
+    /// <summary>
+    /// Охват теории второго порядка (<see cref="FemCsfeaSecondOrderScope"/>): полный или «только P-δ» — K_σ вертикальных
+    /// КЭ без сдвига участков между перекрытиями, горизонтальные без K_σ (фрагмент на масках линейного родителя).
+    /// </summary>
+    public string SecondOrderScope { get; set; } = FemCsfeaSecondOrderScope.Full;
     /// <summary>
     /// Линейный расчёт на жёсткостях секущего источника (<see cref="StiffnessSource"/>) с геометрической нелинейностью:
     /// все загружения решаются на K_s + K_σ по перемещениям определяющего состояния источника (P-Δ определяющего

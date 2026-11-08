@@ -87,7 +87,7 @@ public sealed record StructuralBeam(int I, int J, IBeamSectionResponse Section, 
 /// (<see cref="RigidLinks"/>, линеаризованная связь); решатели работают в редуцированном пространстве,
 /// перемещения возвращаются полными (с ведомыми узлами).
 /// </summary>
-public sealed class StructuralMesh : IFeaMesh
+public sealed partial class StructuralMesh : IFeaMesh
 {
     /// <summary>DOF на узел.</summary>
     public int DofsPerNode => 6;
@@ -364,6 +364,8 @@ public sealed class StructuralMesh : IFeaMesh
     /// </summary>
     public double[,] ElementKSecondOrder(int e, double[] u, bool shellInPlane = true)
     {
+        // Режим «только P-δ»: КЭ без хорды — без K_σ; у КЭ с хордой проекция — блоком-поправкой (ChordCorrection).
+        if (!HasGeometric(e)) return ElementK(e);
         if (e < Shells.Count)
         {
             var k = ElementK(e);
@@ -394,7 +396,7 @@ public sealed class StructuralMesh : IFeaMesh
         var parts = new double[]?[ElementCount];
         Parallel.For(0, ElementCount, new ParallelOptions { MaxDegreeOfParallelism = MaxDegreeOfParallelism },
             e => parts[e] = ImperfectionForceElement(e, field, uState, shellInPlane));
-        var g = new double[NDof];
+        var g = LocalChords != null ? ChordImperfectionForce(field, uState, shellInPlane) : new double[NDof];
         for (int e = 0; e < parts.Length; e++)
         {
             if (parts[e] is not { } ge) continue;
@@ -414,6 +416,7 @@ public sealed class StructuralMesh : IFeaMesh
     /// </summary>
     public double[]? ImperfectionForceElement(int e, ImperfectionField field, double[] uState, bool shellInPlane = true)
     {
+        if (!HasGeometric(e)) return null;
         if (e < Shells.Count)
         {
             if (field.Shell[e] is not { } s0) return null;
@@ -480,11 +483,15 @@ public sealed class StructuralMesh : IFeaMesh
     {
         if (bc.HasNonlinearSprings)
             throw new InvalidOperationException("SolveSecondOrder не поддерживает нелинейные пружины — используйте SolveNonlinear.");
+        // Режим «только P-δ»: поправки проекции K_σ — дополнительными блоками сборки.
+        Func<int, double[,]>? extra = ChordBlockCount == 0 ? null : k => ChordCorrection(k, uState, shellInPlane);
         if (bc.UFixed.Any(v => v != 0))
         {
             // Матрица КЭ нужна дважды (K_ff и полная K для K·ū) — без кеша K_σ собиралась бы повторно.
             var cache = new double[ElementCount][,];
-            var res = SolveLinear([f], bc, e => cache[e] ??= ElementKSecondOrder(e, uState, shellInPlane), [bc.UFixed])[0];
+            var extraCache = new double[ChordBlockCount][,];
+            var res = SolveLinearCore([f], bc, e => cache[e] ??= ElementKSecondOrder(e, uState, shellInPlane), [bc.UFixed],
+                extra == null ? null : k => extraCache[k] ??= extra(k))[0];
             LastSolveTimings = null;
             return res;
         }
@@ -493,7 +500,7 @@ public sealed class StructuralMesh : IFeaMesh
         {
             var clock = System.Diagnostics.Stopwatch.StartNew();
             var asm = Assembler(bc, fixedSys);
-            var kff = asm.AssembleWith(e => ElementKSecondOrder(e, uState, shellInPlane), MaxDegreeOfParallelism);
+            var kff = asm.AssembleWith(e => ElementKSecondOrder(e, uState, shellInPlane), MaxDegreeOfParallelism, extra: extra);
             double tAssemble = clock.Elapsed.TotalSeconds;
             var fSys = SysVector(f);
             var fmod = Array.ConvertAll(asm.Free, d => fSys[d]);
@@ -1224,6 +1231,12 @@ public sealed class StructuralMesh : IFeaMesh
     /// </param>
     public double[][] SolveLinear(IReadOnlyList<double[]> loads, BoundaryConditions bc, Func<int, double[,]>? elementK = null,
                                   IReadOnlyList<double[]?>? prescribed = null)
+        => SolveLinearCore(loads, bc, elementK, prescribed, null);
+
+    // То же с блоками-поправками хорд (режим «только P-δ», <paramref name="extra"/> — по номеру блока): в K_ff и в
+    // полной K для переноса K·ū.
+    private double[][] SolveLinearCore(IReadOnlyList<double[]> loads, BoundaryConditions bc, Func<int, double[,]>? elementK,
+                                       IReadOnlyList<double[]?>? prescribed, Func<int, double[,]>? extra)
     {
         if (bc.HasNonlinearSprings)
             throw new InvalidOperationException(
@@ -1248,7 +1261,7 @@ public sealed class StructuralMesh : IFeaMesh
         lock (_cholGate)
         {
             var asm = Assembler(bc, fixedSys);
-            var kff = elementK == null ? asm.Assemble(MaxDegreeOfParallelism) : asm.AssembleWith(elementK, MaxDegreeOfParallelism);
+            var kff = elementK == null ? asm.Assemble(MaxDegreeOfParallelism) : asm.AssembleWith(elementK, MaxDegreeOfParallelism, extra: extra);
             var chol = FactorizeCached(kff);
             if (elementK != null && !chol.LastFactorizationSpd)
             {
@@ -1264,6 +1277,8 @@ public sealed class StructuralMesh : IFeaMesh
             {
                 var coo = NewCoo();
                 for (int e = 0; e < ElementCount; e++) coo.AddBlock(ElementDofs(e), elementK?.Invoke(e) ?? ElementK(e));
+                if (extra != null)
+                    for (int k = 0; k < ChordBlockCount; k++) coo.AddBlock(ChordBlockDofs(k), extra(k));
                 var kSpring = bc.AssembleKSpring();
                 if (kSpring.Count > 0) AppendInto(coo, kSpring);
                 kFull = coo.ToCsc();

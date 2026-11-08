@@ -955,7 +955,7 @@ public sealed class SecantPicardSolver
                 ? ShellCorotational.ElementFCR(_mesh.ShellCoords(e), sec, Gather(u, dofs))
                 : ShellElementForces.ElementFInternalGlobal(_mesh.ShellCoords(e), sec, Gather(u, dofs), vonKarman: Cr);
             // Теория второго порядка: к усилиям закона — вклад начальных напряжений K_σ·u.
-            if (SecondOrder)
+            if (SecondOrder && _mesh.HasGeometric(e))
             {
                 parts[e] = Dense.AddV(parts[e], Dense.MatVec(_mesh.ShellKGeometric(e, u, _o.ShellInPlanePDelta), Gather(u, dofs)));
                 // Несовершенство: f_int + g = F (g — по N при u).
@@ -997,6 +997,13 @@ public sealed class SecantPicardSolver
                 fInt[dofs[i]] += fe[i];
                 fAbs[dofs[i]] += Math.Abs(fe[i]);
             }
+        }
+        // Режим «только P-δ»: поправки проекции K_σ (и несовершенства) к силам КЭ с хордой.
+        if (SecondOrder && _mesh.LocalChords != null)
+        {
+            var fc = _mesh.ChordForce(u, u, _o.ShellInPlanePDelta, fAbs);
+            if (_imperfection != null) fc = Dense.AddV(fc, _mesh.ChordImperfectionForce(_imperfection, u, _o.ShellInPlanePDelta, fAbs));
+            for (int i = 0; i < fInt.Length; i++) fInt[i] += fc[i];
         }
         return (fInt, fAbs);
     }

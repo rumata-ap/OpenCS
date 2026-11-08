@@ -600,6 +600,14 @@ public static class FemCsfeaRunner
         if (diag.Any(d => d.IsError)) return new(input, null, diag) { ControlNode = control, FragmentBoundary = fragmentBc };
 
         var adapted = await Task.Run(() => FemRcModelAdapter.Adapt(input), ct);
+        if (analysis.Kind == AnalysisKind && csfea.SecondOrderScope == FemCsfeaSecondOrderScope.LocalOnly)
+        {
+            // λ_cr каркаса: у фрагмента — постановки устойчивости родителя, иначе — самой схемы.
+            int frameId = schema is { IsFragment: true, ParentSchemaId: int parent } ? parent : schema.Id;
+            var lambda = csfea.GeomNonlinear && !csfea.GeomLargeDisplacements
+                ? FemBucklingModes.MinLambda(ctx.Db, frameId, FemCsfeaInputBuilder.GeometryFingerprint(ctx.Db, frameId)) : null;
+            diag.AddRange(LocalPDeltaDiagnostics(csfea, adapted.HasErrors ? null : adapted.Model, lambda, schema.IsFragment));
+        }
         CScore.Fem.Imperfections.FemImperfectionReport? imperfections = null;
         if (input.Imperfections.Count > 0 && !adapted.HasErrors)
         {
@@ -609,6 +617,63 @@ public static class FemCsfeaRunner
         else if (input.StageImperfections.Any(s => s.Count > 0) && !adapted.HasErrors)
             CheckStageImperfections(input, adapted, diag);
         return new(input, adapted, diag) { ControlNode = control, FragmentBoundary = fragmentBc, Imperfections = imperfections };
+    }
+
+    /// <summary>Порог λ_cr каркаса, при котором P-Δ пренебрежимо мал и допустим режим «только P-δ» (решение 06.11).</summary>
+    public const double LocalPDeltaLambdaMin = 10.0;
+
+    /// <summary>
+    /// Проверки режима «только P-δ» (<see cref="FemCsfeaSecondOrderScope.LocalOnly"/>, срез 1а спеки второго порядка
+    /// фрагмента): без геомнелина — предупреждение <c>fragment_pdelta_local_first_order</c>; с «Большими перемещениями» —
+    /// ошибка <c>fragment_pdelta_local_cr</c>; по модели (<paramref name="model"/>, null — не проверяется) — уровни и хорды
+    /// (<see cref="RcLocalPDelta"/>): узлы без линии уровня — ошибка <c>fragment_pdelta_local_no_level_line</c>, иначе
+    /// сведения <c>fragment_pdelta_local</c>; λ_cr каркаса (<paramref name="lambda"/> — наименьшее λ₁ и постановка; у
+    /// фрагмента — родителя) меньше <see cref="LocalPDeltaLambdaMin"/> или не посчитан — предупреждение
+    /// <c>fragment_pdelta_local_sway</c>.
+    /// </summary>
+    public static List<FemValidationDiagnostic> LocalPDeltaDiagnostics(FemCsfeaParams csfea, RcStructuralModel? model,
+        (double Lambda, string Analysis)? lambda, bool fragment)
+    {
+        var diag = new List<FemValidationDiagnostic>();
+        if (!csfea.GeomNonlinear)
+        {
+            diag.Add(new("fragment_pdelta_local_first_order",
+                "Режим «только P-δ» не действует: расчёт без геометрической нелинейности.", false));
+            return diag;
+        }
+        if (csfea.GeomLargeDisplacements)
+        {
+            diag.Add(new("fragment_pdelta_local_cr",
+                "Режим «только P-δ» — только в теории второго порядка: снимите «Большие перемещения».", true));
+            return diag;
+        }
+        if (model != null)
+        {
+            var r = RcLocalPDelta.Analyze(model);
+            if (r.HasErrors)
+            {
+                var tags = r.NoLineShells.Select(id => id.ToString(CultureInfo.InvariantCulture)).ToList();
+                diag.Add(new("fragment_pdelta_local_no_level_line",
+                    $"Режим «только P-δ»: у пластин стен {CScore.Fem.Loads.FemLoadTargets.Sample(tags)} нет линии уровня (перекрытия или " +
+                    "торца стены) над или под узлом по его плановому положению — уровень не совпал с сеткой.", true, tags));
+            }
+            else diag.Add(new("fragment_pdelta_local", r.Summary, false));
+        }
+        string frame = fragment ? "родителя" : "схемы";
+        if (lambda is not { } l)
+            diag.Add(new("fragment_pdelta_local_sway",
+                $"Режим «только P-δ»: коэффициент критической нагрузки {frame} не посчитан (постановка «Расчётные длины — CSfea» " +
+                "с текущей геометрией) — допустимость пренебречь P-Δ каркаса (λ_cr ≥ 10) не проверена; для каркаса, " +
+                "чувствительного к сдвигу, нужен родитель по второму порядку.", false));
+        else if (l.Lambda < LocalPDeltaLambdaMin)
+            diag.Add(new("fragment_pdelta_local_sway", string.Format(CultureInfo.CurrentCulture,
+                "Режим «только P-δ»: λ_cr {0} = {1:0.##} < 10 (постановка «{2}») — каркас чувствителен к сдвигу, P-Δ этажа не " +
+                "пренебрежимо мал; нужен родитель по второму порядку.", frame, l.Lambda, l.Analysis), false));
+        else
+            diag.Add(new("fragment_pdelta_local", string.Format(CultureInfo.CurrentCulture,
+                "Режим «только P-δ»: λ_cr {0} = {1:0.##} ≥ 10 (постановка «{2}») — P-Δ каркаса пренебрежимо мал.",
+                frame, l.Lambda, l.Analysis), false));
+        return diag;
     }
 
     /// <summary>

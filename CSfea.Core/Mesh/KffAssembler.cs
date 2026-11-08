@@ -19,6 +19,8 @@ internal sealed class KffAssembler
     private readonly BoundaryConditions _bc;
     private readonly int[] _fixedSys;
     private readonly int _springCount;
+    private readonly int _elementCount;   // КЭ сетки — первые блоки
+    private readonly int _extraCount;     // блоки-поправки хорд — после КЭ
     private readonly int[] _colPtr;
     private readonly int[] _rowIdx;
     private readonly double[] _values;
@@ -68,7 +70,11 @@ internal sealed class KffAssembler
         }
         bool IsLinked(int[] dofs) => links != null && dofs.Any(d => links.IsSlave(d));
 
-        int nElem = mesh.ElementCount;
+        // Блоки: КЭ (единая нумерация), затем блоки-поправки хорд режима «только P-δ» (StructuralMesh.ChordBlockDofs).
+        _elementCount = mesh.ElementCount;
+        _extraCount = mesh.ChordBlockCount;
+        int nElem = _elementCount + _extraCount;
+        int[] BlockDofs(int b) => b < _elementCount ? mesh.ElementDofs(b) : mesh.ChordBlockDofs(b - _elementCount);
         var springs = bc.AssembleKSpring().ToCsc();
         _springCount = springs.Nnz;
 
@@ -86,7 +92,7 @@ internal sealed class KffAssembler
                             each(a * n + b, ra, rb, ta * tb);
         }
         for (int e = 0; e < nElem; e++)
-            Visit(mesh.ElementDofs(e), (_, r, c, _) => { if (r >= 0 && c >= 0) colCount[c + 1]++; });
+            Visit(BlockDofs(e), (_, r, c, _) => { if (r >= 0 && c >= 0) colCount[c + 1]++; });
         VisitSprings((r, c, _) => { if (r >= 0 && c >= 0) colCount[c + 1]++; });
         for (int c = 0; c < nf; c++) colCount[c + 1] += colCount[c];
 
@@ -94,7 +100,7 @@ internal sealed class KffAssembler
         var raw = new int[colCount[nf]];
         var next = (int[])colCount.Clone();
         for (int e = 0; e < nElem; e++)
-            Visit(mesh.ElementDofs(e), (_, r, c, _) => { if (r >= 0 && c >= 0) raw[next[c]++] = r; });
+            Visit(BlockDofs(e), (_, r, c, _) => { if (r >= 0 && c >= 0) raw[next[c]++] = r; });
         VisitSprings((r, c, _) => { if (r >= 0 && c >= 0) raw[next[c]++] = r; });
         _colPtr = new int[nf + 1];
         int nz = 0;
@@ -126,7 +132,7 @@ internal sealed class KffAssembler
         long plain = 0, linked = 0;
         for (int e = 0; e < nElem; e++)
         {
-            var dofs = mesh.ElementDofs(e);
+            var dofs = BlockDofs(e);
             _elemLinked[e] = IsLinked(dofs);
             if (!_elemLinked[e]) plain += dofs.Length * dofs.Length;
             else Visit(dofs, (_, _, _, _) => linked++);
@@ -139,7 +145,7 @@ internal sealed class KffAssembler
         {
             _elemOffset[e] = q;
             _linkedStart[e] = lq;
-            var dofs = mesh.ElementDofs(e);
+            var dofs = BlockDofs(e);
             if (!_elemLinked[e])
             {
                 int n = dofs.Length;
@@ -190,7 +196,8 @@ internal sealed class KffAssembler
 
     /// <summary>Подходит ли символика: те же ГУ, закрепления и число элементов пружин.</summary>
     public bool Matches(BoundaryConditions bc, int[] fixedSys) =>
-        ReferenceEquals(bc, _bc) && fixedSys.AsSpan().SequenceEqual(_fixedSys) && bc.AssembleKSpring().ToCsc().Nnz == _springCount;
+        ReferenceEquals(bc, _bc) && fixedSys.AsSpan().SequenceEqual(_fixedSys) && bc.AssembleKSpring().ToCsc().Nnz == _springCount
+        && _mesh.ChordBlockCount == _extraCount;
 
     /// <summary>
     /// Числовая сборка K_ff. Возвращаемая матрица делит портрет и массив значений со сборщиком — действительна до
@@ -212,11 +219,16 @@ internal sealed class KffAssembler
     /// <paramref name="elementMatrix"/> вызывается из нескольких потоков. Возвращаемая матрица — как у <see cref="Assemble"/>.
     /// <paramref name="springs"/> = false — без пружин (например, геометрическая матрица K_σ).
     /// </summary>
-    public CscMatrix AssembleWith(Func<int, double[,]> elementMatrix, int maxDegreeOfParallelism, bool springs = true)
+    /// <paramref name="extra"/> — матрицы блоков-поправок хорд по номеру блока (<see cref="StructuralMesh.ChordBlockDofs"/>);
+    /// null — блоки не складываются (нули в портрете).
+    public CscMatrix AssembleWith(Func<int, double[,]> elementMatrix, int maxDegreeOfParallelism, bool springs = true,
+        Func<int, double[,]>? extra = null)
     {
         var po = new ParallelOptions { MaxDegreeOfParallelism = maxDegreeOfParallelism };
         Array.Clear(_values);
-        AddElements(Enumerable.Range(0, _mesh.ElementCount).ToArray(), _values, po, elementMatrix);
+        AddElements(Enumerable.Range(0, _elementCount).ToArray(), _values, po, elementMatrix);
+        if (extra != null && _extraCount > 0)
+            AddElements(Enumerable.Range(_elementCount, _extraCount).ToArray(), _values, po, b => extra(b - _elementCount));
         if (springs) AddSprings();
         return new CscMatrix(Free.Length, Free.Length, _colPtr, _rowIdx, _values);
     }

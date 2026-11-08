@@ -3507,6 +3507,8 @@
     <system:String x:Key="FemCsfeaGeomNonlinearTip">Second-order analysis (deformed configuration): the initial stress matrix from the forces of the previous iteration is added to the secant stiffness — P-Δ of bars, walls and plates. A matrix that is no longer positive definite means loss of stability. Large displacements — separate option.</system:String>
     <system:String x:Key="FemCsfeaShellInPlanePDeltaLabel">Account for in-plane deflection of walls and plates</system:String>
     <system:String x:Key="FemCsfeaShellInPlanePDeltaTip">On: P-Δ of walls and plates both out of plane and in plane (a wall or pier compressed and bent in its plane). Off: out-of-plane deflection only.</system:String>
+    <system:String x:Key="FemCsfeaLocalPDeltaLabel">P-δ only (no storey sway)</system:String>
+    <system:String x:Key="FemCsfeaLocalPDeltaTip">Second-order theory for local bending of columns and walls between floors only: K_σ of vertical elements uses displacements without the rigid sway of the segment between levels (floors, end cuts); horizontal elements get no K_σ. Intended for a fragment on masks of a linear parent; acceptable when the frame is not sway-sensitive (parent λ_cr ≥ 10). Not with "Large displacements".</system:String>
     <system:String x:Key="FemCsfeaLargeDisplacementsLabel">Large displacements</system:String>
     <system:String x:Key="FemCsfeaLargeDisplacementsTip">Corotational formulation of plates and bars: large rotations, equilibrium by Newton iterations at every iteration. Noticeably slower; rarely needed — flexible systems, snap-through. Off: second-order analysis.</system:String>
     <system:String x:Key="FemCsfeaIterationsGroup">Iterations (Picard)</system:String>

@@ -73,6 +73,24 @@ public static class FemBucklingModes
         return best is { } b ? FemImperfectionResolver.AlphaCrLine(b.Lambda, b.Analysis, b.Case) : null;
     }
 
+    /// <summary>
+    /// Наименьшее λ₁ по задачам посчитанных постановок устойчивости схемы <paramref name="schemaId"/> с совпадающим
+    /// отпечатком геометрии и имя постановки; null — таких нет (критерий режима «только P-δ», λ_cr ≥ 10).
+    /// </summary>
+    public static (double Lambda, string Analysis)? MinLambda(DatabaseService db, int schemaId, string geometry)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        if (geometry.Length == 0) return null;
+        (double, string)? best = null;
+        foreach (var a in db.GetFemAnalyses(schemaId).Where(a => a.Kind == FemBucklingRunner.AnalysisKind))
+        {
+            if (Summary(db, a, out _) is not { } s || s.Geometry != geometry) continue;
+            foreach (var c in s.Cases.Where(c => c.Lambda.Length > 0))
+                if (best == null || c.Lambda[0] < best.Value.Item1) best = (c.Lambda[0], a.Tag);
+        }
+        return best;
+    }
+
     /// <summary>Постановки устойчивости схемы для диалога: состояние форм против текущего отпечатка <paramref name="geometry"/>.</summary>
     public static List<FemBucklingSourceChoice> Sources(DatabaseService db, int schemaId, string geometry)
     {

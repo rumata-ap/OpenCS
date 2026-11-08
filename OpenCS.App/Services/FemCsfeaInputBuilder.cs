@@ -93,6 +93,7 @@ public sealed record FemCsfeaSetup
             PoissonUncracked = p.PoissonUncracked, ShellForceAngles = shellForceAngles, OnStep = onStep,
             RecordSectionStrains = p.RecordSectionStrains,
             PhysicallyLinear = !p.PhysicalNonlinearity,
+            LocalPDelta = IsLocalPDelta(p),
             Solver = new CSfea.Core.SecantPicardOptions
             {
                 MaxIterations = p.MaxIterations, TolDisplacement = p.TolDisplacement, TolStiffness = p.TolStiffness,
@@ -102,6 +103,13 @@ public sealed record FemCsfeaSetup
             },
         };
     }
+
+    /// <summary>
+    /// Режим «только P-δ» действует (<see cref="FemCsfeaSecondOrderScope.LocalOnly"/> при теории второго порядка — геомнелин
+    /// без «Больших перемещений»).
+    /// </summary>
+    public static bool IsLocalPDelta(FemCsfeaParams? p) => p is { GeomNonlinear: true, GeomLargeDisplacements: false }
+        && p.SecondOrderScope == FemCsfeaSecondOrderScope.LocalOnly;
 }
 
 /// <summary>

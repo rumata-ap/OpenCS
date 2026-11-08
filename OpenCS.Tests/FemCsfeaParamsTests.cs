@@ -49,6 +49,70 @@ public sealed class FemCsfeaParamsTests
         Assert.NotEqual(json, pars.ToJson());
     }
 
+    /// <summary>
+    /// Охват второго порядка (срез 1а): старый JSON без поля — Full; LocalOnly сохраняется; «только P-δ» в опциях ядра —
+    /// только при геомнелине без «Больших перемещений».
+    /// </summary>
+    [Fact]
+    public void SecondOrderScope_DefaultsFull_MapsToLocalPDelta()
+    {
+        string oldJson = System.Text.RegularExpressions.Regex.Replace(
+            new FemAnalysisParams { Csfea = new FemCsfeaParams { GeomNonlinear = true } }.ToJson(),
+            @"""SecondOrderScope""\s*:\s*""\w+""\s*,?", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        Assert.DoesNotContain("SecondOrderScope", oldJson, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(FemCsfeaSecondOrderScope.Full, FemAnalysisParams.Parse(oldJson).Csfea!.SecondOrderScope);
+        Assert.False(FemCsfeaSetup.SecantOptions(FemAnalysisParams.Parse(oldJson).Csfea).LocalPDelta);
+
+        var local = new FemCsfeaParams { GeomNonlinear = true, SecondOrderScope = FemCsfeaSecondOrderScope.LocalOnly };
+        var back = FemAnalysisParams.Parse(new FemAnalysisParams { Csfea = local }.ToJson()).Csfea!;
+        Assert.Equal(FemCsfeaSecondOrderScope.LocalOnly, back.SecondOrderScope);
+        Assert.True(FemCsfeaSetup.SecantOptions(back).LocalPDelta);
+        local.GeomLargeDisplacements = true;
+        Assert.False(FemCsfeaSetup.SecantOptions(local).LocalPDelta);
+        local.GeomLargeDisplacements = false;
+        local.GeomNonlinear = false;
+        Assert.False(FemCsfeaSetup.SecantOptions(local).LocalPDelta);
+    }
+
+    /// <summary>
+    /// Проверки «только P-δ»: без геомнелина — предупреждение; CR — ошибка; λ_cr не посчитан / &lt; 10 — предупреждение
+    /// <c>fragment_pdelta_local_sway</c>, ≥ 10 — сведения; стена-трапеция — ошибка <c>fragment_pdelta_local_no_level_line</c>.
+    /// </summary>
+    [Fact]
+    public void LocalPDeltaDiagnostics_Codes()
+    {
+        var p = new FemCsfeaParams { GeomNonlinear = true, SecondOrderScope = FemCsfeaSecondOrderScope.LocalOnly };
+        var firstOrder = FemCsfeaRunner.LocalPDeltaDiagnostics(new FemCsfeaParams(), null, null, true);
+        Assert.Contains(firstOrder, d => d.Code == "fragment_pdelta_local_first_order" && !d.IsError);
+        var cr = FemCsfeaRunner.LocalPDeltaDiagnostics(new FemCsfeaParams { GeomNonlinear = true, GeomLargeDisplacements = true }, null, null, true);
+        Assert.Contains(cr, d => d.Code == "fragment_pdelta_local_cr" && d.IsError);
+        Assert.Contains(FemCsfeaRunner.LocalPDeltaDiagnostics(p, null, null, true), d => d.Code == "fragment_pdelta_local_sway" && !d.IsError);
+        Assert.Contains(FemCsfeaRunner.LocalPDeltaDiagnostics(p, null, (6.5, "Устойчивость"), true),
+            d => d.Code == "fragment_pdelta_local_sway" && d.Message.Contains("6", StringComparison.Ordinal));
+        var ok = FemCsfeaRunner.LocalPDeltaDiagnostics(p, null, (12.0, "Устойчивость"), true);
+        Assert.DoesNotContain(ok, d => d.Code == "fragment_pdelta_local_sway");
+        Assert.Contains(ok, d => d.Code == "fragment_pdelta_local");
+
+        // Стена-трапеция: низ 0…1 м, верх 0,25…0,75 м — у краевых узлов нижних рядов нет точки верхней линии уровня.
+        var m = new RcStructuralModel();
+        var sec = new RcShellSection("стена") { Elastic = new Laminate([new Ply(new OrthotropicMaterial(30e9, 30e9, 0.2, 12.5e9), 0, 0.2)]) };
+        const int nx = 4, nz = 4;
+        for (int k = 0; k <= nz; k++)
+            for (int i = 0; i <= nx; i++)
+            {
+                double x0 = 0.25 * k / nz, x1 = 1 - 0.25 * k / nz;
+                m.Nodes.Add(new RcNode(k * (nx + 1) + i, x0 + (x1 - x0) * i / nx, 0, 3.0 * k / nz));
+            }
+        for (int k = 0; k < nz; k++)
+            for (int i = 0; i < nx; i++)
+            {
+                int a = k * (nx + 1) + i;
+                m.Shells.Add(new RcShell(k * nx + i + 1, [a, a + 1, a + nx + 2, a + nx + 1], sec));
+            }
+        var wall = FemCsfeaRunner.LocalPDeltaDiagnostics(p, m, (12.0, "Устойчивость"), true);
+        Assert.Contains(wall, d => d.Code == "fragment_pdelta_local_no_level_line" && d.IsError && d.SourceKeys is { Count: > 0 });
+    }
+
     [Fact]
     public void ToJson_Parse_RoundTripsCsfea()
     {
