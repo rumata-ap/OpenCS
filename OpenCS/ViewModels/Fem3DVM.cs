@@ -38,6 +38,9 @@ public sealed record PlanarRegionVisual(string ElemTag, MeshGeometry3D Mesh, Poi
 /// <summary>Действие фрагмента по группе.</summary>
 public enum FemFragmentAction { ShowOnly, Hide, Show }
 
+/// <summary>Показ пластин в 3D-виде: обычные, бледной тенью без выбора или скрыты.</summary>
+public enum FemShellDisplay { Visible, Ghost, Hidden }
+
 /// <summary>Пластины мозаики одного цвета.</summary>
 public sealed record MosaicShellMesh(Color Color, MeshGeometry3D Mesh);
 
@@ -361,6 +364,54 @@ public class Fem3DVM : ViewModelBase
     /// <summary>Тень скрытых: стержни (линии) и пластины, без выбора и наведения.</summary>
     public Point3DCollection? HiddenGhostLines { get; private set; }
     public IReadOnlyList<MeshGeometry3D> HiddenGhostShells { get; private set; } = [];
+
+    // ------------------------------------------------------------------------- показ пластин
+
+    static FemShellDisplay s_shellDisplay = FemShellDisplay.Visible;
+
+    /// <summary>Показ пластин — общий для 3D-видов сеанса (как проекция камеры). Смена перестраивает вид;
+    /// скрытые и тени пластин не выбираются.</summary>
+    public FemShellDisplay ShellDisplay
+    {
+        get => s_shellDisplay;
+        set
+        {
+            if (s_shellDisplay == value) return;
+            s_shellDisplay = value;
+            OnPropertyChanged();
+            OnFragmentChanged();
+        }
+    }
+
+    /// <summary>Пластины, убранные показом «тенью»: заливка тени (рисуется всегда, без выбора).</summary>
+    public IReadOnlyList<MeshGeometry3D> ShellDisplayGhost { get; private set; } = [];
+
+    IReadOnlyList<MeshGeometry3D> _topologyShellGhost = [];
+
+    /// <summary>Пластина для показа: КЭ-пластина или плоский элемент (область).</summary>
+    static bool IsShellLike(FemMember e) => e.ElemType == "shell" || e.PlanarRegionId.HasValue;
+
+    /// <summary>Убирает пластины из видимых по <see cref="ShellDisplay"/>; при «тенью» — строит их тень.</summary>
+    List<FemMember> FilterShells(List<FemMember> elements, Dictionary<string, Point3D> nodeMap, bool withRegions)
+    {
+        ShellDisplayGhost = [];
+        if (s_shellDisplay == FemShellDisplay.Visible) return elements;
+        var shells = elements.Where(IsShellLike).ToList();
+        if (shells.Count == 0) return elements;
+        if (s_shellDisplay == FemShellDisplay.Ghost)
+            ShellDisplayGhost = BuildGhost(nodeMap, shells, withRegions).Shells;
+        return elements.Where(e => !IsShellLike(e)).ToList();
+    }
+
+    // ------------------------------------------------------------------------- область страницы элемента
+
+    /// <summary>Стержни элемента страницы (вид группы или подсветка): для ПКМ по нему в виде без редактирования.</summary>
+    public IReadOnlyList<(string Tag, Point3D P1, Point3D P2)> ScopeBarSegments { get; private set; } = [];
+
+    HashSet<string>? _scopeShellTags;
+
+    /// <summary>Пластина <paramref name="tag"/> — элемента страницы: в виде группы — любая, на схеме — подсвеченная.</summary>
+    public bool IsScopeShell(string tag) => _memberOnly != null || _scopeShellTags?.Contains(tag.Trim()) == true;
 
     (Point3DCollection? Lines, IReadOnlyList<MeshGeometry3D> Shells, int Visible, int Total) _topologyGhost = (null, [], 0, 0);
     (List<FemNode> Nodes, List<FemMember> Elements)? _lastTopology;
@@ -769,6 +820,8 @@ public class Fem3DVM : ViewModelBase
             foreach (var element in elements)
                 if (Fragment.IsMeshVisible(element.ElemTag))
                     try { usedNodes!.UnionWith(NodeIds(element.NodeIdsJson)); } catch (JsonException) { }
+        // Пластины «тенью / скрыты»: рёбра КЭ-пластин сетки не рисуются (узлы — как есть).
+        bool skipShells = s_shellDisplay != FemShellDisplay.Visible;
         foreach (var node in nodes)
         {
             if (usedNodes != null && (!int.TryParse(node.NodeTag, out var used) || !usedNodes.Contains(used))) continue;
@@ -794,6 +847,7 @@ public class Fem3DVM : ViewModelBase
             }
 
             if (nodeIds.Length < 2) continue;
+            if (skipShells && nodeIds.Length > 2) continue;
             // Пластина — весь контур (Q4 хранится «1 2 4 3»), общие рёбра соседних КЭ — один раз.
             int[] contour = nodeIds.Length == 4 ? [nodeIds[0], nodeIds[1], nodeIds[3], nodeIds[2]] : nodeIds;
             int edgeCount = contour.Length == 2 ? 1 : contour.Length;
@@ -1043,6 +1097,13 @@ public class Fem3DVM : ViewModelBase
         (elements, var hiddenElements) = SplitByFragment(elements);
         var ghost = BuildGhost(nodeMap, hiddenElements, withRegions: true);
         _topologyGhost = (ghost.Lines, ghost.Shells, elements.Count, shownAndHidden.Count);
+        // Показ пластин «тенью / скрыты» — после фрагмента: подпись фрагмента считает их видимыми.
+        elements = FilterShells(elements, nodeMap, withRegions: true);
+        _topologyShellGhost = ShellDisplayGhost;
+        _scopeShellTags = null;
+        ScopeBarSegments = _memberOnly != null
+            ? BarSegments(nodeMap, elements.Where(e => e.ElemType == "beam").ToList())
+            : [];
 
         if (_highlightMember != null)
         {
@@ -1052,6 +1113,8 @@ public class Fem3DVM : ViewModelBase
 
             var hiBars = hiElems.Where(e => e.ElemType == "beam").ToList();
             var bgBars = bgElems.Where(e => e.ElemType == "beam").ToList();
+            ScopeBarSegments = BarSegments(nodeMap, hiBars);
+            _scopeShellTags = hiElems.Where(IsShellLike).Select(e => e.ElemTag.Trim()).ToHashSet(StringComparer.Ordinal);
 
             var bars = new List<BarGroup>();
             if (bgBars.Count > 0)
@@ -1174,6 +1237,7 @@ public class Fem3DVM : ViewModelBase
         ResultReactionLines = null;
         ResultReactionLabels = [];
         (HiddenGhostLines, HiddenGhostShells, int visible, int total) = _topologyGhost;
+        ShellDisplayGhost = _topologyShellGhost;
         SetFragmentText(visible, total);
         var coloring = Mosaic.Compute(_mosaicShells.Select(e => e.ElemTag.Trim()), _mosaicBars.Select(e => e.ElemTag.Trim()));
         BarGroups = coloring is { Bars: true } ? BuildMosaicBars(coloring, _mosaicNodeMap, _mosaicBars) : _baseBarGroups;
@@ -1279,6 +1343,7 @@ public class Fem3DVM : ViewModelBase
             : null;
         (HiddenGhostLines, HiddenGhostShells) = BuildGhost(originalMap ?? nodeMap, hidden, withRegions: false);
         SetFragmentText(shells.Count + bars.Count, allShells.Count + allBars.Count);
+        shells = FilterShells(shells, nodeMap, withRegions: false);
         var coloring = Mosaic.Compute(shells.Select(e => e.ElemTag), bars.Select(e => e.ElemTag));
         // Стержни, не окрашенные величиной (поле пластин или эпюры усилий своим списком), — ровной линией.
         // Форма потери устойчивости: стержни — ломаной через точки дробления.

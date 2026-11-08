@@ -274,6 +274,14 @@
                                   ToolTip="{DynamicResource Fem3DFragmentGhost}">
                         <Path Data="M12,2A9,9 0 0,0 3,11V22L6,19L9,22L12,19L15,22L18,19L21,22V11A9,9 0 0,0 12,2M9,8A2,2 0 0,1 11,10A2,2 0 0,1 9,12A2,2 0 0,1 7,10A2,2 0 0,1 9,8M15,8A2,2 0 0,1 17,10A2,2 0 0,1 15,12A2,2 0 0,1 13,10A2,2 0 0,1 15,8Z" Fill="Gray" Stretch="Uniform" Margin="3"/>
                     </ToggleButton>
+                    <!-- Пластины: видны / тенью / скрыты (общий выбор 3D-видов сеанса) -->
+                    <ComboBox x:Name="shellDisplayBox" VerticalAlignment="Center" Margin="2,0" MinWidth="130"
+                              SelectedIndex="0" SelectionChanged="ShellDisplay_SelectionChanged"
+                              ToolTip="{DynamicResource Fem3DShellDisplayTip}">
+                        <ComboBoxItem Content="{DynamicResource Fem3DShellDisplayVisible}"/>
+                        <ComboBoxItem Content="{DynamicResource Fem3DShellDisplayGhost}"/>
+                        <ComboBoxItem Content="{DynamicResource Fem3DShellDisplayHidden}"/>
+                    </ComboBox>
                     <Button Style="{StaticResource IconButton25}" Click="ZoomExtents_Click"
                             ToolTip="{DynamicResource Fem3DZoomExtents}">
                         <Path Data="M10,21V19H6.41L10.91,14.5L9.5,13.09L5,17.59V14H3V21H10M14.5,10.91L19,6.41V10H21V3H14V5H17.59L13.09,9.5L14.5,10.91M3,3V10H5V6.41L9.5,10.91L10.91,9.5L6.41,5H10V3H3M21,21V14H19V17.59L14.5,13.09L13.09,14.5L17.59,19H14V21H21Z" Fill="Black" Stretch="Uniform" Margin="3"/>

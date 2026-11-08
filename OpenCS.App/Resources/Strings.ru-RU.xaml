@@ -5813,6 +5813,10 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
      <system:String x:Key="Fem3DFragmentShowOnlyCtxN">Показать только выделенные ({0})</system:String>
      <system:String x:Key="Fem3DFragmentHideCtxN">Скрыть выделенные ({0})</system:String>
      <system:String x:Key="Fem3DFragmentGhost">Тень скрытых</system:String>
+     <system:String x:Key="Fem3DShellDisplayVisible">Пластины: видны</system:String>
+     <system:String x:Key="Fem3DShellDisplayGhost">Пластины: тенью</system:String>
+     <system:String x:Key="Fem3DShellDisplayHidden">Пластины: скрыты</system:String>
+     <system:String x:Key="Fem3DShellDisplayTip">Показ пластин во всех 3D-видах: тенью и скрытые пластины не выбираются — удобно выбирать стержни</system:String>
      <system:String x:Key="Fem3DFragmentShown">Фрагмент: {0} из {1}</system:String>
      <system:String x:Key="FemGroupShowOnlyIn3D">Показать в 3D только группу</system:String>
      <system:String x:Key="FemGroupHideIn3D">Скрыть группу в 3D</system:String>

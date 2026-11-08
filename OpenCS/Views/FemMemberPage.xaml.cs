@@ -23,6 +23,8 @@ public partial class FemMemberPage : UserControl
         var scope = _db.GetFemCheckScope(item.Member);
         _viewGroup = ViewGroup(item.Member, scope);
         DataContext = new FemMemberPageVM(item, app, scope);
+        // ПКМ по элементу в 3D — то же меню, что у КонЭ в дереве.
+        view3D.ScopeMenuFiller = items => FemMemberTreeMenus.FillMember(items, item, app);
         // Как у групп: сначала элемент отдельно, «На схеме» — переключателем.
         rbIsolated.IsChecked = true;
     }

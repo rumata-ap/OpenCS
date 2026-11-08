@@ -1428,60 +1428,98 @@ public partial class FemSchemaView3D : UserControl
     /// Сферы дают per-node клик, но O(N) Visual3D — на импортированных моделях (>500 узлов) вешают UI.</summary>
     const int SphereNodeThreshold = 500;
 
-    ModelVisual3D? _barPickVisual;
-    string[] _barPickVertexTags = [];
-    object? _barPickSource;
+    /// <summary>Заполняет меню элемента страницы (страница КонЭ — то же меню, что у КонЭ в дереве); null — меню нет.
+    /// Открывается ПКМ по элементу страницы в виде без редактирования; мимо него ПКМ — жест вращения.</summary>
+    public Action<ItemCollection>? ScopeMenuFiller { get; set; }
 
-    void BuildBarPickMesh(List<(string Tag, Point3D P1, Point3D P2)> bars)
+    bool ShowScopeMenu(Fem3DVM vm, MouseButtonEventArgs e)
     {
-        _barPickSource = bars;
-        _barPickVisual = null;
-        _barPickVertexTags = [];
-        if (bars.Count == 0) return;
-        // Каждый стержень — четырёхгранная призма толщиной 0,04 вдоль оси (для попадания кликом этого хватает).
-        var positions = new Point3DCollection(bars.Count * 8);
-        var indices = new Int32Collection(bars.Count * 24);
-        var tags = new List<string>(bars.Count * 8);
-        const double half = 0.02;
-        foreach (var (tag, p1, p2) in bars)
+        if (ScopeMenuFiller is not { } fill) return false;
+        var position = e.GetPosition(viewport);
+        bool onScope = vm.ScopeBarSegments.Count > 0 && SegmentTagNear(vm.ScopeBarSegments, position) != null;
+        if (!onScope)
         {
-            var axis = p2 - p1;
-            if (axis.Length < 1e-12) continue;
-            axis.Normalize();
-            var u = Vector3D.CrossProduct(axis, Math.Abs(axis.Z) < 0.9 ? new Vector3D(0, 0, 1) : new Vector3D(1, 0, 0));
-            u.Normalize();
-            var v = Vector3D.CrossProduct(axis, u);
-            u *= half; v *= half;
-            int b = positions.Count;
-            foreach (var p in (Point3D[])[p1, p2])
+            HitTestResultBehavior Callback(HitTestResult result)
             {
-                positions.Add(p + u + v); positions.Add(p - u + v); positions.Add(p - u - v); positions.Add(p + u - v);
+                if (result is RayMeshGeometry3DHitTestResult hit
+                    && (vm.ShellTagAt(hit.MeshHit, hit.VertexIndex1)
+                        ?? vm.PlanarRegionVisuals.FirstOrDefault(pv => ReferenceEquals(pv.Mesh, hit.MeshHit))?.ElemTag) is { } tag
+                    && vm.IsScopeShell(tag))
+                {
+                    onScope = true;
+                    return HitTestResultBehavior.Stop;
+                }
+                return HitTestResultBehavior.Continue;
             }
-            for (int k = 0; k < 4; k++)
-            {
-                int a0 = b + k, a1 = b + (k + 1) % 4, c0 = b + 4 + k, c1 = b + 4 + (k + 1) % 4;
-                indices.Add(a0); indices.Add(a1); indices.Add(c1);
-                indices.Add(a0); indices.Add(c1); indices.Add(c0);
-            }
-            for (int i = 0; i < 8; i++) tags.Add(tag);
+            VisualTreeHelper.HitTest(viewport, null, Callback, new PointHitTestParameters(position));
         }
-        var mesh = new MeshGeometry3D { Positions = positions, TriangleIndices = indices };
-        mesh.Freeze();
-        var material = new DiffuseMaterial(new SolidColorBrush(Colors.Transparent));
-        _barPickVisual = new ModelVisual3D { Content = new GeometryModel3D(mesh, material) { BackMaterial = material } };
-        _barPickVertexTags = [.. tags];
+        if (!onScope) return false;
+        var menu = new ContextMenu { PlacementTarget = viewport };
+        fill(menu.Items);
+        if (menu.Items.Count == 0) return false;
+        menu.IsOpen = true;
+        e.Handled = true;
+        return true;
     }
 
-    /// <summary>Узел или стержень под попаданием луча: отдельные прокси или общая сетка стержней.</summary>
-    bool TryGetPickTarget(RayMeshGeometry3DHitTestResult hit, out (bool IsNode, string Tag) target)
+    /// <summary>Узел под попаданием луча (сферы-прокси).</summary>
+    bool TryGetPickTarget(RayMeshGeometry3DHitTestResult hit, out (bool IsNode, string Tag) target) =>
+        _pickTargets.TryGetValue(hit.VisualHit, out target);
+
+    /// <summary>Стержень редактора у курсора: ближайшая проекция на экране в пределах нескольких пикселей.</summary>
+    string? BarAt(Fem3DVM vm, Point position) => vm.BarProxies.Count > 0 ? SegmentTagNear(vm.BarProxies, position) : null;
+
+    // ── Наведение на стержень в редакторе ───────────────────────────────────────────────────
+
+    string? _hoverBarTag;
+    LinesVisual3D? _hoverBarVisual;
+    DateTime _lastBarHover;
+
+    /// <summary>Подсветка стержня под курсором: только при обычном выборе (не в режимах создания, преобразования,
+    /// выбора рёбер и КЭ сетки).</summary>
+    void UpdateBarHover(Point position)
     {
-        if (_pickTargets.TryGetValue(hit.VisualHit, out target)) return true;
-        if (hit.VisualHit == _barPickVisual && hit.VertexIndex1 >= 0 && hit.VertexIndex1 < _barPickVertexTags.Length)
+        if (VM is not { EditMode: true } vm || MeshPick || IsTransformActive || _createBarMode || _createNodeMode
+            || _createPlateMode || _createWallMode || _createSpatialPlateMode)
         {
-            target = (false, _barPickVertexTags[hit.VertexIndex1]);
-            return true;
+            ClearBarHover();
+            return;
         }
-        return false;
+        var now = DateTime.UtcNow;
+        if ((now - _lastBarHover).TotalMilliseconds < 30) return;
+        _lastBarHover = now;
+        string? tag = BarAt(vm, position);
+        if (tag == _hoverBarTag) return;
+        _hoverBarTag = tag;
+        ShowBarHover(vm);
+    }
+
+    void ShowBarHover(Fem3DVM vm)
+    {
+        if (_hoverBarVisual != null) viewport.Children.Remove(_hoverBarVisual);
+        _hoverBarVisual = null;
+        if (_hoverBarTag == null) return;
+        var points = new Point3DCollection();
+        foreach (var (tag, p1, p2) in vm.BarProxies)
+            if (tag == _hoverBarTag) { points.Add(p1); points.Add(p2); }
+        if (points.Count == 0) { _hoverBarTag = null; return; }
+        _hoverBarVisual = new LinesVisual3D { Points = points, Color = Colors.Orange, Thickness = 3 };
+        viewport.Children.Add(_hoverBarVisual);
+    }
+
+    /// <summary>Сцена пересобрана — подсветка наведения возвращается поверх.</summary>
+    void RestoreBarHover(Fem3DVM vm)
+    {
+        if (_hoverBarVisual != null) viewport.Children.Remove(_hoverBarVisual);
+        _hoverBarVisual = null;
+        ShowBarHover(vm);
+    }
+
+    void ClearBarHover()
+    {
+        if (_hoverBarVisual != null) viewport.Children.Remove(_hoverBarVisual);
+        _hoverBarVisual = null;
+        _hoverBarTag = null;
     }
 
     void BuildEditProxies()
@@ -1528,21 +1566,23 @@ public partial class FemSchemaView3D : UserControl
                 viewport.Children.Add(_editNodesVisual);
             }
         }
-        // Стержни для выбора кликом — одной прозрачной сеткой (по трубе на стержень — тысячи Visual3D на
-        // импортированных схемах: секунды при открытии и при каждой смене выделения). Сетка строится заново
-        // только при смене стержней; выделенные — отдельными видимыми трубами.
-        if (_barPickVisual != null) viewport.Children.Remove(_barPickVisual);
-        if (!ReferenceEquals(_barPickSource, vm.BarProxies)) BuildBarPickMesh(vm.BarProxies);
-        if (_barPickVisual != null) viewport.Children.Add(_barPickVisual);
+        // Стержни выбираются по расстоянию до их проекции на экране (BarAt), а не лучом: толщина в пикселях не
+        // зависит от масштаба схемы. Выбранные — линией в пикселях и точками концов (как выбранные КЭ сетки).
         var selectedElems = vm.Selection?.SelectedElemTags;
         if (selectedElems is { Count: > 0 })
+        {
+            var points = new Point3DCollection();
             foreach (var (tag, p1, p2) in vm.BarProxies)
+                if (selectedElems.Contains(tag)) { points.Add(p1); points.Add(p2); }
+            if (points.Count > 0)
             {
-                if (!selectedElems.Contains(tag)) continue;
-                var pipe = new PipeVisual3D { Point1 = p1, Point2 = p2, Diameter = 0.04, Fill = new SolidColorBrush(Colors.OrangeRed) };
-                _pickTargets[pipe] = (false, tag);
-                viewport.Children.Add(pipe);
+                _meshSelectionVisuals.Add(new LinesVisual3D { Points = points, Color = Colors.OrangeRed, Thickness = 4 });
+                _meshSelectionVisuals.Add(new PointsVisual3D { Points = points, Color = Colors.OrangeRed, Size = 7 });
+                viewport.Children.Add(_meshSelectionVisuals[^2]);
+                viewport.Children.Add(_meshSelectionVisuals[^1]);
             }
+        }
+        RestoreBarHover(vm);
 
         foreach (var pv in vm.PlanarRegionVisuals)
         {
@@ -1608,6 +1648,8 @@ public partial class FemSchemaView3D : UserControl
         }
 
         VisualTreeHelper.HitTest(viewport, null, Callback, new PointHitTestParameters(position));
+        // Узел — лучом по сферам; нет узла — стержень по экранному расстоянию.
+        if (!hits.Any(h => h.IsNode) && BarAt(vm, position) is { } barTag) hits.Add((false, barTag));
         if (hits.Count == 0)
         {
             VisualTreeHelper.HitTest(viewport, null, PlanarRegionCallback, new PointHitTestParameters(position));
@@ -1843,14 +1885,16 @@ public partial class FemSchemaView3D : UserControl
         VM?.Mosaic.SetHover(null);
         mosaicHoverTip.Visibility = Visibility.Collapsed;
         fragmentCutTip.Visibility = Visibility.Collapsed;
+        ClearBarHover();
     }
 
     void Viewport_MouseMove(object sender, MouseEventArgs e)
     {
         UpdateMosaicHover(e);
         UpdateFragmentCutHover(e);
-        if (HandleTransformMove(e.GetPosition(viewport))) return;
-        if (HandleEdgePickMove(e.GetPosition(viewport))) return;
+        if (HandleTransformMove(e.GetPosition(viewport))) { ClearBarHover(); return; }
+        if (HandleEdgePickMove(e.GetPosition(viewport))) { ClearBarHover(); return; }
+        UpdateBarHover(e.GetPosition(viewport));
 
         if (VM is not { EditMode: true } vm || !_createBarMode || _pendingBarFirstNode == null)
         {
@@ -1997,6 +2041,7 @@ public partial class FemSchemaView3D : UserControl
         if (VM is { } resultVm && PickableResult is { } result) { ShowResultContextMenu(resultVm, result, e); return; }
         // Мозаика Кисп проверки по КЭ: меню КЭ — задача по определяющей строке.
         if (VM is { EditMode: false } checkVm && ShowCheckRowTaskMenu(checkVm, e)) return;
+        if (VM is { EditMode: false } scopeVm && ShowScopeMenu(scopeVm, e)) return;
         if (VM is not { EditMode: true } vm) return;
         if (_createBarMode) return;
         if (ShowEdgePickMenu(e)) return;
@@ -2066,6 +2111,7 @@ public partial class FemSchemaView3D : UserControl
             return HitTestResultBehavior.Continue;
         }
         VisualTreeHelper.HitTest(viewport, null, Callback, new PointHitTestParameters(position));
+        if (hit == null && BarAt(vm, position) is { } barTag) hit = (false, barTag);
         if (hit is { } target)
         {
             _contextMenuTargetTag = target.Tag;
@@ -2140,12 +2186,19 @@ public partial class FemSchemaView3D : UserControl
         foreach (var v in _ghostVisuals) viewport.Children.Remove(v);
         _ghostVisuals.Clear();
         ghostCheck.IsChecked = s_showHiddenGhost;
-        if (VM is not { } vm || !s_showHiddenGhost) return;
+        shellDisplayBox.SelectedIndex = VM is { } current ? (int)current.ShellDisplay : 0;
+        if (VM is not { } vm) return;
         var material = new DiffuseMaterial(new SolidColorBrush(GhostShellColor));
-        foreach (var mesh in vm.HiddenGhostShells)
+        // Пластины «тенью» — всегда, независимо от флажка тени фрагмента.
+        foreach (var mesh in vm.ShellDisplayGhost)
             _ghostVisuals.Add(new ModelVisual3D { Content = new GeometryModel3D(mesh, material) { BackMaterial = material } });
-        if (vm.HiddenGhostLines is { Count: > 0 } lines)
-            _ghostVisuals.Add(new LinesVisual3D { Points = lines, Color = GhostLineColor, Thickness = 0.8 });
+        if (s_showHiddenGhost)
+        {
+            foreach (var mesh in vm.HiddenGhostShells)
+                _ghostVisuals.Add(new ModelVisual3D { Content = new GeometryModel3D(mesh, material) { BackMaterial = material } });
+            if (vm.HiddenGhostLines is { Count: > 0 } lines)
+                _ghostVisuals.Add(new LinesVisual3D { Points = lines, Color = GhostLineColor, Thickness = 0.8 });
+        }
         foreach (var v in _ghostVisuals) viewport.Children.Add(v);
     }
 
@@ -2153,6 +2206,16 @@ public partial class FemSchemaView3D : UserControl
     {
         s_showHiddenGhost = ghostCheck.IsChecked == true;
         AddGhostVisuals();
+    }
+
+    /// <summary>Пластины: видны / тенью / скрыты — вид перестраивается (как при смене фрагмента), камера на месте.</summary>
+    void ShellDisplay_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (VM is not { } vm || shellDisplayBox.SelectedIndex < 0) return;
+        var mode = (FemShellDisplay)shellDisplayBox.SelectedIndex;
+        if (vm.ShellDisplay == mode) return;
+        ClearBarHover();
+        vm.ShellDisplay = mode;
     }
 
     /// <summary>Кнопки по выбранному — только где есть выбор (страница схемы) и что-то выбрано.</summary>

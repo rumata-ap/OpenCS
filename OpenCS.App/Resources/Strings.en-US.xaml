@@ -5813,6 +5813,10 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
      <system:String x:Key="Fem3DFragmentShowOnlyCtxN">Show selected only ({0})</system:String>
      <system:String x:Key="Fem3DFragmentHideCtxN">Hide selected ({0})</system:String>
      <system:String x:Key="Fem3DFragmentGhost">Ghost of hidden</system:String>
+     <system:String x:Key="Fem3DShellDisplayVisible">Plates: shown</system:String>
+     <system:String x:Key="Fem3DShellDisplayGhost">Plates: ghost</system:String>
+     <system:String x:Key="Fem3DShellDisplayHidden">Plates: hidden</system:String>
+     <system:String x:Key="Fem3DShellDisplayTip">Plate display in all 3D views: ghosted and hidden plates are not selectable — handy for picking bars</system:String>
      <system:String x:Key="Fem3DFragmentShown">Fragment: {0} of {1}</system:String>
      <system:String x:Key="FemGroupShowOnlyIn3D">Show only this group in 3D</system:String>
      <system:String x:Key="FemGroupHideIn3D">Hide group in 3D</system:String>
