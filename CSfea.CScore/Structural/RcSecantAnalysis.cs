@@ -215,16 +215,22 @@ public static class RcSecantAnalysis
             options.Solver.Geometric && !options.Solver.GeometricSecondOrder, options.ShellForceAngles,
             options.Solver.ShellInPlanePDelta, beams, options.RecordSectionStrains,
             imperfection: secondOrder ? solverOptions.Imperfection : null);
+        SecantPicardSolver? solver = null;
         if (options.OnStep is { } onStep)
         {
             var inner = solverOptions.OnStepAccepted;
             solverOptions = solverOptions.With(step =>
             {
                 inner?.Invoke(step);
-                onStep(step, () => extractor.Extract(step));
+                // Конец стадии — с полными матрицами КЭ, на которых решено u (решатель выставляет их до вызова): узловые
+                // силы КЭ по записи (маски фрагмента по стадиям) — точно, как у конечного состояния.
+                bool stageEnd = !step.IsRefinement && Math.Abs(step.LoadFactor - 1) < 1e-12;
+                onStep(step, () => stageEnd
+                    ? extractor.Extract(step, matrices: true, solved: solver?.SolvedMatrices)
+                    : extractor.Extract(step));
             });
         }
-        var solver = new SecantPicardSolver(build.Mesh, build.Bc, shells, beams, solverOptions);
+        solver = new SecantPicardSolver(build.Mesh, build.Bc, shells, beams, solverOptions);
         var result = solver.Run(stages, progress, ct);
         return new RcSecantRun(build, shells, beams, stages, result) { Extractor = extractor, Solved = solver.SolvedMatrices };
     }

@@ -89,7 +89,18 @@ public static class StoreyFragmentMaskSupply
             reason = Loc.S("StoreyFragmentMasksSecantNotPrefix");
             return null;
         }
-        var pSecant = new FemAnalysisParams { Stages = longest.Stages, CalcType = longest.Pars.CalcType, Csfea = longest.Pars.Csfea };
+        // Родитель для масок: концы всех стадий записываются (ключ маски — стадия), второй порядок — полный (P-Δ каркаса;
+        // «только P-δ» и флажок масок первого порядка — настройки фрагмента, у родителя не нужны).
+        var csfea = FemAnalysisParams.Parse(longest.Pars.ToJson()).Csfea ?? new FemCsfeaParams();
+        csfea.SecondOrderScope = FemCsfeaSecondOrderScope.Full;
+        csfea.FragmentSecondOrderOnFirstOrderMasks = false;
+        if (csfea.ResultRecording == FemCsfeaRecording.Final)
+        {
+            csfea.ResultRecording = FemCsfeaRecording.Selected;
+            csfea.RecordSteps = "";
+        }
+        csfea.RecordStageEnds = true;
+        var pSecant = new FemAnalysisParams { Stages = longest.Stages, CalcType = longest.Pars.CalcType, Csfea = csfea };
         return Save(db, ctx.ParentId, SecantAnalysisTag, FemCsfeaRunner.AnalysisKind, longest.Stages[0].LoadExpressionJson,
             pSecant.ToJson());
     }

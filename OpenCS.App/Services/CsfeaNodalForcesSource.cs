@@ -82,18 +82,24 @@ public sealed class CsfeaNodalForcesSource : IFragmentParentNodalForces
     const double SecantFloor = 1e-9;
 
     /// <summary>
-    /// Секущий расчёт без геометрической нелинейности: сборка на ключ по записанным секущим матрицам его шага
-    /// (<see cref="RecordedRcSectionFactory"/>, нужны <see cref="RcSecantStepFields.HasElementMatrices"/>).
+    /// Секущий расчёт: сборка на ключ по записанным секущим матрицам его шага (<see cref="RecordedRcSectionFactory"/>, нужны
+    /// <see cref="RcSecantStepFields.HasElementMatrices"/>). <paramref name="secondOrder"/> — расчёт по теории второго
+    /// порядка (геометрическая нелинейность без «Больших перемещений», спека 2026-11-06, срез 2): к K_s,e добавляется
+    /// K_σ,e(N) по перемещениям шага — та же матрица, на которой решено u (<c>StructuralMesh.ElementKSecondOrder</c>);
+    /// <paramref name="inPlane"/> — K_σ пластин и в их плоскости.
     /// </summary>
     /// <remarks>
     /// Стержни без шарниров — тоже K_s,e·u_e − f_нагр,e по записанным матрицам: записанные силы концов — интегралы по
     /// сечению при u и отличаются от K_s·u на допуск итераций, а равновесие узлов точно только для K_s·u (u — решение на
-    /// этих матрицах). У стержней с шарнирами нагрузки конденсируются в ядре — для них записанные силы концов.
+    /// этих матрицах). У стержней с шарнирами нагрузки конденсируются в ядре — для них записанные силы концов (во втором
+    /// порядке — плюс K_σ,e·u_e, как у линейного источника с P-Δ). Во втором порядке K_σ решателя — по перемещениям
+    /// предыдущей итерации, здесь — по итоговым: узлы уравновешены до допуска итераций, а не точно.
     /// </remarks>
     public static CsfeaNodalForcesSource Secant(RcStructuralModel model, CsfeaFieldsParentResult fields,
         IReadOnlyDictionary<FragmentMaskKey, RcSecantStepFields> steps, IReadOnlyDictionary<int, FragmentParentCaseLoads> loads,
-        Func<int, int?> parentLoadCase) =>
-        new(model, fields, steps, loads, parentLoadCase, key => (new RecordedRcSectionFactory(steps[key], SecantFloor), null, true))
+        Func<int, int?> parentLoadCase, bool secondOrder = false, bool inPlane = true) =>
+        new(model, fields, steps, loads, parentLoadCase,
+            key => (new RecordedRcSectionFactory(steps[key], SecantFloor), secondOrder ? steps[key] : null, inPlane))
         {
             _beamsByMatrix = true,
         };
@@ -114,7 +120,9 @@ public sealed class CsfeaNodalForcesSource : IFragmentParentNodalForces
             {
                 var sst = StateOf(key);
                 int e0 = sst.Build.Mesh.Shells.Count + bm;
-                var kf = Multiply(sst, e0, sst.Build.Mesh.ElementK(e0));
+                var kf = Multiply(sst, e0, sst.UDet != null
+                    ? sst.Build.Mesh.ElementKSecondOrder(e0, sst.UDet, sst.InPlane)
+                    : sst.Build.Mesh.ElementK(e0));
                 var bl = ElementLoads(key, elemTag);
                 forces = new Dictionary<string, Dof6>(StringComparer.Ordinal)
                 {
@@ -127,7 +135,7 @@ public sealed class CsfeaNodalForcesSource : IFragmentParentNodalForces
             var bst = StateOf(key);
             if (bst.UDet != null && _beamIndex.TryGetValue(elemTag, out int b))
             {
-                // Силы концов в полях линейного расчёта — K·u без K_σ замороженного состояния: добавить K_σ,e·u_e.
+                // Силы концов в полях — K·u без K_σ (линейный с P-Δ источника, секущий второго порядка): добавить K_σ,e·u_e.
                 var g = Multiply(bst, bst.Build.Mesh.Shells.Count + b, bst.Build.Mesh.ElementKGeometric(
                     bst.Build.Mesh.Shells.Count + b, bst.UDet, bst.InPlane));
                 i += g[0];

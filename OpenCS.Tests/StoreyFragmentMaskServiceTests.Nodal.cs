@@ -180,4 +180,79 @@ public sealed partial class StoreyFragmentMaskServiceTests
         double r = NodalResidual(source, key, all.Model);
         Assert.True(r <= 1e-6, $"невязка {r}; {WorstText()}");
     }
+
+    /// <summary>
+    /// Секущий расчёт второго порядка (спека 2026-11-06, срез 2): узловые силы (K_s + K_σ(u))·u − f_нагр — узлы в
+    /// равновесии до допуска итераций (K_σ решателя — по перемещениям предыдущей итерации); без K_σ невязка — член P-Δ.
+    /// </summary>
+    [Fact]
+    public void NodalSource_SecantSecondOrder_NodesInEquilibrium()
+    {
+        var p = Create();
+        using var db = p.Db;
+        var lc = db.GetFemLoadCases(p.Schema.Id);
+        var input = FemCsfeaInputBuilder.Build(db, p.Schema.Id, new FemCsfeaSetup { Stages = [Single("Пост.", lc[0].Id), Sum("Пост.+Ветер", lc[0].Id, lc[1].Id)] });
+        var adapted = FemRcModelAdapter.Adapt(input);
+        Assert.False(adapted.HasErrors, string.Join("; ", adapted.Report));
+        // Упругий материал: на «Ветре» физически нелинейная модель фикстуры не сходится и без второго порядка; для узловых
+        // сил важна только согласованность (K_s + K_σ)·u с решением, секущие матрицы пишутся и в упругом прогоне.
+        var csfea = new FemCsfeaParams { GeomNonlinear = true, PhysicalNonlinearity = false, TolDisplacement = 1e-9 };
+        var run = RcSecantAnalysis.Run(adapted.Model, FemCsfeaSetup.SecantOptions(csfea));
+        Assert.True(run.Result.Completed, run.Result.Message);
+        var record = run.LastConvergedFields()!;
+        Assert.True(record.HasElementMatrices);
+        // Ключ — накопленные стадии: «Пост.» + «Пост.+Ветер» (как у FragmentMaskSourceKeys).
+        var key = FragmentMaskKey.OfStageTerms([(lc[0].Id, 2.0), (lc[1].Id, 1.0)]);
+        var steps = new Dictionary<FragmentMaskKey, RcSecantStepFields> { [key] = record };
+        var all = StoreyFragmentMaskService.AdaptAllCases(input);
+        var loads = FragmentParentLoadParts.Compute(input, all);
+        var fields = Fields(db, p.Schema, steps);
+
+        double r = NodalResidual(CsfeaNodalForcesSource.Secant(all.Model, fields, steps, loads, id => id, secondOrder: true), key, all.Model);
+        string worst = WorstText();
+        double first = NodalResidual(CsfeaNodalForcesSource.Secant(all.Model, fields, steps, loads, id => id), key, all.Model);
+        // Факт 08.11: 7,3·10⁻¹⁴ против 6,8·10⁻⁴ без K_σ.
+        Assert.True(r <= 1e-6, $"невязка {r}; {worst}");
+        Assert.True(first > 100 * r, $"без K_σ невязка {first} не больше второго порядка {r} — P-Δ в модели мал, тест не различает");
+    }
+
+    /// <summary>
+    /// Секущий источник второго порядка, у которого узловые силы — не (K_s + K_σ)·u: «Большие перемещения», «только P-δ»,
+    /// несовершенства в стадиях — МНК с причиной (до проверки записанных матриц). Обычный второй порядок без матриц КЭ в
+    /// записи — причина «нет секущих матриц» (геомнелин больше не отказ сам по себе).
+    /// </summary>
+    [Theory]
+    [InlineData("cr", "«Большими перемещениями»")]
+    [InlineData("local", "«Только P-δ»")]
+    [InlineData("imperfection", "несовершенства (Погибь)")]
+    [InlineData("plain", "нет секущих матриц")]
+    public void Extract_SecantSecondOrder_NodalFallbackReasons(string mode, string reason)
+    {
+        var p = Create();
+        using var db = p.Db;
+        var lc = db.GetFemLoadCases(p.Schema.Id);
+        var stages = new[] { Single("Пост.", lc[0].Id) };
+        var analysis = SaveResult(db, p.Schema, FemCsfeaRunner.AnalysisKind, stages, stages);
+        var csfea = new FemCsfeaParams
+        {
+            GeomNonlinear = true, GeomLargeDisplacements = mode == "cr",
+            SecondOrderScope = mode == "local" ? FemCsfeaSecondOrderScope.LocalOnly : FemCsfeaSecondOrderScope.Full,
+        };
+        analysis.ParamsJson = new FemAnalysisParams { Stages = [.. stages], Csfea = csfea }.ToJson();
+        db.SaveFemAnalysis(analysis);
+        if (mode == "imperfection")
+        {
+            var result = db.GetCalcResultById(analysis.ResultId!.Value)!;
+            var summary = FemCsfeaResultSummary.Parse(result.DataJson)!;
+            summary.ImperfectionTags = "Погибь";
+            result.DataJson = summary.ToJson();
+            db.SaveCalcResult(result);
+        }
+
+        var r = StoreyFragmentMaskService.Extract(db, p.Fragment, FragmentMaskSet.SourceCsfeaSecant, S(analysis.Id));
+
+        Assert.False(r.HasErrors, string.Join("\n", r.Diagnostics.Select(d => d.Message)));
+        var nodal = Assert.Single(r.Diagnostics, d => d.Code == "fragment_mask_nodal_unsupported");
+        Assert.Contains(reason, nodal.Message, StringComparison.Ordinal);
+    }
 }

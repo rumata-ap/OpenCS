@@ -64,4 +64,37 @@ public sealed partial class StoreyFragmentMaskServiceTests
         var again = Assert.IsType<FemAnalysis>(StoreyFragmentMaskSupply.PrepareSecant(p.Db, p.Fragment, out _));
         Assert.Equal(secant.Id, again.Id);
     }
+
+    /// <summary>
+    /// Секущая постановка родителя для масок (спека второго порядка фрагмента, срез 2): геомнелин и физика — как у фрагмента,
+    /// но второй порядок полный (не «только P-δ»), флажок масок первого порядка снят, концы стадий записываются (ключ маски —
+    /// стадия; при «только конечный» маски были бы лишь у последней стадии).
+    /// </summary>
+    [Fact]
+    public void SecantSupplyAnalysis_FullSecondOrder_RecordsStageEnds()
+    {
+        var p = Create();
+        var fragmentIds = p.Db.GetFemLoadCases(p.Fragment.Id).ToDictionary(c => c.Tag, c => c.Id);
+        p.Db.SaveFemAnalysis(new FemAnalysis
+        {
+            SchemaId = p.Fragment.Id, Tag = "Секущий", Kind = FemCsfeaRunner.AnalysisKind,
+            ParamsJson = new FemAnalysisParams
+            {
+                Stages = [Single("Пост.", fragmentIds["Пост."]), Single("Ветер", fragmentIds["Ветер"])],
+                Csfea = new FemCsfeaParams
+                {
+                    GeomNonlinear = true, PhysicalNonlinearity = false, SecondOrderScope = FemCsfeaSecondOrderScope.LocalOnly,
+                    FragmentSecondOrderOnFirstOrderMasks = true, ResultRecording = FemCsfeaRecording.Final,
+                },
+            }.ToJson(),
+        });
+
+        var secant = Assert.IsType<FemAnalysis>(StoreyFragmentMaskSupply.PrepareSecant(p.Db, p.Fragment, out _));
+        var c = FemAnalysisParams.Parse(secant.ParamsJson).Csfea!;
+        Assert.True(c.GeomNonlinear);
+        Assert.False(c.PhysicalNonlinearity);
+        Assert.Equal(FemCsfeaSecondOrderScope.Full, c.SecondOrderScope);
+        Assert.False(c.FragmentSecondOrderOnFirstOrderMasks);
+        Assert.Equal((FemCsfeaRecording.Selected, "", true), (c.ResultRecording, c.RecordSteps, c.RecordStageEnds));
+    }
 }

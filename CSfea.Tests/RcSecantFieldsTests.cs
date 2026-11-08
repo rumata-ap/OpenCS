@@ -40,7 +40,8 @@ public class RcSecantFieldsTests
     /// <summary>
     /// Упругая консоль 3 м из 2 КЭ, на конце N и M_y: секущие жёсткости = начальные = EA, EIy, EIz сечения, GJ — задана,
     /// сдвига нет (+∞); деформации ε₀ = N/EA и κy = M/EI во всех точках (эпюра M постоянна); без галки — только деформации стержней (пишутся всегда);
-    /// полные матрицы — только у конечного состояния (<see cref="RcSecantRun.LastConvergedFields"/>).
+    /// полные матрицы — у концов стадий и у конечного состояния (<see cref="RcSecantRun.LastConvergedFields"/>), у
+    /// промежуточных шагов — нет.
     /// </summary>
     private static void RunElasticCantileverStiffness()
     {
@@ -61,9 +62,20 @@ public class RcSecantFieldsTests
         TestHarness.Check("консоль: поля сняты", last != null && steps.Count == 1);
         if (last == null || steps.Count != 1) return;
         var f = steps[0];
-        TestHarness.Check("консоль: жёсткости есть, полных матриц у шага нет, у конечного состояния есть",
-            f.HasStiffness && !f.HasMatrices && f.BeamMatrices.Length == 0 && last.HasMatrices
-            && last.BeamMatrices.Length == 2 * RcSecantStepFields.BeamMatrixComponents);
+        // Шаг — конец стадии: полные матрицы и матрицы КЭ решения пишутся и в запись шага (маски фрагмента по стадиям).
+        TestHarness.Check("консоль: жёсткости есть, полные матрицы у конца стадии и у конечного состояния",
+            f.HasStiffness && f.HasMatrices && f.HasElementMatrices && f.BeamMatrices.Length == 2 * RcSecantStepFields.BeamMatrixComponents
+            && last.HasMatrices && last.BeamMatrices.Length == 2 * RcSecantStepFields.BeamMatrixComponents);
+        var halves = new RcStructuralModel();
+        halves.Nodes.AddRange(m.Nodes);
+        halves.Beams.AddRange(m.Beams);
+        halves.Supports.AddRange(m.Supports);
+        halves.LoadCases.Add(lc);
+        halves.Stages.Add(new RcStage("N+M", [(1, 1.0)], 2));
+        var halfSteps = new List<RcSecantStepFields>();
+        RcSecantAnalysis.Run(halves, new RcSecantOptions { OnStep = (_, get) => halfSteps.Add(get()) });
+        TestHarness.Check("консоль, 2 шага: промежуточный — без полных матриц, конец стадии — с ними",
+            halfSteps.Count == 2 && !halfSteps[0].HasMatrices && halfSteps[1].HasMatrices && halfSteps[1].HasElementMatrices);
         double gj = new BeamSection(E, a, iy, iz, j).G * j;
         for (int e = 0; e < 2; e++)
         {

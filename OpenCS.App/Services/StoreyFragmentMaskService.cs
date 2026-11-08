@@ -184,9 +184,22 @@ public static class StoreyFragmentMaskService
         var csfea = FemAnalysisParams.Parse(analysis.ParamsJson).Csfea ?? new FemCsfeaParams();
         if (!linear)
         {
-            if (csfea.GeomNonlinear)
+            // Второй порядок (спека 2026-11-06, срез 2): узловые силы — (K_s + K_σ)·u. Без них (МНК):
+            // «Большие перемещения» — силы КЭ коротационные, не (K_s + K_σ)·u; «только P-δ» — проектированная K_σ связывает
+            // КЭ с узлами уровней вне его; несовершенства — в силах КЭ есть K_σ·u₀, а u₀ в записи шага нет.
+            if (csfea.GeomNonlinear && csfea.GeomLargeDisplacements)
             {
-                Unsupported("секущий расчёт с геометрической нелинейностью");
+                Unsupported("секущий расчёт с «Большими перемещениями» (коротационная формулировка)");
+                return null;
+            }
+            if (FemCsfeaSetup.IsLocalPDelta(csfea))
+            {
+                Unsupported("секущий расчёт в режиме «Только P-δ»");
+                return null;
+            }
+            if (csfea.GeomNonlinear && !string.IsNullOrEmpty(summary.ImperfectionTags))
+            {
+                Unsupported($"в стадиях родителя есть несовершенства ({summary.ImperfectionTags})");
                 return null;
             }
             if (steps.Values.Any(f => !f.HasMatrices || !f.HasElementMatrices))
@@ -194,7 +207,8 @@ public static class StoreyFragmentMaskService
                 Unsupported("в записи шагов нет секущих матриц КЭ (пересчитайте родителя)");
                 return null;
             }
-            return CsfeaNodalForcesSource.Secant(parent.Adapted.Model, fields, steps, parent.Loads, parentLoadCase);
+            return CsfeaNodalForcesSource.Secant(parent.Adapted.Model, fields, steps, parent.Loads, parentLoadCase,
+                secondOrder: csfea.GeomNonlinear, inPlane: csfea.ShellInPlanePDelta);
         }
         double floor = summary.StiffnessFloor ?? OpenCS.Utilites.CalcSettings.DefaultCsfeaStiffnessFloor;
         if (FemCsfeaLinearSetup.Resolve(db, parentId, csfea, parent.Adapted.Model, floor, out var error) is not { } setup)
