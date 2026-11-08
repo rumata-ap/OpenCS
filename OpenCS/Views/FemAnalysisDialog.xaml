@@ -528,6 +528,8 @@
             </GroupBox>
             <CheckBox x:Name="CsfeaImportedFactorsCb" Content="{DynamicResource FemCsfeaImportedFactorsLabel}"
                       ToolTip="{DynamicResource FemCsfeaImportedFactorsTip}" Margin="0,6,0,0"/>
+            <CheckBox x:Name="CsfeaFragmentSecondOrderCb" Content="{DynamicResource FemCsfeaFragmentSecondOrderLabel}"
+                      ToolTip="{DynamicResource FemCsfeaFragmentSecondOrderTip}" Margin="0,6,0,0" Visibility="Collapsed"/>
             <WrapPanel x:Name="CsfeaFlagsPanel" Margin="0,6,0,2">
                 <CheckBox x:Name="CsfeaPhysicalNonlinearityCb" Content="{DynamicResource FemCsfeaPhysicalNonlinearityLabel}"
                           ToolTip="{DynamicResource FemCsfeaPhysicalNonlinearityTip}" Margin="0,0,16,4"

@@ -359,6 +359,8 @@ public partial class FemAnalysisDialog : Window
         CsfeaShellInPlanePDeltaCb.IsChecked = c.ShellInPlanePDelta;
         CsfeaLargeDisplacementsCb.IsChecked = c.GeomLargeDisplacements;
         CsfeaLocalPDeltaCb.IsChecked = c.SecondOrderScope == FemCsfeaSecondOrderScope.LocalOnly;
+        CsfeaFragmentSecondOrderCb.IsChecked = c.FragmentSecondOrderOnFirstOrderMasks;
+        CsfeaFragmentSecondOrderCb.Visibility = _schema.IsFragment ? Visibility.Visible : Visibility.Collapsed;
         CsfeaMaxIterationsBox.Text = c.MaxIterations.ToString(culture);
         CsfeaMaxBisectionsBox.Text = c.MaxBisections.ToString(culture);
         CsfeaTolDisplacementBox.Text = c.TolDisplacement.ToString(culture);
@@ -563,6 +565,7 @@ public partial class FemAnalysisDialog : Window
             ShellInPlanePDelta = CsfeaShellInPlanePDeltaCb.IsChecked == true,
             GeomLargeDisplacements = CsfeaLargeDisplacementsCb.IsChecked == true,
             SecondOrderScope = CsfeaLocalPDeltaCb.IsChecked == true ? FemCsfeaSecondOrderScope.LocalOnly : FemCsfeaSecondOrderScope.Full,
+            FragmentSecondOrderOnFirstOrderMasks = _schema.IsFragment && CsfeaFragmentSecondOrderCb.IsChecked == true,
             MaxIterations = maxIter, TolDisplacement = tolU, TolStiffness = tolK, MaxBisections = bisections, Omega0 = omega,
             ResultRecording = recording,
             RecordSteps = CsfeaRecordStepsBox.Text.Trim(),

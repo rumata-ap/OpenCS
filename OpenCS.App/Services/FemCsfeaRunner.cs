@@ -284,6 +284,11 @@ public sealed class FemCsfeaResultSummary
     /// <summary>Результат второго порядка: секущий с геометрической нелинейностью или линейный с P-Δ источника.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public bool SecondOrder { get; set; }
+    /// <summary>
+    /// Секущий расчёт в режиме «только P-δ» (LocalOnly): P-Δ не учтён — как источник масок фрагмента это первый порядок.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool LocalPDelta { get; set; }
     /// <summary>Линейный расчёт с K_σ определяющего состояния источника (P-Δ).</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public bool SourcePDelta { get; set; }
@@ -518,6 +523,15 @@ public sealed record FemCsfeaPrepared(FemRcModelInput? Input, FemRcModelResult? 
     /// <summary>Отчёт несовершенств (решения предварительного расчёта, <see cref="FemCsfeaRunner.DecideImperfections"/>); null — нет.</summary>
     public CScore.Fem.Imperfections.FemImperfectionReport? Imperfections { get; init; }
 
+    /// <summary>
+    /// Признак второго порядка наборов по согласованности (<see cref="CScore.Fem.Fragment.FragmentSecondOrder"/>: фрагмент
+    /// или режим «только P-δ»); null — без ограничений (признак = геомнелин расчёта).
+    /// </summary>
+    public bool? SecondOrderAllowed { get; init; }
+
+    /// <summary>Признак второго порядка наборов расчёта с геомнелином <paramref name="geometric"/>.</summary>
+    public bool SecondOrderOf(bool geometric) => geometric && (SecondOrderAllowed ?? true);
+
     /// <summary>Сводка подготовленной модели для отчёта «Проверить вход»: размеры, стадии с ΣF, контрольный узел.</summary>
     public IEnumerable<string> Describe()
     {
@@ -600,13 +614,25 @@ public static class FemCsfeaRunner
         if (diag.Any(d => d.IsError)) return new(input, null, diag) { ControlNode = control, FragmentBoundary = fragmentBc };
 
         var adapted = await Task.Run(() => FemRcModelAdapter.Adapt(input), ct);
+        (double Lambda, string Analysis)? lambda = null;
         if (analysis.Kind == AnalysisKind && csfea.SecondOrderScope == FemCsfeaSecondOrderScope.LocalOnly)
         {
             // λ_cr каркаса: у фрагмента — постановки устойчивости родителя, иначе — самой схемы.
             int frameId = schema is { IsFragment: true, ParentSchemaId: int parent } ? parent : schema.Id;
-            var lambda = csfea.GeomNonlinear && !csfea.GeomLargeDisplacements
+            lambda = csfea.GeomNonlinear && !csfea.GeomLargeDisplacements
                 ? FemBucklingModes.MinLambda(ctx.Db, frameId, FemCsfeaInputBuilder.GeometryFingerprint(ctx.Db, frameId)) : null;
             diag.AddRange(LocalPDeltaDiagnostics(csfea, adapted.HasErrors ? null : adapted.Model, lambda, schema.IsFragment));
+        }
+        // Согласованность второго порядка (срез 3): фрагмент или режим «только P-δ» — признак наборов по правилу.
+        bool geometric = analysis.Kind == AnalysisKind ? csfea.GeomNonlinear : csfea.SourcePDelta && csfea.StiffnessSource != null;
+        bool localOnly = analysis.Kind == AnalysisKind && FemCsfeaSetup.IsLocalPDelta(csfea);
+        bool? secondOrderAllowed = null;
+        if (geometric && (schema.IsFragment || localOnly))
+        {
+            var decision = CScore.Fem.Fragment.FragmentSecondOrder.Decide(FragmentSecondOrderCheck.Facts(ctx.Db, schema, csfea,
+                geometric, localOnly, lambda?.Lambda, input.MeshElements, input.MeshNodes));
+            diag.AddRange(decision.Diagnostics);
+            secondOrderAllowed = decision.SecondOrder;
         }
         CScore.Fem.Imperfections.FemImperfectionReport? imperfections = null;
         if (input.Imperfections.Count > 0 && !adapted.HasErrors)
@@ -616,7 +642,10 @@ public static class FemCsfeaRunner
         }
         else if (input.StageImperfections.Any(s => s.Count > 0) && !adapted.HasErrors)
             CheckStageImperfections(input, adapted, diag);
-        return new(input, adapted, diag) { ControlNode = control, FragmentBoundary = fragmentBc, Imperfections = imperfections };
+        return new(input, adapted, diag)
+        {
+            ControlNode = control, FragmentBoundary = fragmentBc, Imperfections = imperfections, SecondOrderAllowed = secondOrderAllowed,
+        };
     }
 
     /// <summary>Порог λ_cr каркаса, при котором P-Δ пренебрежимо мал и допустим режим «только P-δ» (решение 06.11).</summary>
@@ -806,7 +835,8 @@ public static class FemCsfeaRunner
         int? controlDof = ControlDof(prepared, run.Build, csfea, summary);
 
         var r = run.Result;
-        summary.SecondOrder = csfea.GeomNonlinear;
+        summary.SecondOrder = prepared.SecondOrderOf(csfea.GeomNonlinear);
+        summary.LocalPDelta = FemCsfeaSetup.IsLocalPDelta(csfea);
         summary.Completed = r.Completed;
         summary.LimitStage = r.LimitStage;
         summary.Message = r.Message;
@@ -875,7 +905,7 @@ public static class FemCsfeaRunner
         var summary = new FemCsfeaResultSummary
         {
             Report = prepared.Report.ToList(), Batch = [], BatchRecording = batch.Recording, BatchMaxLoadFactor = batch.MaxLoadFactor,
-            SecondOrder = csfea.GeomNonlinear,
+            SecondOrder = prepared.SecondOrderOf(csfea.GeomNonlinear), LocalPDelta = FemCsfeaSetup.IsLocalPDelta(csfea),
         };
         if (prepared.HasErrors)
         {
@@ -1298,7 +1328,7 @@ public static class FemCsfeaRunner
         }
         clock.Stop();
         summary.SourcePDelta = pDelta;
-        summary.SecondOrder = pDelta;
+        summary.SecondOrder = prepared.SecondOrderOf(pDelta);
         summary.SourcePDeltaBeams = run.GeometricBeams;
         summary.SourcePDeltaShells = run.GeometricShells;
         summary.SourcePDeltaInPlane = pDelta && source!.ShellInPlanePDelta;
