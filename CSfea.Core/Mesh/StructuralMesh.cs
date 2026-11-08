@@ -472,13 +472,22 @@ public sealed class StructuralMesh : IFeaMesh
     /// <paramref name="uState"/> (обычно предыдущая итерация; N уточняется повторным вызовом). Матрица симметрична,
     /// решение — тем же Холецким, что и линейное; не положительно определённая K + K_σ — потеря устойчивости
     /// (<see cref="InvalidOperationException"/>, запасного LU нет: выше критической нагрузки решение не имеет смысла).
+    /// Ненулевые заданные перемещения <see cref="BoundaryConditions.UFixed"/> — многоправым
+    /// <see cref="SolveLinear(IReadOnlyList{double[]}, BoundaryConditions, Func{int, double[,]}?, IReadOnlyList{double[]?}?)"/>:
+    /// (K + K_σ)·ū переносится в правую часть, матрицы КЭ считаются один раз (кеш на вызов).
     /// </summary>
     public double[] SolveSecondOrder(double[] f, BoundaryConditions bc, double[] uState, bool shellInPlane = true)
     {
         if (bc.HasNonlinearSprings)
             throw new InvalidOperationException("SolveSecondOrder не поддерживает нелинейные пружины — используйте SolveNonlinear.");
         if (bc.UFixed.Any(v => v != 0))
-            throw new NotSupportedException("SolveSecondOrder — только с нулевыми заданными перемещениями.");
+        {
+            // Матрица КЭ нужна дважды (K_ff и полная K для K·ū) — без кеша K_σ собиралась бы повторно.
+            var cache = new double[ElementCount][,];
+            var res = SolveLinear([f], bc, e => cache[e] ??= ElementKSecondOrder(e, uState, shellInPlane), [bc.UFixed])[0];
+            LastSolveTimings = null;
+            return res;
+        }
         var fixedSys = SysFixed(bc.FixedDofs);
         lock (_cholGate)
         {

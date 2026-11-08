@@ -186,10 +186,7 @@ public static class RcSecantAnalysis
                 uEnd = uEnd == null ? du : uEnd.Zip(du, (a, b) => a + b).ToArray();
             stages.Add(new SecantLoadStage(st.Name, f, st.Steps, uEnd));
         }
-        if (uEnd != null && options.Solver.Geometric && options.Solver.GeometricSecondOrder)
-            throw new NotSupportedException(
-                "Заданные перемещения в секущем расчёте по теории второго порядка пока не поддержаны — " +
-                "выберите геометрическую нелинейность по Ньютону или расчёт без неё.");
+        // Заданные перемещения — во всех постановках (второй порядок — перенос (K + K_σ)·ū, StructuralMesh.SolveSecondOrder).
         // Несовершенства модели — в решатель (учитываются только во втором порядке; CR — отказ решателя).
         var solverOptions = options.Solver;
         if (build.Imperfection(model) is { } imperfection) solverOptions = solverOptions.WithImperfection(imperfection);
