@@ -4174,7 +4174,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FragmentCutSideLateralFace">бок, грань {0}</system:String>
     <system:String x:Key="FragmentCutSideLateralAngle">бок, {0}</system:String>
     <system:String x:Key="FragmentCutKindEnd">конец стержня</system:String>
-    <system:String x:Key="FragmentCutKindEdge">кромка стены</system:String>
+    <system:String x:Key="FragmentCutKindEdge">кромка пластины</system:String>
     <system:String x:Key="FragmentCutMaskYes">есть</system:String>
     <system:String x:Key="FragmentCutMaskNo">нет</system:String>
     <system:String x:Key="FragmentDofModeFixed">Закреплён</system:String>

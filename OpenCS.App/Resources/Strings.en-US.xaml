@@ -4174,7 +4174,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FragmentCutSideLateralFace">side, face {0}</system:String>
     <system:String x:Key="FragmentCutSideLateralAngle">side, {0}</system:String>
     <system:String x:Key="FragmentCutKindEnd">bar end</system:String>
-    <system:String x:Key="FragmentCutKindEdge">wall edge</system:String>
+    <system:String x:Key="FragmentCutKindEdge">plate edge</system:String>
     <system:String x:Key="FragmentCutMaskYes">yes</system:String>
     <system:String x:Key="FragmentCutMaskNo">no</system:String>
     <system:String x:Key="FragmentDofModeFixed">Fixed</system:String>
