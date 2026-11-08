@@ -432,6 +432,59 @@ public sealed class FragmentNodalCutTests
         Assert.DoesNotContain(x.Diagnostics, d => d.Code == "fragment_mask_cut_resultant");
     }
 
+    /// <summary>
+    /// Два ключа (стадии) с разными наборами слагаемых кромки: K2 = K1 + сосредоточенная −1000 Н в пересекаемом КЭ 7
+    /// (поправка полоски — слагаемое в точке нагрузки, у K1 его нет). Сэмплы масок у ключей совпадают по s — маски стадий
+    /// вычитаются поточечно (<see cref="FragmentMaskDistribution.Combine"/>, иначе «нет маски» у стадии), равнодействующие
+    /// не меняются: 6000, 7000, приращение 1000 Н.
+    /// </summary>
+    [Fact]
+    public void Extractor_NodalPath_SamplesCommonAcrossKeys()
+    {
+        var k2 = FragmentMaskKey.OfLoadCase(2);
+        var (nodes, elements) = Wall(3, 3, 6, 6);
+        var result = new FragmentParentResultTable();
+        var nodal = new FragmentNodalForcesTable();
+        foreach (var key in new[] { K1, k2 })
+        {
+            result.AddKey(key);
+            foreach (var (tag, n) in nodes) result.SetDisplacement(key, tag, new Dof6(0, 0, -1e-4 * n.Z, 0, 0, 0));
+            var top = new Dictionary<string, double>(StringComparer.Ordinal);
+            foreach (var e in elements)
+            {
+                var g = FemElementGeometry.Of(e, nodes)!;
+                double zMid = g.Centroid.Z, b = g.Points.Max(p => p.X) - g.Points.Min(p => p.X);
+                for (int k = 0; k < g.NodeTags.Count; k++)
+                {
+                    double fz = (g.Points[k].Z > zMid ? 1 : -1) * -2000 * b / 2;
+                    nodal.SetElementNodeForce(key, e.ElemTag, g.NodeTags[k], new Dof6(0, 0, fz, 0, 0, 0));
+                    if (Math.Abs(g.Points[k].Z - 3) < 1e-9) top[g.NodeTags[k]] = top.GetValueOrDefault(g.NodeTags[k]) + fz;
+                }
+            }
+            foreach (var (tag, fz) in top) nodal.AddNodeLoad(key, tag, new Dof6(0, 0, fz, 0, 0, 0));
+        }
+        var g7 = FemElementGeometry.Of(elements.Single(e => e.ElemTag == "7"), nodes)!;
+        foreach (var tag in g7.NodeTags) nodal.SetElementLoad(k2, "7", tag, new Dof6(0, 0, -250, 0, 0, 0));
+        nodal.AddElementLoadPiece(k2, "7", new FemPointPiece(V(0.3, 0, 0.95), V(0, 0, -1000), V(0, 0, 0)));
+        var cut = WallBottom(0.9, 3);
+
+        var x = FragmentMaskExtractor.Extract(new FragmentMaskInput
+        {
+            Cuts = [cut], ParentNodes = nodes, ParentElements = elements, Result = result, NodalForces = nodal,
+            Bounds = new FragmentBounds(0.9, 3, null, 1e-3),
+        });
+
+        Assert.Equal(FragmentEdgeForceMethod.NodalForces, x.EdgeMethod);
+        var m1 = Assert.Single(x.Masks, m => m.Key == K1);
+        var m2 = Assert.Single(x.Masks, m => m.Key == k2);
+        Assert.Equal(m1.Samples.Select(s => s.S), m2.Samples.Select(s => s.S));
+        Assert.Equal(6000, FragmentMaskBalance.Resultant(cut, m1.Samples, V(0, 0, 0))!.Value.F.Z, 6);
+        Assert.Equal(7000, FragmentMaskBalance.Resultant(cut, m2.Samples, V(0, 0, 0))!.Value.F.Z, 6);
+        var diff = FragmentMaskDistribution.Combine([(m2.Samples, 1.0), (m1.Samples, -1.0)]);
+        Assert.NotNull(diff);
+        Assert.Equal(1000, FragmentMaskBalance.Resultant(cut, diff!, V(0, 0, 0))!.Value.F.Z, 6);
+    }
+
     /// <summary>Самопроверка не прошла — МНК по центрам КЭ (усилия есть) и предупреждение.</summary>
     [Fact]
     public void Extractor_SelfCheckFails_FallsBackToLeastSquares()

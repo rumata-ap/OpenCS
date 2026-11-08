@@ -222,22 +222,37 @@ public static class FragmentMaskExtractor
         PlanarVector3 outward, string where, List<(string, FemElementGeometry)> shells, FragmentNodalCutResult nodal)
     {
         if (PrepareEdge(input, x, c, outward, where, shells) is not { } geometries) return;
+        // Плотности всех ключей; точки — общие для ключей (узлы плотностей всех ключей и точки геометрии): у ключей разные
+        // наборы слагаемых, а маски стадий вычитаются поточечно (FragmentMaskDistribution.Combine). Плотность кусочно-линейна —
+        // значение в чужом узле лежит на её отрезке, ΣF и ΣM не меняются.
+        var densities = new Dictionary<FragmentMaskKey, List<List<(double T, Dof6 F)>>>();
         foreach (var key in input.Result.Keys)
         {
             IReadOnlyList<FragmentNodalTerm> terms = nodal.Terms.TryGetValue(key, out var byCut) && byCut.TryGetValue(index, out var list)
                 ? list : [];
             var projected = FragmentNodalDensity.Project(c.Cut.Segments, terms);
+            densities[key] = geometries.Select((g, j) => FragmentNodalDensity.Density(g.Length, g.Axis, projected[j])).ToList();
+        }
+        var pointsBySegment = geometries.Select((g, j) =>
+        {
+            var nodes = new List<double>();
+            foreach (double t in densities.Values.SelectMany(d => d[j]).Select(d => d.T).Order())
+                if (nodes.Count == 0 || t - nodes[^1] > FragmentNodalDensity.MergeEps) nodes.Add(t);
+            return g.Points
+                .Where(p => nodes.All(t => Math.Abs(t - p.S) > FragmentNodalDensity.MergeEps))
+                .Concat(nodes.Select(t => FragmentWallCutSampler.PointAt(g, t)))
+                .OrderBy(p => p.S).ToList();
+        }).ToList();
+        foreach (var key in input.Result.Keys)
+        {
             var samples = new List<FragmentMaskSample>();
             bool noU = false;
             double offset = 0;
             for (int j = 0; j < geometries.Count; j++)
             {
                 var g = geometries[j];
-                var density = FragmentNodalDensity.Density(g.Length, g.Axis, projected[j]);
-                var points = g.Points
-                    .Where(p => density.All(d => Math.Abs(d.T - p.S) > FragmentNodalDensity.MergeEps))
-                    .Concat(density.Select(d => FragmentWallCutSampler.PointAt(g, d.T)))
-                    .OrderBy(p => p.S).ToList();
+                var density = densities[key][j];
+                var points = pointsBySegment[j];
                 foreach (var p in points)
                 {
                     var u = FragmentWallCutSampler.Displacement(p,
