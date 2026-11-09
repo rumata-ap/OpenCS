@@ -33,7 +33,7 @@
                           VerticalAlignment="Center" Margin="0,0,16,0"/>
                <TextBlock Text="{DynamicResource ShellForceThicknessLabel}"
                           VerticalAlignment="Center" Margin="0,0,6,0"/>
-               <TextBox Text="{Binding ThicknessM, UpdateSourceTrigger=PropertyChanged}"
+               <TextBox Text="{Binding ThicknessM, Converter={StaticResource ForceAnyDouble}, UpdateSourceTrigger=LostFocus}"
                         Width="80" VerticalContentAlignment="Center" Margin="0,0,8,0"/>
                <Button Content="{DynamicResource ShellForceConvertBtn}"
                        Command="{Binding ConvertStressToForceCommand}"
@@ -84,7 +84,7 @@
                </DataGridTextColumn.Header>
             </DataGridTextColumn>
 
-            <DataGridTextColumn Binding="{Binding Nx, StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
+            <DataGridTextColumn Binding="{Binding Nx, Converter={StaticResource ForceAnyDouble}, ConverterParameter=G6, UpdateSourceTrigger=LostFocus}"
                                 Width="80"
                                 ElementStyle="{StaticResource ForceValueX}"
                                 EditingElementStyle="{StaticResource ForceEditX}">
@@ -103,7 +103,7 @@
                </DataGridTextColumn.CellStyle>
             </DataGridTextColumn>
 
-            <DataGridTextColumn Binding="{Binding Ny, StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
+            <DataGridTextColumn Binding="{Binding Ny, Converter={StaticResource ForceAnyDouble}, ConverterParameter=G6, UpdateSourceTrigger=LostFocus}"
                                 Width="80"
                                 ElementStyle="{StaticResource ForceValueY}"
                                 EditingElementStyle="{StaticResource ForceEditY}">
@@ -122,7 +122,7 @@
                </DataGridTextColumn.CellStyle>
             </DataGridTextColumn>
 
-            <DataGridTextColumn Binding="{Binding Nxy, StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
+            <DataGridTextColumn Binding="{Binding Nxy, Converter={StaticResource ForceAnyDouble}, ConverterParameter=G6, UpdateSourceTrigger=LostFocus}"
                                 Width="80"
                                 ElementStyle="{StaticResource ForceValueTau}"
                                 EditingElementStyle="{StaticResource ForceEditTau}">
@@ -141,7 +141,7 @@
                </DataGridTextColumn.CellStyle>
             </DataGridTextColumn>
 
-            <DataGridTextColumn Binding="{Binding Mx, StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
+            <DataGridTextColumn Binding="{Binding Mx, Converter={StaticResource ForceAnyDouble}, ConverterParameter=G6, UpdateSourceTrigger=LostFocus}"
                                 Width="85"
                                 ElementStyle="{StaticResource ForceValueX}"
                                 EditingElementStyle="{StaticResource ForceEditX}">
@@ -150,7 +150,7 @@
                </DataGridTextColumn.Header>
             </DataGridTextColumn>
 
-            <DataGridTextColumn Binding="{Binding My, StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
+            <DataGridTextColumn Binding="{Binding My, Converter={StaticResource ForceAnyDouble}, ConverterParameter=G6, UpdateSourceTrigger=LostFocus}"
                                 Width="85"
                                 ElementStyle="{StaticResource ForceValueY}"
                                 EditingElementStyle="{StaticResource ForceEditY}">
@@ -159,7 +159,7 @@
                </DataGridTextColumn.Header>
             </DataGridTextColumn>
 
-            <DataGridTextColumn Binding="{Binding Mxy, StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
+            <DataGridTextColumn Binding="{Binding Mxy, Converter={StaticResource ForceAnyDouble}, ConverterParameter=G6, UpdateSourceTrigger=LostFocus}"
                                 Width="90"
                                 ElementStyle="{StaticResource ForceValueTwist}"
                                 EditingElementStyle="{StaticResource ForceEditTwist}">
@@ -168,7 +168,7 @@
                </DataGridTextColumn.Header>
             </DataGridTextColumn>
 
-            <DataGridTextColumn Binding="{Binding Qx, StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
+            <DataGridTextColumn Binding="{Binding Qx, Converter={StaticResource ForceAnyDouble}, ConverterParameter=G6, UpdateSourceTrigger=LostFocus}"
                                 Width="80"
                                 ElementStyle="{StaticResource ForceValueX}"
                                 EditingElementStyle="{StaticResource ForceEditX}">
@@ -177,7 +177,7 @@
                </DataGridTextColumn.Header>
             </DataGridTextColumn>
 
-            <DataGridTextColumn Binding="{Binding Qy, StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
+            <DataGridTextColumn Binding="{Binding Qy, Converter={StaticResource ForceAnyDouble}, ConverterParameter=G6, UpdateSourceTrigger=LostFocus}"
                                 Width="80"
                                 ElementStyle="{StaticResource ForceValueY}"
                                 EditingElementStyle="{StaticResource ForceEditY}">
@@ -186,7 +186,7 @@
                </DataGridTextColumn.Header>
             </DataGridTextColumn>
 
-            <DataGridTextColumn Binding="{Binding SigmaX, TargetNullValue='', StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
+            <DataGridTextColumn Binding="{Binding SigmaX, TargetNullValue='', Converter={StaticResource ForceAnyDouble}, ConverterParameter=G6, UpdateSourceTrigger=LostFocus}"
                                 Width="80"
                                 ElementStyle="{StaticResource ForceValueX}"
                                 EditingElementStyle="{StaticResource ForceEditX}">
@@ -195,7 +195,7 @@
                </DataGridTextColumn.Header>
             </DataGridTextColumn>
 
-            <DataGridTextColumn Binding="{Binding SigmaY, TargetNullValue='', StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
+            <DataGridTextColumn Binding="{Binding SigmaY, TargetNullValue='', Converter={StaticResource ForceAnyDouble}, ConverterParameter=G6, UpdateSourceTrigger=LostFocus}"
                                 Width="80"
                                 ElementStyle="{StaticResource ForceValueY}"
                                 EditingElementStyle="{StaticResource ForceEditY}">
@@ -204,7 +204,7 @@
                </DataGridTextColumn.Header>
             </DataGridTextColumn>
 
-            <DataGridTextColumn Binding="{Binding TauXY, TargetNullValue='', StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
+            <DataGridTextColumn Binding="{Binding TauXY, TargetNullValue='', Converter={StaticResource ForceAnyDouble}, ConverterParameter=G6, UpdateSourceTrigger=LostFocus}"
                                 Width="80"
                                 ElementStyle="{StaticResource ForceValueTau}"
                                 EditingElementStyle="{StaticResource ForceEditTau}">
