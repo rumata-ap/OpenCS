@@ -319,7 +319,7 @@ namespace OpenCS.Views.Helpers
         double EstimateRebarLabelWidth(SectionCutVM vm)
         {
             string sample = vm.ShowRebarForce
-                ? "N=+999.99"
+                ? "N=+999.99 кН"
                 : PlotMode == SectionPlotMode.Stress
                     ? "σ=+99.99"
                     : "ε=+0.00000";
@@ -888,7 +888,7 @@ namespace OpenCS.Views.Helpers
                 dc.DrawLine(forcePen, basePt, endPt);
                 dc.DrawEllipse(Brushes.White, forcePen, endPt, RebarHandleRadius, RebarHandleRadius);
                 string val = vm.ShowRebarForce
-                    ? $"N={computedV:+0.##;-0.##}"
+                    ? $"N={computedV:+0.##;-0.##} кН"
                     : PlotMode == SectionPlotMode.Stress
                         ? $"σ={computedV:+0.##;-0.##}"
                         : $"ε={computedV:+0.00000;-0.00000}";

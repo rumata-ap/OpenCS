@@ -35,7 +35,7 @@ public sealed class SectionCutExportArgs
         : v.ToString("+0.#####;-0.#####", System.Globalization.CultureInfo.InvariantCulture);
 
     public string FormatRebarLabel(double v) => ShowRebarForce
-        ? $"N={FormatValue(v)}"
+        ? $"N={FormatValue(v)} кН"
         : Mode == SectionPlotMode.Stress ? $"σ={FormatValue(v)}" : $"ε={FormatValue(v)}";
 
     public MatType AreaMatType(int? areaIndex) =>
