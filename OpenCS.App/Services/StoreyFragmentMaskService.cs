@@ -113,6 +113,20 @@ public static class StoreyFragmentMaskService
         var parentOf = map.ToDictionary(kv => kv.Value, kv => kv.Key);
         var nodal = NodalSource(db, parentId, analysis, summary, linear, setup, parent, parentResult, fieldsByKey,
             id => parentOf.TryGetValue(id, out int pid) ? pid : null, diag);
+        if (nodal != null)
+        {
+            // «Только P-δ»: КЭ, чья сила хорды приходит в узлы полосы вне их топологии, — тоже в ступеньку (иначе узлам
+            // линий уровня не хватит слагаемых и самопроверка откажет).
+            var known = nodalElements.Select(e => e.ElemTag).ToHashSet(StringComparer.Ordinal);
+            var bandNodes = band.SelectMany(e => CScore.Fem.Loads.FemElementGeometry.Of(e, nodes)?.NodeTags ?? []);
+            var remote = nodal.RemoteElementsOf(bandNodes);
+            var extra = remote.Count == 0 ? [] : allElements.Where(e => remote.Contains(e.ElemTag) && !known.Contains(e.ElemTag)).ToList();
+            if (extra.Count > 0)
+            {
+                nodalElements.AddRange(extra);
+                parentResult.AddElements(nodes, extra, parentMembers, regionAxes);
+            }
+        }
 
         var cutInputs = CutInputs(db, fragment.Id, cuts.Select(c => c.Cut).ToList());
         var extraction = FragmentMaskExtractor.Extract(new FragmentMaskInput
@@ -185,13 +199,8 @@ public static class StoreyFragmentMaskService
         if (!linear)
         {
             // Второй порядок (спека 2026-11-06, срез 2): узловые силы — (K_s + K_σ)·u (+ K_σ·u₀ несовершенств, спека
-            // 2026-11-09, срез 1); «Большие перемещения» (срез 2) — внутренние силы КЭ решателя (CR / фон Карман) при u.
-            // Без них (МНК): «только P-δ» — проектированная K_σ связывает КЭ с узлами уровней вне его.
-            if (FemCsfeaSetup.IsLocalPDelta(csfea))
-            {
-                Unsupported("секущий расчёт в режиме «Только P-δ»");
-                return null;
-            }
+            // 2026-11-09, срез 1); «Большие перемещения» (срез 2) — внутренние силы КЭ решателя (CR / фон Карман) при u;
+            // «Только P-δ» (срез 3) — плюс поблочные силы хорд, в т. ч. в узлах уровней вне КЭ (RemoteElements).
             if (steps.Values.Any(f => !f.HasMatrices || !f.HasElementMatrices))
             {
                 Unsupported("в записи шагов нет секущих матриц КЭ (пересчитайте родителя)");
@@ -205,7 +214,8 @@ public static class StoreyFragmentMaskService
             }
             return CsfeaNodalForcesSource.Secant(parent.Adapted.Model, fields, steps, parent.Loads, parentLoadCase,
                 secondOrder: csfea.GeomNonlinear, inPlane: csfea.ShellInPlanePDelta,
-                largeDisplacements: csfea.GeomNonlinear && csfea.GeomLargeDisplacements);
+                largeDisplacements: csfea.GeomNonlinear && csfea.GeomLargeDisplacements,
+                localPDelta: csfea.GeomNonlinear && FemCsfeaSetup.IsLocalPDelta(csfea));
         }
         double floor = summary.StiffnessFloor ?? OpenCS.Utilites.CalcSettings.DefaultCsfeaStiffnessFloor;
         if (FemCsfeaLinearSetup.Resolve(db, parentId, csfea, parent.Adapted.Model, floor, out var error) is not { } setup)

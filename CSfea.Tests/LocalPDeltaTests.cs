@@ -1,5 +1,6 @@
 using CSfea.CScoreBridge.Structural;
 using CSfea.Core;
+using CSfea.Sparse;
 
 namespace CSfea.Tests;
 
@@ -42,6 +43,9 @@ public class LocalPDeltaTests
         RunLevels();
         RunWallNoLevelLine();
         RunWallBothEndsPrescribed();
+
+        TestHarness.Section("Поблочные силы хорд: Σ ElementChordForces = ChordForce + ChordImperfectionForce");
+        RunElementChordForces();
     }
 
     // ---------------- общее ----------------
@@ -315,5 +319,57 @@ public class LocalPDeltaTests
         double TopRz(RcSecantStepFields f) => -Enumerable.Range(0, nx + 1).Sum(i => Reaction(f, Id(i, nz), 2));
         double pActual = TopRz(loc);
         TestHarness.CheckRel("стена: ΣRx LocalOnly − Full = P·Δ/L", TopRx(loc) - TopRx(full), pActual * delta / l, 0.005);
+    }
+
+    /// <summary>
+    /// Поблочные силы хорд (<see cref="StructuralMesh.ElementChordForces"/>) по произвольным u: колонна с ригелем (погибь,
+    /// крен) и стена (крен). Σ по КЭ без поля = <see cref="StructuralMesh.ChordForce"/>, с полем — плюс
+    /// <see cref="StructuralMesh.ChordImperfectionForce"/> (1e−12 от max); у КЭ без хорды пусто; узлы блока вне КЭ
+    /// (<see cref="StructuralMesh.ChordNodes"/>) — ровно узлы DOF блока, не входящие в КЭ.
+    /// </summary>
+    private static void RunElementChordForces()
+    {
+        var col = Column(8, 6.0);
+        col.Nodes.Add(new RcNode(50, 3.0, 0, 3.0));
+        col.Beams.Add(new RcBeam(200, 4, 50, Section, [0, 0, 1]));
+        col.Imperfections.Add(new RcSway(1.0 / 200, Dx));
+        col.Imperfections.Add(new RcBow([100, 101, 102, 103], 0.01, [0, 1, 0]));
+        var wall = Wall(4, 6, 3.0, _ => (0, 1), WallSection);
+        wall.Imperfections.Add(new RcSway(1.0 / 150, [0, 1, 0]));
+        foreach (var (name, m) in new[] { ("колонна с ригелем", col), ("стена", wall) })
+        {
+            var build = RcStructuralMeshBuilder.Build(m, new LinearRcSectionFactory());
+            var mesh = build.Mesh;
+            mesh.SetLocalSecondOrder(RcLocalPDelta.Analyze(m).Chords);
+            var field = build.Imperfection(m)!;
+            var rnd = new Random(7);
+            var u = Enumerable.Range(0, mesh.NDof).Select(_ => 1e-3 * (rnd.NextDouble() - 0.5)).ToArray();
+            foreach (bool inPlane in new[] { true, false })
+            {
+                var sum = new double[mesh.NDof];
+                var sumImp = new double[mesh.NDof];
+                bool nodesOk = true, emptyOk = true;
+                for (int e = 0; e < mesh.ElementCount; e++)
+                {
+                    foreach (var (d, f) in mesh.ElementChordForces(e, u, u, inPlane)) sum[d] += f;
+                    var withField = mesh.ElementChordForces(e, u, u, inPlane, field);
+                    foreach (var (d, f) in withField) sumImp[d] += f;
+                    if (!mesh.HasGeometric(e)) emptyOk &= withField.Count == 0 && mesh.ChordNodes(e).Count == 0;
+                    var own = mesh.ElementDofs(e).Select(x => x / 6).ToHashSet();
+                    var expected = withField.Select(x => x.Dof / 6).Where(n => !own.Contains(n)).Distinct().Order();
+                    nodesOk &= expected.SequenceEqual(mesh.ChordNodes(e).Order());
+                }
+                var cf = mesh.ChordForce(u, u, inPlane);
+                var ci = Dense.AddV(cf, mesh.ChordImperfectionForce(field, u, inPlane));
+                TestHarness.Check($"{name} (inPlane={inPlane}): поправки ненулевые", cf.Max(Math.Abs) > 0, "нули");
+                TestHarness.CheckLess($"{name} (inPlane={inPlane}): Σ поблочных = ChordForce", Diff(sum, cf), 1e-12);
+                TestHarness.CheckLess($"{name} (inPlane={inPlane}): Σ с полем = ChordForce + ChordImperfectionForce",
+                    Diff(sumImp, ci), 1e-12);
+                TestHarness.Check($"{name}: у КЭ без хорды пусто", emptyOk, "есть силы");
+                TestHarness.Check($"{name}: ChordNodes = узлы блока вне КЭ", nodesOk, "не совпали");
+            }
+            TestHarness.Check($"{name}: узлы вне КЭ есть", Enumerable.Range(0, mesh.ElementCount).Any(e => mesh.ChordNodes(e).Count > 0),
+                "нет");
+        }
     }
 }

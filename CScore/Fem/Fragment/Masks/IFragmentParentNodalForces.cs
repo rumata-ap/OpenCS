@@ -38,4 +38,10 @@ public interface IFragmentParentNodalForces
     /// (<see cref="FragmentNodalCut"/>).
     /// </summary>
     IReadOnlyCollection<(string A, string? B)> NodeLinks { get; }
+
+    /// <summary>
+    /// КЭ, чьи узловые силы приходят в узел <paramref name="nodeTag"/> помимо топологии (блоки хорд «только P-δ»: сила
+    /// КЭ с хордой — и в узлах линий уровней вне КЭ); их <see cref="TryElementNodeForces"/> содержит этот узел. Пусто — нет.
+    /// </summary>
+    IReadOnlyCollection<string> RemoteElements(string nodeTag) => [];
 }

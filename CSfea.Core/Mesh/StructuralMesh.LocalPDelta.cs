@@ -33,6 +33,7 @@ public sealed partial class StructuralMesh
         LocalChords = chords;
         _chordBlocks = chords == null ? [] : Enumerable.Range(0, ElementCount)
             .Where(e => chords[e] != null).Select(e => BuildChordBlock(e, chords[e]!)).ToArray();
+        _chordBlockOf = null;
         _assembler = null;   // портрет K_ff — с блоками-поправками
     }
 
@@ -132,10 +133,14 @@ public sealed partial class StructuralMesh
         if (_chordBlocks.Length == 0) return f;
         var parts = new double[_chordBlocks.Length][];
         Parallel.For(0, _chordBlocks.Length, new ParallelOptions { MaxDegreeOfParallelism = MaxDegreeOfParallelism },
-            k => parts[k] = Dense.MatVec(ChordCorrection(k, uState, shellInPlane), Gather(u, _chordBlocks[k].Dofs)));
+            k => parts[k] = BlockForce(k, uState, u, shellInPlane));
         Scatter(parts, f, abs);
         return f;
     }
+
+    // ΔK блока k · u по его расширенным DOF.
+    private double[] BlockForce(int k, double[] uState, double[] u, bool shellInPlane)
+        => Dense.MatVec(ChordCorrection(k, uState, shellInPlane), Gather(u, _chordBlocks[k].Dofs));
 
     /// <summary>
     /// Поправка вектора несовершенства режима «только P-δ»: Σ [Tᵀ·G·T·u₀ − Pᵀ·G·u₀,e] по КЭ с хордой и своим u₀; u₀ узлов
@@ -148,23 +153,85 @@ public sealed partial class StructuralMesh
         if (_chordBlocks.Length == 0) return f;
         var nodal = NodalImperfection(field);
         var parts = new double[_chordBlocks.Length][];
-        Parallel.For(0, _chordBlocks.Length, new ParallelOptions { MaxDegreeOfParallelism = MaxDegreeOfParallelism }, k =>
-        {
-            var b = _chordBlocks[k];
-            int e = b.Element;
-            double[]? own = e < Shells.Count ? ShellU0(field, e) : field.Beam[e - Shells.Count];
-            if (own == null) return;
-            var u0 = new double[b.Dofs.Length];
-            for (int r = 0; r < b.Rows.Length; r++) u0[r] = own[b.Rows[r]];
-            for (int c = b.Rows.Length; c < u0.Length; c++) u0[c] = nodal[b.Dofs[c]];
-            var g = Sub(ElementKGeometric(e, uState, shellInPlane), b.Rows);
-            var res = Dense.MatTVec(b.T, Dense.MatVec(g, Dense.MatVec(b.T, u0)));
-            var gp = Dense.MatVec(g, u0[..b.Rows.Length]);
-            for (int r = 0; r < gp.Length; r++) res[r] -= gp[r];
-            parts[k] = res;
-        });
+        Parallel.For(0, _chordBlocks.Length, new ParallelOptions { MaxDegreeOfParallelism = MaxDegreeOfParallelism },
+            k => parts[k] = BlockImperfectionForce(k, field, nodal, uState, shellInPlane));
         Scatter(parts, f, abs);
         return f;
+    }
+
+    // Tᵀ·G·T·u₀ − Pᵀ·G·u₀,e блока k по его расширенным DOF; null — у КЭ нет u₀.
+    private double[]? BlockImperfectionForce(int k, ImperfectionField field, double[] nodal, double[] uState, bool shellInPlane)
+    {
+        var b = _chordBlocks[k];
+        int e = b.Element;
+        double[]? own = e < Shells.Count ? ShellU0(field, e) : field.Beam[e - Shells.Count];
+        if (own == null) return null;
+        var u0 = new double[b.Dofs.Length];
+        for (int r = 0; r < b.Rows.Length; r++) u0[r] = own[b.Rows[r]];
+        for (int c = b.Rows.Length; c < u0.Length; c++) u0[c] = nodal[b.Dofs[c]];
+        var g = Sub(ElementKGeometric(e, uState, shellInPlane), b.Rows);
+        var res = Dense.MatTVec(b.T, Dense.MatVec(g, Dense.MatVec(b.T, u0)));
+        var gp = Dense.MatVec(g, u0[..b.Rows.Length]);
+        for (int r = 0; r < gp.Length; r++) res[r] -= gp[r];
+        return res;
+    }
+
+    private Dictionary<int, int>? _chordBlockOf;
+    private Tuple<ImperfectionField, double[]>? _nodalImperfection;
+
+    // Узловые u₀ поля (кэш по ссылке на поле: поблочные силы зовутся по КЭ подряд).
+    private double[] NodalImperfectionCached(ImperfectionField field)
+    {
+        var c = _nodalImperfection;
+        if (c != null && ReferenceEquals(c.Item1, field)) return c.Item2;
+        var u = NodalImperfection(field);
+        _nodalImperfection = Tuple.Create(field, u);
+        return u;
+    }
+
+    // Номер блока хорды КЭ e; −1 — у КЭ нет хорды.
+    private int ChordBlockOf(int e)
+    {
+        var map = _chordBlockOf;
+        if (map == null || map.Count != _chordBlocks.Length)
+        {
+            map = new Dictionary<int, int>(_chordBlocks.Length);
+            for (int k = 0; k < _chordBlocks.Length; k++) map[_chordBlocks[k].Element] = k;
+            _chordBlockOf = map;
+        }
+        return map.TryGetValue(e, out int kk) ? kk : -1;
+    }
+
+    /// <summary>
+    /// Узлы сетки блока хорды КЭ <paramref name="e"/> (единая нумерация) вне самого КЭ — узлы уровней, в которые
+    /// приходит его сила «только P-δ»; пусто — у КЭ нет хорды.
+    /// </summary>
+    public IReadOnlyList<int> ChordNodes(int e)
+    {
+        int k = ChordBlockOf(e);
+        if (k < 0) return [];
+        var own = new HashSet<int>(ElementDofs(e).Select(d => d / 6));
+        return _chordBlocks[k].Dofs.Select(d => d / 6).Distinct().Where(n => !own.Contains(n)).ToArray();
+    }
+
+    /// <summary>
+    /// Поблочная поправка внутренних сил «только P-δ» КЭ <paramref name="e"/>: ΔK_e(N(<paramref name="uState"/>))·u
+    /// (+ поправка несовершенства блока, как в <see cref="ChordImperfectionForce"/>, если <paramref name="field"/> задано)
+    /// по расширенным DOF блока (полные DOF сетки, в т. ч. узлов уровней вне КЭ). Пусто — у КЭ нет хорды. Сумма по КЭ
+    /// равна <see cref="ChordForce"/> (+ <see cref="ChordImperfectionForce"/>).
+    /// </summary>
+    public IReadOnlyList<(int Dof, double F)> ElementChordForces(int e, double[] uState, double[] u, bool shellInPlane,
+        ImperfectionField? field = null)
+    {
+        int k = ChordBlockOf(e);
+        if (k < 0) return [];
+        var f = BlockForce(k, uState, u, shellInPlane);
+        if (field != null && BlockImperfectionForce(k, field, NodalImperfectionCached(field), uState, shellInPlane) is { } g)
+            for (int i = 0; i < f.Length; i++) f[i] += g[i];
+        var dofs = _chordBlocks[k].Dofs;
+        var r = new (int, double)[dofs.Length];
+        for (int i = 0; i < dofs.Length; i++) r[i] = (dofs[i], f[i]);
+        return r;
     }
 
     // u₀ оболочки по 6 DOF узлов (повороты — 0).

@@ -15,6 +15,7 @@ public sealed partial class StoreyFragmentMaskServiceTests
 {
     /// <summary>
     /// Σ по КЭ узла (f_int − f_нагр) − P − R по всем узлам модели без связей: максимум по узлам, доля от макс. |f_int|.
+    /// КЭ узла — свои по топологии и удалённые (<see cref="IFragmentParentNodalForces.RemoteElements"/>, хорды «только P-δ»).
     /// </summary>
     static double NodalResidual(IFragmentParentNodalForces source, FragmentMaskKey key, RcStructuralModel model)
     {
@@ -35,7 +36,7 @@ public sealed partial class StoreyFragmentMaskServiceTests
         {
             if (linked.Contains(n)) continue;
             var sum = Dof6.Zero;
-            foreach (var e in elems)
+            foreach (var e in elems.Concat(source.RemoteElements(n)))
             {
                 Assert.True(source.TryElementNodeForces(key, e, out var f), $"нет сил КЭ {e}");
                 sum += f[n];
@@ -305,13 +306,66 @@ public sealed partial class StoreyFragmentMaskServiceTests
     }
 
     /// <summary>
-    /// Секущий источник второго порядка, у которого узловые силы — не (K_s + K_σ)·u: «только P-δ» — МНК с причиной (до
-    /// проверки записанных матриц). Обычный второй порядок и «Большие перемещения» (спека 2026-11-09, срез 2) без матриц КЭ
-    /// в записи — причина «нет секущих матриц», с несовершенствами — та же (их проверка — после матриц).
+    /// Секущий расчёт «Только P-δ» (спека 2026-11-09, срез 3): узловые силы — (K_s + K_σ)·u (K_σ только у КЭ с хордой) +
+    /// поблочные силы хорд, в т. ч. в узлах уровней вне КЭ (<see cref="IFragmentParentNodalForces.RemoteElements"/>) — узлы в
+    /// равновесии до допуска итераций; полный второй порядок (K_σ у всех КЭ, без хорд) на этом u — невязка больше в ≥ 100
+    /// раз. <paramref name="imperfection"/> — плюс погибь колонны C1 (u₀ участка между уровнями не гасится хордой) и крен.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NodalSource_SecantLocalPDelta_NodesInEquilibrium(bool imperfection)
+    {
+        var p = Create();
+        using var db = p.Db;
+        var lc = db.GetFemLoadCases(p.Schema.Id);
+        var input = FemCsfeaInputBuilder.Build(db, p.Schema.Id, new FemCsfeaSetup { Stages = [Single("Пост.", lc[0].Id), Sum("Пост.+Ветер", lc[0].Id, lc[1].Id)] });
+        var adapted = FemRcModelAdapter.Adapt(input);
+        Assert.False(adapted.HasErrors, string.Join("; ", adapted.Report));
+        var csfea = new FemCsfeaParams
+        {
+            GeomNonlinear = true, SecondOrderScope = FemCsfeaSecondOrderScope.LocalOnly,
+            PhysicalNonlinearity = false, TolDisplacement = 1e-9,
+        };
+        Assert.True(FemCsfeaSetup.SecantOptions(csfea).LocalPDelta);
+        void Imperfect(RcStructuralModel m)
+        {
+            if (!imperfection) return;
+            m.Imperfections.Add(new RcSway(1.0 / 200, [1.0, 0.0, 0.0]));
+            var column = m.Beams.Where(b => b.Id / 10 == 51).Select(b => b.Id).ToList();
+            Assert.NotEmpty(column);
+            m.Imperfections.Add(new RcBow(column, 0.01, [0.0, 1.0, 0.0]));
+        }
+        Imperfect(adapted.Model);
+        var run = RcSecantAnalysis.Run(adapted.Model, FemCsfeaSetup.SecantOptions(csfea));
+        Assert.True(run.Result.Completed, run.Result.Message);
+        var record = run.LastConvergedFields()!;
+        Assert.True(record.HasElementMatrices);
+        var key = FragmentMaskKey.OfStageTerms([(lc[0].Id, 2.0), (lc[1].Id, 1.0)]);
+        var steps = new Dictionary<FragmentMaskKey, RcSecantStepFields> { [key] = record };
+        var all = StoreyFragmentMaskService.AdaptAllCases(input);
+        Imperfect(all.Model);
+        var loads = FragmentParentLoadParts.Compute(input, all);
+        var fields = Fields(db, p.Schema, steps);
+
+        var source = CsfeaNodalForcesSource.Secant(all.Model, fields, steps, loads, id => id, secondOrder: true, localPDelta: true);
+        double r = NodalResidual(source, key, all.Model);
+        string worst = WorstText();
+        Assert.NotEmpty(source.RemoteElementsOf(all.Model.Nodes.Select(n => n.Id.ToString(CultureInfo.InvariantCulture))));
+        double full = NodalResidual(CsfeaNodalForcesSource.Secant(all.Model, fields, steps, loads, id => id, secondOrder: true), key, all.Model);
+        Console.WriteLine($"LocalOnly{(imperfection ? " + несовершенство" : "")}: невязка {r:e2}, полный второй порядок {full:e2}");
+        Assert.True(r <= 1e-6, $"невязка {r}; {worst}");
+        Assert.True(full > 100 * r, $"полный второй порядок: невязка {full} не больше «только P-δ» {r} — тест не различает");
+    }
+
+    /// <summary>
+    /// Секущий источник второго порядка без матриц КЭ в записи: обычный второй порядок, «Большие перемещения» и «Только
+    /// P-δ» (спека 2026-11-09, срезы 2, 3) — причина «нет секущих матриц», с несовершенствами — та же (их проверка — после
+    /// матриц).
     /// </summary>
     [Theory]
     [InlineData("cr", "нет секущих матриц")]
-    [InlineData("local", "«Только P-δ»")]
+    [InlineData("local", "нет секущих матриц")]
     [InlineData("imperfection", "нет секущих матриц")]
     [InlineData("plain", "нет секущих матриц")]
     public void Extract_SecantSecondOrder_NodalFallbackReasons(string mode, string reason)

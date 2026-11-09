@@ -20,7 +20,8 @@ public sealed class FragmentNodalCutResult
 /// <c>нагр(Ω_s) − нагр(Ω_f)</c> (КЭ, пересекающий грань, — частью по виду нагрузки <see cref="FragmentLoadInside"/>, без
 /// частей у источника — долей <see cref="FragmentElementShare"/>; узловые нагрузки и реакции — по
 /// принадлежности узла); силы связей (АЖТ, пружины) через ступеньку — из равновесия узлов родителя
-/// <c>L_N = Σ_e f_e(N) − P_N − R_N</c> (спека 2026-11-06); слагаемое — в разрез плоскости наибольшего <c>Eval</c> центра
+/// <c>L_N = Σ_e f_e(N) − P_N − R_N</c> (спека 2026-11-06); Σ_e — и по КЭ, чья сила приходит в узел вне топологии
+/// (блоки хорд «только P-δ», <see cref="IFragmentParentNodalForces.RemoteElements"/>, спека 2026-11-09, разд. 3.3); слагаемое — в разрез плоскости наибольшего <c>Eval</c> центра
 /// КЭ (узла), ближайший к точке. Перед снятием — самопроверка равновесия узлов тела.
 /// </summary>
 public static class FragmentNodalCut
@@ -37,11 +38,20 @@ public static class FragmentNodalCut
         public Dictionary<string, PlanarVector3> Center { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, PlanarVector3> Positions { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, List<string>> ElementsAt { get; } = new(StringComparer.Ordinal);
+        /// <summary>КЭ, чья узловая сила приходит в узел помимо топологии (блоки хорд «только P-δ», <see cref="IFragmentParentNodalForces.RemoteElements"/>).</summary>
+        public Dictionary<string, List<string>> Remote { get; } = new(StringComparer.Ordinal);
         public HashSet<string> BodyElements { get; } = new(StringComparer.Ordinal);
         public HashSet<string> Discarded { get; } = new(StringComparer.Ordinal);
         public HashSet<string> BodyNodes { get; } = new(StringComparer.Ordinal);
         public HashSet<string> BoundaryNodes { get; } = new(StringComparer.Ordinal);
         public double Extent { get; private set; }
+
+        /// <summary>Все КЭ, дающие силу в узел: свои по топологии и удалённые.</summary>
+        public IEnumerable<string> At(string n)
+        {
+            IEnumerable<string> own = ElementsAt.TryGetValue(n, out var es) ? es : [];
+            return Remote.TryGetValue(n, out var rs) ? own.Concat(rs) : own;
+        }
 
         /// <summary>
         /// Узел принадлежит телу Ω_s: узел КЭ тела; узел без КЭ (опорный узел АЖТ, узел пружины) — по положению, как в
@@ -58,7 +68,7 @@ public static class FragmentNodalCut
         }
 
         public static Body Classify(FragmentBounds bounds, IReadOnlyDictionary<string, FemMeshNode> nodes,
-            IReadOnlyList<FemElement> elements, IReadOnlySet<string> endCutBars)
+            IReadOnlyList<FemElement> elements, IReadOnlySet<string> endCutBars, Func<string, IReadOnlyCollection<string>> remote)
         {
             var b = new Body();
             foreach (var e in elements)
@@ -76,10 +86,19 @@ public static class FragmentNodalCut
                 if (endCutBars.Contains(e.ElemTag)) continue;
                 (bounds.InBox(c) ? b.BodyElements : b.Discarded).Add(e.ElemTag);
             }
+            // Удалённые КЭ узла — только известные (в списке КЭ); неизвестный удалённый КЭ даст отказ самопроверки.
+            foreach (var (n, own) in b.ElementsAt)
+            {
+                var far = remote(n).Where(e => b.Geometry.ContainsKey(e) && !own.Contains(e)).Distinct(StringComparer.Ordinal).ToList();
+                if (far.Count > 0) b.Remote[n] = far;
+            }
             foreach (var tag in b.BodyElements) b.BodyNodes.UnionWith(b.Geometry[tag].NodeTags);
             foreach (var tag in b.Discarded)
                 foreach (var n in b.Geometry[tag].NodeTags)
                     if (b.BodyNodes.Contains(n)) b.BoundaryNodes.Add(n);
+            // Узлы тела, куда сила отброшенного КЭ приходит через хорду.
+            foreach (var (n, far) in b.Remote)
+                if (b.BodyNodes.Contains(n) && far.Any(b.Discarded.Contains)) b.BoundaryNodes.Add(n);
             if (b.BodyNodes.Count > 0)
             {
                 var pts = b.BodyNodes.Select(n => b.Positions[n]).ToList();
@@ -178,7 +197,7 @@ public static class FragmentNodalCut
     {
         ArgumentNullException.ThrowIfNull(source);
         var r = new FragmentNodalCutResult();
-        var body = Body.Classify(bounds, nodes, elements, endCutBars);
+        var body = Body.Classify(bounds, nodes, elements, endCutBars, source.RemoteElements);
         var linked = new HashSet<string>(StringComparer.Ordinal);
         foreach (var (a, b) in source.NodeLinks)
         {
@@ -230,7 +249,7 @@ public static class FragmentNodalCut
             foreach (var n in body.BoundaryNodes)
             {
                 var at = body.Positions[n];
-                foreach (var e in body.ElementsAt[n])
+                foreach (var e in body.At(n))
                     if (body.Discarded.Contains(e) && Forces(key, e)?.GetValueOrDefault(n) is { } f)
                         Add(body.Center[e], at, f.Force * -1, f.Moment * -1);
             }
@@ -324,7 +343,7 @@ public static class FragmentNodalCut
         {
             if (linked.Contains(n)) continue;
             var sum = Dof6.Zero;
-            foreach (var e in body.ElementsAt[n])
+            foreach (var e in body.At(n))
             {
                 if (forces(key, e)?.GetValueOrDefault(n) is not { } f)
                     return $"Самопроверка узловых сил КЭ, {FragmentMaskExtractor.KeyText(key)}: нет сил КЭ {e} в узле {n}";
@@ -395,8 +414,8 @@ public static class FragmentNodalCut
 
         bool InBox(string n) => nodes.TryGetValue(n, out var m) && bounds.InBox(new PlanarVector3(m.X, m.Y, m.Z));
         int K(string n) => (body.Holds(n, nodes, bounds) ? 1 : 0) - (InBox(n) ? 1 : 0);
-        bool HasForces(string n) => !body.ElementsAt.TryGetValue(n, out var es)
-            || keys.All(k => es.All(e => forces(k, e)?.GetValueOrDefault(n) != null));
+        bool HasForces(string n) => !body.ElementsAt.ContainsKey(n)
+            || keys.All(k => body.At(n).All(e => forces(k, e)?.GetValueOrDefault(n) != null));
 
         var counted = new List<LinkGroup>();
         var skipped = new List<string>();
@@ -434,8 +453,7 @@ public static class FragmentNodalCut
         Func<FragmentMaskKey, string, IReadOnlyDictionary<string, Dof6>?> forces)
     {
         var sum = Dof6.Zero;
-        if (body.ElementsAt.TryGetValue(n, out var es))
-            foreach (var e in es) sum += forces(key, e)![n];
+        foreach (var e in body.At(n)) sum += forces(key, e)![n];
         return sum - (source.NodeLoads(key).GetValueOrDefault(n) ?? Dof6.Zero) - (source.Reactions(key).GetValueOrDefault(n) ?? Dof6.Zero);
     }
 }

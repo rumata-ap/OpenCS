@@ -14,6 +14,10 @@ public sealed class FragmentNodalForcesTable : IFragmentParentNodalForces
     public List<(string A, string? B)> Links { get; } = [];
     public IReadOnlyCollection<(string A, string? B)> NodeLinks => Links;
 
+    /// <summary>Удалённые КЭ по узлу (<see cref="IFragmentParentNodalForces.RemoteElements"/>).</summary>
+    public Dictionary<string, List<string>> Remote { get; } = new(StringComparer.Ordinal);
+    public IReadOnlyCollection<string> RemoteElements(string nodeTag) => Remote.TryGetValue(nodeTag, out var l) ? l : [];
+
     public void SetElementNodeForce(FragmentMaskKey key, string elemTag, string nodeTag, Dof6 f) => Slot(_forces, (key, elemTag))[nodeTag] = f;
     public void SetElementLoad(FragmentMaskKey key, string elemTag, string nodeTag, Dof6 f) => Slot(_loads, (key, elemTag))[nodeTag] = f;
     public void AddElementLoadPiece(FragmentMaskKey key, string elemTag, FemLoadPiece piece)

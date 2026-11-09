@@ -61,6 +61,16 @@ public sealed class CsfeaFieldsParentResult : IFragmentParentResult
     {
         foreach (var (key, fields) in steps)
             if (_entries.TryAdd(key, new Entry(fields))) _keys.Add(key);
+        AddElements(nodes, elements, members, regionAxes);
+    }
+
+    /// <summary>
+    /// Оси пластин и стержней ещё для КЭ <paramref name="elements"/> (уже известные пропускаются): КЭ, чьи силы
+    /// нужны ступеньке после построения источника (блоки хорд «только P-δ»).
+    /// </summary>
+    public void AddElements(IReadOnlyDictionary<string, FemMeshNode> nodes, IReadOnlyList<FemElement> elements,
+        IReadOnlyList<FemMember> members, IReadOnlyDictionary<string, PlanarVector3>? regionAxes)
+    {
         var memberByTag = new Dictionary<string, FemMember>(StringComparer.Ordinal);
         foreach (var m in members) memberByTag.TryAdd(m.ElemTag, m);
         foreach (var e in elements)

@@ -126,6 +126,39 @@ public sealed class FragmentNodalCutTests
         Assert.Equal(7000, Sum(r, 0).Z, 6);
     }
 
+    /// <summary>
+    /// Удалённая сила (блок хорды «только P-δ», спека 2026-11-09, разд. 3.3): отброшенный КЭ 1 (низ стены) даёт силу
+    /// Fx = +100 Н в узел тела 22 (x = 0, z = 1,5) вне своей топологии, узел уравновешен узловой нагрузкой +100. С
+    /// <see cref="IFragmentParentNodalForces.RemoteElements"/> — S узла 22 = −100 по x в разрез низа (центр КЭ 1), Z = 6000
+    /// как без неё; без удалённых КЭ узел 22 не в равновесии — самопроверка отказывает.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Wall_RemoteElementForce_InStepAndSelfCheck(bool remote)
+    {
+        var (nodes, elements) = Wall(3, 3, 6, 6);
+        var t = Compression(nodes, elements, -2000, 3);
+        t.SetElementNodeForce(K1, "1", "22", new Dof6(100, 0, 0, 0, 0, 0));
+        t.SetElementNodeForce(K1, "1", "1", t.TryElementNodeForces(K1, "1", out var own) ? own["1"] + new Dof6(-100, 0, 0, 0, 0, 0) : default);
+        t.AddNodeLoad(K1, "22", new Dof6(100, 0, 0, 0, 0, 0));
+        if (remote) t.Remote["22"] = ["1"];
+        var r = FragmentNodalCut.Compute([WallBottom(0.8, 3)], new FragmentBounds(0.8, 3, null, 1e-3), nodes, elements,
+            new HashSet<string>(), [K1], t);
+
+        if (!remote)
+        {
+            Assert.False(r.Ok);
+            Assert.Contains(r.Diagnostics, d => d.Code == "fragment_mask_nodal_selfcheck" && d.Message.Contains("22", StringComparison.Ordinal));
+            return;
+        }
+        Assert.True(r.Ok, string.Join("; ", r.Diagnostics.Select(d => d.Message)));
+        var f = Sum(r, 0);
+        Assert.Equal(6000, f.Z, 6);
+        Assert.Equal(-100, f.X, 9);
+        Assert.Contains(r.Terms[K1][0], x => x.At.Z == 1.5 && x.F.X == -100);
+    }
+
     static (Dictionary<string, FemMeshNode> Nodes, List<FemElement> Elements) Plate(int n, double h, double z)
     {
         var nodes = new Dictionary<string, FemMeshNode>(StringComparer.Ordinal);
