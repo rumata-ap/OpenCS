@@ -12,7 +12,8 @@ namespace OpenCS.Services;
 /// Узловые силы КЭ родителя по записанным полям CSfea (спека 2026-11-05, разд. 5.2–5.3): пластины —
 /// (K_e [+ K_σ,e])·u_e сборки той же модели и фабрики сечений, что у расчёта, минус согласованные силы своих нагрузок;
 /// стержни — записанные силы концов (сила узла на КЭ, уже без нагрузок) в общих осях, при замороженном состоянии (P-Δ)
-/// плюс K_σ,e·u_e (поля линейного расчёта пишут K·u без K_σ). Перемещения ключа — поля его шага.
+/// плюс K_σ,e·u_e (поля линейного расчёта пишут K·u без K_σ). Секущий с «Большими перемещениями» — внутренние силы КЭ
+/// решателя при u (CR / фон Карман, см. <see cref="Secant"/>). Перемещения ключа — поля его шага.
 /// Теги — номера модели (теги сетки родителя). Матрицы КЭ строятся по запросу и кэшируются.
 /// </summary>
 public sealed class CsfeaNodalForcesSource : IFragmentParentNodalForces
@@ -100,18 +101,29 @@ public sealed class CsfeaNodalForcesSource : IFragmentParentNodalForces
     /// этих матрицах). У стержней с шарнирами нагрузки конденсируются в ядре — для них записанные силы концов (во втором
     /// порядке — плюс K_σ,e·u_e, как у линейного источника с P-Δ). Во втором порядке K_σ решателя — по перемещениям
     /// предыдущей итерации, здесь — по итоговым: узлы уравновешены до допуска итераций, а не точно.
+    /// <para>
+    /// <paramref name="largeDisplacements"/> — «Большие перемещения» (спека 2026-11-09, срез 2): силы КЭ — внутренние силы
+    /// решателя при u на записанных секущих (<c>SecantPicardSolver.TrueFInternal</c>): оболочки — CR
+    /// (<c>ShellCorotational.ElementFCR</c>) при <paramref name="inPlane"/>, иначе фон Карман; все стержни — CR
+    /// (<c>BeamCorotational.Beam3dInternalForce</c> с шарнирами); записанные силы концов (оси деформированного КЭ) не
+    /// берутся. Узлы уравновешены до допуска Ньютона геометрии. <paramref name="secondOrder"/> при этом игнорируется.
+    /// </para>
     /// </remarks>
     public static CsfeaNodalForcesSource Secant(RcStructuralModel model, CsfeaFieldsParentResult fields,
         IReadOnlyDictionary<FragmentMaskKey, RcSecantStepFields> steps, IReadOnlyDictionary<int, FragmentParentCaseLoads> loads,
-        Func<int, int?> parentLoadCase, bool secondOrder = false, bool inPlane = true) =>
+        Func<int, int?> parentLoadCase, bool secondOrder = false, bool inPlane = true, bool largeDisplacements = false) =>
         new(model, fields, steps, loads, parentLoadCase,
-            key => (new RecordedRcSectionFactory(steps[key], SecantFloor), secondOrder ? steps[key] : null, inPlane))
+            key => (new RecordedRcSectionFactory(steps[key], SecantFloor), secondOrder && !largeDisplacements ? steps[key] : null, inPlane))
         {
             _beamsByMatrix = true,
+            _corotational = largeDisplacements,
         };
 
     /// <summary>Стержни без шарниров — по матрице КЭ сборки (секущий источник).</summary>
     bool _beamsByMatrix;
+
+    /// <summary>«Большие перемещения»: силы КЭ — коротационные / фон Карман внутренние силы при u (секущий источник).</summary>
+    bool _corotational;
 
     public IReadOnlyCollection<(string A, string? B)> NodeLinks => _links;
 
@@ -121,6 +133,21 @@ public sealed class CsfeaNodalForcesSource : IFragmentParentNodalForces
         if (!_steps.ContainsKey(key)) return false;
         if (_beamNodes.TryGetValue(elemTag, out var ends))
         {
+            if (_corotational && _beamIndex.TryGetValue(elemTag, out int bc))
+            {
+                var cst = StateOf(key);
+                var mesh = cst.Build.Mesh;
+                var beam = mesh.Beams[bc];
+                var fe = BeamCorotational.Beam3dInternalForce(mesh.BeamCoords(bc), beam.Section,
+                    Gather(cst.U, mesh.ElementDofs(mesh.Shells.Count + bc)), beam.RefVec, beam.Releases);
+                var bl = ElementLoads(key, elemTag);
+                forces = new Dictionary<string, Dof6>(StringComparer.Ordinal)
+                {
+                    [ends.I] = bl.TryGetValue(ends.I, out var li) ? Node(fe, 0) - li : Node(fe, 0),
+                    [ends.J] = bl.TryGetValue(ends.J, out var lj) ? Node(fe, 1) - lj : Node(fe, 1),
+                };
+                return true;
+            }
             if (_beamsByMatrix && _beamIndex.TryGetValue(elemTag, out int bm)
                 && _model.Beams[bm] is { ReleaseI: 0, ReleaseJ: 0 })
             {
@@ -178,6 +205,16 @@ public sealed class CsfeaNodalForcesSource : IFragmentParentNodalForces
         return result;
     }
 
+    static double[] Gather(double[] u, int[] dofs)
+    {
+        var r = new double[dofs.Length];
+        for (int i = 0; i < dofs.Length; i++) r[i] = u[dofs[i]];
+        return r;
+    }
+
+    /// <summary>Компоненты узла <paramref name="a"/> вектора КЭ (6 на узел).</summary>
+    static Dof6 Node(double[] f, int a) => new(f[6 * a], f[6 * a + 1], f[6 * a + 2], f[6 * a + 3], f[6 * a + 4], f[6 * a + 5]);
+
     /// <summary>Добавка несовершенства g_e КЭ <paramref name="e"/> (по его DOF) к силам узлов <paramref name="f"/>.</summary>
     static void AddImperfection(State st, int e, Dof6[] f)
     {
@@ -204,10 +241,24 @@ public sealed class CsfeaNodalForcesSource : IFragmentParentNodalForces
     IReadOnlyDictionary<string, Dof6> ShellForces(FragmentMaskKey key, State st, int e, string tag)
     {
         var mesh = st.Build.Mesh;
-        var k = mesh.ElementK(e);
-        if (st.UDet != null) Dense.AddScaledInPlace(k, mesh.ElementKGeometric(e, st.UDet, st.InPlane), 1.0);
-        var f = Multiply(st, e, k);
-        AddImperfection(st, e, f);
+        Dof6[] f;
+        if (_corotational)
+        {
+            // Как у решателя: CR-оболочка при «P-Δ в плоскости», иначе фон Карман; сечение — записанная секущая.
+            var ue = Gather(st.U, mesh.ElementDofs(e));
+            var fe = st.InPlane
+                ? ShellCorotational.ElementFCR(mesh.ShellCoords(e), mesh.Shells[e].Section, ue)
+                : ShellElementForces.ElementFInternalGlobal(mesh.ShellCoords(e), mesh.Shells[e].Section, ue, vonKarman: true);
+            f = new Dof6[fe.Length / 6];
+            for (int a = 0; a < f.Length; a++) f[a] = Node(fe, a);
+        }
+        else
+        {
+            var k = mesh.ElementK(e);
+            if (st.UDet != null) Dense.AddScaledInPlace(k, mesh.ElementKGeometric(e, st.UDet, st.InPlane), 1.0);
+            f = Multiply(st, e, k);
+            AddImperfection(st, e, f);
+        }
         var loads = ElementLoads(key, tag);
         var nodesE = mesh.Shells[e].Nodes;
         var result = new Dictionary<string, Dof6>(StringComparer.Ordinal);

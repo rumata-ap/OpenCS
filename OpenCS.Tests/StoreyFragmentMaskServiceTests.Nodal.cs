@@ -252,12 +252,65 @@ public sealed partial class StoreyFragmentMaskServiceTests
     }
 
     /// <summary>
-    /// Секущий источник второго порядка, у которого узловые силы — не (K_s + K_σ)·u: «Большие перемещения», «только P-δ»
-    /// — МНК с причиной (до проверки записанных матриц). Обычный второй порядок без матриц КЭ в записи — причина «нет
-    /// секущих матриц» (геомнелин больше не отказ сам по себе), с несовершенствами — та же (их проверка — после матриц).
+    /// Секущий расчёт с «Большими перемещениями» (спека 2026-11-09, срез 2): узловые силы — внутренние силы КЭ решателя
+    /// при u на записанных секущих (CR-оболочки при «P-Δ в плоскости», иначе фон Карман; стержни CR) минус f_нагр — узлы
+    /// в равновесии до допуска Ньютона; с линейной кинематикой (K_s·u) невязка — член геометрической нелинейности.
+    /// <paramref name="hinge"/> — шарнир (M_y, M_z) у верхнего конца сегмента колонны под плитой: CR-стержень с
+    /// конденсацией (<c>Beam3dInternalForce</c> с шарнирами), записанные силы концов не берутся.
     /// </summary>
     [Theory]
-    [InlineData("cr", "«Большими перемещениями»")]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public void NodalSource_SecantLargeDisplacements_NodesInEquilibrium(bool inPlane, bool hinge)
+    {
+        var p = Create();
+        using var db = p.Db;
+        var lc = db.GetFemLoadCases(p.Schema.Id);
+        var input = FemCsfeaInputBuilder.Build(db, p.Schema.Id, new FemCsfeaSetup { Stages = [Single("Пост.", lc[0].Id), Sum("Пост.+Ветер", lc[0].Id, lc[1].Id)] });
+        var adapted = FemRcModelAdapter.Adapt(input);
+        Assert.False(adapted.HasErrors, string.Join("; ", adapted.Report));
+        var csfea = new FemCsfeaParams
+        {
+            GeomNonlinear = true, GeomLargeDisplacements = true, ShellInPlanePDelta = inPlane,
+            PhysicalNonlinearity = false, TolDisplacement = 1e-9,
+        };
+        // Сегмент 512 колонны C1 (z 2…3 м), конец J — узел плиты; биты 4, 5 — M_y, M_z.
+        void Hinge(RcStructuralModel m)
+        {
+            if (!hinge) return;
+            int i = m.Beams.FindIndex(b => b.Id == 512);
+            Assert.True(i >= 0, "нет КЭ 512");
+            m.Beams[i] = m.Beams[i] with { ReleaseJ = 48 };
+        }
+        Hinge(adapted.Model);
+        var run = RcSecantAnalysis.Run(adapted.Model, FemCsfeaSetup.SecantOptions(csfea));
+        Assert.True(run.Result.Completed, run.Result.Message);
+        var record = run.LastConvergedFields()!;
+        Assert.True(record.HasElementMatrices);
+        var key = FragmentMaskKey.OfStageTerms([(lc[0].Id, 2.0), (lc[1].Id, 1.0)]);
+        var steps = new Dictionary<FragmentMaskKey, RcSecantStepFields> { [key] = record };
+        var all = StoreyFragmentMaskService.AdaptAllCases(input);
+        Hinge(all.Model);
+        var loads = FragmentParentLoadParts.Compute(input, all);
+        var fields = Fields(db, p.Schema, steps);
+
+        double r = NodalResidual(CsfeaNodalForcesSource.Secant(all.Model, fields, steps, loads, id => id,
+            inPlane: inPlane, largeDisplacements: true), key, all.Model);
+        string worst = WorstText();
+        double first = NodalResidual(CsfeaNodalForcesSource.Secant(all.Model, fields, steps, loads, id => id), key, all.Model);
+        // Факт 09.11: CR 3,4·10⁻⁸, фон Карман 1,7·10⁻⁷ против 0,17 с K_s·u.
+        Assert.True(r <= 1e-5, $"невязка {r}; {worst}");
+        Assert.True(first > 100 * r, $"с K_s·u невязка {first} не больше CR {r} — геомнелин в модели мал, тест не различает");
+    }
+
+    /// <summary>
+    /// Секущий источник второго порядка, у которого узловые силы — не (K_s + K_σ)·u: «только P-δ» — МНК с причиной (до
+    /// проверки записанных матриц). Обычный второй порядок и «Большие перемещения» (спека 2026-11-09, срез 2) без матриц КЭ
+    /// в записи — причина «нет секущих матриц», с несовершенствами — та же (их проверка — после матриц).
+    /// </summary>
+    [Theory]
+    [InlineData("cr", "нет секущих матриц")]
     [InlineData("local", "«Только P-δ»")]
     [InlineData("imperfection", "нет секущих матриц")]
     [InlineData("plain", "нет секущих матриц")]

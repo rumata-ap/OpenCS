@@ -218,4 +218,50 @@ public sealed partial class StoreyFragmentRoundTripTests
             Assert.True(extracted.BalanceResidual is <= 2 * phi, $"невязка масок {extracted.BalanceResidual} > 2·φ");
         });
     }
+
+    /// <summary>
+    /// Спека 2026-11-09, срез 2: родитель — секущий с «Большими перемещениями» (CR-оболочки при «P-Δ в плоскости», иначе
+    /// фон Карман) → маски вокруг колонны по узловым силам КЭ — внутренним силам решателя при u (без отката на МНК,
+    /// самопроверка узлов тела проходит); источник для фрагмента — второго порядка, как и до среза (признак — по сводке).
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task LargeDisplacements_Parent_MasksByNodalForces(bool inPlane)
+    {
+        await InTempRoot("opencs-fragment-roundtrip", async root =>
+        {
+            using var db = new DatabaseService(Path.Combine(root, "test.db"));
+            var ctx = new FemCsfeaRunContext(db, GmshSettings(root), new ListLog(output));
+            var parent = await CreateParent(ctx, root, PrismStep);
+            var analysis = SecantSecondOrderByStages(db, parent.Schema, "Родитель · большие перемещения");
+            var ps = FemAnalysisParams.Parse(analysis.ParamsJson);
+            ps.Csfea!.GeomLargeDisplacements = true;
+            ps.Csfea.ShellInPlanePDelta = inPlane;
+            analysis.ParamsJson = ps.ToJson();
+            db.SaveFemAnalysis(analysis);
+            var result = await FemCsfeaRunner.RunAsync(ctx, parent.Schema, analysis, null, CancellationToken.None);
+            var summary = FemCsfeaResultSummary.Parse(result.DataJson)!;
+            foreach (var line in summary.Errors.Concat(summary.Report)) output.WriteLine("родитель: " + line);
+            Assert.Equal("ok", result.Status);
+            analysis.ResultId = result.Id;
+            analysis.Status = "ok";
+            db.SaveFemAnalysis(analysis);
+
+            var built = StoreyFragmentService.Build(db, parent.Schema.Id, new StoreyFragmentRequest(Z1, Z2, "Вокруг колонны", Prism: ColumnPrism));
+            var fragment = Assert.IsType<FemSchema>(built.Schema);
+            await Mesh(db, fragment, PrismStep, root);
+            var extracted = StoreyFragmentMaskService.Extract(db, fragment, FragmentMaskSet.SourceCsfeaSecant, S(analysis.Id));
+            foreach (var d in extracted.Diagnostics) output.WriteLine($"маски {(d.IsError ? "ОШИБКА" : "предупр.")} {d.Code}: {d.Message}");
+            Assert.False(extracted.HasErrors);
+            Assert.DoesNotContain(extracted.Diagnostics, d => d.Code is "fragment_mask_nodal_unsupported" or "fragment_mask_balance"
+                or "fragment_mask_nodal_selfcheck");
+            Assert.Contains(extracted.Diagnostics, d => d.Code == "fragment_mask_summary" && d.Message.Contains("узловые силы КЭ"));
+            output.WriteLine($"невязка равновесия масок {extracted.BalanceResidual:e3}");
+            Assert.True(extracted.BalanceResidual is <= 5e-4, $"невязка масок {extracted.BalanceResidual}");
+
+            var set = db.GetFragmentMasks(fragment.Id, items: false);
+            Assert.True(FragmentSecondOrderCheck.SourceSecondOrder(set, StoreyFragmentMaskService.CheckMasks(db, fragment), summary));
+        });
+    }
 }

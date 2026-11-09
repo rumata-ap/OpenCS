@@ -185,13 +185,8 @@ public static class StoreyFragmentMaskService
         if (!linear)
         {
             // Второй порядок (спека 2026-11-06, срез 2): узловые силы — (K_s + K_σ)·u (+ K_σ·u₀ несовершенств, спека
-            // 2026-11-09, срез 1). Без них (МНК): «Большие перемещения» — силы КЭ коротационные, не (K_s + K_σ)·u;
-            // «только P-δ» — проектированная K_σ связывает КЭ с узлами уровней вне его.
-            if (csfea.GeomNonlinear && csfea.GeomLargeDisplacements)
-            {
-                Unsupported("секущий расчёт с «Большими перемещениями» (коротационная формулировка)");
-                return null;
-            }
+            // 2026-11-09, срез 1); «Большие перемещения» (срез 2) — внутренние силы КЭ решателя (CR / фон Карман) при u.
+            // Без них (МНК): «только P-δ» — проектированная K_σ связывает КЭ с узлами уровней вне его.
             if (FemCsfeaSetup.IsLocalPDelta(csfea))
             {
                 Unsupported("секущий расчёт в режиме «Только P-δ»");
@@ -209,7 +204,8 @@ public static class StoreyFragmentMaskService
                 return null;
             }
             return CsfeaNodalForcesSource.Secant(parent.Adapted.Model, fields, steps, parent.Loads, parentLoadCase,
-                secondOrder: csfea.GeomNonlinear, inPlane: csfea.ShellInPlanePDelta);
+                secondOrder: csfea.GeomNonlinear, inPlane: csfea.ShellInPlanePDelta,
+                largeDisplacements: csfea.GeomNonlinear && csfea.GeomLargeDisplacements);
         }
         double floor = summary.StiffnessFloor ?? OpenCS.Utilites.CalcSettings.DefaultCsfeaStiffnessFloor;
         if (FemCsfeaLinearSetup.Resolve(db, parentId, csfea, parent.Adapted.Model, floor, out var error) is not { } setup)
