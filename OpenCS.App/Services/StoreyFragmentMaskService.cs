@@ -111,7 +111,7 @@ public static class StoreyFragmentMaskService
         // Модель родителя с сечениями — одна на снятие: матрицы КЭ узловых сил и нагрузки полосы.
         var parent = ParentModelOf(db, parentId, setup, sections: true);
         var parentOf = map.ToDictionary(kv => kv.Value, kv => kv.Key);
-        var nodal = NodalSource(db, parentId, analysis, summary, linear, parent, parentResult, fieldsByKey,
+        var nodal = NodalSource(db, parentId, analysis, summary, linear, setup, parent, parentResult, fieldsByKey,
             id => parentOf.TryGetValue(id, out int pid) ? pid : null, diag);
 
         var cutInputs = CutInputs(db, fragment.Id, cuts.Select(c => c.Cut).ToList());
@@ -172,8 +172,8 @@ public static class StoreyFragmentMaskService
     /// предупреждение <c>fragment_mask_nodal_unsupported</c>.
     /// </summary>
     static CsfeaNodalForcesSource? NodalSource(DatabaseService db, int parentId, FemAnalysis analysis, FemCsfeaResultSummary summary,
-        bool linear, ParentModel parent, CsfeaFieldsParentResult fields, IReadOnlyDictionary<FragmentMaskKey, RcSecantStepFields> steps,
-        Func<int, int?> parentLoadCase, List<FemValidationDiagnostic> diag)
+        bool linear, FemCsfeaSetup parentSetup, ParentModel parent, CsfeaFieldsParentResult fields,
+        IReadOnlyDictionary<FragmentMaskKey, RcSecantStepFields> steps, Func<int, int?> parentLoadCase, List<FemValidationDiagnostic> diag)
     {
         void Unsupported(string why) => diag.Add(new("fragment_mask_nodal_unsupported", $"Силы кромок пластин — МНК по центрам КЭ: {why}.", false));
         if (parent.Adapted.HasErrors)
@@ -184,9 +184,9 @@ public static class StoreyFragmentMaskService
         var csfea = FemAnalysisParams.Parse(analysis.ParamsJson).Csfea ?? new FemCsfeaParams();
         if (!linear)
         {
-            // Второй порядок (спека 2026-11-06, срез 2): узловые силы — (K_s + K_σ)·u. Без них (МНК):
-            // «Большие перемещения» — силы КЭ коротационные, не (K_s + K_σ)·u; «только P-δ» — проектированная K_σ связывает
-            // КЭ с узлами уровней вне его; несовершенства — в силах КЭ есть K_σ·u₀, а u₀ в записи шага нет.
+            // Второй порядок (спека 2026-11-06, срез 2): узловые силы — (K_s + K_σ)·u (+ K_σ·u₀ несовершенств, спека
+            // 2026-11-09, срез 1). Без них (МНК): «Большие перемещения» — силы КЭ коротационные, не (K_s + K_σ)·u;
+            // «только P-δ» — проектированная K_σ связывает КЭ с узлами уровней вне его.
             if (csfea.GeomNonlinear && csfea.GeomLargeDisplacements)
             {
                 Unsupported("секущий расчёт с «Большими перемещениями» (коротационная формулировка)");
@@ -197,14 +197,15 @@ public static class StoreyFragmentMaskService
                 Unsupported("секущий расчёт в режиме «Только P-δ»");
                 return null;
             }
-            if (csfea.GeomNonlinear && !string.IsNullOrEmpty(summary.ImperfectionTags))
-            {
-                Unsupported($"в стадиях родителя есть несовершенства ({summary.ImperfectionTags})");
-                return null;
-            }
             if (steps.Values.Any(f => !f.HasMatrices || !f.HasElementMatrices))
             {
                 Unsupported("в записи шагов нет секущих матриц КЭ (пересчитайте родителя)");
+                return null;
+            }
+            if (csfea.GeomNonlinear && !string.IsNullOrEmpty(summary.ImperfectionTags)
+                && ParentImperfections(db, parentId, parentSetup, summary, parent.Adapted.Model) is { } why)
+            {
+                Unsupported(why);
                 return null;
             }
             return CsfeaNodalForcesSource.Secant(parent.Adapted.Model, fields, steps, parent.Loads, parentLoadCase,
@@ -217,6 +218,26 @@ public static class StoreyFragmentMaskService
             return null;
         }
         return CsfeaNodalForcesSource.Linear(parent.Adapted.Model, setup, fields, steps, parent.Loads, parentLoadCase);
+    }
+
+    /// <summary>
+    /// Несовершенства расчёта родителя в модель источника узловых сил (спека 2026-11-09, срез 1): элементы первого этапа —
+    /// по входу со стадиями постановки (у <see cref="ParentModelOf"/> стадий нет, а несовершенства берутся из их
+    /// выражений), решения (знак «авто», активность погибей, формы) — из отчёта результата, как у показа u₀ результата.
+    /// Секущий по стадиям применяет их ко всему прогону — одно поле на все ключи. Причина отказа или null.
+    /// </summary>
+    static string? ParentImperfections(DatabaseService db, int parentId, FemCsfeaSetup setup, FemCsfeaResultSummary summary,
+        RcStructuralModel model)
+    {
+        if (summary.Imperfections is not { } report)
+            return $"в результате родителя нет отчёта несовершенств ({summary.ImperfectionTags}) — пересчитайте родителя";
+        var input = FemCsfeaInputBuilder.Build(db, parentId, setup, sections: false);
+        if (input.Imperfections.Count == 0 || report.Apply(input.Imperfections) is not { } decided)
+            return $"несовершенства схемы ({summary.ImperfectionTags}) изменились после расчёта родителя — пересчитайте родителя";
+        var errors = FemRcModelAdapter.ReplaceImperfections(model, decided).Where(d => d.IsError).ToList();
+        if (errors.Count == 0) return null;
+        model.Imperfections.Clear();
+        return $"несовершенства родителя не переносятся в модель: {errors[0].Message}";
     }
 
     /// <summary>КЭ полосы и КЭ, имеющие общий с ней узел: ступенька узловых сил видит все КЭ у узлов тела.</summary>

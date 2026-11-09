@@ -3,6 +3,7 @@ using CScore.Fem.Fragment.Masks;
 using CScore.Fem.Loads;
 using CScore.Submodel;
 using CSfea.CScoreBridge.Structural;
+using CSfea.Core;
 using CSfea.Sparse;
 
 namespace OpenCS.Services;
@@ -16,12 +17,14 @@ namespace OpenCS.Services;
 /// </summary>
 public sealed class CsfeaNodalForcesSource : IFragmentParentNodalForces
 {
-    sealed class State(RcStructuralMeshBuild build, double[] u, double[]? uDet, bool inPlane)
+    sealed class State(RcStructuralMeshBuild build, double[] u, double[]? uDet, bool inPlane, ImperfectionField? imperfection)
     {
         public RcStructuralMeshBuild Build { get; } = build;
         public double[] U { get; } = u;
         public double[]? UDet { get; } = uDet;
         public bool InPlane { get; } = inPlane;
+        /// <summary>Поле u₀ несовершенств (только второй порядок); null — нет.</summary>
+        public ImperfectionField? Imperfection { get; } = imperfection;
         public Dictionary<string, IReadOnlyDictionary<string, Dof6>> Shells { get; } = new(StringComparer.Ordinal);
     }
 
@@ -86,7 +89,10 @@ public sealed class CsfeaNodalForcesSource : IFragmentParentNodalForces
     /// <see cref="RcSecantStepFields.HasElementMatrices"/>). <paramref name="secondOrder"/> — расчёт по теории второго
     /// порядка (геометрическая нелинейность без «Больших перемещений», спека 2026-11-06, срез 2): к K_s,e добавляется
     /// K_σ,e(N) по перемещениям шага — та же матрица, на которой решено u (<c>StructuralMesh.ElementKSecondOrder</c>);
-    /// <paramref name="inPlane"/> — K_σ пластин и в их плоскости.
+    /// <paramref name="inPlane"/> — K_σ пластин и в их плоскости. Несовершенства модели <paramref name="model"/>
+    /// (<see cref="RcStructuralModel.Imperfections"/> — решённые, как в расчёте родителя; спека 2026-11-09, срез 1) во
+    /// втором порядке дают к силам КЭ g_e = K_σ,e(N)·u₀,e (<c>StructuralMesh.ImperfectionForceElement</c>), как в
+    /// равновесии решателя; у стержней с шарнирами g_e уже в записанных силах концов.
     /// </summary>
     /// <remarks>
     /// Стержни без шарниров — тоже K_s,e·u_e − f_нагр,e по записанным матрицам: записанные силы концов — интегралы по
@@ -123,6 +129,7 @@ public sealed class CsfeaNodalForcesSource : IFragmentParentNodalForces
                 var kf = Multiply(sst, e0, sst.UDet != null
                     ? sst.Build.Mesh.ElementKSecondOrder(e0, sst.UDet, sst.InPlane)
                     : sst.Build.Mesh.ElementK(e0));
+                AddImperfection(sst, e0, kf);
                 var bl = ElementLoads(key, elemTag);
                 forces = new Dictionary<string, Dof6>(StringComparer.Ordinal)
                 {
@@ -171,6 +178,15 @@ public sealed class CsfeaNodalForcesSource : IFragmentParentNodalForces
         return result;
     }
 
+    /// <summary>Добавка несовершенства g_e КЭ <paramref name="e"/> (по его DOF) к силам узлов <paramref name="f"/>.</summary>
+    static void AddImperfection(State st, int e, Dof6[] f)
+    {
+        if (st.Imperfection == null || st.UDet == null
+            || st.Build.Mesh.ImperfectionForceElement(e, st.Imperfection, st.UDet, st.InPlane) is not { } g) return;
+        for (int a = 0; a < f.Length; a++)
+            f[a] += new Dof6(g[6 * a], g[6 * a + 1], g[6 * a + 2], g[6 * a + 3], g[6 * a + 4], g[6 * a + 5]);
+    }
+
     State StateOf(FragmentMaskKey key)
     {
         if (_state.TryGetValue(key, out var s)) return s;
@@ -178,8 +194,12 @@ public sealed class CsfeaNodalForcesSource : IFragmentParentNodalForces
         if (!_builds.TryGetValue(sections, out var build)) _builds[sections] = build = RcStructuralMeshBuilder.Build(_model, sections);
         var u = RcLinearAnalysis.StateVector(build, _steps[key]);
         var uDet = geometric != null ? RcLinearAnalysis.StateVector(build, geometric) : null;
-        return _state[key] = new State(build, u, uDet, inPlane);
+        // Поле u₀ — только геометрия сетки (нумерация у всех сборок общая): одно на источник.
+        var imperfection = uDet != null && _model.Imperfections.Count > 0 ? _imperfection ??= build.Imperfection(_model) : null;
+        return _state[key] = new State(build, u, uDet, inPlane, imperfection);
     }
+
+    ImperfectionField? _imperfection;
 
     IReadOnlyDictionary<string, Dof6> ShellForces(FragmentMaskKey key, State st, int e, string tag)
     {
@@ -187,6 +207,7 @@ public sealed class CsfeaNodalForcesSource : IFragmentParentNodalForces
         var k = mesh.ElementK(e);
         if (st.UDet != null) Dense.AddScaledInPlace(k, mesh.ElementKGeometric(e, st.UDet, st.InPlane), 1.0);
         var f = Multiply(st, e, k);
+        AddImperfection(st, e, f);
         var loads = ElementLoads(key, tag);
         var nodesE = mesh.Shells[e].Nodes;
         var result = new Dictionary<string, Dof6>(StringComparer.Ordinal);

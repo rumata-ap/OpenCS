@@ -217,14 +217,49 @@ public sealed partial class StoreyFragmentMaskServiceTests
     }
 
     /// <summary>
-    /// Секущий источник второго порядка, у которого узловые силы — не (K_s + K_σ)·u: «Большие перемещения», «только P-δ»,
-    /// несовершенства в стадиях — МНК с причиной (до проверки записанных матриц). Обычный второй порядок без матриц КЭ в
-    /// записи — причина «нет секущих матриц» (геомнелин больше не отказ сам по себе).
+    /// Секущий расчёт второго порядка с несовершенством (крен колонн 1/200, спека 2026-11-09, срез 1): узловые силы
+    /// (K_s + K_σ)·u + K_σ·u₀ − f_нагр — узлы в равновесии до допуска итераций; без K_σ·u₀ невязка — член несовершенства.
+    /// </summary>
+    [Fact]
+    public void NodalSource_SecantImperfection_NodesInEquilibrium()
+    {
+        var p = Create();
+        using var db = p.Db;
+        var lc = db.GetFemLoadCases(p.Schema.Id);
+        var input = FemCsfeaInputBuilder.Build(db, p.Schema.Id, new FemCsfeaSetup { Stages = [Single("Пост.", lc[0].Id)] });
+        var adapted = FemRcModelAdapter.Adapt(input);
+        Assert.False(adapted.HasErrors, string.Join("; ", adapted.Report));
+        var sway = new RcSway(1.0 / 200, [1.0, 0.0, 0.0]);
+        adapted.Model.Imperfections.Add(sway);
+        var csfea = new FemCsfeaParams { GeomNonlinear = true, PhysicalNonlinearity = false, TolDisplacement = 1e-9 };
+        var run = RcSecantAnalysis.Run(adapted.Model, FemCsfeaSetup.SecantOptions(csfea));
+        Assert.True(run.Result.Completed, run.Result.Message);
+        var record = run.LastConvergedFields()!;
+        Assert.True(record.HasElementMatrices);
+        var key = FragmentMaskKey.OfStageTerms([(lc[0].Id, 1.0)]);
+        var steps = new Dictionary<FragmentMaskKey, RcSecantStepFields> { [key] = record };
+        var fields = Fields(db, p.Schema, steps);
+
+        var plain = StoreyFragmentMaskService.AdaptAllCases(input);
+        var loads = FragmentParentLoadParts.Compute(input, plain);
+        double first = NodalResidual(CsfeaNodalForcesSource.Secant(plain.Model, fields, steps, loads, id => id, secondOrder: true), key, plain.Model);
+        var all = StoreyFragmentMaskService.AdaptAllCases(input);
+        all.Model.Imperfections.Add(sway);
+        double r = NodalResidual(CsfeaNodalForcesSource.Secant(all.Model, fields, steps, loads, id => id, secondOrder: true), key, all.Model);
+        string worst = WorstText();
+        Assert.True(r <= 1e-6, $"невязка {r}; {worst}");
+        Assert.True(first > 100 * r, $"без K_σ·u₀ невязка {first} не больше {r} — несовершенство в модели мало, тест не различает");
+    }
+
+    /// <summary>
+    /// Секущий источник второго порядка, у которого узловые силы — не (K_s + K_σ)·u: «Большие перемещения», «только P-δ»
+    /// — МНК с причиной (до проверки записанных матриц). Обычный второй порядок без матриц КЭ в записи — причина «нет
+    /// секущих матриц» (геомнелин больше не отказ сам по себе), с несовершенствами — та же (их проверка — после матриц).
     /// </summary>
     [Theory]
     [InlineData("cr", "«Большими перемещениями»")]
     [InlineData("local", "«Только P-δ»")]
-    [InlineData("imperfection", "несовершенства (Погибь)")]
+    [InlineData("imperfection", "нет секущих матриц")]
     [InlineData("plain", "нет секущих матриц")]
     public void Extract_SecantSecondOrder_NodalFallbackReasons(string mode, string reason)
     {

@@ -2,6 +2,7 @@ using CScore;
 using CScore.Fem;
 using CScore.Fem.Fragment;
 using CScore.Fem.Fragment.Masks;
+using CScore.Fem.Imperfections;
 using OpenCS.Services;
 using OpenCS.Tasks;
 using OpenCS.Utilites;
@@ -155,6 +156,66 @@ public sealed partial class StoreyFragmentRoundTripTests
             Assert.True(summary.SecondOrder, "наборы фрагмента — второго порядка");
             foreach (var (tag, scale, diff) in CompareSlab(db, parent, fragment, result, "Призма, 2-й порядок", where: InPrism))
                 Assert.True(diff <= 0.05 * scale, $"«{tag}»: расхождение прогиба {diff / scale:P2} > 5 %");
+        });
+    }
+
+    /// <summary>
+    /// Спека 2026-11-09, срез 1: родитель — секущий второго порядка с несовершенством (крен 1/200 по X загружением
+    /// «Несовершенство» в первой стадии, на весь прогон) → маски вокруг колонны по узловым силам КЭ с K_σ·u₀ (без отката на
+    /// МНК). Строгий критерий — самопроверка равновесия узлов тела ступенькой (без <c>fragment_mask_nodal_selfcheck</c>).
+    /// Равновесие масок с нагрузками полосы считается в исходной геометрии, а силы K_σ·u₀ КЭ тела уравновешены в геометрии
+    /// с u₀ — их момент N·φ·h остаётся в невязке: факт 09.11 — 4,16·10⁻³ / 8,33·10⁻³ / 1,67·10⁻² при 1/φ = 400 / 200 / 100
+    /// (≈ 1,67·φ, строго пропорционально φ; без несовершенства — 9,3·10⁻⁵).
+    /// </summary>
+    [Fact]
+    public async Task SecondOrder_ParentWithImperfection_MasksByNodalForces()
+    {
+        await InTempRoot("opencs-fragment-roundtrip", async root =>
+        {
+            using var db = new DatabaseService(Path.Combine(root, "test.db"));
+            var ctx = new FemCsfeaRunContext(db, GmshSettings(root), new ListLog(output));
+            var parent = await CreateParent(ctx, root, PrismStep);
+            var imp = new FemLoadCase { SchemaId = parent.Schema.Id, Tag = "Крен", Sp20Type = FemSp20Types.Imperfection };
+            db.SaveFemLoadCase(imp);
+            db.SaveFemImperfection(new FemImperfection
+            {
+                SchemaId = parent.Schema.Id, LoadCaseId = imp.Id, Kind = FemImperfectionKinds.Sway, Tag = "Крен X",
+                ParamsJson = new FemSwayParams { PhiInv = 200 }.ToJson(),
+            });
+            db.LoadAll();
+            Restore(db, parent.Sections);
+            var cases = db.GetFemLoadCases(parent.Schema.Id);
+            var analysis = SecantSecondOrderByStages(db, parent.Schema, "Родитель · 2-й порядок · крен");
+            var ps = FemAnalysisParams.Parse(analysis.ParamsJson);
+            ps.Stages![0].LoadExpressionJson = new FemLoadExpression
+            {
+                Mode = FemLoadExpressionMode.Sum,
+                Terms = [new FemLoadTerm { LoadCaseId = cases.Single(c => c.Tag == "Пост.").Id, Coefficient = 1 },
+                         new FemLoadTerm { LoadCaseId = imp.Id, Coefficient = 1 }],
+            }.ToJson();
+            analysis.ParamsJson = ps.ToJson();
+            db.SaveFemAnalysis(analysis);
+            var result = await FemCsfeaRunner.RunAsync(ctx, parent.Schema, analysis, null, CancellationToken.None);
+            var summary = FemCsfeaResultSummary.Parse(result.DataJson)!;
+            foreach (var line in summary.Errors.Concat(summary.Report)) output.WriteLine("родитель: " + line);
+            Assert.Equal("ok", result.Status);
+            Assert.False(string.IsNullOrEmpty(summary.ImperfectionTags), "в родителе нет несовершенства");
+            analysis.ResultId = result.Id;
+            analysis.Status = "ok";
+            db.SaveFemAnalysis(analysis);
+
+            var built = StoreyFragmentService.Build(db, parent.Schema.Id, new StoreyFragmentRequest(Z1, Z2, "Вокруг колонны", Prism: ColumnPrism));
+            var fragment = Assert.IsType<FemSchema>(built.Schema);
+            await Mesh(db, fragment, PrismStep, root);
+            var extracted = StoreyFragmentMaskService.Extract(db, fragment, FragmentMaskSet.SourceCsfeaSecant, S(analysis.Id));
+            foreach (var d in extracted.Diagnostics) output.WriteLine($"маски {(d.IsError ? "ОШИБКА" : "предупр.")} {d.Code}: {d.Message}");
+            Assert.False(extracted.HasErrors);
+            Assert.DoesNotContain(extracted.Diagnostics, d => d.Code is "fragment_mask_nodal_unsupported" or "fragment_mask_balance"
+                or "fragment_mask_nodal_selfcheck");
+            Assert.Contains(extracted.Diagnostics, d => d.Code == "fragment_mask_summary" && d.Message.Contains("узловые силы КЭ"));
+            output.WriteLine($"невязка равновесия масок {extracted.BalanceResidual:e3}");
+            const double phi = 1.0 / 200;
+            Assert.True(extracted.BalanceResidual is <= 2 * phi, $"невязка масок {extracted.BalanceResidual} > 2·φ");
         });
     }
 }
