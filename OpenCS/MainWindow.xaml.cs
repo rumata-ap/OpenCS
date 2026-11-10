@@ -220,8 +220,43 @@ namespace OpenCS
 
         }
 
+      /// <summary>КонЭ, отмеченные в дереве Ctrl+щелчком (одной схемы); пусто — меню одного элемента.</summary>
+      readonly List<ViewModels.FemMemberTreeItem> multiSelectedMembers = [];
+
+      void ClearMultiSelectedMembers()
+      {
+         foreach (var item in multiSelectedMembers) item.IsMultiSelected = false;
+         multiSelectedMembers.Clear();
+      }
+
+      /// <summary>
+      /// Ctrl+щелчок по КонЭ дерева отмечает его (или снимает отметку) без смены текущего элемента; первым в отметку
+      /// попадает выделенный КонЭ той же схемы. Щелчок без Ctrl снимает все отметки.
+      /// </summary>
+      void FemMemberTreeItem_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+      {
+         if (sender is not FrameworkElement { DataContext: ViewModels.FemMemberTreeItem item }) return;
+         if ((System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) == 0)
+         {
+            ClearMultiSelectedMembers();
+            return;
+         }
+         e.Handled = true;
+         if (multiSelectedMembers.Count > 0 && multiSelectedMembers[0].Schema.Id != item.Schema.Id) ClearMultiSelectedMembers();
+         if (multiSelectedMembers.Count == 0 && femTree.SelectedItem is ViewModels.FemMemberTreeItem current
+             && current.Schema.Id == item.Schema.Id && !ReferenceEquals(current, item))
+         {
+            current.IsMultiSelected = true;
+            multiSelectedMembers.Add(current);
+         }
+         item.IsMultiSelected = !item.IsMultiSelected;
+         if (item.IsMultiSelected) multiSelectedMembers.Add(item);
+         else multiSelectedMembers.Remove(item);
+      }
+
       private void femTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
       {
+          ClearMultiSelectedMembers();
           if (e.NewValue is ViewModels.FemSchemaTreeVM schemaTreeVM)
           {
              vm.CurrentFemSchema = schemaTreeVM.Schema;
@@ -296,6 +331,9 @@ namespace OpenCS
          menu.Items.Clear();
          switch (element.DataContext)
          {
+            case ViewModels.FemMemberTreeItem { IsMultiSelected: true } item when multiSelectedMembers.Count > 1:
+               Views.FemMemberTreeMenus.FillMembers(menu.Items, item.Schema, multiSelectedMembers.ToList(), vm);
+               break;
             case ViewModels.FemMemberTreeItem item:
                Views.FemMemberTreeMenus.FillMember(menu.Items, item, vm);
                break;

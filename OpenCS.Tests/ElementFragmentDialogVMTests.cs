@@ -64,6 +64,22 @@ public sealed class ElementFragmentDialogVMTests
         Assert.Equal((3.3, 3.3, false), (r.PrismInfo!.FloorFromZ!.Value, r.PrismInfo.FloorToZ!.Value, r.PrismInfo.FullHeight));
     }
 
+    /// <summary>d больше 10 м — предупреждение (вероятная опечатка), но сборка разрешена; возврат к малому d его снимает.</summary>
+    [Fact]
+    public async Task LargeOffset_WarnsButAllowsBuild()
+    {
+        var vm = Vm(Column());
+        Assert.DoesNotContain("10 м", vm.Message);
+        vm.OffsetText = "115";
+        await vm.ApplyOffsetAsync();
+        Assert.Contains(string.Format(Loc.S("ElementFragmentOffsetLarge"), "115", "10"), vm.Message);
+        Assert.True(vm.CanBuild);
+        Assert.NotNull(vm.TryRequest(out _));
+        vm.OffsetText = "1,5";
+        await vm.ApplyOffsetAsync();
+        Assert.DoesNotContain(string.Format(Loc.S("ElementFragmentOffsetLarge"), "115", "10"), vm.Message);
+    }
+
     [Fact]
     public void FromAboveTo_PullsTo_AndBack()
     {

@@ -35,6 +35,9 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
     }
 
     /// <summary>Выбирает узел и открывает его свойства (закрепления, нагрузки) — из 3D-вида и из дерева схемы.</summary>
+    /// <summary>«Построить сетку схемы» (команда дерева): та же сборка, что кнопкой панели 3D.</summary>
+    public Task BuildMeshAsync() => _editorVm.DiscretizeAsync();
+
     public void OpenNodeProperties(string tag)
     {
         var node = _editorVm.Session.Nodes.FirstOrDefault(n => n.NodeTag == tag);

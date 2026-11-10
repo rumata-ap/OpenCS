@@ -506,9 +506,25 @@ public class FemShellsSubNode : FemSubNode, System.ComponentModel.INotifyPropert
 
 /// <summary>Конструктивный элемент в дереве схемы: сам элемент и проверки, нацеленные на него
 /// (<see cref="FemCheck.ElementId"/>).</summary>
-public class FemMemberTreeItem
+public class FemMemberTreeItem : System.ComponentModel.INotifyPropertyChanged
 {
+    bool _isMultiSelected;
+
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
     public FemMember Member { get; }
+
+    /// <summary>Отмечен Ctrl+щелчком для действий над несколькими КонЭ (меню дерева); подсвечивается.</summary>
+    public bool IsMultiSelected
+    {
+        get => _isMultiSelected;
+        set
+        {
+            if (_isMultiSelected == value) return;
+            _isMultiSelected = value;
+            PropertyChanged?.Invoke(this, new(nameof(IsMultiSelected)));
+        }
+    }
     public FemSchema Schema { get; }
     public ObservableCollection<FemCheck> Checks { get; } = [];
 

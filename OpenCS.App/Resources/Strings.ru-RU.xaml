@@ -2915,6 +2915,8 @@
     <system:String x:Key="FemMemberPageElements">Номера КЭ</system:String>
     <system:String x:Key="FemMemberPageChecks">Проверки</system:String>
     <system:String x:Key="FemMemberTreeGroupFromMember">Группа КонЭ из элемента…</system:String>
+    <system:String x:Key="FemMemberTreeGroupFromSelected">Группа КонЭ из отмеченных…</system:String>
+    <system:String x:Key="FemMemberTreeMultiHeader">Отмечено КонЭ: {0} (Ctrl+щелчок)</system:String>
     <system:String x:Key="FemMemberTreeProperties">Свойства…</system:String>
     <system:String x:Key="FemMemberTreeGroupAllBars">Группа КонЭ из всех стержней…</system:String>
     <system:String x:Key="FemMemberTreeGroupAllShells">Группа КонЭ из всех пластин…</system:String>
@@ -4052,6 +4054,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMeshPlateStep">Общий размер КЭ пластин, м</system:String>
     <system:String x:Key="FemMeshStepsHint">Свой шаг элемента («Шаг сетки…» в контекстном меню, у пластины — и в её редакторе) важнее общего. Пусто: стержни делятся только узлами, пластины — по размеру из области.</system:String>
     <system:String x:Key="FemSchemaMeshSteps">Шаги сетки…</system:String>
+    <system:String x:Key="FemSchemaBuildMesh">Построить сетку схемы</system:String>
     <system:String x:Key="FemSchemaMeshStepsTitle">Шаги сетки схемы</system:String>
     <system:String x:Key="StoreyFragmentMenu">Фрагмент этажа…</system:String>
     <system:String x:Key="StoreyFragmentTitle">Фрагмент этажа</system:String>
@@ -4108,6 +4111,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="ElementFragmentRejected">Не вертикальные колонны и стены — не учитываются: {0}</system:String>
     <system:String x:Key="ElementFragmentNoVertical">В выделении нет вертикальных колонн и стен: фрагмент строится только вокруг них.</system:String>
     <system:String x:Key="ElementFragmentOffsetInvalid">Отступ d — положительное число, м.</system:String>
+    <system:String x:Key="ElementFragmentOffsetLarge">Отступ d = {0} м больше {1} м (обычно 1–3 м) — проверьте, не опечатка ли.</system:String>
     <system:String x:Key="ElementFragmentBusy">Идёт пересчёт призмы…</system:String>
     <system:String x:Key="ElementFragmentSearchBusy">Призма и перекрытия…</system:String>
     <system:String x:Key="ElementFragmentRefused">Фрагмент по этому выбору не строится.</system:String>

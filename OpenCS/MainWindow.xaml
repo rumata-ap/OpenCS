@@ -1367,6 +1367,11 @@
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem helpers:CommandIcons.Header="FemSchemaBuildMesh"
+                                        Command="{Binding PlacementTarget.Tag.BuildFemSchemaMeshCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <MenuItem helpers:CommandIcons.Header="FemSchemaMenuLira">
                                  <MenuItem.Visibility>
                                     <MultiBinding Converter="{StaticResource FemSourceVisibilityConverter}" ConverterParameter="lira">
@@ -1896,10 +1901,21 @@
                   <HierarchicalDataTemplate DataType="{x:Type vm:FemMemberTreeItem}"
                                             ItemsSource="{Binding Checks}">
                      <StackPanel Orientation="Horizontal" Margin="1"
-                                 ContextMenuOpening="FemMembersNode_ContextMenuOpening">
+                                 ContextMenuOpening="FemMembersNode_ContextMenuOpening"
+                                 PreviewMouseLeftButtonDown="FemMemberTreeItem_PreviewMouseLeftButtonDown">
                         <StackPanel.ContextMenu>
                            <ContextMenu/>
                         </StackPanel.ContextMenu>
+                        <!-- Ctrl+щелчок отмечает несколько КонЭ для общего меню -->
+                        <StackPanel.Style>
+                           <Style TargetType="StackPanel">
+                              <Style.Triggers>
+                                 <DataTrigger Binding="{Binding IsMultiSelected}" Value="True">
+                                    <Setter Property="Background" Value="#400078D7"/>
+                                 </DataTrigger>
+                              </Style.Triggers>
+                           </Style>
+                        </StackPanel.Style>
                         <Image>
                            <Image.Style>
                               <Style TargetType="Image" BasedOn="{StaticResource FemTreeIcon}">

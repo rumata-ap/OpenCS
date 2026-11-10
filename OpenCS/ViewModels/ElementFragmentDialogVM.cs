@@ -21,6 +21,9 @@ public sealed class ElementFragmentDialogVM : ViewModelBase
     string _offsetText, _name = "", _message = "", _prismText = "", _rangeText = "", _offsetError = "";
     int _version;
 
+    /// <summary>Отступ больше этого (м) — вероятная опечатка (обычно 1–3 м): предупреждение в <see cref="Message"/>, сборку не запрещает.</summary>
+    public const double LargeOffsetM = 10;
+
     /// <param name="parentTag">Имя схемы-родителя.</param>
     /// <param name="selection">Выбор по d по умолчанию.</param>
     /// <param name="recompute">Пересчёт выбора при новом d (в фоне).</param>
@@ -245,6 +248,9 @@ public sealed class ElementFragmentDialogVM : ViewModelBase
         var parts = new List<string>();
         if (RejectedText.Length > 0) parts.Add(RejectedText);
         if (_offsetError.Length > 0) parts.Add(_offsetError);
+        else if (_selection.OffsetM > LargeOffsetM)
+            parts.Add(string.Format(Loc.S("ElementFragmentOffsetLarge"), _selection.OffsetM.ToString("0.###", _culture),
+                LargeOffsetM.ToString("0.###", _culture)));
         parts.AddRange(_selection.Diagnostics.Select(d => d.Message));
         Message = string.Join(Environment.NewLine, parts);
     }

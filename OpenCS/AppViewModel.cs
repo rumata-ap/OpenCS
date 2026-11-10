@@ -995,6 +995,8 @@ namespace OpenCS
       /// <summary>Команда переименования МКЭ-схемы.</summary>
       public ICommand RenameFemSchemaCommand { get; set; } = null!;
       public ICommand FemSchemaMeshStepsCommand { get; set; } = null!;
+      /// <summary>«Построить сетку схемы» из контекстного меню схемы в дереве (та же сборка, что кнопкой панели 3D).</summary>
+      public ICommand BuildFemSchemaMeshCommand { get; set; } = null!;
       public ICommand StoreyFragmentCommand { get; set; } = null!;
       /// <summary>«Маски из родителя…» у схемы-фрагмента.</summary>
       public ICommand StoreyFragmentMasksCommand { get; set; } = null!;
@@ -1961,6 +1963,7 @@ namespace OpenCS
          DuplicateFemSchemaCommand = new RelayCommand(p => DuplicateFemSchema(p as CScore.Fem.FemSchema));
          RenameFemSchemaCommand    = new RelayCommand(p => RenameFemSchema(p as CScore.Fem.FemSchema));
          FemSchemaMeshStepsCommand = new RelayCommand(p => EditFemSchemaMeshSteps(p as CScore.Fem.FemSchema));
+         BuildFemSchemaMeshCommand = new RelayCommand(p => BuildFemSchemaMesh(p as CScore.Fem.FemSchema));
          StoreyFragmentCommand     = new RelayCommand(p => BuildStoreyFragment(p as CScore.Fem.FemSchema));
          StoreyFragmentMasksCommand = new RelayCommand(p => TakeStoreyFragmentMasks(p as CScore.Fem.FemSchema));
          DeleteStoreyFragmentMasksCommand = new RelayCommand(p => DeleteStoreyFragmentMasks(p as CScore.Fem.FemSchema));
@@ -3749,6 +3752,17 @@ namespace OpenCS
       void ReloadFragmentState(CScore.Fem.FemSchema fragment)
       {
          if (currentFemSchema?.Id == fragment.Id && CurrentPage is Views.FemSchemaPage page) page.ReloadFragmentState();
+      }
+
+      /// <summary>
+      /// «Построить сетку схемы» из дерева: открывает редактор схемы (если открыт другой вид) и запускает в нём
+      /// сборку сетки — вид 3D и дерево снимков обновляются так же, как после кнопки панели.
+      /// </summary>
+      void BuildFemSchemaMesh(CScore.Fem.FemSchema? schema)
+      {
+         if (schema == null) return;
+         InFemSchemaEditor(schema, page => page.Dispatcher.BeginInvoke(async () => await page.BuildMeshAsync(),
+            System.Windows.Threading.DispatcherPriority.Loaded));
       }
 
       /// <summary>Общие шаги сетки схемы (стержни, пластины) — хранятся в схеме; применяются при «Построить сетку схемы».</summary>

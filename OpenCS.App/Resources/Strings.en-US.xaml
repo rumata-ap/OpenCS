@@ -2915,6 +2915,8 @@
     <system:String x:Key="FemMemberPageElements">Element numbers</system:String>
     <system:String x:Key="FemMemberPageChecks">Checks</system:String>
     <system:String x:Key="FemMemberTreeGroupFromMember">Member group from this member…</system:String>
+    <system:String x:Key="FemMemberTreeGroupFromSelected">Member group from marked…</system:String>
+    <system:String x:Key="FemMemberTreeMultiHeader">Marked members: {0} (Ctrl+click)</system:String>
     <system:String x:Key="FemMemberTreeProperties">Properties…</system:String>
     <system:String x:Key="FemMemberTreeGroupAllBars">Member group from all bars…</system:String>
     <system:String x:Key="FemMemberTreeGroupAllShells">Member group from all shells…</system:String>
@@ -4052,6 +4054,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMeshPlateStep">Common plate element size, m</system:String>
     <system:String x:Key="FemMeshStepsHint">A member's own step ("Mesh step…" in the context menu; for a plate also in its editor) overrides the common one. Empty: bars are split only at nodes, plates use the region's size.</system:String>
     <system:String x:Key="FemSchemaMeshSteps">Mesh steps…</system:String>
+    <system:String x:Key="FemSchemaBuildMesh">Build schema mesh</system:String>
     <system:String x:Key="FemSchemaMeshStepsTitle">Schema mesh steps</system:String>
     <system:String x:Key="StoreyFragmentMenu">Storey fragment…</system:String>
     <system:String x:Key="StoreyFragmentTitle">Storey fragment</system:String>
@@ -4108,6 +4111,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="ElementFragmentRejected">Not vertical columns or walls — ignored: {0}</system:String>
     <system:String x:Key="ElementFragmentNoVertical">The selection has no vertical columns or walls: the fragment is built only around them.</system:String>
     <system:String x:Key="ElementFragmentOffsetInvalid">Offset d must be a positive number, m.</system:String>
+    <system:String x:Key="ElementFragmentOffsetLarge">Offset d = {0} m exceeds {1} m (usually 1–3 m) — check for a typo.</system:String>
     <system:String x:Key="ElementFragmentBusy">Recalculating the prism…</system:String>
     <system:String x:Key="ElementFragmentSearchBusy">Prism and floors…</system:String>
     <system:String x:Key="ElementFragmentRefused">No fragment can be built for this selection.</system:String>

@@ -67,6 +67,27 @@ internal static class FemMemberTreeMenus
         }
     }
 
+    /// <summary>
+    /// Меню нескольких КонЭ, отмеченных Ctrl+щелчком: выделение и видимость в схеме, поле, «Фрагмент вокруг элементов…»
+    /// (невертикальные отсекаются в самом диалоге), группы.
+    /// </summary>
+    public static void FillMembers(ItemCollection items, FemSchema schema, IReadOnlyList<FemMemberTreeItem> selected, AppViewModel app)
+    {
+        var tags = selected.Select(i => i.Member.ElemTag).ToList();
+        items.Add(new MenuItem { Header = string.Format(Loc.S("FemMemberTreeMultiHeader"), tags.Count), IsEnabled = false });
+        items.Add(new Separator());
+        AddViewActions(items, app, schema, tags);
+        items.Add(Item("FemFieldAssign",
+            () => app.CreateFemField(schema, new CScore.Fem.Fields.FemFieldTargets { MemberTags = tags })));
+
+        items.Add(new Separator());
+        items.Add(Item("Fem3DElementFragmentCtx", () => app.BuildElementFragment(schema, tags)));
+
+        items.Add(new Separator());
+        items.Add(Item("FemMemberTreeGroupFromSelected", () => CreateGroup(app, schema, selected.Select(i => i.Member).ToList(), null)));
+        AddGroupSubmenus(items, app, schema, tags);
+    }
+
     /// <summary>Действия над всеми КонЭ узла «Стержни» (<paramref name="shells"/> = false), «Пластины» (true)
     /// или «Конструктивные элементы» (null — все).</summary>
     public static void FillCategory(ItemCollection items, FemSchema schema, IReadOnlyList<FemMemberTreeItem> members,
