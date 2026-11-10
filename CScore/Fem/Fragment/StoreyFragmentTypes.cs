@@ -126,6 +126,9 @@ public sealed class StoreyFragmentDraft
     public List<FragmentFieldLoad> FieldLoads { get; } = [];
     /// <summary>Импортные АЖТ «по точкам»: ведущий и ведомые — теги узлов фрагмента (<see cref="FemNodeRigidBodies"/>).</summary>
     public List<FemRigidBody> NodeRigidBodies { get; } = [];
+    /// <summary>АЖТ родителя на узлах сохранённой сетки — теги родителя, происхождение
+    /// <see cref="StoreyFragmentBuilder.ParentRigidOriginPrefix"/> + исходное (сборка сетки их не пересоздаёт).</summary>
+    public List<FemRigidBody> MeshRigidBodies { get; } = [];
     /// <summary>Опорная сетка: КЭ родителя полосы.</summary>
     public List<FragmentRefElement> RefElements { get; } = [];
     /// <summary>Узлы сохранённой сетки родителя (копии с тегами родителя, <c>Origin = imported</c>).</summary>

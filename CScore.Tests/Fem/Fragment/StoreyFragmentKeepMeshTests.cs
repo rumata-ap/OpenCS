@@ -69,7 +69,7 @@ public class StoreyFragmentKeepMeshTests
     /// </summary>
     static (StoreyFragmentParentSnapshot Parent, Mesh Mesh) Floor(
         FemElementLoad[]? elementLoads = null, FemMeshNodeLoad[]? meshNodeLoads = null,
-        FemMeshNodeSupport[]? supports = null, FemSpring[]? springs = null)
+        FemMeshNodeSupport[]? supports = null, FemSpring[]? springs = null, Func<Mesh, FemRigidBody[]>? bodies = null)
     {
         var mesh = new Mesh();
         mesh.Grid("S1", (u, v) => (u, v, 3), Steps6, Steps6);
@@ -97,6 +97,7 @@ public class StoreyFragmentKeepMeshTests
             MeshNodeLoads = meshNodeLoads ?? [],
             MeshNodeSupports = supports ?? [],
             Springs = springs ?? [],
+            RigidBodies = bodies?.Invoke(mesh) ?? [],
         };
         return (parent, mesh);
     }
@@ -252,5 +253,99 @@ public class StoreyFragmentKeepMeshTests
         Assert.Equal((FemSpringTargetKinds.MeshNode, b), (s.TargetKind, s.NodeTag));
         Assert.Equal(1e6, s.Kz);
         Assert.Equal(nodesBefore, d.Nodes.Count);
+    }
+
+    // ── Срез 3: АЖТ родителя ──────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Тело у станции C2 на плите: ведущий — узел (1,5; 1,5; 3), ведомые — четыре соседних узла плиты.</summary>
+    static FemRigidBody StationBody(Mesh mesh, string origin)
+    {
+        var body = new FemRigidBody
+        {
+            MasterNodeTag = mesh.Node(1.5, 1.5, 3), Mask = 0b110111, Kind = "beam", Origin = origin, SourceElemTag = "J1",
+        };
+        body.SetSlaveNodeTags([mesh.Node(0, 1.5, 3), mesh.Node(3, 1.5, 3), mesh.Node(1.5, 0, 3), mesh.Node(1.5, 3, 3)]);
+        return body;
+    }
+
+    /// <summary>Тело на стыке: ведущий — узел плиты (−1,5; −1,5; 3), ведомые — узел плиты и узел обрезанной W1 на z₁.</summary>
+    static FemRigidBody EdgeBody(Mesh mesh, string origin)
+    {
+        var body = new FemRigidBody { MasterNodeTag = mesh.Node(-1.5, -1.5, 3), Mask = 0b111111, Origin = origin, SourceElemTag = "J2" };
+        body.SetSlaveNodeTags([mesh.Node(-1.5, 0, 3), mesh.Node(-1.5, -3, 1.5)]);
+        return body;
+    }
+
+    [Fact]
+    public void KeptBody_CopiedByTags()
+    {
+        FemRigidBody? source = null;
+        var (parent, _) = Floor(bodies: m => [source = StationBody(m, "auto:junction")]);
+        var d = Build(parent);
+
+        Assert.False(d.HasErrors, string.Join("\n", d.Diagnostics));
+        var copy = Assert.Single(d.MeshRigidBodies);
+        Assert.Equal(source!.MasterNodeTag, copy.MasterNodeTag);
+        Assert.Equal(source.SlaveNodeTags, copy.SlaveNodeTags);
+        Assert.Equal((0b110111, "beam", "J1"), (copy.Mask, copy.Kind, copy.SourceElemTag));
+        Assert.Equal("fragment:auto:junction", copy.Origin);
+        Assert.Empty(d.NodeRigidBodies);
+        Assert.Contains(d.Diagnostics, x => x.Code == "fragment_rigid_body_kept");
+        Assert.DoesNotContain(d.Diagnostics, x => x.Code == "fragment_rigid_from_trace");
+    }
+
+    [Fact]
+    public void KeptImportBody_NoColumnTrace()
+    {
+        var (parent, _) = Floor(bodies: m => [StationBody(m, "import:lira")]);
+        var d = Build(parent);
+
+        Assert.Equal("fragment:import:lira", Assert.Single(d.MeshRigidBodies).Origin);
+        Assert.All(d.Members.Where(m => m.ParentMemberTag == "C2"), m => Assert.Null(m.Member.RigidJunctionTraceJson));
+        Assert.Empty(d.NodeRigidBodies);
+    }
+
+    [Fact]
+    public void PartlyKeptImportBody_ByPointsWithWarning()
+    {
+        string lostSlave = "";
+        var (parent, _) = Floor(bodies: m =>
+        {
+            var b = EdgeBody(m, "import:lira");
+            lostSlave = b.SlaveNodeTags[^1];
+            return [b];
+        });
+        var d = Build(parent);
+
+        Assert.False(d.HasErrors, string.Join("\n", d.Diagnostics));
+        Assert.Empty(d.MeshRigidBodies);
+        var byPoints = Assert.Single(d.NodeRigidBodies);
+        Assert.Equal("import:lira", byPoints.Origin);
+        Assert.Equal(2, byPoints.SlaveNodeTags.Count);
+        var row = Assert.Single(d.Diagnostics, x => x.Code == "fragment_rigid_from_trace");
+        Assert.Contains("J2", row.SourceKeys!);
+        Assert.Contains(lostSlave, row.Message);
+    }
+
+    [Fact]
+    public void PartlyKeptAutoBody_Warning()
+    {
+        var (parent, _) = Floor(bodies: m => [EdgeBody(m, "auto:junction")]);
+        var d = Build(parent);
+
+        Assert.Empty(d.MeshRigidBodies);
+        Assert.Empty(d.NodeRigidBodies);
+        Assert.Single(d.Diagnostics, x => x.Code == "fragment_rigid_from_trace");
+    }
+
+    [Fact]
+    public void KeepOff_BodiesAsBefore()
+    {
+        var (parent, _) = Floor(bodies: m => [StationBody(m, "auto:junction"), EdgeBody(m, "fragment:auto:junction")]);
+        var d = Build(parent, keep: false);
+
+        Assert.Empty(d.MeshRigidBodies);
+        Assert.Empty(d.NodeRigidBodies);
+        Assert.DoesNotContain(d.Diagnostics, x => x.Code is "fragment_rigid_from_trace" or "fragment_rigid_body_kept" or "fragment_rigid_body_lost");
     }
 }

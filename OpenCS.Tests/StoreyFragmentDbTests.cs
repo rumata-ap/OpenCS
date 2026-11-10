@@ -228,9 +228,17 @@ public sealed class StoreyFragmentDbTests : IDisposable
         using (var db = new DatabaseService(_path))
         {
             var parent = StoreyFragmentDbFixture.CreateParent(db);
+            // АЖТ ЛИРЫ на узлах плиты S1 — во фрагмент по тегам (срез 3).
+            var body = new FemRigidBody { MasterNodeTag = "1013", Mask = 63, SourceElemTag = "Ж1" };
+            body.SetSlaveNodeTags(["1007", "1008", "1009"]);
+            db.SaveFemBoundary(parent.Id, "import:lira", [], [], [body]);
             var built = StoreyFragmentService.Build(db, parent.Id, new StoreyFragmentRequest(1.0, 5.0, "Этаж", KeepParentMesh: true));
             var fragment = built.Schema ?? throw new InvalidOperationException(string.Join("\n", built.Draft.Diagnostics));
             fragmentId = fragment.Id;
+            var keptBody = Assert.Single(db.GetFemRigidBodies(fragmentId));
+            Assert.Equal(("1013", "fragment:import:lira", "Ж1"), (keptBody.MasterNodeTag, keptBody.Origin, keptBody.SourceElemTag));
+            Assert.Equal(["1007", "1008", "1009"], keptBody.SlaveNodeTags);
+            Assert.Empty(db.GetFemNodeRigidBodies(fragmentId));
 
             Assert.True(db.HasImportedMesh(fragmentId));
             var elements = db.GetFemMeshElements(fragmentId);

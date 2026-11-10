@@ -4260,6 +4260,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemBoundaryOriginManual">вручную</system:String>
     <system:String x:Key="FemBoundaryOriginAuto">авто</system:String>
     <system:String x:Key="FemBoundaryOriginNodePoints">по узлам схемы</system:String>
+    <system:String x:Key="FemBoundaryOriginParent">из родителя</system:String>
     <system:String x:Key="FemBoundaryNodeRigidPending">По узлам схемы — тела появятся после построения сетки</system:String>
     <system:String x:Key="FemBoundaryRigidJunctionParams">Параметры АЖТ стержня…</system:String>
     <system:String x:Key="FemBoundaryOriginLira">ЛИРА</system:String>

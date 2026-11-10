@@ -19,8 +19,10 @@ public sealed class StoreyFragmentKeepMeshTests(ITestOutputHelper output)
 {
     const double Z1 = 1.5, Z2 = 4.5, Tol = 1e-6;
 
+    /// <summary>Родитель; колонна — сечение К400 (в памяти): у её узла в плите — авто-АЖТ примыкания.</summary>
     static FemSchema CreateParent(DatabaseService db)
     {
+        var column = AddSections(db).Column;
         var schema = new FemSchema { Tag = "Каркас" };
         db.SaveFemSchema(schema);
         var slab = PlanarRegion.CreateFromContour(new Contour { X = [0, 6, 6, 0], Y = [0, 0, 6, 6] },
@@ -39,8 +41,8 @@ public sealed class StoreyFragmentKeepMeshTests(ITestOutputHelper output)
         {
             new() { Id = -1, ElemTag = "S1", ElemType = "shell", NodeIdsJson = "[]", PlanarRegionId = slab.Id, Kind = "plate", ThicknessM = 0.2 },
             new() { Id = -2, ElemTag = "W1", ElemType = "shell", NodeIdsJson = "[]", PlanarRegionId = wall.Id, Kind = "wall", ThicknessM = 0.2 },
-            new() { Id = -3, ElemTag = "C1a", ElemType = "beam", NodeIdsJson = "[1,2]" },
-            new() { Id = -4, ElemTag = "C1b", ElemType = "beam", NodeIdsJson = "[2,3]" },
+            new() { Id = -3, ElemTag = "C1a", ElemType = "beam", NodeIdsJson = "[1,2]", CrossSectionId = column.Id },
+            new() { Id = -4, ElemTag = "C1b", ElemType = "beam", NodeIdsJson = "[2,3]", CrossSectionId = column.Id },
         };
         db.SaveFemSchemaEdit(schema.Id, nodes, members, [], [new FemLoadCase { Id = -1, Tag = "Пост." }], [], [], [], [], [], []);
         return db.FemSchemas.Single(s => s.Id == schema.Id);
@@ -84,6 +86,62 @@ public sealed class StoreyFragmentKeepMeshTests(ITestOutputHelper output)
 
             // Связность: все КЭ — одна компонента по общим узлам.
             Assert.Equal(1, Components(elements));
+
+            // АЖТ колонны в сохранённой плите — тело родителя по тегам (срез 3), своих тел примыканий нет; ведущий —
+            // узел перестроенной колонны.
+            var parentBody = Assert.Single(db.GetFemRigidBodies(parent.Id), b => b.Origin == RigidJunctionTraceSet.Provenance);
+            var bodies = db.GetFemRigidBodies(fragment.Id);
+            var body = Assert.Single(bodies);
+            Assert.Equal(StoreyFragmentBuilder.ParentRigidOriginPrefix + RigidJunctionTraceSet.Provenance, body.Origin);
+            Assert.Equal(parentBody.MasterNodeTag, body.MasterNodeTag);
+            Assert.Equal(parentBody.SlaveNodeTags.Order(), body.SlaveNodeTags.Order());
+            Assert.Contains(rebuilt.Where(e => e.SourceMemberTag!.StartsWith("C1")), e => Ids(e).Contains(body.MasterNodeTag));
+            Assert.All(body.SlaveNodeTags, t => Assert.Contains(t, slabNodes));
+
+            // Повторная сборка тело не стирает.
+            await Mesh(db, fragment, fragmentStep, root);
+            Assert.Single(db.GetFemRigidBodies(fragment.Id), b => b.Origin == body.Origin);
+        });
+    }
+
+    /// <summary>
+    /// Стена на всю высоту сохранена, плита обрезана гранью призмы (y = 2) и перестроена, колонна в списке
+    /// перемешивания: авто-АЖТ фрагмента строятся у перестраиваемой плиты, хотя у схемы есть сохранённая сетка.
+    /// </summary>
+    [Fact]
+    public async Task KeptWall_RebuiltSlabAndColumn_AutoJunctionBuilt()
+    {
+        await InTempRoot("opencs-fragment-keep-rigid", async root =>
+        {
+            using var db = new DatabaseService(Path.Combine(root, "test.db"));
+            var parent = CreateParent(db);
+            await Mesh(db, parent, 1.0, root);
+
+            var prism = FragmentPrism.Create(3, 4.5, 1, 0, 4, 2.5);
+            var built = StoreyFragmentService.Build(db, parent.Id,
+                new StoreyFragmentRequest(-1, 7, "Угол", Prism: prism, KeepParentMesh: true, MeshRebuildMemberTags: ["C1a", "C1b"]));
+            foreach (var d in built.Draft.Diagnostics) output.WriteLine($"{(d.IsError ? "ОШИБКА" : "предупр.")} {d.Code}: {d.Message}");
+            var fragment = Assert.IsType<FemSchema>(built.Schema);
+            Assert.True(db.HasImportedMesh(fragment.Id));
+
+            fragment.MeshPlateStepM = fragment.MeshBarStepM = 0.5;
+            db.UpdateFemSchemaMeshSteps(fragment);
+            var service = new FemSchemaMeshService(db, GmshSettings(root));
+            var meshed = await service.BuildAsync(fragment.Id, db.GetFemNodes(fragment.Id), db.GetFemMembers(fragment.Id), 0.5, null,
+                CancellationToken.None);
+            foreach (var d in meshed.Diagnostics) output.WriteLine($"сетка {(d.IsError ? "ОШИБКА" : "предупр.")} {d.Code}: {d.Message}");
+            Assert.False(meshed.HasErrors);
+            service.Save(fragment.Id, meshed.Mesh!);
+            var nodes = db.GetFemMeshNodes(fragment.Id).ToDictionary(n => n.NodeTag, StringComparer.Ordinal);
+            var elements = db.GetFemMeshElements(fragment.Id);
+            Assert.Contains(elements, e => e.SourceMemberTag!.StartsWith("W1") && e.Origin == FemMember.MeshSourceImported);
+            Assert.Equal(1, Components(elements));
+
+            var body = Assert.Single(db.GetFemRigidBodies(fragment.Id), b => b.Origin == RigidJunctionTraceSet.Provenance);
+            var master = nodes[body.MasterNodeTag];
+            Assert.True(Math.Abs(master.X - 3) < Tol && Math.Abs(master.Y - 3) < Tol && Math.Abs(master.Z - 3) < Tol);
+            Assert.NotEmpty(body.SlaveNodeTags);
+            Assert.All(body.SlaveNodeTags, t => Assert.True(Math.Abs(nodes[t].Z - 3) < Tol));
         });
     }
 

@@ -799,7 +799,9 @@ namespace OpenCS.Utilites
                if (s.TargetKind == FemSpringTargetKinds.MeshNode) MeshNode(s.NodeTag); else Node(s.NodeTag);
             foreach (var s in draft.MeshNodeSupports) MeshNode(s.NodeTag);
             foreach (var l in draft.MeshNodeLoads) MeshNode(l.MeshNodeTag);
-            InsertFemBoundaryCore(sid, draft.MeshNodeSupports, draft.Springs, [], updateObjects: false);
+            foreach (var b in draft.MeshRigidBodies) { MeshNode(b.MasterNodeTag); foreach (var t in b.SlaveNodeTags) MeshNode(t); }
+            // АЖТ родителя на сохранённой сетке — по тегам (происхождение «fragment:…», сборка сетки их не пересоздаёт).
+            InsertFemBoundaryCore(sid, draft.MeshNodeSupports, draft.Springs, draft.MeshRigidBodies, updateObjects: false);
             foreach (var b in draft.NodeRigidBodies) { Node(b.MasterNodeTag); foreach (var t in b.SlaveNodeTags) Node(t); }
             InsertRigidBodiesCore("fem_node_rigid_bodies", sid, draft.NodeRigidBodies, updateObjects: false);
             InsertFemMeshLevelLoadsCore(sid, draft.ElementLoads, draft.MeshNodeLoads, Lc, _ => null, updateObjects: false);

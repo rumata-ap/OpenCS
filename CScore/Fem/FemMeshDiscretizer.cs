@@ -169,6 +169,10 @@ public static class FemMeshDiscretizer
         }
 
         int nextNodeTag = importedNodes.Select(n => int.TryParse(n.NodeTag, out var t) ? t : 0).DefaultIfEmpty(0).Max() + 1;
+        // Новые теги минуют и теги узлов схемы: узел сетки с тегом узла схемы стоит в его точке (иначе вывод ограничений
+        // пластин — planar_constraint_node_tag_coordinate_conflict). У фрагмента с сохранённой сеткой родителя теги
+        // узлов схемы идут выше тегов этой сетки.
+        var schemaNodeTags = nodes.Select(n => int.TryParse(n.NodeTag, out var t) ? t : 0).Where(t => t > 0).ToHashSet();
         int nextElementTag = importedElements.Select(e => int.TryParse(e.ElemTag, out var t) ? t : 0).DefaultIfEmpty(0).Max() + 1;
         var tagMap = new Dictionary<string, string>(StringComparer.Ordinal);
         var resultNodes = new List<FemMeshNode>(importedNodes);
@@ -186,6 +190,7 @@ public static class FemMeshDiscretizer
             // Синтетические узлы (отрицательные теги) с номерами ЛИРЫ не пересекаются.
             if (int.TryParse(node.NodeTag, out var tag) && tag > 0)
             {
+                while (schemaNodeTags.Contains(nextNodeTag)) nextNodeTag++;
                 var renumbered = (nextNodeTag++).ToString();
                 tagMap[node.NodeTag] = renumbered;
                 node.NodeTag = renumbered;

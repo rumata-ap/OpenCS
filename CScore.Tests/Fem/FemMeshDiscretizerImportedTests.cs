@@ -80,4 +80,22 @@ public class FemMeshDiscretizerImportedTests
         Assert.Equal(2, elements.Count);
         Assert.Equal(3, nodes.Count);
     }
+
+    [Fact]
+    public void NewNodeTags_SkipSchemaNodeTags()
+    {
+        // Узел схемы 7 выше тегов импортной сетки (фрагмент с сохранённой сеткой родителя): новые узлы сетки не берут
+        // тег 7 в чужой точке.
+        _nodes.Add(new FemNode { NodeTag = "7", X = 0, Y = 0, Z = 5 });
+        _members.Add(new FemMember { ElemTag = "Б-1", ElemType = "beam", NodeIdsJson = "[3,7]" });
+
+        var (nodes, elements) = FemMeshDiscretizer.DiscretizeKeepingImported(1, _nodes, _members, 1.0, _meshNodes, _meshElements);
+
+        var schema = _nodes.ToDictionary(n => n.NodeTag);
+        var generated = nodes.Where(n => n.Origin == FemMember.MeshSourceGenerated).ToList();
+        Assert.Equal(2, generated.Count);
+        Assert.All(generated, n => Assert.False(schema.ContainsKey(n.NodeTag), $"Новый узел сетки взял тег узла схемы {n.NodeTag}."));
+        Assert.Equal(generated.Count, generated.Select(n => n.NodeTag).Distinct().Count());
+        Assert.Empty(FemTopologyValidator.ValidateMesh(nodes, elements));
+    }
 }

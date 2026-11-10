@@ -49,6 +49,8 @@ public sealed class FemMeshNodeRow
     /// <summary>Подпись происхождения: «вручную», «SCAD», «ЛИРА», «авто» (АЖТ примыканий).</summary>
     public static string DescribeOrigin(string origin) => origin switch
     {
+        _ when origin.StartsWith(CScore.Fem.Fragment.StoreyFragmentBuilder.ParentRigidOriginPrefix, StringComparison.Ordinal) =>
+            $"{Loc.S("FemBoundaryOriginParent")}: {DescribeOrigin(CScore.Fem.Fragment.StoreyFragmentBuilder.BaseOrigin(origin))}",
         FemLoadOrigin.Manual => Loc.S("FemBoundaryOriginManual"),
         "import:scad" => "SCAD",
         "import:lira" => Loc.S("FemBoundaryOriginLira"),

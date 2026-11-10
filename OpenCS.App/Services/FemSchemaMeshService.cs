@@ -268,11 +268,13 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
         plan.Neighbours[index].Where(j => plan.WaveOf[j] > plan.WaveOf[index])
             .ToDictionary(j => ordered[j].Member.ElemTag, j => traces[j], StringComparer.Ordinal);
 
-    /// <summary>Параметры следов АЖТ схемы; null — флажок выключен или у схемы импортная сетка (свои АЖТ источника).</summary>
+    /// <summary>Параметры следов АЖТ схемы; null — флажок выключен или у схемы импортная сетка (свои АЖТ источника).
+    /// У фрагмента с сохранённой сеткой родителя следы строятся: только у перестраиваемых областей (сохранённые не входят
+    /// в <see cref="FemPlanarMeshPlan.OrderedRegions"/>), АЖТ сохранённых — из родителя по тегам.</summary>
     RigidJunctionOptions? JunctionOptions(int schemaId, bool keepImported)
     {
         var (auto, angle) = db.GetFemSchemaRigidJunctions(schemaId);
-        return auto && !keepImported ? new RigidJunctionOptions(angle) : null;
+        return auto && (!keepImported || db.GetFemSchemaFragmentSource(schemaId).IsFragment) ? new RigidJunctionOptions(angle) : null;
     }
 
     /// <summary>Контуры сечений стержней для следов АЖТ по Id сечения (с кэшем на одну сборку).</summary>

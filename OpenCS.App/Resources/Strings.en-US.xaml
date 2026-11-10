@@ -4260,6 +4260,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemBoundaryOriginManual">manual</system:String>
     <system:String x:Key="FemBoundaryOriginAuto">auto</system:String>
     <system:String x:Key="FemBoundaryOriginNodePoints">by schema nodes</system:String>
+    <system:String x:Key="FemBoundaryOriginParent">from parent</system:String>
     <system:String x:Key="FemBoundaryNodeRigidPending">By schema nodes — bodies appear after the mesh is built</system:String>
     <system:String x:Key="FemBoundaryRigidJunctionParams">Bar junction parameters…</system:String>
     <system:String x:Key="FemBoundaryOriginLira">LIRA</system:String>

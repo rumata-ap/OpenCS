@@ -14,7 +14,7 @@ sealed class FragmentNodeTable(List<FemNode> nodes, IReadOnlySet<int>? reservedT
     const double Snap = 1e-6;
     readonly Dictionary<(long, long, long), FemNode> _byKey = [];
     readonly Dictionary<(long, long, long), FemMeshNode> _kept = [];
-    readonly HashSet<string> _used = new(StringComparer.Ordinal);
+    readonly Dictionary<string, FemNode> _byTag = new(StringComparer.Ordinal);
     int _next = 1;
 
     /// <summary>Узел в точке; маска закреплений объединяется с уже имеющейся.</summary>
@@ -25,10 +25,10 @@ sealed class FragmentNodeTable(List<FemNode> nodes, IReadOnlySet<int>? reservedT
         if ((_kept.Count == 0 ? Find(p) : FindNear(p)) is { } existing) { existing.DofMask |= dofMask; return existing; }
         var kept = Near(_kept, p);
         string tag;
-        if (kept is not null && !_used.Contains(kept.NodeTag)) tag = kept.NodeTag;
+        if (kept is not null && !_byTag.ContainsKey(kept.NodeTag)) tag = kept.NodeTag;
         else
         {
-            while (reservedTags?.Contains(_next) == true || _used.Contains(_next.ToString(CultureInfo.InvariantCulture))) _next++;
+            while (reservedTags?.Contains(_next) == true || _byTag.ContainsKey(_next.ToString(CultureInfo.InvariantCulture))) _next++;
             tag = (_next++).ToString(CultureInfo.InvariantCulture);
         }
         var node = new FemNode
@@ -37,13 +37,16 @@ sealed class FragmentNodeTable(List<FemNode> nodes, IReadOnlySet<int>? reservedT
             X = kept?.X ?? p.X, Y = kept?.Y ?? p.Y, Z = kept?.Z ?? p.Z, DofMask = dofMask,
         };
         nodes.Add(node);
-        _used.Add(tag);
+        _byTag[tag] = node;
         _byKey[Key(new PlanarVector3(node.X, node.Y, node.Z))] = node;
         return node;
     }
 
     /// <summary>Узел сохранённой сетки: новые узлы схемы в его точке берут его тег и координаты.</summary>
     public void Keep(FemMeshNode node) => _kept.TryAdd(Key(new PlanarVector3(node.X, node.Y, node.Z)), node);
+
+    /// <summary>Узел по тегу (теги не подряд, если часть сетки родителя сохраняется).</summary>
+    public FemNode? ByTag(string tag) => _byTag.GetValueOrDefault(tag);
 
     /// <summary>Узел в точке, если он уже есть.</summary>
     public FemNode? Find(PlanarVector3 p) => _byKey.GetValueOrDefault(Key(p));
