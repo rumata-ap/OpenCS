@@ -23,6 +23,10 @@ public sealed class FemPlanarMaterializationResult
     /// <summary>Теги узлов сетки схемы по индексу узла снимка — для каждой области в порядке входа (пусто, если
     /// снимок не материализован).</summary>
     public IReadOnlyList<IReadOnlyList<string>> RegionNodeTags { get; init; } = [];
+    /// <summary>КонЭ импортной (сохранённой) сетки, у которых нарушена связность с новой сеткой: висящие узлы на стыке
+    /// с новой пластиной, узлы пластин внутри импортных стержней. Пусто — нарушений нет. По этому множеству лестница
+    /// перемешивания фрагмента снимает замки сетки.</summary>
+    public IReadOnlySet<string> ImportedMembersAtFault { get; init; } = new SortedSet<string>(StringComparer.Ordinal);
     /// <summary>Автоматические АЖТ примыканий стержней к плитам (<see cref="FemRigidJunctionMaterializer"/>).</summary>
     public List<FemRigidBody> RigidBodies { get; } = [];
 }
@@ -34,7 +38,9 @@ public sealed class FemPlanarMaterializationResult
 /// материализованной области, заменяется им — общие узлы; совпавший с <see cref="FemNode"/> получает его тег в
 /// <c>SourceNodeTag</c> (опоры и узловые нагрузки КонЭ). Сгенерированные стержни, внутри которых лежат узлы пластин,
 /// дробятся; импортные не трогаются. Q4 хранится в порядке «1 2 4 3» (как импорт). Узел пластины внутри ребра КЭ
-/// другой области — ошибка (несовпадающие сетки на стыке, MPC нет). Теги: КЭ стержней — подряд (после импортных),
+/// другой области — ошибка (несовпадающие сетки на стыке, MPC нет). То же на стыке с импортной сеткой
+/// (<c>planar_materialize_imported_hanging_node</c>): ошибка при <c>strictImported</c> (фрагмент с сохранённой сеткой
+/// родителя), иначе предупреждение. Теги: КЭ стержней — подряд (после импортных),
 /// затем пластины по порядку областей; новые узлы — после наибольшего тега. Результат детерминирован.
 /// </summary>
 public static class FemPlanarMeshMaterializer
@@ -48,12 +54,13 @@ public static class FemPlanarMeshMaterializer
         IReadOnlyList<FemMeshNode> baseNodes,
         IReadOnlyList<FemElement> baseElements,
         IReadOnlyList<FemNode> femNodes,
-        IReadOnlyList<FemPlanarRegionMesh> regions)
+        IReadOnlyList<FemPlanarRegionMesh> regions,
+        bool strictImported = false)
     {
         ArgumentNullException.ThrowIfNull(regions);
         var builder = new Builder(schemaId, baseNodes, baseElements, femNodes);
         foreach (var region in regions) builder.Add(region);
-        return builder.Build(checkHangingNodes: true);
+        return builder.Build(checkHangingNodes: true, strictImported);
     }
 
     /// <summary>
@@ -69,7 +76,7 @@ public static class FemPlanarMeshMaterializer
 
         public void Add(FemPlanarRegionMesh region) => _builder.Add(region);
 
-        public FemPlanarMaterializationResult Build() => _builder.Build(checkHangingNodes: false);
+        public FemPlanarMaterializationResult Build() => _builder.Build(checkHangingNodes: false, strictImported: false);
     }
 
     /// <summary>Состояние материализации: узлы и КЭ пластин добавленных областей.</summary>
@@ -192,9 +199,10 @@ public static class FemPlanarMeshMaterializer
 
         /// <summary>Сетка схемы по добавленным областям: дробление стержней, теги КЭ. Узлы и КЭ пластин построителя
         /// не меняются — можно добавлять области дальше.</summary>
-        public FemPlanarMaterializationResult Build(bool checkHangingNodes)
+        public FemPlanarMaterializationResult Build(bool checkHangingNodes, bool strictImported)
         {
             var diagnostics = new List<FemValidationDiagnostic>(_diagnostics);
+            var atFault = new SortedSet<string>(StringComparer.Ordinal);
 
             // Дробление стержней узлами пластин.
             var coarse = new PointGrid(CoarseCellM);
@@ -214,6 +222,7 @@ public static class FemPlanarMeshMaterializer
                 if (element.Origin == FemMember.MeshSourceImported)
                 {
                     importedInner.Add(element.ElemTag);
+                    atFault.Add(MemberOf(element));
                     beams.Add(element);
                     continue;
                 }
@@ -233,10 +242,13 @@ public static class FemPlanarMeshMaterializer
             if (importedInner.Count > 0)
                 diagnostics.Add(new("planar_materialize_imported_beam_inner_node",
                     $"Узлы пластин лежат внутри импортных стержней (КЭ {Short(importedInner)}) — стержни не дробятся, связи с пластиной в этих узлах нет.",
-                    false, importedInner));
+                    strictImported, importedInner));
 
             if (checkHangingNodes)
+            {
                 CheckHangingNodes(_shells, _regions, _nodesByTag, _regionOfNode, diagnostics);
+                CheckImportedSeams(_baseElements, _shells, _regions, _nodesByTag, _regionOfNode, strictImported, diagnostics, atFault);
+            }
 
             // Теги КЭ: импортные — как были; сгенерированные стержни подряд, затем пластины (копии КЭ построителя).
             int nextElementTag = _baseElements.Where(e => e.Origin == FemMember.MeshSourceImported)
@@ -258,6 +270,7 @@ public static class FemPlanarMeshMaterializer
                 SplitBeamCount = split,
                 SharedNodeCount = _shared,
                 RegionNodeTags = [.. _regionNodeTags],
+                ImportedMembersAtFault = atFault,
             };
         }
     }
@@ -317,6 +330,97 @@ public static class FemPlanarMeshMaterializer
                 $"(узлы {Short(hanging)} внутри рёбер КЭ соседней области): постройте сетку заново или задайте областям одинаковый размер КЭ.",
                 true, [regions[a].Member.ElemTag, regions[b].Member.ElemTag]));
     }
+
+    /// <summary>
+    /// Стык импортной сетки с новыми пластинами: узел новой области внутри ребра импортной пластины и узел импортной
+    /// сетки (пластины или стержня) внутри ребра новой пластины — висящие узлы, связи нет. Одна диагностика на пару
+    /// «КонЭ импортной сетки — область»; КонЭ импортной сетки — в <paramref name="atFault"/>. Узлы новых пластин
+    /// внутри импортных стержней проверяются при дроблении стержней.
+    /// </summary>
+    static void CheckImportedSeams(IReadOnlyList<FemElement> baseElements, List<(FemElement Element, int RegionIndex)> shells,
+        IReadOnlyList<FemPlanarRegionMesh> regions, IReadOnlyDictionary<string, FemMeshNode> nodesByTag,
+        IReadOnlyDictionary<string, HashSet<int>> regionOfNode, bool strict, List<FemValidationDiagnostic> diagnostics,
+        SortedSet<string> atFault)
+    {
+        if (regions.Count == 0) return;
+        // Узел импортной сетки → КонЭ импортных КЭ, которые на него ссылаются.
+        var importedOwners = new Dictionary<string, SortedSet<string>>(StringComparer.Ordinal);
+        var importedShells = new List<(string[] Contour, string Member)>();
+        foreach (var element in baseElements)
+        {
+            if (element.Origin != FemMember.MeshSourceImported || !TryNodes(element, nodesByTag, out var nodes)) continue;
+            var member = MemberOf(element);
+            foreach (var node in nodes)
+            {
+                if (!importedOwners.TryGetValue(node.NodeTag, out var owners))
+                    importedOwners[node.NodeTag] = owners = new SortedSet<string>(StringComparer.Ordinal);
+                owners.Add(member);
+            }
+            if (element.ElemType == "shell" && nodes.Length >= 3)
+            {
+                var ids = nodes.Select(n => n.NodeTag).ToArray();
+                importedShells.Add((ids.Length == 4 ? [ids[0], ids[1], ids[3], ids[2]] : ids, member));
+            }
+        }
+        if (importedOwners.Count == 0) return;
+
+        var violations = new SortedDictionary<(string Member, int Region), SortedSet<string>>();
+        void Add(string member, int region, string node)
+        {
+            if (!violations.TryGetValue((member, region), out var list))
+                violations[(member, region)] = list = new SortedSet<string>(StringComparer.Ordinal);
+            list.Add(node);
+        }
+
+        // Узлы новых областей внутри рёбер импортных пластин.
+        var fresh = new PointGrid(CoarseCellM);
+        foreach (var tag in regionOfNode.Keys)
+            if (!importedOwners.ContainsKey(tag)) fresh.Add(nodesByTag[tag]);
+        var seen = new HashSet<(string, string)>();
+        foreach (var (contour, member) in importedShells)
+            for (int i = 0; i < contour.Length; i++)
+            {
+                string a = contour[i], b = contour[(i + 1) % contour.Length];
+                if (!seen.Add(string.CompareOrdinal(a, b) < 0 ? (a, b) : (b, a))) continue;
+                foreach (var node in InnerNodes(nodesByTag[a], nodesByTag[b], fresh))
+                    foreach (var region in regionOfNode[node.NodeTag])
+                        Add(member, region, node.NodeTag);
+            }
+
+        // Узлы импортной сетки внутри рёбер новых пластин.
+        var imported = new PointGrid(CoarseCellM);
+        foreach (var tag in importedOwners.Keys) imported.Add(nodesByTag[tag]);
+        seen.Clear();
+        foreach (var (element, r) in shells)
+        {
+            var ids = JsonSerializer.Deserialize<int[]>(element.NodeIdsJson)!.Select(i => i.ToString(CultureInfo.InvariantCulture)).ToArray();
+            var contour = ids.Length == 4 ? new[] { ids[0], ids[1], ids[3], ids[2] } : ids;
+            for (int i = 0; i < contour.Length; i++)
+            {
+                string a = contour[i], b = contour[(i + 1) % contour.Length];
+                if (!seen.Add(string.CompareOrdinal(a, b) < 0 ? (a, b) : (b, a))) continue;
+                foreach (var node in InnerNodes(nodesByTag[a], nodesByTag[b], imported))
+                {
+                    if (regionOfNode.TryGetValue(node.NodeTag, out var owners) && owners.Contains(r)) continue;
+                    foreach (var member in importedOwners[node.NodeTag]) Add(member, r, node.NodeTag);
+                }
+            }
+        }
+
+        foreach (var ((member, region), nodes) in violations)
+        {
+            var regionTag = regions[region].Member.ElemTag;
+            atFault.Add(member);
+            diagnostics.Add(new("planar_materialize_imported_hanging_node",
+                $"Импортная сетка «{member}» и сетка области «{regionTag}» не совпадают на стыке (узлы {Short(nodes)} " +
+                "внутри рёбер КЭ соседней сетки) — связи в этих узлах нет.",
+                strict, [member, regionTag]));
+        }
+    }
+
+    /// <summary>КонЭ импортного КЭ (по <see cref="FemElement.SourceMemberTag"/>, иначе тег КЭ).</summary>
+    static string MemberOf(FemElement element) =>
+        string.IsNullOrEmpty(element.SourceMemberTag) ? element.ElemTag : element.SourceMemberTag;
 
     /// <summary>Узлы грубой сетки строго внутри отрезка (±допуск), по порядку от <paramref name="a"/>.</summary>
     static List<FemMeshNode> InnerNodes(FemMeshNode a, FemMeshNode b, PointGrid grid)

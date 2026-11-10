@@ -157,6 +157,70 @@ public class FemPlanarMeshMaterializerTests
     }
 
     [Fact]
+    public void ImportedBeamWithInnerShellNode_StrictIsError()
+    {
+        var meshNodes = new List<FemMeshNode>
+        {
+            new() { NodeTag = "1", X = 0, Y = 0, Z = 0, Origin = FemMember.MeshSourceImported },
+            new() { NodeTag = "2", X = 2, Y = 0, Z = 0, Origin = FemMember.MeshSourceImported },
+        };
+        var beam = new FemElement
+        {
+            ElemTag = "1", ElemType = "beam", NodeIdsJson = "[1,2]", Origin = FemMember.MeshSourceImported, SourceMemberTag = "B",
+        };
+
+        var result = FemPlanarMeshMaterializer.Materialize(1, meshNodes, [beam], [], [Region("P", 0, 0, 0, 2, 2, 1.0, 0.2)],
+            strictImported: true);
+
+        Assert.Contains(result.Diagnostics, d => d.Code == "planar_materialize_imported_beam_inner_node" && d.IsError);
+        Assert.Equal(["B"], result.ImportedMembersAtFault);
+    }
+
+    /// <summary>Импортная плита 2×2 (Q4 1 м) и новая справа шагом 0,5: узлы новой внутри рёбер импортной.</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ImportedSlab_NewRegionFinerOnEdge_ImportedHangingNode(bool strict)
+    {
+        var (meshNodes, elements) = ImportedSlab("PI", 0, 0, 0, 2, 2, 1.0);
+
+        var result = FemPlanarMeshMaterializer.Materialize(1, meshNodes, elements, [], [Region("PN", 2, 0, 0, 4, 4, 0.5, 0.2)],
+            strictImported: strict);
+
+        var d = Assert.Single(result.Diagnostics, x => x.Code == "planar_materialize_imported_hanging_node");
+        Assert.Equal(strict, d.IsError);
+        Assert.Contains("PI", d.SourceKeys!);
+        Assert.Contains("PN", d.SourceKeys!);
+        Assert.Equal(["PI"], result.ImportedMembersAtFault);
+    }
+
+    /// <summary>Новая плита крупнее импортной (1 м против 0,5): узлы импортной внутри рёбер новой.</summary>
+    [Fact]
+    public void ImportedSlab_NewRegionCoarserOnEdge_ImportedHangingNode()
+    {
+        var (meshNodes, elements) = ImportedSlab("PI", 0, 0, 0, 4, 4, 0.5);
+
+        var result = FemPlanarMeshMaterializer.Materialize(1, meshNodes, elements, [], [Region("PN", 2, 0, 0, 2, 2, 1.0, 0.2)],
+            strictImported: true);
+
+        Assert.Contains(result.Diagnostics, x => x.Code == "planar_materialize_imported_hanging_node" && x.IsError);
+        Assert.Equal(["PI"], result.ImportedMembersAtFault);
+    }
+
+    [Fact]
+    public void ImportedSlab_MatchingEdge_NoDiagnostics()
+    {
+        var (meshNodes, elements) = ImportedSlab("PI", 0, 0, 0, 2, 2, 1.0);
+
+        var result = FemPlanarMeshMaterializer.Materialize(1, meshNodes, elements, [], [Region("PN", 2, 0, 0, 2, 2, 1.0, 0.2)],
+            strictImported: true);
+
+        Assert.False(result.HasErrors, string.Join("\n", result.Diagnostics));
+        Assert.Empty(result.ImportedMembersAtFault);
+        Assert.Equal(3, result.SharedNodeCount);
+    }
+
+    [Fact]
     public void FreeFemNodeInSlab_BecomesSourceNodeTag_AndMissingThicknessWarns()
     {
         var free = Node("50", 1, 1, 0);
@@ -198,6 +262,31 @@ public class FemPlanarMeshMaterializerTests
         var snapshot = new PlanarMeshSnapshot { RegionId = 1, IsCalculable = true, Nodes = nodes, Elements = elements };
         var member = new FemMember { ElemTag = tag, ElemType = "shell", PlanarRegionId = 1 };
         return new FemPlanarRegionMesh(member, new PlanarRegion { Id = 1, Tag = tag }, snapshot, thickness);
+    }
+
+    /// <summary>Импортная плита nx×ny ячеек шагом step в плоскости z: Q4 «1 2 4 3», теги узлов с 1001, КЭ с 2001.</summary>
+    static (List<FemMeshNode> Nodes, List<FemElement> Elements) ImportedSlab(string tag, double x0, double y0, double z,
+        int nx, int ny, double step)
+    {
+        var nodes = new List<FemMeshNode>();
+        int NodeTag(int i, int j) => 1001 + j * (nx + 1) + i;
+        for (int j = 0; j <= ny; j++)
+            for (int i = 0; i <= nx; i++)
+                nodes.Add(new FemMeshNode
+                {
+                    NodeTag = NodeTag(i, j).ToString(), X = x0 + i * step, Y = y0 + j * step, Z = z,
+                    Origin = FemMember.MeshSourceImported, SourceMemberTag = tag,
+                });
+        var elements = new List<FemElement>();
+        for (int j = 0; j < ny; j++)
+            for (int i = 0; i < nx; i++)
+                elements.Add(new FemElement
+                {
+                    ElemTag = (2001 + elements.Count).ToString(), ElemType = "shell", SourceMemberTag = tag,
+                    Origin = FemMember.MeshSourceImported, ThicknessM = 0.2,
+                    NodeIdsJson = JsonSerializer.Serialize(new[] { NodeTag(i, j), NodeTag(i + 1, j), NodeTag(i, j + 1), NodeTag(i + 1, j + 1) }),
+                });
+        return (nodes, elements);
     }
 
     static FemNode Node(string tag, double x, double y, double z) => new() { NodeTag = tag, X = x, Y = y, Z = z };

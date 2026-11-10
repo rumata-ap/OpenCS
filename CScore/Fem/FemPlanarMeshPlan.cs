@@ -239,6 +239,19 @@ public static class FemPlanarMeshPlan
                 .ToList(),
             null);
 
+    /// <summary>База префикса схемы с импортной сеткой: импортные узлы и КЭ (пластины и стержни заблокированных КонЭ,
+    /// сохранённая сетка фрагмента) и стержни незаблокированных КонЭ, разбитые только узлами схемы; совпавшие узлы —
+    /// импортные. Так новые области встраивают узлы импортной сетки на стыках. Без импортных строк — то же, что
+    /// <see cref="DerivationBeams(int, IReadOnlyList{FemNode}, IReadOnlyList{FemMember})"/>.</summary>
+    public static (List<FemMeshNode> Nodes, List<FemElement> Elements) DerivationBeams(
+        int schemaId, IReadOnlyList<FemNode> nodes, IReadOnlyList<FemMember> members,
+        IReadOnlyList<FemMeshNode> existingNodes, IReadOnlyList<FemElement> existingElements) =>
+        FemMeshDiscretizer.DiscretizeKeepingImported(schemaId, nodes,
+            members.Where(m => m.ElemType == "beam" && !m.IsMeshLocked)
+                .Select(m => new FemMember { Id = m.Id, ElemTag = m.ElemTag, ElemType = m.ElemType, NodeIdsJson = m.NodeIdsJson })
+                .ToList(),
+            null, existingNodes, existingElements);
+
     /// <summary>
     /// Ограничения сетки области: вывод из топологии (узлы схемы, сетка <paramref name="prefixMesh"/> — стержни и
     /// пластины ранее построенных областей) + ручные объекты области + точки свободных узлов схемы (не принадлежащих

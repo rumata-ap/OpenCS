@@ -255,9 +255,9 @@ public static class PlanarConstraintDeriver
             };
             constraint.IsDerived = true;
             // Кривая по готовой сетке другой области (стык): её вершины — узлы той сетки, новых узлов между ними
-            // быть не должно, иначе на стыке появятся висячие узлы.
+            // быть не должно, иначе на стыке появятся висячие узлы. То же у импортной (сохранённой) сетки КонЭ с замком.
             constraint.KeepVertices = draft.Kind == PlanarConstraintGeometryKind.Curve && draft.Sources.Any(source =>
-                source.Member.PlanarRegionId != null &&
+                (source.Member.PlanarRegionId != null || source.Member.IsMeshLocked) &&
                 source.Elements.Any(element => string.Equals(element.ElemType, "shell", StringComparison.OrdinalIgnoreCase)));
             constraint.ToleranceM = options.GeometryToleranceM;
             constraint.DofMask = firstRelation.DofMask;

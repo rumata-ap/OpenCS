@@ -23,6 +23,9 @@ public sealed class FemSchemaMeshBuildResult
     public int RebuiltRegionCount { get; init; }
     /// <summary>Режим проверки: сохранённая сетка схемы совпадает с пересобранной; null — не проверялось.</summary>
     public bool? IsCurrent { get; init; }
+    /// <summary>КонЭ импортной (сохранённой) сетки, у которых нарушена связность с новой сеткой
+    /// (<see cref="FemPlanarMaterializationResult.ImportedMembersAtFault"/>); пусто — нарушений нет.</summary>
+    public IReadOnlySet<string> ImportedMembersAtFault { get; init; } = new HashSet<string>();
 }
 
 /// <summary>
@@ -54,10 +57,14 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
     {
         var diagnostics = new List<FemValidationDiagnostic>();
         bool keepImported = db.HasImportedMesh(schemaId);
+        IReadOnlyList<FemMeshNode> storedNodes = keepImported ? db.GetFemMeshNodes(schemaId) : [];
+        IReadOnlyList<FemElement> storedElements = keepImported ? db.GetFemMeshElements(schemaId) : [];
         var (beamNodes, beamElements) = keepImported
-            ? FemMeshDiscretizer.DiscretizeKeepingImported(schemaId, nodes, members, defaultTargetLengthM,
-                db.GetFemMeshNodes(schemaId), db.GetFemMeshElements(schemaId))
+            ? FemMeshDiscretizer.DiscretizeKeepingImported(schemaId, nodes, members, defaultTargetLengthM, storedNodes, storedElements)
             : FemMeshDiscretizer.Discretize(schemaId, nodes, members, defaultTargetLengthM);
+        // Фрагмент с сохранённой сеткой родителя: несвязный стык с ней — ошибка (в CSfea нет MPC); у импортных схем без
+        // фрагмента — предупреждение, как раньше.
+        bool strictImported = keepImported && db.GetFemSchemaFragmentSource(schemaId).IsFragment;
 
         double? plateStep = PlateStep(schemaId);
         var ordered = FemPlanarMeshPlan.OrderedRegions(members, db.GetPlanarRegions(schemaId), plateStep);
@@ -78,7 +85,8 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
             var executable = new GmshExecutableResolver().Resolve(gmsh.ExecutablePath);
             var version = await GmshProcessRunner.ReadVersionAsync(executable.Path, TimeSpan.FromSeconds(10), cancellationToken);
             var provenance = new PlanarMeshProvenance(version, GmshPlanarMesher.GeneratorVersion);
-            var (derivationNodes, derivationElements) = FemPlanarMeshPlan.DerivationBeams(schemaId, nodes, members);
+            // Префикс начинается с импортной сетки: новые области встраивают её узлы на стыках.
+            var (derivationNodes, derivationElements) = DerivationBase(schemaId, nodes, members, keepImported, storedNodes, storedElements);
             var prefixBuilder = new FemPlanarMeshMaterializer.Prefix(schemaId, derivationNodes, derivationElements, nodes);
             // Волны из несоприкасающихся областей: в волне вывод ограничений и Gmsh — параллельно, запись снимков — здесь
             // (одно соединение SQLite), по порядку; префикс волны — все области прошлых волн, по порядку сборки.
@@ -163,7 +171,7 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
             }
         }
 
-        var mesh = FemPlanarMeshMaterializer.Materialize(schemaId, beamNodes, beamElements, nodes, regionMeshes);
+        var mesh = FemPlanarMeshMaterializer.Materialize(schemaId, beamNodes, beamElements, nodes, regionMeshes, strictImported);
         // Узлы схемы без КЭ с опорой или пружиной (голова сваи фрагмента) — свои узлы сетки, иначе ГУ не попадут в сетку.
         FemIsolatedSupportNodes.Add(mesh.Nodes, nodes, db.GetFemSprings(schemaId), schemaId);
         diagnostics.AddRange(mesh.Diagnostics);
@@ -205,8 +213,17 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
         return new FemSchemaMeshBuildResult
         {
             Mesh = mesh, Diagnostics = diagnostics, RegionCount = ordered.Count, RebuiltRegionCount = rebuilt, IsCurrent = current,
+            ImportedMembersAtFault = mesh.ImportedMembersAtFault,
         };
     }
+
+    /// <summary>База префикса волн: стержни КонЭ, разбитые узлами схемы, а у схемы с импортной сеткой — ещё и её узлы и
+    /// КЭ (<see cref="FemPlanarMeshPlan.DerivationBeams(int, IReadOnlyList{FemNode}, IReadOnlyList{FemMember}, IReadOnlyList{FemMeshNode}, IReadOnlyList{FemElement})"/>).</summary>
+    static (List<FemMeshNode> Nodes, List<FemElement> Elements) DerivationBase(int schemaId, IReadOnlyList<FemNode> nodes,
+        IReadOnlyList<FemMember> members, bool keepImported, IReadOnlyList<FemMeshNode> storedNodes, IReadOnlyList<FemElement> storedElements) =>
+        keepImported
+            ? FemPlanarMeshPlan.DerivationBeams(schemaId, nodes, members, storedNodes, storedElements)
+            : FemPlanarMeshPlan.DerivationBeams(schemaId, nodes, members);
 
     /// <summary>Ограничения сетки одной области для её диалога — тот же вход, что у сборки схемы: узлы и КонЭ из БД,
     /// пластины ранее идущих областей — по их последним расчётным снимкам.</summary>
@@ -216,7 +233,10 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
         var members = db.GetFemMembers(schemaId);
         var regions = db.GetPlanarRegions(schemaId);
         var ordered = FemPlanarMeshPlan.OrderedRegions(members, regions, PlateStep(schemaId));
-        var (derivationNodes, derivationElements) = FemPlanarMeshPlan.DerivationBeams(schemaId, nodes, members);
+        bool keepImported = db.HasImportedMesh(schemaId);
+        var (derivationNodes, derivationElements) = keepImported
+            ? DerivationBase(schemaId, nodes, members, true, db.GetFemMeshNodes(schemaId), db.GetFemMeshElements(schemaId))
+            : DerivationBase(schemaId, nodes, members, false, [], []);
         var prefix = new FemPlanarMeshMaterializer.Prefix(schemaId, derivationNodes, derivationElements, nodes);
         var plan = FemPlanarMeshPlan.Waves(ordered, PlateStep(schemaId));
         int index = ordered.FindIndex(p => p.Region.Id == target.Id);
@@ -229,7 +249,7 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
                 prefix.Add(new FemPlanarRegionMesh(member, region, snapshot, null));
         }
         var prefixMesh = prefix.Build();
-        var options = JunctionOptions(schemaId, db.HasImportedMesh(schemaId));
+        var options = JunctionOptions(schemaId, keepImported);
         var outlines = SectionOutlines();
         var traces = options != null ? FemRigidJunctions.Build(target, nodes, members, outlines, options) : null;
         // Следы — только касающихся поздних областей: другие в вывод не входят.
