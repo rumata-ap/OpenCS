@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using CScore;
 using CScore.Fem;
+using CScore.Fem.Fragment;
 using CScore.Planar;
 using OpenCS.Gmsh;
 using OpenCS.Gmsh.Runtime;
@@ -26,6 +27,11 @@ public sealed class FemSchemaMeshBuildResult
     /// <summary>КонЭ импортной (сохранённой) сетки, у которых нарушена связность с новой сеткой
     /// (<see cref="FemPlanarMaterializationResult.ImportedMembersAtFault"/>); пусто — нарушений нет.</summary>
     public IReadOnlySet<string> ImportedMembersAtFault { get; init; } = new HashSet<string>();
+    /// <summary>Снятие замка сохранённой сетки, при котором собрана сетка (лестница перемешивания); null — без снятия.
+    /// Записывается вместе с сеткой (<see cref="FemSchemaMeshService.Save"/>).</summary>
+    public FemKeptMeshUnlockPlan? Unlock { get; init; }
+    /// <summary>Шаг лестницы (0 — без снятия замков, 1 — виновные КонЭ, 2 — все).</summary>
+    public int LadderStep { get; init; }
 }
 
 /// <summary>
@@ -42,23 +48,73 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
 {
     /// <summary>Строит сетку схемы и записывает её (если нет ошибок). <paramref name="nodes"/>/<paramref name="members"/> —
     /// конструктивный уровень (сессия редактора или БД).</summary>
-    public Task<FemSchemaMeshBuildResult> BuildAsync(int schemaId, IReadOnlyList<FemNode> nodes,
-        IReadOnlyList<FemMember> members, double? defaultTargetLengthM, Action<string>? info, CancellationToken cancellationToken) =>
-        RunAsync(schemaId, nodes, members, defaultTargetLengthM, info, checkOnly: false, cancellationToken);
+    /// <remarks>Фрагмент с сохранённой сеткой родителя: при нарушениях связности — лестница перемешивания
+    /// (<see cref="FemKeptMeshLadder"/>); снятие замков в итоге — <see cref="FemSchemaMeshBuildResult.Unlock"/>, пишется
+    /// в <see cref="Save"/> вместе с сеткой.</remarks>
+    public async Task<FemSchemaMeshBuildResult> BuildAsync(int schemaId, IReadOnlyList<FemNode> nodes,
+        IReadOnlyList<FemMember> members, double? defaultTargetLengthM, Action<string>? info, CancellationToken cancellationToken)
+    {
+        var first = await RunAsync(schemaId, nodes, members, defaultTargetLengthM, info, checkOnly: false, cancellationToken);
+        if (!FemKeptMeshLadder.Needed(first) || !IsStrict(schemaId)) return first;
+        var input = UnlockInput(schemaId, nodes, members);
+        return await FemKeptMeshLadder.RunAsync(first, members, async (tags, step, reason) =>
+        {
+            var plan = FemKeptMeshUnlock.Plan(input, tags);
+            if (plan.IsEmpty) return null;
+            var warning = new FemValidationDiagnostic($"fragment_mesh_unlock_step{step}",
+                $"Сохранённая сетка КонЭ {Join(plan.UnlockedMemberTags)} перестраивается (шаг {step} лестницы перемешивания): {reason}",
+                false, [.. plan.UnlockedMemberTags]);
+            info?.Invoke(warning.Message);
+            return await RunAsync(schemaId, nodes, members, defaultTargetLengthM, info, checkOnly: false, cancellationToken,
+                plan, step, [warning, .. plan.Diagnostics]);
+        });
+    }
 
     /// <summary>Проверка без Gmsh и без записи: актуальны ли снимки областей и совпадает ли сохранённая сетка схемы с
-    /// пересобранной.</summary>
-    public Task<FemSchemaMeshBuildResult> CheckAsync(int schemaId, IReadOnlyList<FemNode> nodes,
-        IReadOnlyList<FemMember> members, double? defaultTargetLengthM, CancellationToken cancellationToken) =>
-        RunAsync(schemaId, nodes, members, defaultTargetLengthM, null, checkOnly: true, cancellationToken);
+    /// пересобранной. Нарушения связности сохранённой сетки фрагмента — не ошибка: сетка устарела, сборка перемешает.</summary>
+    public async Task<FemSchemaMeshBuildResult> CheckAsync(int schemaId, IReadOnlyList<FemNode> nodes,
+        IReadOnlyList<FemMember> members, double? defaultTargetLengthM, CancellationToken cancellationToken)
+    {
+        var result = await RunAsync(schemaId, nodes, members, defaultTargetLengthM, null, checkOnly: true, cancellationToken);
+        if (!FemKeptMeshLadder.Needed(result) || !IsStrict(schemaId)) return result;
+        return new FemSchemaMeshBuildResult
+        {
+            Diagnostics = [new("fragment_mesh_unlock_pending",
+                $"Сохранённая сетка КонЭ {Join(result.ImportedMembersAtFault)} несвязна с новой — сборка сетки её перестроит.",
+                false, [.. result.ImportedMembersAtFault])],
+            RegionCount = result.RegionCount, IsCurrent = false, ImportedMembersAtFault = result.ImportedMembersAtFault,
+        };
+    }
+
+    /// <summary>Фрагмент с сохранённой сеткой: связность стыков — ошибка, лестница перемешивания разрешена.</summary>
+    bool IsStrict(int schemaId) => db.HasImportedMesh(schemaId) && db.GetFemSchemaFragmentSource(schemaId).IsFragment;
+
+    /// <summary>Вход планировщика снятия замков: узлы и КонЭ сборки, сетка, ГУ, тела и нагрузки сеточного уровня из БД.</summary>
+    FemKeptMeshUnlockInput UnlockInput(int schemaId, IReadOnlyList<FemNode> nodes, IReadOnlyList<FemMember> members) => new(
+        schemaId, nodes, members, db.GetFemMeshNodes(schemaId), db.GetFemMeshElements(schemaId), db.GetFemMeshNodeSupports(schemaId),
+        db.GetFemSprings(schemaId), db.GetFemRigidBodies(schemaId), db.GetFemElementLoads(schemaId), db.GetFemMeshNodeLoads(schemaId),
+        db.GetFragmentRefElements(schemaId).Select(r => r.Tag).ToHashSet(StringComparer.Ordinal));
+
+    static string Join(IEnumerable<string> tags)
+    {
+        var list = tags.ToList();
+        string head = string.Join(", ", list.Take(10).Select(t => $"«{t}»"));
+        return list.Count > 10 ? $"{head} и ещё {list.Count - 10}" : head;
+    }
 
     async Task<FemSchemaMeshBuildResult> RunAsync(int schemaId, IReadOnlyList<FemNode> nodes, IReadOnlyList<FemMember> members,
-        double? defaultTargetLengthM, Action<string>? info, bool checkOnly, CancellationToken cancellationToken)
+        double? defaultTargetLengthM, Action<string>? info, bool checkOnly, CancellationToken cancellationToken,
+        FemKeptMeshUnlockPlan? unlock = null, int ladderStep = 0, IReadOnlyList<FemValidationDiagnostic>? unlockDiagnostics = null)
     {
-        var diagnostics = new List<FemValidationDiagnostic>();
+        var diagnostics = new List<FemValidationDiagnostic>(unlockDiagnostics ?? []);
+        if (unlock != null)
+        {
+            nodes = unlock.Nodes;
+            members = unlock.Members;
+        }
         bool keepImported = db.HasImportedMesh(schemaId);
-        IReadOnlyList<FemMeshNode> storedNodes = keepImported ? db.GetFemMeshNodes(schemaId) : [];
-        IReadOnlyList<FemElement> storedElements = keepImported ? db.GetFemMeshElements(schemaId) : [];
+        IReadOnlyList<FemMeshNode> storedNodes = unlock?.MeshNodes ?? (keepImported ? db.GetFemMeshNodes(schemaId) : []);
+        IReadOnlyList<FemElement> storedElements = unlock?.MeshElements ?? (keepImported ? db.GetFemMeshElements(schemaId) : []);
         var (beamNodes, beamElements) = keepImported
             ? FemMeshDiscretizer.DiscretizeKeepingImported(schemaId, nodes, members, defaultTargetLengthM, storedNodes, storedElements)
             : FemMeshDiscretizer.Discretize(schemaId, nodes, members, defaultTargetLengthM);
@@ -173,7 +229,7 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
 
         var mesh = FemPlanarMeshMaterializer.Materialize(schemaId, beamNodes, beamElements, nodes, regionMeshes, strictImported);
         // Узлы схемы без КЭ с опорой или пружиной (голова сваи фрагмента) — свои узлы сетки, иначе ГУ не попадут в сетку.
-        FemIsolatedSupportNodes.Add(mesh.Nodes, nodes, db.GetFemSprings(schemaId), schemaId);
+        FemIsolatedSupportNodes.Add(mesh.Nodes, nodes, [.. db.GetFemSprings(schemaId), .. unlock?.NodeSprings ?? []], schemaId);
         diagnostics.AddRange(mesh.Diagnostics);
         diagnostics.AddRange(FemTopologyValidator.ValidateMesh(mesh.Nodes, mesh.Elements));
         // Проверка: сетка совпала с сохранённой (теги те же) — тела строятся и сравниваются с записанными, иначе смена
@@ -181,7 +237,7 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
         bool? current = checkOnly ? IsSameAsStored(schemaId, mesh) : null;
         if (junctionOptions != null && !mesh.HasErrors && current != false)
         {
-            var junctions = FemRigidJunctionMaterializer.Build(mesh, regionMeshes, nodes, members, BlockedSlaves(schemaId, nodes, members, mesh));
+            var junctions = FemRigidJunctionMaterializer.Build(mesh, regionMeshes, nodes, members, BlockedSlaves(schemaId, nodes, members, mesh, unlock));
             mesh.RigidBodies.AddRange(junctions.Bodies);
             if (!checkOnly)
             {
@@ -194,10 +250,10 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
         var nodeBodies = db.GetFemNodeRigidBodies(schemaId);
         if (nodeBodies.Count > 0 && !mesh.HasErrors && current != false)
         {
-            var others = db.GetFemRigidBodies(schemaId)
+            var others = StoredRigidBodies(schemaId, unlock)
                 .Where(b => b.Origin != RigidJunctionTraceSet.Provenance && b.Origin != FemNodeRigidBodies.Provenance)
                 .Concat(mesh.RigidBodies).ToList();
-            var byPoints = FemNodeRigidBodies.Materialize(mesh.Nodes, nodes, nodeBodies, BlockedSlaves(schemaId, nodes, members, mesh), others);
+            var byPoints = FemNodeRigidBodies.Materialize(mesh.Nodes, nodes, nodeBodies, BlockedSlaves(schemaId, nodes, members, mesh, unlock), others);
             mesh.RigidBodies.AddRange(byPoints.Bodies);
             if (!checkOnly)
             {
@@ -213,8 +269,17 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
         return new FemSchemaMeshBuildResult
         {
             Mesh = mesh, Diagnostics = diagnostics, RegionCount = ordered.Count, RebuiltRegionCount = rebuilt, IsCurrent = current,
-            ImportedMembersAtFault = mesh.ImportedMembersAtFault,
+            ImportedMembersAtFault = mesh.ImportedMembersAtFault, Unlock = unlock, LadderStep = ladderStep,
         };
+    }
+
+    /// <summary>Тела схемы в БД без удаляемых снятием замка.</summary>
+    List<FemRigidBody> StoredRigidBodies(int schemaId, FemKeptMeshUnlockPlan? unlock)
+    {
+        var bodies = db.GetFemRigidBodies(schemaId);
+        if (unlock is null || unlock.RemovedRigidBodies.Count == 0) return bodies;
+        var removed = unlock.RemovedRigidBodies.Select(b => b.Id).ToHashSet();
+        return bodies.Where(b => !removed.Contains(b.Id)).ToList();
     }
 
     /// <summary>База префикса волн: стержни КонЭ, разбитые узлами схемы, а у схемы с импортной сеткой — ещё и её узлы и
@@ -283,11 +348,20 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
     /// <summary>Узлы сетки, которые не становятся ведомыми АЖТ примыканий: закрепления (в том числе линейных связей),
     /// пружины, ручные и импортные тела.</summary>
     HashSet<string> BlockedSlaves(int schemaId, IReadOnlyList<FemNode> nodes, IReadOnlyList<FemMember> members,
-        FemPlanarMaterializationResult mesh)
+        FemPlanarMaterializationResult mesh, FemKeptMeshUnlockPlan? unlock = null)
     {
         var line = db.ResolveFemLineSupports(schemaId, members, mesh.Nodes, mesh.Elements);
-        var (supports, springs) = line.AppendTo(db.GetFemMeshNodeSupports(schemaId), db.GetFemSprings(schemaId));
-        return FemRigidJunctionMaterializer.BlockedNodes(nodes, mesh.Nodes, supports, springs, db.GetFemRigidBodies(schemaId));
+        var meshSupports = db.GetFemMeshNodeSupports(schemaId);
+        var allSprings = db.GetFemSprings(schemaId);
+        // Снятие замка: ГУ удаляемых узлов сетки уже перенесены в узлы схемы (их маски — в nodes), пружины — новые.
+        if (unlock != null)
+        {
+            meshSupports = meshSupports.Where(s => !unlock.RemovedNodeTags.Contains(s.NodeTag)).ToList();
+            allSprings = [.. allSprings.Where(s => s.TargetKind != FemSpringTargetKinds.MeshNode || !unlock.RemovedNodeTags.Contains(s.NodeTag)),
+                .. unlock.NodeSprings];
+        }
+        var (supports, springs) = line.AppendTo(meshSupports, allSprings);
+        return FemRigidJunctionMaterializer.BlockedNodes(nodes, mesh.Nodes, supports, springs, StoredRigidBodies(schemaId, unlock));
     }
 
     /// <summary>Общий шаг пластин схемы, м (null — не задан).</summary>
@@ -300,9 +374,13 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
     /// <summary>Записывает сетку схемы (импортные строки сохраняются) и заменяет автоматические АЖТ примыканий
     /// (<see cref="RigidJunctionTraceSet.Provenance"/>) и тела по узлам схемы (<see cref="FemNodeRigidBodies.Provenance"/>)
     /// телами сборки — пустой список удаляет прежние; ручные и импортные тела не трогаются.</summary>
-    public void Save(int schemaId, FemPlanarMaterializationResult mesh)
+    /// <remarks>Со снятием замка (<paramref name="unlock"/>, лестница перемешивания) — замки, ГУ, нагрузки и удаление
+    /// снятой сохранённой сетки пишутся одной транзакцией с сеткой (<see cref="DatabaseService.ApplyFemKeptMeshUnlock"/>).</remarks>
+    public void Save(int schemaId, FemPlanarMaterializationResult mesh, FemKeptMeshUnlockPlan? unlock = null)
     {
-        if (db.HasImportedMesh(schemaId))
+        if (unlock is { IsEmpty: false })
+            db.ApplyFemKeptMeshUnlock(schemaId, unlock, mesh.Nodes, mesh.Elements);
+        else if (db.HasImportedMesh(schemaId))
             db.SaveFemMeshSnapshotKeepingImported(schemaId, mesh.Nodes, mesh.Elements);
         else
             db.SaveFemMeshSnapshot(schemaId, mesh.Nodes, mesh.Elements);

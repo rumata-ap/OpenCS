@@ -61,6 +61,9 @@ public class FemMember : IFemCheckable
     /// <summary>Сетка элемента импортирована — геометрию менять и пересеткивать нельзя.</summary>
     public bool IsMeshLocked => MeshSource == MeshSourceImported;
 
+    /// <summary>Поверхностная копия КонЭ (все поля — значения или неизменяемые строки).</summary>
+    public FemMember ShallowCopy() => (FemMember)MemberwiseClone();
+
     public const string RigidJunctionOff     = "off";
     public const string RigidJunctionCoupled = "coupled";
     /// <summary>АЖТ примыкания стержня к плите: null — авто, <see cref="RigidJunctionOff"/> — след стержня не строится.</summary>

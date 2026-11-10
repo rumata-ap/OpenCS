@@ -519,18 +519,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         CrossSections = app.CrossSections;
         AllCalcTasks  = app.CalcTasks;
         Session = new FemSchemaEditSession(schema);
-        Session.Nodes.AddRange(_db.GetFemNodes(schema.Id));
-        Session.Members.AddRange(_db.GetFemMembers(schema.Id));
-        Session.MemberGroups.AddRange(schema.MemberGroups);
-        Session.LoadCases.AddRange(schema.LoadCases);
-        Session.NodeLoads.AddRange(_db.GetFemNodeLoads(schema.Id));
-        Session.MemberLoads.AddRange(_db.GetFemMemberLoads(schema.Id));
-        Session.KinematicLoads.AddRange(_db.GetFemKinematicLoads(schema.Id));
-        Session.ElementLoads.AddRange(_db.GetFemElementLoads(schema.Id));
-        Session.MeshNodeLoads.AddRange(_db.GetFemMeshNodeLoads(schema.Id));
-        Session.LineSupports.AddRange(_db.GetFemLineSupports(schema.Id));
-        Session.NodeSprings.AddRange(_db.GetFemSprings(schema.Id).Where(s => s.TargetKind == FemSpringTargetKinds.Node));
-        Session.LoadDefinitions.AddRange(schema.LoadDefinitions);
+        LoadSession();
         RefreshCollections();
         Session.Changed += () => app.ScheduleFemSupportsTreeRefresh(Session);
 
@@ -1248,6 +1237,48 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     /// импорта (ЛИРА/SCAD) и элементы на ней сохраняются как есть. Изменившаяся сетка сбрасывает результаты
     /// постановок схемы; наборы усилий по прежней сетке перечисляются в журнале.
     /// </summary>
+    /// <summary>Состав сессии — из БД (узлы, КонЭ, нагрузки, линейные связи, пружины узлов) и схемы (группы, загружения,
+    /// определения).</summary>
+    void LoadSession()
+    {
+        var schema = Session.Schema;
+        Session.Nodes.AddRange(_db.GetFemNodes(schema.Id));
+        Session.Members.AddRange(_db.GetFemMembers(schema.Id));
+        Session.MemberGroups.AddRange(schema.MemberGroups);
+        Session.LoadCases.AddRange(schema.LoadCases);
+        Session.NodeLoads.AddRange(_db.GetFemNodeLoads(schema.Id));
+        Session.MemberLoads.AddRange(_db.GetFemMemberLoads(schema.Id));
+        Session.KinematicLoads.AddRange(_db.GetFemKinematicLoads(schema.Id));
+        Session.ElementLoads.AddRange(_db.GetFemElementLoads(schema.Id));
+        Session.MeshNodeLoads.AddRange(_db.GetFemMeshNodeLoads(schema.Id));
+        Session.LineSupports.AddRange(_db.GetFemLineSupports(schema.Id));
+        Session.NodeSprings.AddRange(_db.GetFemSprings(schema.Id).Where(s => s.TargetKind == FemSpringTargetKinds.Node));
+        Session.LoadDefinitions.AddRange(schema.LoadDefinitions);
+    }
+
+    /// <summary>Сессия заново из БД (сборка сетки сняла замки сохранённой сетки фрагмента и перенесла ГУ и нагрузки);
+    /// история правок сбрасывается — сессия была сохранена.</summary>
+    void ReloadSessionFromDb()
+    {
+        Session.Nodes.Clear();
+        Session.Members.Clear();
+        Session.MemberGroups.Clear();
+        Session.LoadCases.Clear();
+        Session.NodeLoads.Clear();
+        Session.MemberLoads.Clear();
+        Session.KinematicLoads.Clear();
+        Session.ElementLoads.Clear();
+        Session.MeshNodeLoads.Clear();
+        Session.LineSupports.Clear();
+        Session.NodeSprings.Clear();
+        Session.LoadDefinitions.Clear();
+        LoadSession();
+        Session.MarkSaved();
+        Selection.Clear();
+        RefreshCollections();
+        _afterSave?.Invoke();
+    }
+
     public async Task DiscretizeAsync()
     {
         if (IsDiscretizing) return;
@@ -1270,9 +1301,18 @@ public sealed class FemSchemaEditorVM : ViewModelBase
                 return;
             }
 
-            bool changed = service.DiffersFromStored(schema.Id, mesh);
+            // Лестница перемешивания сохранённой сетки фрагмента меняет и схему (замки КонЭ, узлы, ГУ, нагрузки): при
+            // несохранённой сессии запись затёрла бы правки — сначала сохранить; после записи сессия перечитывается.
+            if (result.Unlock != null && Session.IsDirty)
+            {
+                _logService.Error(Loc.S("FemSchemaMeshUnlockUnsaved"));
+                _logService.Warning(Loc.S("FemSchemaMeshNotSaved"));
+                return;
+            }
+            bool changed = result.Unlock != null || service.DiffersFromStored(schema.Id, mesh);
             // Без изменений (сетка и тела те же) запись не нужна — у фрагмента «Музея» это ~5 с из 15.
-            if (changed) service.Save(schema.Id, mesh);
+            if (changed) service.Save(schema.Id, mesh, result.Unlock);
+            if (result.Unlock != null) ReloadSessionFromDb();
             if (planar)
                 _logService.Info(string.Format(Loc.S("FemSchemaMeshDone"), mesh.Nodes.Count,
                     mesh.Elements.Count(e => e.ElemType == "beam"), mesh.Elements.Count(e => e.ElemType == "shell"),

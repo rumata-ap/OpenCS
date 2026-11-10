@@ -1537,8 +1537,9 @@ public static class FemCsfeaRunner
             return;
         }
         diag.AddRange(result.Diagnostics);
-        bool changed = service.DiffersFromStored(schema.Id, mesh);
-        service.Save(schema.Id, mesh);
+        // Лестница перемешивания сохранённой сетки фрагмента: снятые замки, перенесённые ГУ и нагрузки — вместе с сеткой.
+        bool changed = result.Unlock != null || service.DiffersFromStored(schema.Id, mesh);
+        service.Save(schema.Id, mesh, result.Unlock);
         if (changed) service.ReportMeshChanged(schema, ctx.Log);
         ctx.Log.Info(string.Format(Loc.S("FemSchemaMeshDone"), mesh.Nodes.Count,
             mesh.Elements.Count(e => e.ElemType == "beam"), mesh.Elements.Count(e => e.ElemType == "shell"),

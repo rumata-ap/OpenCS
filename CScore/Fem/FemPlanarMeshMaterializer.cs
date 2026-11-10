@@ -204,9 +204,16 @@ public static class FemPlanarMeshMaterializer
             var diagnostics = new List<FemValidationDiagnostic>(_diagnostics);
             var atFault = new SortedSet<string>(StringComparer.Ordinal);
 
-            // Дробление стержней узлами пластин.
+            // Дробление стержней узлами пластин. Строгий режим (фрагмент с сохранённой сеткой): и узлами импортных пластин —
+            // сгенерированный стержень на сохранённой плите делится по её узлам, сохранённый стержень с узлом сохранённой
+            // плиты внутри — нарушение (перемешивается стержень, плита остаётся).
             var coarse = new PointGrid(CoarseCellM);
-            foreach (var tag in _shellNodeTags) coarse.Add(_nodesByTag[tag]);
+            var splitNodes = new HashSet<string>(_shellNodeTags, StringComparer.Ordinal);
+            if (strictImported)
+                foreach (var element in _baseElements)
+                    if (element.Origin == FemMember.MeshSourceImported && element.ElemType == "shell" && TryNodes(element, _nodesByTag, out var shellNodes))
+                        foreach (var node in shellNodes) splitNodes.Add(node.NodeTag);
+            foreach (var tag in splitNodes) coarse.Add(_nodesByTag[tag]);
             var beams = new List<FemElement>();
             int split = 0;
             var importedInner = new List<string>();

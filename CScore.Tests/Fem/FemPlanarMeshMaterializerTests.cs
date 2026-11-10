@@ -207,6 +207,48 @@ public class FemPlanarMeshMaterializerTests
         Assert.Equal(["PI"], result.ImportedMembersAtFault);
     }
 
+    /// <summary>Сохранённая балка по кромке сохранённой плиты одним КЭ на два КЭ плиты: в строгом режиме — нарушение
+    /// балки (её и перемешивать), в нестрогом — как раньше, без диагностики.</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ImportedBeamOverImportedSlabNode_StrictFaultsBeam(bool strict)
+    {
+        var (meshNodes, elements) = ImportedSlab("PI", 0, 0, 0, 2, 2, 1.0);
+        elements.Add(new FemElement
+        {
+            ElemTag = "3001", ElemType = "beam", NodeIdsJson = "[1001,1003]", Origin = FemMember.MeshSourceImported, SourceMemberTag = "BI",
+        });
+
+        var result = FemPlanarMeshMaterializer.Materialize(1, meshNodes, elements, [], [], strictImported: strict);
+
+        if (strict)
+        {
+            Assert.Contains(result.Diagnostics, d => d.Code == "planar_materialize_imported_beam_inner_node" && d.IsError);
+            Assert.Equal(["BI"], result.ImportedMembersAtFault);
+        }
+        else
+        {
+            Assert.DoesNotContain(result.Diagnostics, d => d.Code == "planar_materialize_imported_beam_inner_node");
+            Assert.Empty(result.ImportedMembersAtFault);
+        }
+    }
+
+    /// <summary>Сгенерированный стержень по кромке сохранённой плиты в строгом режиме делится по её узлам.</summary>
+    [Fact]
+    public void GeneratedBeamOverImportedSlabNode_StrictSplit()
+    {
+        var (meshNodes, elements) = ImportedSlab("PI", 0, 0, 0, 2, 2, 1.0);
+        elements.Add(new FemElement { ElemType = "beam", NodeIdsJson = "[1001,1003]", Origin = FemMember.MeshSourceGenerated, SourceMemberTag = "B" });
+
+        var result = FemPlanarMeshMaterializer.Materialize(1, meshNodes, elements, [], [], strictImported: true);
+
+        Assert.False(result.HasErrors, string.Join("\n", result.Diagnostics));
+        Assert.Equal(1, result.SplitBeamCount);
+        var beams = result.Elements.Where(e => e.SourceMemberTag == "B").Select(e => e.NodeIdsJson).ToList();
+        Assert.Equal(["[1001,1002]", "[1002,1003]"], beams);
+    }
+
     [Fact]
     public void ImportedSlab_MatchingEdge_NoDiagnostics()
     {

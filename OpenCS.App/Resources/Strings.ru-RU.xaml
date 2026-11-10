@@ -4047,6 +4047,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemSchemaMeshRigidJunctionsStale">АЖТ примыканий устарели (изменены параметры АЖТ схемы или стержней) — постройте сетку схемы</system:String>
     <system:String x:Key="FemSchemaMeshDone">Сетка схемы: {0} узлов, {1} стержней, {2} пластин; областей {3} (построено Gmsh — {4}), общих узлов со стержнями и областями {5}, разделено стержней {6}</system:String>
     <system:String x:Key="FemSchemaMeshNotSaved">Сетка схемы не записана: есть ошибки</system:String>
+    <system:String x:Key="FemSchemaMeshUnlockUnsaved">Сборка перестраивает сохранённую сетку КонЭ фрагмента и меняет схему (замки, узлы, ГУ, нагрузки) — сначала сохраните схему</system:String>
     <system:String x:Key="FemSchemaMeshCancelled">Построение сетки схемы отменено</system:String>
     <system:String x:Key="FemSchemaMeshAnalysesInvalidated">Сброшены результаты постановок схемы: {0}</system:String>
     <system:String x:Key="FemSchemaMeshForceSetsStale">Наборы усилий по прежней сетке схемы (номера КЭ могли измениться): {0}</system:String>
