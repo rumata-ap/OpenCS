@@ -24,11 +24,27 @@ public class CrackWidthHandlerSteelCheckTests
         return section;
     }
 
-    static JsonElement Run(string paramsJson, double mx)
+    /// <summary>
+    /// Та же балка с 2Ø28 и поверху: центральное растяжение выше N_crc уравновешивается одной
+    /// арматурой без момента (при одном нижнем ряде равновесия при M = 0 после трещин нет).
+    /// </summary>
+    static CrossSection SymmetricBeam()
+    {
+        var section = Beam();
+        var rebar = section.Areas[1];
+        rebar.Fibers.Add(Fiber.CreatePoint(0.028, -0.08, 0.25));
+        rebar.Fibers.Add(Fiber.CreatePoint(0.028, 0.08, 0.25));
+        section.ResolveAndBuildDiagramms();
+        return section;
+    }
+
+    static JsonElement Run(string paramsJson, double mx) => Run(paramsJson, 0.0, mx, Beam());
+
+    static JsonElement Run(string paramsJson, double n, double mx, CrossSection section)
     {
         var result = new CrackWidthHandler().Run(
             new CalcTask { Id = 1, Kind = "crack_width", Tag = "acrc", CalcType = CalcType.N, ParamsJson = paramsJson },
-            Beam(), new LoadItem { N = 0.0, Mx = mx, My = 0.0 }, CalcSettings.Default);
+            section, new LoadItem { N = n, Mx = mx, My = 0.0 }, CalcSettings.Default);
         Assert.NotEqual("error", result.Status);
         return JsonDocument.Parse(result.DataJson).RootElement.Clone();
     }
@@ -60,5 +76,30 @@ public class CrackWidthHandlerSteelCheckTests
         Assert.True(root.GetProperty("acrc_short").GetDouble() > 0.0);
         Assert.True(root.GetProperty("plane_is_total").GetBoolean());
         Assert.True(root.GetProperty("plane_converged").GetBoolean());
+    }
+
+    /// <summary>
+    /// Центральное растяжение: вместо вырожденного Mcrc при заданной N выводится N_crc (ф. 8.117),
+    /// и вывод «трещины образуются» согласован с N &gt; N_crc по обе стороны порога.
+    /// </summary>
+    [Theory]
+    [InlineData(100.0)]
+    [InlineData(600.0)]
+    public void CentralTension_WritesNcrcConsistentWithCracked(double n)
+    {
+        var root = Run("{}", n, 0.0, SymmetricBeam());
+
+        Assert.True(root.GetProperty("central_tension").GetBoolean());
+        double nCrc = root.GetProperty("N_crc").GetDouble();
+        Assert.True(nCrc > 0.0);
+        Assert.Equal(n > nCrc, root.GetProperty("cracked").GetBoolean());
+    }
+
+    [Fact]
+    public void TensionWithMoment_IsNotCentralTension()
+    {
+        var root = Run("{}", 100.0, -50.0, SymmetricBeam());
+
+        Assert.False(root.GetProperty("central_tension").GetBoolean());
     }
 }

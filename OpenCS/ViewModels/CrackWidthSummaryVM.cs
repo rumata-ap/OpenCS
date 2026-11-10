@@ -190,8 +190,11 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
         bool crcConverged = root.TryGetProperty("crc_converged", out var ccv) && ccv.GetBoolean();
         double? epsMaxTension = root.TryGetProperty("eps_max_tension", out var emt) ? emt.GetDouble() : null;
         double? epsTensionLimit = root.TryGetProperty("eps_tension_limit", out var etl) ? etl.GetDouble() : null;
-        double? utilCrc = mcrc > 1e-9 ? mLong / mcrc : null;
-        CrackingPart = new CrackingMomentPartVM(GetD(root, "N"), mxCrc, myCrc, mcrc, crcConverged, epsMaxTension, epsTensionLimit, utilCrc);
+        // Центральное растяжение: вместо вырожденного Mcrc при заданной N — N_crc и N/N_crc (ф. 8.117).
+        bool central = root.TryGetProperty("central_tension", out var ctEl) && ctEl.ValueKind == JsonValueKind.True;
+        double? utilCrc = !central && mcrc > 1e-9 ? mLong / mcrc : null;
+        CrackingPart = new CrackingMomentPartVM(GetD(root, "N"), mxCrc, myCrc, mcrc, crcConverged, epsMaxTension, epsTensionLimit, utilCrc,
+            nCrc: central ? GetD(root, "N_crc") : null);
 
         double acrcLong = GetD(root, "acrc_long");
         double acrcUltLong = GetD(root, "acrc_ult_long");

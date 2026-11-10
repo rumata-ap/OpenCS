@@ -59,6 +59,8 @@ public sealed class CrackWidthReportData
     [JsonPropertyName("xt")] public double? Xt { get; set; }
     /// <summary>Трещинообразование от продольной силы — точка на луче полной нагрузки.</summary>
     [JsonPropertyName("onset_by_axial_force")] public bool OnsetByAxialForce { get; set; }
+    /// <summary>Нагрузка — центральное растяжение: образование трещин по N &gt; N_crc (ф. 8.117).</summary>
+    [JsonPropertyName("central_tension")] public bool CentralTension { get; set; }
     /// <summary>Продольная сила точки трещинообразования, кН.</summary>
     [JsonPropertyName("N_crc")] public double? NCrc { get; set; }
     /// <summary>Напряжение арматуры от полной нагрузки, МПа.</summary>

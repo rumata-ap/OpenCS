@@ -17,12 +17,12 @@
             </Grid.RowDefinitions>
             <TextBlock Grid.Row="0" Grid.Column="0" Text="N" Foreground="Gray" Margin="0,1"/>
             <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding NText}" FontFamily="Consolas" Margin="0,1"/>
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource Cracking_ColMxCrc}" Foreground="Gray" Margin="0,1"/>
-            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MxCrcText}" FontFamily="Consolas" Margin="0,1"/>
-            <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource Cracking_ColMyCrc}" Foreground="Gray" Margin="0,1"/>
-            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding MyCrcText}" FontFamily="Consolas" Margin="0,1"/>
-            <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource Cracking_ColMcrc}" Foreground="Gray" Margin="0,1"/>
-            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding McrcText}" FontFamily="Consolas" FontWeight="Bold" Margin="0,1"/>
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource Cracking_ColMxCrc}" Foreground="Gray" Visibility="{Binding ShowMomentRows, Converter={StaticResource BoolToVisibility}}" Margin="0,1"/>
+            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MxCrcText}" FontFamily="Consolas" Visibility="{Binding ShowMomentRows, Converter={StaticResource BoolToVisibility}}" Margin="0,1"/>
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource Cracking_ColMyCrc}" Foreground="Gray" Visibility="{Binding ShowMomentRows, Converter={StaticResource BoolToVisibility}}" Margin="0,1"/>
+            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding MyCrcText}" FontFamily="Consolas" Visibility="{Binding ShowMomentRows, Converter={StaticResource BoolToVisibility}}" Margin="0,1"/>
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource Cracking_ColMcrc}" Foreground="Gray" Visibility="{Binding ShowMomentRows, Converter={StaticResource BoolToVisibility}}" Margin="0,1"/>
+            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding McrcText}" FontFamily="Consolas" FontWeight="Bold" Visibility="{Binding ShowMomentRows, Converter={StaticResource BoolToVisibility}}" Margin="0,1"/>
          </Grid>
 
          <StackPanel Margin="0,6,0,0" Visibility="{Binding HasNCrc, Converter={StaticResource BoolToVisibility}}">

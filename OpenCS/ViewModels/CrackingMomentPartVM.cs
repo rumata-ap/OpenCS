@@ -21,8 +21,11 @@ public sealed class CrackingMomentPartVM
     /// <summary>Отношение приложенного момента к Mcrc (только для crack_width — там есть с чем сравнивать).</summary>
     public bool HasUtilization { get; }
     public string UtilizationText { get; } = "—";
-    /// <summary>Центральное растяжение (задача cracking): показываются N_crc и N/N_crc (ф. 8.117).</summary>
+    /// <summary>Центральное растяжение (cracking, crack_width): показываются N_crc и N/N_crc (ф. 8.117).</summary>
     public bool HasNCrc { get; }
+    /// <summary>Строки Mx,crc/My,crc/Mcrc и ε_bt: при центральном растяжении момент при заданной N
+    /// вырожден (это лишь добавочный момент до трещины), поэтому они скрываются.</summary>
+    public bool ShowMomentRows => !HasNCrc;
     public string NCrcText { get; } = "—";
     public string NUtilizationText { get; } = "—";
     public Brush NUtilizationBrush { get; } = Brushes.Black;
@@ -50,7 +53,7 @@ public sealed class CrackingMomentPartVM
         StatusText = converged ? Loc.S("ResultConvergedYes") : Loc.S("ResultConvergedNo");
         StatusBrush = converged ? Brushes.Green : Brushes.Red;
 
-        HasEpsData = epsMaxTension.HasValue && epsTensionLimit.HasValue;
+        HasEpsData = !HasNCrc && epsMaxTension.HasValue && epsTensionLimit.HasValue;
         if (HasEpsData)
         {
             EpsMaxTensionText = $"{epsMaxTension!.Value:+0.000000;-0.000000}";

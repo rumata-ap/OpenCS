@@ -49,14 +49,36 @@ public sealed class CrackWidthReportProvider : IReportProvider
                 ("My исходный длительный / полный", $"{SectionReportSections.Moment(data.MyLongInput)} / {SectionReportSections.Moment(data.MyTotalInput)}"),
                 ("Предельная ширина длительная / кратковременная", $"{F(data.AcrcUltLong)} / {F(data.AcrcUltShort)} мм")
             ], "Параметр", "Значение"))
-            .Add(new ReportHeading(1, "Проверка образования трещин"))
-            .Add(new ReportKeyValueTable(
+            .Add(new ReportHeading(1, "Проверка образования трещин"));
+
+        if (data.CentralTension)
+        {
+            // Центральное растяжение: Mcrc при заданной N вырожден — проверка по продольной силе.
+            bool found = data.NCrc is > 0;
+            document
+                .Add(new ReportKeyValueTable(
+                [
+                    ("Трещины", data.Cracked ? "образуются" : "не образуются"),
+                    ("Ncrc", found ? $"{F(data.NCrc!.Value)} кН" : "не найдено"),
+                    ("N / Ncrc", found ? F(data.N / data.NCrc!.Value) : "—")
+                ], "Параметр", "Значение"))
+                .Add(new ReportFormula("(8.117)", "N > N<sub>crc</sub>",
+                    found
+                        ? $"N = {F(data.N)} кН; N<sub>crc</sub> = {F(data.NCrc!.Value)} кН (НДМ, п. 8.2.14)"
+                        : $"N = {F(data.N)} кН; N<sub>crc</sub> не найдено",
+                    !found ? "не определено"
+                        : data.N > data.NCrc!.Value ? "трещины образуются" : "трещины не образуются"));
+        }
+        else
+        {
+            document.Add(new ReportKeyValueTable(
             [
                 ("Трещины", data.Cracked ? "образуются" : "не образуются"),
                 ("Mcrc", $"{F(data.Mcrc)} кН·м"),
                 ("Mx_crc / My_crc", $"{F(data.MxCrc)} / {F(data.MyCrc)} кН·м"),
                 ("εmax,t / εt,ult", $"{F(data.EpsMaxTension)} / {F(data.EpsTensionLimit)}")
             ], "Параметр", "Значение"));
+        }
 
         if (!data.Cracked)
         {

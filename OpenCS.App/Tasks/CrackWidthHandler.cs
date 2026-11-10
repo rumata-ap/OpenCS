@@ -149,6 +149,10 @@ public sealed class CrackWidthHandler : ITaskHandler
 
             var res = solver.Compute(N: nTotal, mxLong: mxLong, mxTotal: mxTotal, myLong: myLong, myTotal: myTotal);
             var plane = res.PlaneLong ?? res.PlaneTotal;
+            // Центральное растяжение (ни полного, ни длительного момента): Mcrc при заданной N
+            // вырожден — образование трещин проверяется по N > N_crc (ф. 8.117).
+            var axial = CentralTensionCracking.TryRun(section, calcCrc, nTotal,
+                Math.Abs(mxTotal) + Math.Abs(mxLong), Math.Abs(myTotal) + Math.Abs(myLong));
 
             var data = new
             {
@@ -178,7 +182,8 @@ public sealed class CrackWidthHandler : ITaskHandler
                 h = Math.Round(res.H * 1000.0, 1),
                 xt = StrainStateJsonHelper.FiniteRounded(res.Xt * 1000.0, 1),
                 onset_by_axial_force = res.OnsetByAxialForce,
-                N_crc = Math.Round(res.NCrc, 4),
+                central_tension = axial != null,
+                N_crc = axial is { Converged: true } ? axial.NCrc : Math.Round(res.NCrc, 4),
                 sigma_s_total = Math.Round(res.SigmaSTotal / 1000.0, 2),
                 rs_ser = Math.Round(res.RsSer / 1000.0, 2),
                 util_steel = Math.Round(res.UtilSteel, 4),
