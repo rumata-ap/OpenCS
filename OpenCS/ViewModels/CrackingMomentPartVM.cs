@@ -21,10 +21,28 @@ public sealed class CrackingMomentPartVM
     /// <summary>Отношение приложенного момента к Mcrc (только для crack_width — там есть с чем сравнивать).</summary>
     public bool HasUtilization { get; }
     public string UtilizationText { get; } = "—";
+    /// <summary>Центральное растяжение (задача cracking): показываются N_crc и N/N_crc (ф. 8.117).</summary>
+    public bool HasNCrc { get; }
+    public string NCrcText { get; } = "—";
+    public string NUtilizationText { get; } = "—";
+    public Brush NUtilizationBrush { get; } = Brushes.Black;
 
     public CrackingMomentPartVM(double n, double mxCrc, double myCrc, double mcrc, bool converged,
-        double? epsMaxTension, double? epsTensionLimit, double? utilization = null)
+        double? epsMaxTension, double? epsTensionLimit, double? utilization = null,
+        double? nCrc = null)
     {
+        HasNCrc = nCrc.HasValue;
+        if (HasNCrc)
+        {
+            NCrcText = nCrc!.Value > 0 ? $"{nCrc.Value:0.###}  кН" : "—";
+            if (nCrc.Value > 0)
+            {
+                double u = n / nCrc.Value;
+                NUtilizationText = $"{u:0.000}";
+                NUtilizationBrush = u > 1.0 ? Brushes.Red : Brushes.Green;
+            }
+        }
+
         NText = $"{n:0.###}  кН";
         MxCrcText = $"{mxCrc:0.####}  кН·м";
         MyCrcText = $"{myCrc:0.####}  кН·м";

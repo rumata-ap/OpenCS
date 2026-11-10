@@ -36,10 +36,16 @@ public sealed class CrackingHandler : ITaskHandler
             double mcrc = Math.Sqrt(res.Mx * res.Mx + res.My * res.My);
             var prestress = PrestressActionsJsonModel.From(section.PrestressActions(
                 null, calcCrc, settings.ResolveConcreteTension(calcCrc)));
+            var axial = CentralTensionCracking.TryRun(section, calcCrc, item.N, item.Mx, item.My);
 
             var data = new
             {
                 converged = res.Converged,
+                central_tension = axial != null,
+                N_crc = axial?.NCrc,
+                N_crc_converged = axial?.Converged,
+                cracked_by_N = axial?.Cracked,
+                util_N = axial?.Utilization,
                 N = item.N,
                 Mx_crc = Math.Round(res.Mx, 4),
                 My_crc = Math.Round(res.My, 4),

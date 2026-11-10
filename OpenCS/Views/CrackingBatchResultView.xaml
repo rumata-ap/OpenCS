@@ -41,6 +41,7 @@
             <DataGridTextColumn Header="{DynamicResource Cracking_ColMxCrc}" Binding="{Binding MxCrcText}" Width="90"/>
             <DataGridTextColumn Header="{DynamicResource Cracking_ColMyCrc}" Binding="{Binding MyCrcText}" Width="90"/>
             <DataGridTextColumn Header="{DynamicResource Cracking_ColMcrc}" Binding="{Binding McrcText}" Width="90"/>
+            <DataGridTextColumn Header="{DynamicResource Cracking_ColNcrc}" Binding="{Binding NCrcText}" Width="90"/>
             <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColStatus}" Binding="{Binding StatusText}" Width="70"/>
          </DataGrid.Columns>
       </DataGrid>

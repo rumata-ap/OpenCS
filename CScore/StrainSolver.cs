@@ -40,7 +40,8 @@ namespace CScore
                           bool ten = true, bool ca = true,
                           double tol = 0.5, int maxIter = 60, double h = 1e-7,
                           bool centralJacobian = true,
-                          Func<Kurvature, Load>? evaluate = null)
+                          Func<Kurvature, Load>? evaluate = null,
+                          bool crackedRestart = false)
       {
          _section = section;
          _calc    = calc;
@@ -50,8 +51,20 @@ namespace CScore
          _maxIter = maxIter;
          _h       = h;
          _central = centralJacobian;
+         _crackedSeedAllowed = crackedRestart && ten && evaluate == null;
          _evaluate = evaluate ?? (k => _section.Integral(k, _calc, _ten, _ca));
       }
+
+      /// <summary>
+      /// Разрешён ли повторный старт из трещиноватого состояния (см. <see cref="Solve"/>):
+      /// только по запросу (<c>crackedRestart</c>) и для штатной функции равновесия с
+      /// растянутым бетоном. По умолчанию выключен: между Ncrc и усилием одной арматуры у
+      /// растянутого сечения ДВА решения (до трещин и с трещинами), и бисекции
+      /// трещинообразования опираются на то, что «не сошлось» значит «предел пройден» —
+      /// найденная вместо отказа трещиноватая плоскость стала бы стартом следующих проб и
+      /// увела бы их на трещиноватую ветвь ниже настоящего Ncrc.
+      /// </summary>
+      readonly bool _crackedSeedAllowed;
 
       /// <summary>
       /// Решает обратную задачу: при заданных target-усилиях N/My/Mz (кН, кН·м)
@@ -64,6 +77,29 @@ namespace CScore
       /// жёсткость сильно отличается от упругой) — это предотвращает расхождение метода Ньютона.
       /// </param>
       public Kurvature Solve(double nTarget, double mxTarget, double myTarget, Kurvature? initialGuess = null)
+      {
+         var k = SolveFrom(nTarget, mxTarget, myTarget, initialGuess);
+         if (Converged || !_crackedSeedAllowed) return k;
+
+         // Растянутый бетон с ниспадающей до нуля ветвью: за εbt2 он выключается, и кривая
+         // N(ε) проваливается (при центральном растяжении весь бетон трескается разом —
+         // от Ncrc до одной арматуры). Решение за провалом есть, но Ньютон от упругой
+         // оценки к нему не перескакивает: шаги упираются в плато диаграммы и невязка не
+         // убывает. Старт из трещиноватого состояния (бетон без растяжения) кладёт
+         // приближение на правильную ветвь; если весь бетон за εbt2, это уже и есть ответ.
+         var first = (k, Residual, Iterations);
+         var cracked = new StrainSolver(_section, _calc, ten: false, ca: _ca,
+            tol: _tol, maxIter: _maxIter, h: _h, centralJacobian: _central);
+         var seed = cracked.Solve(nTarget, mxTarget, myTarget, initialGuess);
+         if (!cracked.Converged) { (k, Residual, Iterations) = first; return k; }
+
+         var retry = SolveFrom(nTarget, mxTarget, myTarget, seed);
+         if (Converged) { Iterations += first.Iterations + cracked.Iterations; return retry; }
+         (k, Residual, Iterations) = first;
+         return k;
+      }
+
+      Kurvature SolveFrom(double nTarget, double mxTarget, double myTarget, Kurvature? initialGuess)
       {
          // Флаг сбрасывается при каждом вызове: решатель переиспользуется между шагами пути.
          Converged = false;

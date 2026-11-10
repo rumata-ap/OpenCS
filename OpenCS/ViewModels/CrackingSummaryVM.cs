@@ -53,7 +53,10 @@ public sealed class CrackingSummaryVM : ViewModelBase
         double? epsMaxTension = root.TryGetProperty("eps_max_tension", out var emt) ? emt.GetDouble() : null;
         double? epsTensionLimit = root.TryGetProperty("eps_tension_limit", out var etl) ? etl.GetDouble() : null;
 
-        CrackingPart = new CrackingMomentPartVM(n, mxCrc, myCrc, mcrc, converged, epsMaxTension, epsTensionLimit);
+        bool central = root.TryGetProperty("central_tension", out var ct) && ct.ValueKind == JsonValueKind.True;
+        double? nCrc = central ? GetD(root, "N_crc") : null;
+        CrackingPart = new CrackingMomentPartVM(n, mxCrc, myCrc, mcrc, converged, epsMaxTension, epsTensionLimit,
+            nCrc: nCrc);
 
         StatusText = converged ? Loc.S("ResultConvergedYes") : Loc.S("ResultConvergedNo");
         StatusBrush = converged ? Brushes.Green : Brushes.OrangeRed;

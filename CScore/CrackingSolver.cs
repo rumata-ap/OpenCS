@@ -178,10 +178,11 @@ public sealed class CrackingSolver
         return zone == null && double.IsNegativeInfinity(max) ? 0.0 : max;
     }
 
-    (Kurvature? plane, double epsMax, bool ok) Evaluate(double n, double mx, double my)
+    (Kurvature? plane, double epsMax, bool ok) Evaluate(double n, double mx, double my,
+        bool crackedRestart = false)
     {
         var solver = new StrainSolver(_section, _calcCrc,
-            tol: _solverTol, maxIter: _solverMaxIter, h: _solverH);
+            tol: _solverTol, maxIter: _solverMaxIter, h: _solverH, crackedRestart: crackedRestart);
         var k = solver.Solve(n, mx, my);
         if (!solver.Converged) return (null, 0.0, false);
         return (k, MaxTensionStrainInLoadedZone(k), true);
@@ -204,7 +205,10 @@ public sealed class CrackingSolver
 
         double epsLimit = TensionLimit();
 
-        var (plane0, eps0, ok0) = Evaluate(N, 0.0, 0.0);
+        // Состояние без момента — с повторным стартом из трещиноватого: растягивающая N
+        // выше Ncrc лежит за провалом N(ε), куда Ньютон от упругой оценки не доходит, и без
+        // этого сечение, треснувшее от одной N, выглядело бы «не сошедшимся».
+        var (plane0, eps0, ok0) = Evaluate(N, 0.0, 0.0, crackedRestart: true);
 
         // Сечение уже треснуло в зоне догружения при нулевом моменте — законный ответ, момент
         // трещинообразования равен нулю. Если само это состояние не сошлось (сильное обжатие:
@@ -462,6 +466,31 @@ public sealed class CrackingSolver
             Lambda = lambda, N = lambda * N0, Mx = lambda * Mx0, My = lambda * My0,
             StrainPlane = bestPlane, Converged = converged, Iterations = iter, EpsMaxTension = bestEps
         };
+    }
+
+    /// <summary>
+    /// Нагрузка без изгибающего момента, по которой трещинообразование определяется продольной
+    /// силой (п. 8.2.4, ф. 8.117 СП 63): растягивающая N при |M| ≈ 0. Для неё «момент
+    /// трещинообразования при заданном N» вырожден, и ответ — <see cref="CrackingAxialForce"/>.
+    /// </summary>
+    public static bool IsCentralTension(double n, double mx, double my) =>
+        n > 1e-9 && Math.Sqrt(mx * mx + my * my) <= CentralTensionMomentTol * Math.Max(1.0, n);
+
+    /// <summary>Относительный допуск момента (к N, м) для признака центрального растяжения.</summary>
+    const double CentralTensionMomentTol = 1e-9;
+
+    /// <summary>
+    /// Усилие образования трещин центрально-растянутого элемента N_crc (п. 8.2.13–8.2.14 СП 63)
+    /// по нелинейной деформационной модели: продольная сила (без момента), при которой
+    /// растягивающая деформация бетона достигает ε_bt,ult. Ищется по пропорциональному лучу
+    /// λ·(N, 0, 0); при несимметричном армировании плоскость сама получает кривизну.
+    /// </summary>
+    /// <param name="nDirection">Растягивающая продольная сила, задающая луч (кН, &gt; 0).</param>
+    public CrackingLoadFactorResult CrackingAxialForce(double nDirection)
+    {
+        if (!(nDirection > 0))
+            throw new ArgumentOutOfRangeException(nameof(nDirection), "Ожидается растягивающая продольная сила.");
+        return CrackingLoadFactor(nDirection, 0.0, 0.0);
     }
 
     (Kurvature plane, double epsMax, bool ok) EvaluateAtCurvature(double n, double ky, double kz)

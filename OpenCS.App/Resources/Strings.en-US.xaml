@@ -4910,6 +4910,10 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Cracking_ColMxCrc">Mx,crc, kN·m</system:String>
     <system:String x:Key="Cracking_ColMyCrc">My,crc, kN·m</system:String>
     <system:String x:Key="Cracking_ColMcrc">Mcrc, kN·m</system:String>
+    <system:String x:Key="Cracking_ColNcrc">Ncrc, kN</system:String>
+    <system:String x:Key="Cracking_NcrcLabel">Ncrc (eq. 8.117)</system:String>
+    <system:String x:Key="Cracking_NUtilLabel">N / Ncrc</system:String>
+    <system:String x:Key="Cracking_CentralTensionNote">Axial tension: cracks form when N &gt; Ncrc (SP 63, cl. 8.2.4); Ncrc by the nonlinear strain model.</system:String>
     <system:String x:Key="CrackWidth_ColAcrcLong">acrc,long, mm</system:String>
     <system:String x:Key="CrackWidth_ColAcrcShort">acrc,short, mm</system:String>
     <system:String x:Key="CrackWidth_ColPassedLong">Passed (long)</system:String>

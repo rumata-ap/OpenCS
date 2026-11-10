@@ -67,7 +67,8 @@ public sealed class StrainStateBatchHandler : ITaskHandler
                         tol:     settings.NewtonTolerance,
                         maxIter: settings.NewtonMaxIter,
                         h:       settings.NewtonDeltaH,
-                        centralJacobian: settings.NewtonJacobian == "central");
+                        centralJacobian: settings.NewtonJacobian == "central",
+                        crackedRestart: true);
 
                     var (mxTarget, myTarget, etaRowData) = ApplyEta(
                         clone, etaParams, etaSlendernessThreshold, fi, solver);
@@ -94,7 +95,8 @@ public sealed class StrainStateBatchHandler : ITaskHandler
                         tol:     settings.NewtonTolerance,
                         maxIter: settings.NewtonMaxIter,
                         h:       settings.NewtonDeltaH,
-                        centralJacobian: settings.NewtonJacobian == "central");
+                        centralJacobian: settings.NewtonJacobian == "central",
+                        crackedRestart: true);
 
                     var (mxTarget, myTarget, etaRowData) = ApplyEta(
                         section, etaParams, etaSlendernessThreshold, fi, solver);

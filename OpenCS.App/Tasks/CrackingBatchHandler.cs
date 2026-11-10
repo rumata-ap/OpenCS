@@ -48,6 +48,7 @@ public sealed class CrackingBatchHandler : ITaskHandler
                 var res = solver.CrackingMoment(fi.N, dmx, dmy);
                 double mcrc = Math.Sqrt(res.Mx * res.Mx + res.My * res.My);
                 convergedArr[i] = res.Converged;
+                var axial = CentralTensionCracking.TryRun(clone, calcCrc, fi.N, fi.Mx, fi.My);
 
                 rowResults[i] = new
                 {
@@ -57,6 +58,9 @@ public sealed class CrackingBatchHandler : ITaskHandler
                     Mx_crc = Math.Round(res.Mx, 4),
                     My_crc = Math.Round(res.My, 4),
                     Mcrc = Math.Round(mcrc, 4),
+                    N_crc = axial?.NCrc,
+                    cracked_by_N = axial?.Cracked,
+                    util_N = axial?.Utilization,
                     converged = res.Converged,
                     status = res.Converged ? "ok" : "not_converged"
                 };

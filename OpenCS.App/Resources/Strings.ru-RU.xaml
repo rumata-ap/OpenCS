@@ -4910,6 +4910,10 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Cracking_ColMxCrc">Mx,crc, кН·м</system:String>
     <system:String x:Key="Cracking_ColMyCrc">My,crc, кН·м</system:String>
     <system:String x:Key="Cracking_ColMcrc">Mcrc, кН·м</system:String>
+    <system:String x:Key="Cracking_ColNcrc">Ncrc, кН</system:String>
+    <system:String x:Key="Cracking_NcrcLabel">Ncrc (ф. 8.117)</system:String>
+    <system:String x:Key="Cracking_NUtilLabel">N / Ncrc</system:String>
+    <system:String x:Key="Cracking_CentralTensionNote">Центральное растяжение: трещины образуются при N &gt; Ncrc (п. 8.2.4 СП 63); Ncrc — по НДМ.</system:String>
     <system:String x:Key="CrackWidth_ColAcrcLong">acrc,дл, мм</system:String>
     <system:String x:Key="CrackWidth_ColAcrcShort">acrc,кратк, мм</system:String>
     <system:String x:Key="CrackWidth_ColPassedLong">Прошло (дл.)</system:String>

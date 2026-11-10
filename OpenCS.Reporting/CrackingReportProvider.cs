@@ -79,6 +79,18 @@ public sealed class CrackingReportProvider : IReportProvider
                 $"{Sub("ε", "bt")} ≤ {Sub("ε", "bt,ult")}",
                 $"{Sub("ε", "bt")} = {F(data.EpsMaxTension)}; {Sub("ε", "bt,ult")} = {F(data.EpsTensionLimit)}",
                 Math.Abs(data.EpsMaxTension) <= Math.Abs(data.EpsTensionLimit) ? "условие выполнено" : "условие не выполнено"))
+            ;
+        if (data.CentralTension)
+        {
+            bool found = data.NCrc is > 0;
+            document.Add(new ReportFormula("(8.117)", $"N > {Sub("N", "crc")}",
+                found
+                    ? $"N = {F(data.N)} кН; {Sub("N", "crc")} = {F(data.NCrc)} кН (НДМ, п. 8.2.14)"
+                    : $"N = {F(data.N)} кН; {Sub("N", "crc")} не найдено",
+                !found ? "не определено"
+                    : data.N > data.NCrc!.Value ? "трещины образуются" : "трещины не образуются"));
+        }
+        document
             .Add(new ReportHeading(1, "Плоскость деформаций"))
             .Add(new ReportKeyValueTable(
             [

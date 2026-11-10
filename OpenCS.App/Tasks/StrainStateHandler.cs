@@ -44,7 +44,8 @@ namespace OpenCS.Tasks
                 tol: settings.NewtonTolerance,
                 maxIter: settings.NewtonMaxIter,
                 h: settings.NewtonDeltaH,
-                centralJacobian: settings.NewtonJacobian == "central");
+                centralJacobian: settings.NewtonJacobian == "central",
+                crackedRestart: true);
 
             double mxTarget = mxOriginal;
             double myTarget = myOriginal;

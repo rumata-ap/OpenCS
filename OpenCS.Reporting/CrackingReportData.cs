@@ -29,6 +29,10 @@ public sealed class CrackingReportData
     [JsonPropertyName("kz")] public double? Kz { get; set; }
     /// <summary>Признак сходимости плоскости деформаций.</summary>
     [JsonPropertyName("plane_converged")] public bool PlaneConverged { get; set; }
+    /// <summary>Нагрузка — центральное растяжение (N &gt; 0 без момента): проверка по ф. (8.117).</summary>
+    [JsonPropertyName("central_tension")] public bool CentralTension { get; set; }
+    /// <summary>Усилие образования трещин центрально-растянутого элемента по НДМ, кН.</summary>
+    [JsonPropertyName("N_crc")] public double? NCrc { get; set; }
     /// <summary>Действия преднапряжения, если они были включены.</summary>
     [JsonPropertyName("prestress")] public PrestressActionsJsonModel? Prestress { get; set; }
 

@@ -21,7 +21,7 @@ public sealed class CrackingBatchVM : ViewModelBase
 
     public sealed record BatchRow(
         int Num, string Label, string NText, string MxCrcText, string MyCrcText,
-        string McrcText, string StatusText, bool IsConverged);
+        string McrcText, string StatusText, bool IsConverged, string NCrcText = "—");
 
     public CrackingBatchVM(CalcResult result)
     {
@@ -71,7 +71,8 @@ public sealed class CrackingBatchVM : ViewModelBase
                         MyCrcText: Num(row, "My_crc", 4),
                         McrcText: Num(row, "Mcrc", 4),
                         StatusText: conv ? Loc.S("ResultConvergedYes") : Loc.S("ResultConvergedNo"),
-                        IsConverged: conv));
+                        IsConverged: conv,
+                        NCrcText: Num(row, "N_crc", 6)));
                 }
             }
         }
