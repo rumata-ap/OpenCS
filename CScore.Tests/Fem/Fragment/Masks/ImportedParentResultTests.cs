@@ -109,6 +109,23 @@ public sealed class ImportedParentResultTests
         Assert.Equal(-1, shared.Ry!.Value, 9);
     }
 
+    /// <summary>ЛИРА: у пластины инвертируются моменты и поперечные силы, N — нет; у стержня — все, кроме N.</summary>
+    [Fact]
+    public void LiraConvention_ShellQAndBarTorsionInverted()
+    {
+        var (nodes, elements) = Wall(1, 1, 1, 1);
+        elements[0].LocalAxisAngleDeg = 0;
+        var snapshot = new ImportedResultSnapshot
+        {
+            Program = ImportedResultSnapshot.ProgramLira,
+            Loads = [new ImportedResultLoad { Num = 1, ShellNums = [1], ShellForces = [1, 2, 3, 4, 5, 6, 7, 8] }],
+        };
+        var r = new ImportedParentResult(snapshot, Map, nodes, elements, ImportedForceConvention.Lira);
+        Assert.True(r.TryShellForces(K, "1", out var s));
+        Assert.Equal([1, 2, 3, -4, -5, -6, -7, -8], s.Values);
+        Assert.Equal([1, -1, -1, -1, -1, -1], ImportedForceConvention.Lira.Bar);
+    }
+
     /// <summary>Оси выдачи пластины: угол 90° — X выдачи вдоль Y1 КЭ; моменты инвертируются, N и Q — нет.</summary>
     [Fact]
     public void Shell_AxesAndSigns()

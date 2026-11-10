@@ -43,13 +43,30 @@ public static class FragmentShellForceRecovery
             if (traction(e.Tag) is { } t)
                 data.Add(((e.Centroid - point.X).Dot(e1), (e.Centroid - point.X).Dot(e2), t));
 
-        if (Fit(data) is { } fitted) return fitted;
+        if (Fit(data) is { } fitted && WithinPatchRange(fitted, data)) return fitted;
         degenerate = true;
         var below = data.Where(d => d.V < -1e-9).OrderBy(d => d.U * d.U + d.V * d.V).FirstOrDefault();
         var above = data.Where(d => d.V > 1e-9).OrderBy(d => d.U * d.U + d.V * d.V).FirstOrDefault();
         if (below.T != null && above.T != null)
             return below.T + (above.T - below.T).Scale(-below.V / (above.V - below.V));
         return own;
+    }
+
+    /// <summary>
+    /// Значение подгонки в пределах значений центров патча, расширенных на их размах (по каждой компоненте). Линейная
+    /// экстраполяция к кромке на полэлемента укладывается с запасом; плохо обусловленный патч (центры почти на одной прямой,
+    /// точка в стороне) даёт значения на порядки больше — такой патч считается вырожденным. На «Мирной» (10.11.2026)
+    /// кромка стены у проёма давала 24 700 кН/м при соседних 15–60 кН/м и ломала равновесие масок ЛИРЫ.
+    /// </summary>
+    internal static bool WithinPatchRange(Dof6 value, IReadOnlyList<(double U, double V, Dof6 T)> data)
+    {
+        for (int k = 0; k < 6; k++)
+        {
+            double min = data.Min(d => d.T[k]), max = data.Max(d => d.T[k]);
+            double span = max - min;
+            if (value[k] < min - span - 1e-9 || value[k] > max + span + 1e-9) return false;
+        }
+        return true;
     }
 
     /// <summary>МНК по [1, u, v]; null — меньше трёх точек или матрица нормальных уравнений вырождена.</summary>

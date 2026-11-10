@@ -31,6 +31,23 @@ public sealed class FragmentShellForceRecoveryTests
     }
 
     /// <summary>
+    /// Защита от выброса МНК: значение в пределах значений центров, расширенных на размах, принимается; на порядки больше
+    /// (плохо обусловленный патч, «Мирная» 10.11: 24 700 кН/м при соседних 15–60) — нет.
+    /// </summary>
+    [Fact]
+    public void WithinPatchRange_RejectsBlowUp()
+    {
+        var data = new List<(double U, double V, Dof6 T)>
+        {
+            (0, -0.1, new Dof6(0, 0, -40e3, 0, 0, 0)), (0.25, -0.1, new Dof6(0, 0, -50e3, 0, 0, 0)), (0.5, -0.1, new Dof6(0, 0, -60e3, 0, 0, 0)),
+        };
+        Assert.True(FragmentShellForceRecovery.WithinPatchRange(new Dof6(0, 0, -65e3, 0, 0, 0), data));
+        Assert.True(FragmentShellForceRecovery.WithinPatchRange(new Dof6(0, 0, -30e3, 0, 0, 0), data));
+        Assert.False(FragmentShellForceRecovery.WithinPatchRange(new Dof6(0, 0, 24.7e6, 0, 0, 0), data));
+        Assert.False(FragmentShellForceRecovery.WithinPatchRange(new Dof6(0, 0, -85e3, 0, 0, 0), data));
+    }
+
+    /// <summary>
     /// Линейное по высоте поле Ny(z) = −(1000 + 500 z), My(z) = 200 z, заданное в центрах КЭ: в точках рассечения
     /// z = 0,8 (не через центры 0,75 / 1,25) восстанавливается точно — значение «своего» КЭ было бы −1375, а не −1400.
     /// </summary>
