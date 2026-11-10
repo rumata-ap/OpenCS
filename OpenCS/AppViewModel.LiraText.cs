@@ -25,6 +25,7 @@ namespace OpenCS
          RefreshLiraBoundaryCommand = new RelayCommand(async p => await RefreshLiraFromText(p as FemSchema, boundary: true, loads: false),
             _ => !IsBusy);
          ImportLiraSchemaFromTextCommand = new RelayCommand(_ => ImportLiraSchemaFromText(), _ => !IsBusy);
+         InitLiraMaskSnapshotCommand();
       }
 
       /// <summary>

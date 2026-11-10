@@ -85,6 +85,30 @@ public sealed class ImportedParentResultTests
         Assert.Equal(-1, rz!.Value, 9);
     }
 
+    /// <summary>
+    /// Знаки ЛИРЫ в плоскости XY по реальным данным: Qy = −dMz/dx. Конвенция <see cref="ImportedForceConvention.Lira"/>
+    /// даёт согласованность +1, общая <see cref="ImportedForceConvention.LiraScad"/> — −1.
+    /// </summary>
+    [Fact]
+    public void ShearConsistency_LiraConventionXY()
+    {
+        const double L = 4, P = 10e3;
+        var nodes = Nodes(("1", 0, 0, 0), ("2", L, 0, 0));
+        var elements = new List<FemElement> { new() { ElemTag = "7", ElemType = "beam", NodeIdsJson = "[1,2]", BeamRotationDeg = -90 } };
+        // Qy = P постоянна, Mz(x) = −P·x.
+        var snapshot = new ImportedResultSnapshot
+        {
+            Program = ImportedResultSnapshot.ProgramLira,
+            Loads = [new ImportedResultLoad { Num = 1, BarNums = [7], BarForces = [0, P, 0, 0, 0, 0, 0, P, 0, 0, 0, -P * L] }],
+        };
+
+        var lira = new ImportedParentResult(snapshot, Map, nodes, elements, ImportedForceConvention.Lira).ShearConsistency();
+        var shared = new ImportedParentResult(snapshot, Map, nodes, elements, ImportedForceConvention.LiraScad).ShearConsistency();
+
+        Assert.Equal(1, lira.Ry!.Value, 9);
+        Assert.Equal(-1, shared.Ry!.Value, 9);
+    }
+
     /// <summary>Оси выдачи пластины: угол 90° — X выдачи вдоль Y1 КЭ; моменты инвертируются, N и Q — нет.</summary>
     [Fact]
     public void Shell_AxesAndSigns()

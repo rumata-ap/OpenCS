@@ -14,13 +14,22 @@ namespace CScore.Fem.Fragment.Masks;
 public sealed record ImportedForceConvention(double[] Bar, double[] Shell)
 {
     /// <summary>
-    /// ЛИРА и SCAD (общие правила знаков): N растяжение +; My + растягивает волокна со стороны −Z1 (нижние,
+    /// Для SCAD (для ЛИРЫ — <see cref="Lira"/>, знак Mz по реальным данным обратный): N растяжение +; My + растягивает волокна со стороны −Z1 (нижние,
     /// <c>LiraForceMapper.MapBar</c>, сверено с подбором ЛИРЫ 30.09), Mz — по импорту наборов (<c>My OpenCS = −Mz</c>);
     /// поперечные силы — <c>Qz = dMy/dx</c>, <c>Qy = dMz/dx</c> в знаках программы (проверяется по снимку —
     /// <see cref="ImportedParentResult.ShearConsistency"/>); Mк — как std. Пластины: Mx My Mxy + растягивают низ (−Z1),
     /// инверсия как у импорта наборов (Mxy ЛИРЫ сверен 22.09); N, Q — без инверсии.
     /// </summary>
     public static ImportedForceConvention LiraScad { get; } = new([1, -1, -1, 1, -1, 1], [1, 1, 1, -1, -1, -1, 1, 1]);
+
+    /// <summary>
+    /// ЛИРА по реальным данным («Мирная», 10.11.2026): в знаках ЛИРЫ <c>dMy/dx = +Qz</c> и <c>dMz/dx = −Qy</c>
+    /// (<see cref="ImportedParentResult.ShearConsistency"/> с <see cref="LiraScad"/> давала −1 в плоскости XY), а узловое
+    /// равновесие колонн под сосредоточенной силой даёт <c>Qy std = −Qy ЛИРЫ</c> (скачок ΔQy = +P при ожидаемых −P в std) — значит,
+    /// Mz — с обратным знаком, как My: все поперечные силы и изгибающие моменты ЛИРЫ противоположны std. Mк как у
+    /// <see cref="LiraScad"/> (знак крутящего момента по данным не проверен).
+    /// </summary>
+    public static ImportedForceConvention Lira { get; } = new([1, -1, -1, 1, -1, -1], [1, 1, 1, -1, -1, -1, 1, 1]);
 }
 
 /// <summary>

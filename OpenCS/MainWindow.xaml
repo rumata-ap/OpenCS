@@ -1425,6 +1425,11 @@
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <MenuItem helpers:CommandIcons.Header="LiraMaskSnapshotTake"
+                                           Command="{Binding PlacementTarget.Tag.TakeLiraMaskSnapshotCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               </MenuItem>
                               <MenuItem helpers:CommandIcons.Header="FemSchemaMenuScad">
                                  <MenuItem.Visibility>

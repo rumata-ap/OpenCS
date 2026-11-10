@@ -1168,6 +1168,15 @@
    <system:String x:Key="ScadForcesCancelled">Импорт усилий SCAD отменён.</system:String>
    <system:String x:Key="ScadForcesSuccess">Импортировано наборов усилий SCAD: {0} («{1}»), строк {2}.</system:String>
    <system:String x:Key="ScadMaskSnapshotTake">Результаты для фрагментов…</system:String>
+   <system:String x:Key="LiraMaskSnapshotTake">Результаты для фрагментов…</system:String>
+   <system:String x:Key="LiraMaskSnapshotTitle">Результаты ЛИРЫ для фрагментов</system:String>
+   <system:String x:Key="LiraMaskSnapshotNotLiraSchema">Схема «{0}» не из ЛИРЫ.</system:String>
+   <system:String x:Key="LiraMaskSnapshotNoElements">В сетке схемы нет стержней и пластин.</system:String>
+   <system:String x:Key="LiraMaskSnapshotReading">Снимок результатов ЛИРЫ для фрагментов: {0} узлов, {1} КЭ…</system:String>
+   <system:String x:Key="LiraMaskSnapshotCancelled">Снимок результатов ЛИРЫ отменён.</system:String>
+   <system:String x:Key="LiraMaskSnapshotSuccess">Снимок результатов ЛИРЫ для фрагментов («{0}»): загружений {1}, узлов {2}, стержней {3}, пластин {4}.</system:String>
+   <system:String x:Key="LiraMaskSnapshotWrongDocument">В ЛИРЕ открыт документ «{0}», а схема — «{1}». Откройте в ЛИРЕ документ схемы и повторите.</system:String>
+   <system:String x:Key="LiraMaskSnapshotError">Не удалось снять результаты ЛИРЫ: {0}</system:String>
    <system:String x:Key="ScadMaskSnapshotReading">Снимок результатов SCAD для фрагментов: {0} узлов, {1} КЭ…</system:String>
    <system:String x:Key="ScadMaskSnapshotCancelled">Снимок результатов SCAD отменён.</system:String>
    <system:String x:Key="ScadMaskSnapshotSuccess">Снимок результатов SCAD для фрагментов («{0}»): загружений {1}, узлов {2}, стержней {3}, пластин {4}.</system:String>

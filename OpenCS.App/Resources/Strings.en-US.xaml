@@ -1168,6 +1168,15 @@
    <system:String x:Key="ScadForcesCancelled">SCAD force import cancelled.</system:String>
    <system:String x:Key="ScadForcesSuccess">SCAD force sets imported: {0} (“{1}”), {2} rows.</system:String>
    <system:String x:Key="ScadMaskSnapshotTake">Results for fragments…</system:String>
+   <system:String x:Key="LiraMaskSnapshotTake">Results for fragments…</system:String>
+   <system:String x:Key="LiraMaskSnapshotTitle">LIRA results for fragments</system:String>
+   <system:String x:Key="LiraMaskSnapshotNotLiraSchema">Schema "{0}" is not from LIRA.</system:String>
+   <system:String x:Key="LiraMaskSnapshotNoElements">The schema mesh has no bars or plates.</system:String>
+   <system:String x:Key="LiraMaskSnapshotReading">LIRA results snapshot for fragments: {0} nodes, {1} elements…</system:String>
+   <system:String x:Key="LiraMaskSnapshotCancelled">LIRA results snapshot cancelled.</system:String>
+   <system:String x:Key="LiraMaskSnapshotSuccess">LIRA results snapshot for fragments ("{0}"): load cases {1}, nodes {2}, bars {3}, plates {4}.</system:String>
+   <system:String x:Key="LiraMaskSnapshotWrongDocument">LIRA has document "{0}" open, but the schema is "{1}". Open the schema's document in LIRA and retry.</system:String>
+   <system:String x:Key="LiraMaskSnapshotError">Could not read LIRA results: {0}</system:String>
    <system:String x:Key="ScadMaskSnapshotReading">SCAD result snapshot for fragments: {0} nodes, {1} elements…</system:String>
    <system:String x:Key="ScadMaskSnapshotCancelled">SCAD result snapshot cancelled.</system:String>
    <system:String x:Key="ScadMaskSnapshotSuccess">SCAD result snapshot for fragments (“{0}”): {1} load cases, {2} nodes, {3} bars, {4} plates.</system:String>

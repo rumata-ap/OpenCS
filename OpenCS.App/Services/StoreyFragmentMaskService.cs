@@ -463,7 +463,8 @@ public static class StoreyFragmentMaskService
             return Fail("fragment_mask_no_cuts", "У фрагмента нет сечений рассечения.");
 
         var band = Band(db, parentId, z1, z2, out var nodes, out _);
-        var parentResult = new ImportedParentResult(snapshot, byNum, nodes, band);
+        var parentResult = new ImportedParentResult(snapshot, byNum, nodes, band,
+            sourceKind == FragmentMaskSet.SourceLira ? ImportedForceConvention.Lira : null);
         if (parentResult.BarsWithoutAxes.Count > 0)
             diag.Add(new("fragment_mask_bar_axes", $"Стержней полосы без местных осей программы: {parentResult.BarsWithoutAxes.Count} " +
                 "— их усилия не взяты (обновите схему из программы).", false, parentResult.BarsWithoutAxes));
