@@ -21,23 +21,39 @@ public static class FragmentTrialMesh
         var nodes = new List<FemMeshNode>();
         var elements = new List<FemElement>();
         var byKey = new Dictionary<(long, long, long), string>();
+        static (long, long, long) Key(PlanarVector3 p) => ((long)Math.Round(p.X * 1e6), (long)Math.Round(p.Y * 1e6), (long)Math.Round(p.Z * 1e6));
+        // Сохранённая сетка — своими КЭ и узлами (теги родителя: нагрузки на сохранённые КЭ ссылаются на них); новые теги —
+        // выше наибольшего сохранённого.
+        static int Max(IEnumerable<string> tags) =>
+            tags.Select(t => int.TryParse(t, NumberStyles.Integer, CultureInfo.InvariantCulture, out int v) ? v : 0).DefaultIfEmpty(0).Max();
+        foreach (var n in draft.KeptMeshNodes)
+        {
+            nodes.Add(new FemMeshNode { NodeTag = n.NodeTag, X = n.X, Y = n.Y, Z = n.Z });
+            byKey.TryAdd(Key(new PlanarVector3(n.X, n.Y, n.Z)), n.NodeTag);
+        }
+        var keptElements = draft.Members.SelectMany(m => m.KeptElements ?? []).ToList();
+        elements.AddRange(keptElements.Select(e => e.ShallowCopy()));
+        int nextNode = Max(nodes.Select(n => n.NodeTag)) + 1;
+        int nextElement = Max(keptElements.Select(e => e.ElemTag)) + 1;
         string Node(PlanarVector3 p)
         {
-            var key = ((long)Math.Round(p.X * 1e6), (long)Math.Round(p.Y * 1e6), (long)Math.Round(p.Z * 1e6));
+            var key = Key(p);
             if (byKey.TryGetValue(key, out var tag)) return tag;
-            tag = (nodes.Count + 1).ToString(CultureInfo.InvariantCulture);
+            tag = (nextNode++).ToString(CultureInfo.InvariantCulture);
             nodes.Add(new FemMeshNode { NodeTag = tag, X = p.X, Y = p.Y, Z = p.Z });
             return byKey[key] = tag;
         }
         void Element(string type, string member, params PlanarVector3[] points) => elements.Add(new FemElement
         {
-            ElemTag = (elements.Count + 1).ToString(CultureInfo.InvariantCulture), ElemType = type, SourceMemberTag = member,
+            ElemTag = (nextElement++).ToString(CultureInfo.InvariantCulture), ElemType = type, SourceMemberTag = member,
             NodeIdsJson = "[" + string.Join(",", points.Select(Node)) + "]",
         });
 
         var draftNodes = draft.Nodes.ToDictionary(n => n.NodeTag, StringComparer.Ordinal);
-        foreach (var (member, region, _) in draft.Members)
+        foreach (var part in draft.Members)
         {
+            var (member, region, _) = part;
+            if (part.KeptElements is not null) continue;
             if (region is not null)
             {
                 double h = FemPlanarMeshPlan.MeshSize(member, region, plateStepM);

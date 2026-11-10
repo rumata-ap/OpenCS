@@ -16,13 +16,32 @@ public static partial class StoreyFragmentBuilder
         var nodes = parent.Nodes.GroupBy(n => n.NodeTag).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
 
         foreach (var s in parent.MeshNodeSupports)
-            if ((s.Mask & FemBoundaryDofs.All) != 0 && meshNodes.TryGetValue(s.NodeTag, out var n) && c.InBox(P(n)))
+        {
+            if ((s.Mask & FemBoundaryDofs.All) == 0) continue;
+            // Узел сохранённой сетки — закрепление по тегу один к одному.
+            if (IsKeptNode(c, s.NodeTag))
+            {
+                c.Draft.MeshNodeSupports.Add(new FemMeshNodeSupport { NodeTag = s.NodeTag, Mask = s.Mask & FemBoundaryDofs.All, Origin = s.Origin });
+                continue;
+            }
+            if (meshNodes.TryGetValue(s.NodeTag, out var n) && c.InBox(P(n)))
                 c.Nodes.Get(new PlanarVector3(n.X, n.Y, n.Z), s.Mask & FemBoundaryDofs.All);
+        }
 
         var byNode = new Dictionary<string, FemSpring>(StringComparer.Ordinal);
         foreach (var s in parent.Springs)
         {
             if (s.ActiveMask == 0) continue;
+            if (s.TargetKind == FemSpringTargetKinds.MeshNode && IsKeptNode(c, s.NodeTag))
+            {
+                var kept = new FemSpring
+                {
+                    TargetKind = FemSpringTargetKinds.MeshNode, NodeTag = s.NodeTag, Origin = s.Origin, SourceElemTag = s.SourceElemTag,
+                };
+                kept.SetStiffnesses(s.Stiffnesses);
+                c.Draft.Springs.Add(kept);
+                continue;
+            }
             PlanarVector3? at = s.TargetKind == FemSpringTargetKinds.MeshNode
                 ? meshNodes.TryGetValue(s.NodeTag, out var m) ? new PlanarVector3(m.X, m.Y, m.Z) : null
                 : nodes.TryGetValue(s.NodeTag, out var sn) ? P(sn) : null;

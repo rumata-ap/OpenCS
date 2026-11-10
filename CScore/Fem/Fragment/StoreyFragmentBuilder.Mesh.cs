@@ -74,6 +74,7 @@ public static partial class StoreyFragmentBuilder
         foreach (var part in build.Parts)
         {
             var m = part.Member;
+            c.Keep?.ElementsOf.TryAdd(m.ElemTag, part.ElementTags.Select(t => elementByTag.GetValueOrDefault(t)).OfType<FemElement>().ToList());
             if (m.ElemType == "beam")
             {
                 // Сечение — у КЭ цепочки (импорт SCAD/ЛИРЫ): части фрагмента берут его по своему участку (CutBar).

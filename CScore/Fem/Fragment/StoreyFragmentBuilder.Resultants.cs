@@ -44,6 +44,10 @@ public static partial class StoreyFragmentBuilder
         foreach (var (tag, load) in draft.NodeLoads)
             Sum(load.LoadCaseId, l.CategoryOf[load]).Add(P(nodes[tag]) - l.Origin,
                 new PlanarVector3(load.Fx, load.Fy, load.Fz), new PlanarVector3(load.Mx, load.My, load.Mz));
+        var kept = draft.KeptMeshNodes.ToDictionary(n => n.NodeTag, StringComparer.Ordinal);
+        foreach (var load in draft.MeshNodeLoads)
+            Sum(load.LoadCaseId, LoadCategory.Nodes).Add(P(kept[load.MeshNodeTag]) - l.Origin,
+                new PlanarVector3(load.Fx, load.Fy, load.Fz), new PlanarVector3(load.Mx, load.My, load.Mz));
 
         var elementLoads = draft.ElementLoads.Where(x => x.LoadKind != FemElementLoadKinds.SelfWeight).ToList();
         if (elementLoads.Count > 0 || draft.FieldLoads.Count > 0)

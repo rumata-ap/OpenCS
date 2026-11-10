@@ -5,10 +5,12 @@ namespace CScore.Fem.Fragment;
 /// <summary>
 /// Запрос фрагмента этажа: полоса z₁…z₂ (середины этажей ниже и выше перекрытия), м; допуск, м; призма в плане вокруг
 /// стен и колонн (null — этажный фрагмент без боковых граней); сведения о выборе призмы для записи в схему (d, теги,
-/// перекрытия; призма в них заменяется на <paramref name="Prism"/>).
+/// перекрытия; призма в них заменяется на <paramref name="Prism"/>); сохранять ли сетку родителя у необрезанных КонЭ
+/// (<paramref name="KeepParentMesh"/>, спека 2026-11-10-fragment-keep-parent-mesh) и теги КонЭ родителя, которые всегда
+/// перемешиваются (<paramref name="MeshRebuildMemberTags"/>: высекаемые колонны).
 /// </summary>
 public sealed record StoreyFragmentRequest(double Z1, double Z2, string Name, double ToleranceM = 0.001, FragmentPrism? Prism = null,
-    FragmentPrismInfo? PrismInfo = null)
+    FragmentPrismInfo? PrismInfo = null, bool KeepParentMesh = false, IReadOnlyList<string>? MeshRebuildMemberTags = null)
 {
     /// <summary>
     /// Запас отбора снимка родителя в плане за габаритом призмы, м: читаются и элементы рядом с гранью — колонна с осью
@@ -93,7 +95,12 @@ public sealed record FragmentCut(
 }
 
 /// <summary>КонЭ фрагмента, его область (у пластин) и КонЭ родителя, из которого он получен.</summary>
-public sealed record StoreyFragmentMember(FemMember Member, PlanarRegion? Region, string ParentMemberTag);
+public sealed record StoreyFragmentMember(FemMember Member, PlanarRegion? Region, string ParentMemberTag)
+{
+    /// <summary>Сохранённые КЭ родителя (копии: теги родителя, <c>Origin = imported</c>, <c>SourceMemberTag</c> — тег
+    /// КонЭ фрагмента); null — сетка КонЭ строится заново.</summary>
+    public IReadOnlyList<FemElement>? KeptElements { get; set; }
+}
 
 /// <summary>Черновик фрагмента: всё, что сервис запишет в новую схему.</summary>
 public sealed class StoreyFragmentDraft
@@ -113,13 +120,22 @@ public sealed class StoreyFragmentDraft
     public List<FragmentMemberLoad> MemberLoads { get; } = [];
     public List<FragmentNodeLoad> NodeLoads { get; } = [];
     public List<FragmentKinematicLoad> KinematicLoads { get; } = [];
-    /// <summary>Пружины на узлах схемы фрагмента (<see cref="FemSpringTargetKinds.Node"/>, тег узла фрагмента).</summary>
+    /// <summary>Пружины на узлах схемы фрагмента (<see cref="FemSpringTargetKinds.Node"/>, тег узла фрагмента) и на узлах
+    /// сохранённой сетки (<see cref="FemSpringTargetKinds.MeshNode"/>, тег родителя).</summary>
     public List<FemSpring> Springs { get; } = [];
     public List<FragmentFieldLoad> FieldLoads { get; } = [];
     /// <summary>Импортные АЖТ «по точкам»: ведущий и ведомые — теги узлов фрагмента (<see cref="FemNodeRigidBodies"/>).</summary>
     public List<FemRigidBody> NodeRigidBodies { get; } = [];
     /// <summary>Опорная сетка: КЭ родителя полосы.</summary>
     public List<FragmentRefElement> RefElements { get; } = [];
+    /// <summary>Узлы сохранённой сетки родителя (копии с тегами родителя, <c>Origin = imported</c>).</summary>
+    public List<FemMeshNode> KeptMeshNodes { get; } = [];
+    /// <summary>Узловые нагрузки на узлах сохранённой сетки — по тегу узла один к одному.</summary>
+    public List<FemMeshNodeLoad> MeshNodeLoads { get; } = [];
+    /// <summary>Закрепления узлов сохранённой сетки — по тегу узла один к одному.</summary>
+    public List<FemMeshNodeSupport> MeshNodeSupports { get; } = [];
+    /// <summary>У части КонЭ сохранена сетка родителя.</summary>
+    public bool HasKeptMesh => Members.Any(m => m.KeptElements is not null);
     public List<FemValidationDiagnostic> Diagnostics { get; } = [];
     /// <summary>Есть отказ — схему не создавать.</summary>
     public bool HasErrors => Diagnostics.Any(d => d.IsError);

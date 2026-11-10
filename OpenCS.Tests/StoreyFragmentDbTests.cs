@@ -219,6 +219,43 @@ public sealed class StoreyFragmentDbTests : IDisposable
         Assert.Equal(0L, Scalar("SELECT COUNT(*) FROM fem_node_rigid_bodies"));
     }
 
+    /// <summary>Сохранение сетки родителя (v101): плита S1 целиком в полосе пишется импортной сеткой с тегами родителя,
+    /// нагрузки на её КЭ и узел — по тегам; флажок схемы читается после перезапуска и копируется с копией схемы.</summary>
+    [Fact]
+    public void Commit_KeepParentMesh_WritesImportedMesh()
+    {
+        int fragmentId;
+        using (var db = new DatabaseService(_path))
+        {
+            var parent = StoreyFragmentDbFixture.CreateParent(db);
+            var built = StoreyFragmentService.Build(db, parent.Id, new StoreyFragmentRequest(1.0, 5.0, "Этаж", KeepParentMesh: true));
+            var fragment = built.Schema ?? throw new InvalidOperationException(string.Join("\n", built.Draft.Diagnostics));
+            fragmentId = fragment.Id;
+
+            Assert.True(db.HasImportedMesh(fragmentId));
+            var elements = db.GetFemMeshElements(fragmentId);
+            Assert.Equal(Enumerable.Range(1, 16).Select(i => i.ToString()), elements.Select(e => e.ElemTag).Order(StringComparer.Ordinal)
+                .OrderBy(int.Parse));
+            Assert.All(elements, e => Assert.Equal((FemMember.MeshSourceImported, "S1"), (e.Origin, e.SourceMemberTag)));
+            Assert.Contains(db.GetFemMeshNodes(fragmentId), n => n.NodeTag == "1007" && n.Origin == FemMember.MeshSourceImported);
+            Assert.True(db.GetFemMembers(fragmentId).Single(m => m.ElemTag == "S1").IsMeshLocked);
+
+            var load = Assert.Single(db.GetFemElementLoads(fragmentId), l => l.LoadKind == FemElementLoadKinds.Uniform);
+            Assert.Equal(FemLoadTargetKinds.Elements, load.TargetKind);
+            Assert.Equal(16, load.TargetTags.Count);
+            Assert.Equal("1007", Assert.Single(db.GetFemMeshNodeLoads(fragmentId)).MeshNodeTag);
+
+            var copy = db.DuplicateFemSchema(fragmentId, "Копия");
+            Assert.True(copy.FragmentKeepParentMesh);
+        }
+        using (var db = new DatabaseService(_path))
+        {
+            db.LoadAll();
+            Assert.True(db.FemSchemas.Single(s => s.Id == fragmentId).FragmentKeepParentMesh);
+        }
+        Assert.Equal(1L, Scalar("SELECT COUNT(*) FROM pragma_table_info('fem_schemas') WHERE name='fragment_keep_parent_mesh'"));
+    }
+
     object? Scalar(string sql)
     {
         using var c = new SqliteConnection($"Data Source={_path};Pooling=False");

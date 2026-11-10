@@ -26,6 +26,10 @@ public sealed record ElementFragmentSelection(
 {
     /// <summary>Есть отказ — фрагмент не строится.</summary>
     public bool HasErrors => Prism is null || Diagnostics.Any(d => d.IsError);
+
+    /// <summary>Выбранные КонЭ-стержни (колонны): их сетка во фрагменте всегда строится заново
+    /// (<see cref="StoreyFragmentRequest.MeshRebuildMemberTags"/>).</summary>
+    public IReadOnlyList<string> BarTags { get; init; } = [];
 }
 
 /// <summary>
@@ -71,7 +75,11 @@ public static class ElementFragmentService
         var (zMin, zMax) = ElementZRange(parent, tags);
         floors ??= StoreyFloorService.Read(db, schemaId);
         var height = ElementFragmentLevels.Of(floors.Levels, prism.Prism, zMin, zMax);
-        return new(prism.Prism, prism.Diagnostics, tags, d, floors.Levels, height, zMin, zMax, floors.ZMin, floors.ZMax);
+        var bars = parent.Members.Where(m => m.ElemType == "beam").Select(m => m.ElemTag).ToHashSet(StringComparer.Ordinal);
+        return new(prism.Prism, prism.Diagnostics, tags, d, floors.Levels, height, zMin, zMax, floors.ZMin, floors.ZMax)
+        {
+            BarTags = tags.Where(bars.Contains).ToList(),
+        };
     }
 
     /// <summary>
@@ -97,7 +105,7 @@ public static class ElementFragmentService
         var prism = RequirePrism(selection);
         var (z1, z2) = ElementFragmentLevels.Range(selection.Levels, i, k, selection.SchemaZMin, selection.SchemaZMax);
         var info = new FragmentPrismInfo(prism, selection.OffsetM, selection.MemberTags, selection.Levels[i].Z, selection.Levels[k].Z);
-        return new StoreyFragmentRequest(z1, z2, name, Prism: prism, PrismInfo: info);
+        return new StoreyFragmentRequest(z1, z2, name, Prism: prism, PrismInfo: info, MeshRebuildMemberTags: selection.BarTags);
     }
 
     /// <summary>
@@ -114,7 +122,8 @@ public static class ElementFragmentService
         }
         var (z1, z2) = ElementFragmentLevels.FullHeightNoFloors(selection.ElemZMin, selection.ElemZMax);
         return new StoreyFragmentRequest(z1, z2, name, Prism: prism,
-            PrismInfo: new FragmentPrismInfo(prism, selection.OffsetM, selection.MemberTags, FullHeight: true));
+            PrismInfo: new FragmentPrismInfo(prism, selection.OffsetM, selection.MemberTags, FullHeight: true),
+            MeshRebuildMemberTags: selection.BarTags);
     }
 
     static FragmentPrism RequirePrism(ElementFragmentSelection selection)

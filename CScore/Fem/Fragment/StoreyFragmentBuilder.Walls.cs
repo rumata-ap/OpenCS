@@ -24,6 +24,7 @@ public static partial class StoreyFragmentBuilder
         pieces = ClipAll(pieces, Below(f, c.Z2), c.Tol, minArea);
         if (pieces.Count == 0) return;
         if (!ClipLateral(c, f, tag, ref pieces, minArea)) return;
+        bool whole = c.Keep is not null && WholeAfterClip(polygon, pieces);
         if (Math.Abs(f.LocalZ.Z) > 1e-4)
             c.Warn("fragment_wall_inclined", $"Стена {tag} не вертикальна — рассечена плоскостями z₁/z₂ как есть.", tag);
 
@@ -51,7 +52,8 @@ public static partial class StoreyFragmentBuilder
             var part = NewRegion(region, names[i], piece.Polygon.Outer, piece.Polygon.Holes);
             foreach (var zone in region.RebarZones) part.RebarZones.AddRange(ClipZone(zone, piece.Cuts, c.Tol, minArea));
             part.RecalcFingerprint();
-            c.Add(s.Member, CopyPart(s.Member, names[i], []), part);
+            var member = c.Add(s.Member, CopyPart(s.Member, names[i], []), part);
+            if (whole) TryKeepPiece(c, member, tag, f, piece.Polygon);
             AddEdgeCuts(c, f, names[i], piece.Polygon);
             AddLateralEdgeCuts(c, region, names[i], piece.Polygon);
         }

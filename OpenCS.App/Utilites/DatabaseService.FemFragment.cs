@@ -602,6 +602,7 @@ namespace OpenCS.Utilites
             FragmentPrismJson = request.Prism is { } prism
                ? FragmentPrismCodec.Encode((request.PrismInfo ?? new FragmentPrismInfo(prism)) with { Prism = prism })
                : null,
+            FragmentKeepParentMesh = request.KeepParentMesh,
          };
 
          using var tx = _connection.BeginTransaction();
@@ -613,8 +614,8 @@ namespace OpenCS.Utilites
                   INSERT INTO fem_schemas (tag, source_type, created, source_path, mesh_bar_step_m, mesh_plate_step_m,
                                            auto_rigid_junctions, rigid_junction_angle_deg,
                                            parent_schema_id, fragment_z1, fragment_z2, parent_fingerprint, fragment_build_report_json,
-                                           parent_source_type, fragment_prism_json)
-                  VALUES (@tag, @src, @created, NULL, @bar, @plate, @auto, @angle, @parent, @z1, @z2, @fp, @report, @pst, @prism);
+                                           parent_source_type, fragment_prism_json, fragment_keep_parent_mesh)
+                  VALUES (@tag, @src, @created, NULL, @bar, @plate, @auto, @angle, @parent, @z1, @z2, @fp, @report, @pst, @prism, @keep);
                   SELECT last_insert_rowid();
                   """;
                cmd.Parameters.AddWithValue("@tag", schema.Tag);
@@ -663,6 +664,10 @@ namespace OpenCS.Utilites
                SaveFemMember(m);
                memberId[m.ElemTag] = m.Id;
             }
+
+            // Сохранённая сетка родителя (импортная: сборка её не трогает) — до нагрузок на КЭ и ГУ узлов сетки.
+            if (draft.HasKeptMesh)
+               InsertFemMeshSnapshot(sid, draft.KeptMeshNodes, draft.Members.SelectMany(p => p.KeptElements ?? []).ToList());
 
             var lcMap = new Dictionary<int, int>();
             using (var cmd = _connection.CreateCommand())
@@ -787,11 +792,17 @@ namespace OpenCS.Utilites
                }
             }
 
-            foreach (var s in draft.Springs) Node(s.NodeTag);
-            InsertFemBoundaryCore(sid, [], draft.Springs, [], updateObjects: false);
+            var keptNodeTags = draft.KeptMeshNodes.Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal);
+            string MeshNode(string tag) => keptNodeTags.Contains(tag) ? tag
+               : throw new InvalidOperationException($"ГУ или нагрузка фрагмента ссылается на узел сетки {tag}, которого нет в сохранённой сетке.");
+            foreach (var s in draft.Springs)
+               if (s.TargetKind == FemSpringTargetKinds.MeshNode) MeshNode(s.NodeTag); else Node(s.NodeTag);
+            foreach (var s in draft.MeshNodeSupports) MeshNode(s.NodeTag);
+            foreach (var l in draft.MeshNodeLoads) MeshNode(l.MeshNodeTag);
+            InsertFemBoundaryCore(sid, draft.MeshNodeSupports, draft.Springs, [], updateObjects: false);
             foreach (var b in draft.NodeRigidBodies) { Node(b.MasterNodeTag); foreach (var t in b.SlaveNodeTags) Node(t); }
             InsertRigidBodiesCore("fem_node_rigid_bodies", sid, draft.NodeRigidBodies, updateObjects: false);
-            InsertFemMeshLevelLoadsCore(sid, draft.ElementLoads, [], Lc, _ => null, updateObjects: false);
+            InsertFemMeshLevelLoadsCore(sid, draft.ElementLoads, draft.MeshNodeLoads, Lc, _ => null, updateObjects: false);
             InsertStoreyFragmentDataCore(sid, draft.Cuts, draft.RefElements, draft.FieldLoads, Lc);
             CopyFragmentRebarSourcesCore(parentId, sid);
             tx.Commit();
@@ -840,6 +851,7 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@z2", (object?)schema.FragmentZ2 ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@fp", (object?)schema.ParentFingerprint ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@report", (object?)schema.FragmentBuildReportJson ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@keep", schema.FragmentKeepParentMesh ? 1 : 0);
       }
    }
 }

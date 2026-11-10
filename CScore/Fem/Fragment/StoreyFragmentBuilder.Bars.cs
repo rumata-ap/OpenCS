@@ -48,10 +48,20 @@ public static partial class StoreyFragmentBuilder
                 if (t > lo + eps && t < hi - eps && RegionContains(slab.Region, At(a, d, t), c.Tol)) stations.Add(t);
             }
         stations = stations.Distinct().OrderBy(t => t).ToList();
+        // Сохранение сетки решается до узлов: концы частей берут теги узлов сетки родителя (FragmentNodeTable.Keep).
+        var kept = c.Keep is null ? null : KeepBarParts(c, tag, a, d, stations);
+        var placeholders = new List<StoreyFragmentMember>();
+        int count = stations.Count - 1;
+        var names = PartNames(tag, count, twoLevels: true);
+        if (kept is not null)
+            for (int k = 0; k < count; k++)
+            {
+                var holder = new StoreyFragmentMember(new FemMember { ElemTag = names[d.Z < 0 ? count - 1 - k : k] }, null, tag);
+                KeepElements(c, holder, kept[k]);
+                placeholders.Add(holder);
+            }
         var nodes = stations.Select(t => c.Nodes.Get(At(a, d, t), t == 0 ? s.DofA : t == 1 ? s.DofB : 0)).ToList();
 
-        int count = nodes.Count - 1;
-        var names = PartNames(tag, count, twoLevels: true);
         var parts = new List<FemMember>();
         for (int k = 0; k < count; k++)
         {
@@ -60,7 +70,12 @@ public static partial class StoreyFragmentBuilder
             var part = CopyPart(s.Member, name, [int.Parse(nodes[k].NodeTag), int.Parse(nodes[k + 1].NodeTag)]);
             part.CrossSectionId ??= SectionOnPart(c, s.Member.ElemTag, At(a, d, stations[k]), At(a, d, stations[k + 1]), name);
             parts.Add(part);
-            c.Add(s.Member, part, null);
+            var member = c.Add(s.Member, part, null);
+            if (kept is not null)
+            {
+                member.KeptElements = placeholders[k].KeptElements;
+                part.MeshSource = FemMember.MeshSourceImported;
+            }
         }
         AddEndCut(c, parts[0], nodes[0], u * -1);
         AddEndCut(c, parts[^1], nodes[^1], u);

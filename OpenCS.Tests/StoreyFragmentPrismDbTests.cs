@@ -40,7 +40,7 @@ public sealed class StoreyFragmentPrismDbTests : IDisposable
              "ALTER TABLE fem_schemas DROP COLUMN fragment_prism_json;UPDATE settings SET value_json='97' WHERE key='schema_version'");
         using (var db = new DatabaseService(_path))
         {
-            Assert.Equal("98", Scalar("SELECT value_json FROM settings WHERE key='schema_version'"));
+            Assert.Equal(DatabaseService.SchemaVersion.ToString(), Scalar("SELECT value_json FROM settings WHERE key='schema_version'"));
             foreach (var c in new[] { "nx", "ny", "nz" })
                 Assert.Equal(1L, Scalar($"SELECT COUNT(*) FROM pragma_table_info('fem_fragment_cuts') WHERE name='{c}'"));
             db.LoadAll();

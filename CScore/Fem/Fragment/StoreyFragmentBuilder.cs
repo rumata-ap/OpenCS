@@ -33,7 +33,9 @@ public static partial class StoreyFragmentBuilder
         /// <summary>Точка внутри фрагмента (полоса и призма) или на его границе в допуске.</summary>
         public bool InBox(PlanarVector3 p) => Bounds.InBox(p);
         public StoreyFragmentDraft Draft => draft;
-        public FragmentNodeTable Nodes { get; } = new(draft.Nodes);
+        public FragmentNodeTable Nodes { get; set; } = new(draft.Nodes);
+        /// <summary>Сохранение сетки родителя (<see cref="StoreyFragmentRequest.KeepParentMesh"/>); null — выключено.</summary>
+        public KeepState? Keep { get; set; }
         public List<Slab> Slabs { get; } = [];
         /// <summary>Стержневые КЭ родителя по тегу КонЭ: концы и сечение — источник сечения частей фрагмента.</summary>
         public Dictionary<string, List<(PlanarVector3 A, PlanarVector3 B, int? SectionId)>> ParentBars { get; set; } = [];
@@ -45,7 +47,12 @@ public static partial class StoreyFragmentBuilder
         /// <summary>Контур сечения по Id из снимка (правило (а): габарит колонны у грани призмы).</summary>
         public Func<int, IReadOnlyList<(double Y, double Z)>?>? SectionOutline { get; set; }
         public bool OnCutPlane(double z) => Math.Abs(z - Z1) <= Tol || Math.Abs(z - Z2) <= Tol;
-        public void Add(FemMember source, FemMember part, PlanarRegion? region) => draft.Members.Add(new(part, region, source.ElemTag));
+        public StoreyFragmentMember Add(FemMember source, FemMember part, PlanarRegion? region)
+        {
+            var member = new StoreyFragmentMember(part, region, source.ElemTag);
+            draft.Members.Add(member);
+            return member;
+        }
     }
 
     /// <summary>Черновик фрагмента по полосе запроса; при отказе — черновик с ошибкой в диагностике.</summary>
@@ -66,6 +73,11 @@ public static partial class StoreyFragmentBuilder
             return draft;
         }
 
+        if (request.KeepParentMesh)
+        {
+            c.Keep = new KeepState(parent, request);
+            c.Nodes = new FragmentNodeTable(draft.Nodes, ReservedMeshTags(parent));
+        }
         var sources = Resolve(c, parent);
         c.ParentBars = ParentBars(parent);
         draft.ParentMeshStepM = ParentMeshStep(c, parent);
@@ -85,6 +97,7 @@ public static partial class StoreyFragmentBuilder
         TransferRigidBodies(c, parent);
         ReportNotTransferred(c, parent);
         TransferLoads(c, parent);
+        LinkKeptNodes(c);
         return draft;
     }
 
@@ -141,7 +154,7 @@ public static partial class StoreyFragmentBuilder
         region.BoundarySegments.AddRange(source.BoundarySegments);
         region.ConstraintObjects.AddRange(source.ConstraintObjects);
         region.RecalcFingerprint();
-        c.Add(s.Member, CopyPart(s.Member, tag, []), region);
+        TryKeepWhole(c, c.Add(s.Member, CopyPart(s.Member, tag, []), region), tag);
         c.Slabs.Add(new(tag, region, z));
         // Кромка на грани призмы, за которой родитель продолжается (область КЭ без КонЭ из КЭ полосы кончается на
         // грани, если линия узлов сетки на ней), — разрез и у плиты целиком внутри.

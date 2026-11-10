@@ -51,6 +51,9 @@ public class FemSchema
     public string? FragmentLateralBcPreset { get; set; }
     /// <summary>Призма фрагмента вокруг стен и колонн (<see cref="Fragment.FragmentPrismCodec"/>); null — этажный фрагмент.</summary>
     public string? FragmentPrismJson       { get; set; }
+    /// <summary>Фрагмент собран с сохранением сетки родителя у необрезанных КонЭ
+    /// (<see cref="Fragment.StoreyFragmentRequest.KeepParentMesh"/>).</summary>
+    public bool    FragmentKeepParentMesh  { get; set; }
     /// <summary>Схема — фрагмент этажа другой схемы.</summary>
     public bool IsFragment => ParentSchemaId is not null;
 

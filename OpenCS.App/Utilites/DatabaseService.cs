@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 100;
+      const int CurrentSchemaVersion = 101;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -120,6 +120,7 @@ namespace OpenCS.Utilites
          [97] = MigrateV98,
          [98] = MigrateV99,
          [99] = MigrateV100,
+         [100] = MigrateV101,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -822,6 +823,7 @@ namespace OpenCS.Utilites
          MigrateV98();
          MigrateV99();
          MigrateV100();
+         MigrateV101();
          MigrateV50();
 
          // Для новых БД сразу выставляем текущую версию, чтобы Migrate() не гнал старые миграции
@@ -1868,6 +1870,14 @@ namespace OpenCS.Utilites
             MigExec("ALTER TABLE fem_members ADD COLUMN rigid_junction_kind TEXT");
          if (!ColumnExists("fem_members", "rigid_junction_trace_json"))
             MigExec("ALTER TABLE fem_members ADD COLUMN rigid_junction_trace_json TEXT");
+      }
+
+      /// <summary>Миграция v101: признак фрагмента с сохранённой сеткой родителя у необрезанных КонЭ (спека
+      /// 2026-11-10-fragment-keep-parent-mesh).</summary>
+      void MigrateV101()
+      {
+         if (!ColumnExists("fem_schemas", "fragment_keep_parent_mesh"))
+            MigExec("ALTER TABLE fem_schemas ADD COLUMN fragment_keep_parent_mesh INTEGER NOT NULL DEFAULT 0");
       }
 
       /// <summary>Миграция v100: imperfections в force_sets — несовершенства EN 1993-1-1 5.3 усилий второго порядка (теги загружений).</summary>
@@ -4407,7 +4417,7 @@ namespace OpenCS.Utilites
                SELECT id, tag, source_type, created, source_path, mesh_bar_step_m, mesh_plate_step_m, auto_rigid_junctions,
                       rigid_junction_angle_deg, parent_schema_id, fragment_z1, fragment_z2, parent_fingerprint,
                       fragment_build_report_json, parent_source_type, fragment_bc_preset, fragment_lateral_bc_preset,
-                      fragment_prism_json
+                      fragment_prism_json, fragment_keep_parent_mesh
                FROM fem_schemas ORDER BY id
                """;
             using var r = cmd.ExecuteReader();
@@ -4433,6 +4443,7 @@ namespace OpenCS.Utilites
                   FragmentBcPreset        = r.IsDBNull(15) ? null : r.GetString(15),
                   FragmentLateralBcPreset = r.IsDBNull(16) ? null : r.GetString(16),
                   FragmentPrismJson       = r.IsDBNull(17) ? null : r.GetString(17),
+                  FragmentKeepParentMesh  = !r.IsDBNull(18) && r.GetInt64(18) != 0,
                };
                schemas[s.Id] = s;
             }
@@ -4706,8 +4717,8 @@ namespace OpenCS.Utilites
                cmd.CommandText = """
                   INSERT INTO fem_schemas (tag, source_type, created, source_path, auto_rigid_junctions, rigid_junction_angle_deg,
                                            parent_schema_id, fragment_z1, fragment_z2, parent_fingerprint, fragment_build_report_json, parent_source_type,
-                                           fragment_bc_preset, fragment_lateral_bc_preset, fragment_prism_json)
-                  VALUES (@tag, @src, @created, @path, @auto, @angle, @parent, @z1, @z2, @fp, @report, @pst, @bcp, @lbcp, @prism);
+                                           fragment_bc_preset, fragment_lateral_bc_preset, fragment_prism_json, fragment_keep_parent_mesh)
+                  VALUES (@tag, @src, @created, @path, @auto, @angle, @parent, @z1, @z2, @fp, @report, @pst, @bcp, @lbcp, @prism, @keep);
                   SELECT last_insert_rowid();
                """;
                AddFemSchemaFragmentParameters(cmd, schema);
@@ -6279,6 +6290,7 @@ namespace OpenCS.Utilites
                FragmentBcPreset        = sourceSchema.FragmentBcPreset,
                FragmentLateralBcPreset = sourceSchema.FragmentLateralBcPreset,
                FragmentPrismJson       = sourceSchema.FragmentPrismJson,
+               FragmentKeepParentMesh  = sourceSchema.FragmentKeepParentMesh,
             };
             using (var schemaCmd = _connection.CreateCommand())
             {
@@ -6286,8 +6298,8 @@ namespace OpenCS.Utilites
                   INSERT INTO fem_schemas (tag, source_type, created, source_path, mesh_bar_step_m, mesh_plate_step_m,
                                            auto_rigid_junctions, rigid_junction_angle_deg,
                                            parent_schema_id, fragment_z1, fragment_z2, parent_fingerprint, fragment_build_report_json, parent_source_type,
-                                           fragment_bc_preset, fragment_lateral_bc_preset, fragment_prism_json)
-                  VALUES (@tag, @src, @created, @path, @bar, @plate, @auto, @angle, @parent, @z1, @z2, @fp, @report, @pst, @bcp, @lbcp, @prism);
+                                           fragment_bc_preset, fragment_lateral_bc_preset, fragment_prism_json, fragment_keep_parent_mesh)
+                  VALUES (@tag, @src, @created, @path, @bar, @plate, @auto, @angle, @parent, @z1, @z2, @fp, @report, @pst, @bcp, @lbcp, @prism, @keep);
                   SELECT last_insert_rowid();
                """;
                AddFemSchemaFragmentParameters(schemaCmd, newSchema);

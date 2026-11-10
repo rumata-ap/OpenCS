@@ -238,14 +238,75 @@ public static partial class StoreyFragmentBuilder
     static void TransferElementLoads(LoadCtx l, List<BarPiece> pieces)
     {
         var shells = new ShellLoads(l);
+        var kept = new KeptElementLoads(l);
         foreach (var load in l.Parent.ElementLoads)
             foreach (var e in FemLoadTargets.Resolve(load, l.Mesh, []))
             {
                 if (!l.BandTags.Contains(e.ElemTag) || l.Mesh.Geometry(e) is not { } g) continue;
-                if (load.LoadKind == FemElementLoadKinds.SelfWeight) shells.SelfWeight(load, e, g);
+                if (IsKeptElement(l.C, e.ElemTag)) kept.Add(load, e, g);
+                else if (load.LoadKind == FemElementLoadKinds.SelfWeight) shells.SelfWeight(load, e, g);
                 else if (g.IsBar) BarElementLoad(l, load, e, g, l.Mesh.BarRotationDeg(e), pieces);
                 else if (g.IsShell) shells.Add(load, e, g);
             }
         shells.Flush();
+        kept.Flush();
+    }
+
+    /// <summary>
+    /// Нагрузки на сохранённые КЭ (спека разд. 3): копия нагрузки родителя с целью «КЭ» и тегами её сохранённых КЭ — по
+    /// одной на исходную нагрузку и вид; равнодействующая родителя — часть нагрузки внутри границ, как у прочих.
+    /// </summary>
+    sealed class KeptElementLoads(LoadCtx l)
+    {
+        readonly Dictionary<FemElementLoad, Dictionary<string, List<string>>> _tags = new(ReferenceEqualityComparer.Instance);
+        readonly List<FemElementLoad> _order = [];
+
+        public void Add(FemElementLoad load, FemElement e, FemElementGeometry g)
+        {
+            string category = Category(load, g);
+            if (load.LoadKind != FemElementLoadKinds.SelfWeight)
+                l.AddParentPieces(load.LoadCaseId, category, FemElementLoadPieces.Of(load, e, l.Mesh, 1));
+            if (!_tags.TryGetValue(load, out var byCategory))
+            {
+                _tags[load] = byCategory = new(StringComparer.Ordinal);
+                _order.Add(load);
+            }
+            if (!byCategory.TryGetValue(category, out var list)) byCategory[category] = list = [];
+            list.Add(e.ElemTag);
+        }
+
+        public void Flush()
+        {
+            foreach (var load in _order)
+                foreach (var (category, tags) in _tags[load])
+                {
+                    var copy = new FemElementLoad
+                    {
+                        LoadCaseId = load.LoadCaseId, Origin = load.Origin, TargetKind = FemLoadTargetKinds.Elements,
+                        LoadKind = load.LoadKind, CoordinateSystem = load.CoordinateSystem, Axis = load.Axis,
+                    };
+                    copy.SetTargetTags(tags);
+                    copy.SetValues([.. load.Values]);
+                    l.C.Draft.ElementLoads.Add(copy);
+                    if (load.LoadKind != FemElementLoadKinds.SelfWeight) l.CategoryOf[copy] = category;
+                }
+        }
+
+        /// <summary>Вид проверки равнодействующих — как у переноса обычных КЭ.</summary>
+        static string Category(FemElementLoad load, FemElementGeometry g)
+        {
+            if (g.IsBar) return LoadCategory.Bars;
+            var v = load.Values;
+            return load.LoadKind switch
+            {
+                FemElementLoadKinds.Uniform => LoadCategory.Uniform,
+                FemElementLoadKinds.Nodal when v.Count > 0 && v.All(x => Math.Abs(x - v[0]) <= 1e-12 * Math.Max(1, Math.Abs(v[0]))) =>
+                    LoadCategory.Uniform,
+                FemElementLoadKinds.Nodal => LoadCategory.Nodal,
+                FemElementLoadKinds.Edge => LoadCategory.Edge,
+                FemElementLoadKinds.Point => LoadCategory.Point,
+                _ => load.LoadKind,
+            };
+        }
     }
 }

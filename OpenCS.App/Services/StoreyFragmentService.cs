@@ -88,6 +88,7 @@ public static class StoreyFragmentService
     {
         ArgumentNullException.ThrowIfNull(schema);
         if (schema.ParentSchemaId is null || schema.FragmentZ1 is not double z1 || schema.FragmentZ2 is not double z2) return null;
-        return new StoreyFragmentRequest(z1, z2, schema.Tag, Prism: FragmentPrismCodec.Decode(schema.FragmentPrismJson)?.Prism);
+        return new StoreyFragmentRequest(z1, z2, schema.Tag, Prism: FragmentPrismCodec.Decode(schema.FragmentPrismJson)?.Prism,
+            KeepParentMesh: schema.FragmentKeepParentMesh);
     }
 }

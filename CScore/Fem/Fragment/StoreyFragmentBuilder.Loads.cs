@@ -200,8 +200,20 @@ public static partial class StoreyFragmentBuilder
         foreach (var load in l.Parent.MeshNodeLoads)
         {
             if (!l.MeshNodes.TryGetValue(load.MeshNodeTag, out var n) || !l.C.InBox(P(n))) continue;
-            NodeLoad(l, load.LoadCaseId, new PlanarVector3(n.X, n.Y, n.Z),
-                new PlanarVector3(load.Fx, load.Fy, load.Fz), new PlanarVector3(load.Mx, load.My, load.Mz));
+            var f = new PlanarVector3(load.Fx, load.Fy, load.Fz);
+            var m = new PlanarVector3(load.Mx, load.My, load.Mz);
+            // Узел сохранённой сетки — нагрузка по тегу один к одному.
+            if (IsKeptNode(l.C, load.MeshNodeTag))
+            {
+                l.AddParent(load.LoadCaseId, LoadCategory.Nodes, P(n), f, m);
+                l.C.Draft.MeshNodeLoads.Add(new FemMeshNodeLoad
+                {
+                    LoadCaseId = load.LoadCaseId, MeshNodeTag = load.MeshNodeTag, Origin = load.Origin,
+                    Fx = load.Fx, Fy = load.Fy, Fz = load.Fz, Mx = load.Mx, My = load.My, Mz = load.Mz,
+                });
+                continue;
+            }
+            NodeLoad(l, load.LoadCaseId, P(n), f, m);
         }
         var byId = l.Parent.Nodes.Where(n => n.Id > 0).GroupBy(n => n.Id).ToDictionary(g => g.Key, g => g.First());
         foreach (var load in l.Parent.NodeLoads)
