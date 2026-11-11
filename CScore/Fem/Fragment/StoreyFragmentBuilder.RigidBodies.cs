@@ -27,6 +27,9 @@ public static partial class StoreyFragmentBuilder
         var points = new List<string>();
         var byTags = new List<string>();
         var fromTrace = new List<string>();
+        var mergedRigid = new List<string>();
+        var mergedHinge = new List<string>();
+        var hingeMasks = new SortedSet<string>(StringComparer.Ordinal);
         var missingNodes = new SortedSet<string>(FemNodeRigidBodies.TagComparer);
         var origins = new SortedSet<string>(StringComparer.Ordinal);
         foreach (var body in parent.RigidBodies)
@@ -105,13 +108,23 @@ public static partial class StoreyFragmentBuilder
                 slavesOutside.Add(label);
                 continue;
             }
-            if (lost > 0) partial.Add(label);
             var masterTag = c.Nodes.Get(m).NodeTag;
+            var slaveTags = slaves.Select(p => c.Nodes.Get(p).NodeTag).Where(t => t != masterTag).Distinct().ToList();
+            if (slaveTags.Count == 0)
+            {
+                // Ведомые совпали с ведущим (совпадающие узлы ЛИРЫ/SCAD сливаются во фрагменте в один): тело не нужно,
+                // связь — общим узлом. Неполная маска (шарнир, «объединение перемещений») при этом теряется.
+                bool full = (body.Mask & FemBoundaryDofs.All) is 0 or FemBoundaryDofs.All;
+                (full ? mergedRigid : mergedHinge).Add(label);
+                if (!full) hingeMasks.Add(FemBoundaryDofs.Describe(body.Mask & FemBoundaryDofs.All));
+                continue;
+            }
+            if (lost > 0) partial.Add(label);
             var copy = new FemRigidBody
             {
                 MasterNodeTag = masterTag, Mask = body.Mask, Kind = body.Kind, Origin = origin, SourceElemTag = body.SourceElemTag,
             };
-            copy.SetSlaveNodeTags(slaves.Select(p => c.Nodes.Get(p).NodeTag).Where(t => t != masterTag));
+            copy.SetSlaveNodeTags(slaveTags);
             c.Draft.NodeRigidBodies.Add(copy);
             points.Add(label);
             origins.Add(origin);
@@ -126,6 +139,11 @@ public static partial class StoreyFragmentBuilder
         string source = string.Join(", ", origins.Select(o => o switch { "import:scad" => "SCAD", "import:lira" => "ЛИРЫ", _ => o }));
         Row("fragment_rigid_body_points", points,
             $"АЖТ {source} перенесены по узлам схемы: {{0}} ({{1}}) — тела на узлах сетки появятся после построения сетки.");
+        Row("fragment_rigid_body_merged", mergedRigid,
+            "АЖТ на совпадающих узлах — во фрагменте узлы слиты в один, связь общим узлом, тело не нужно: {0} ({1}).");
+        Row("fragment_rigid_body_hinge_merged", mergedHinge,
+            $"АЖТ с неполной маской ({string.Join("; ", hingeMasks)}) на совпадающих узлах — во фрагменте узлы слиты в один, " +
+            "связь стала жёсткой (освобождённые DOF шарнира не сохраняются): {0} ({1}).");
         Row("fragment_rigid_body_slaves_dropped", partial, "АЖТ с ведомыми узлами вне КонЭ фрагмента — эти узлы отброшены: {0} ({1}).");
         Row("fragment_rigid_body_lost", masterOutside, "АЖТ не перенесены — ведущий узел вне КонЭ фрагмента: {0} ({1}).");
         Row("fragment_rigid_body_lost", slavesOutside, "АЖТ не перенесены — все ведомые узлы вне КонЭ фрагмента: {0} ({1}).");

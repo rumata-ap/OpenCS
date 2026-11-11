@@ -113,8 +113,17 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
     {
         if (Owner != null)
         {
-            Width = Owner.ActualWidth;
-            Height = Owner.ActualHeight;
+            // Размер главного окна задаётся после центрирования по 720×560 — без переноса угла окно
+            // растёт вправо-вниз от центра и уходит за край экрана вместе с кнопкой закрытия.
+            if (Owner.WindowState == System.Windows.WindowState.Maximized)
+                WindowState = System.Windows.WindowState.Maximized;
+            else
+            {
+                Left = Owner.Left;
+                Top = Owner.Top;
+                Width = Owner.ActualWidth;
+                Height = Owner.ActualHeight;
+            }
         }
         _vm.ShowSavedMesh();
     }
