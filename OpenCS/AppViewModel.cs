@@ -3712,9 +3712,10 @@ namespace OpenCS
          ViewModels.StoreyFragmentMaskFlowResult result;
          try
          {
-            // Строка занятости успевает отрисоваться до синхронного снятия.
-            await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
-            result = ViewModels.StoreyFragmentMaskFlow.Extract(db, fragment, source);
+            // Снятие (чтение полосы родителя, модель, узловые силы — минуты на «Музее») — в фоне, интерфейс не замирает;
+            // набор масок пишется здесь, в потоке соединения.
+            result = await Task.Run(() => ViewModels.StoreyFragmentMaskFlow.Extract(db, fragment, source, save: false));
+            if (result.Set is { } set) db.ReplaceFragmentMasks(fragment.Id, set);
          }
          catch (Exception ex)
          {

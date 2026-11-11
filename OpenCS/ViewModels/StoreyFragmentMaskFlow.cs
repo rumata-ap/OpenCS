@@ -17,7 +17,9 @@ namespace OpenCS.ViewModels;
 public sealed record FragmentMaskSourceItem(int AnalysisId, string SourceKind, string AnalysisTag, string Label);
 
 /// <summary>Итог снятия масок из окна: отказ (прежние маски целы), строки отчёта, строка журнала.</summary>
-public sealed record StoreyFragmentMaskFlowResult(bool IsError, IReadOnlyList<StoreyFragmentReportRow> Rows, string LogMessage);
+/// <param name="Set">Снятый набор (без отказа); при снятии без записи его пишет вызывающий.</param>
+public sealed record StoreyFragmentMaskFlowResult(bool IsError, IReadOnlyList<StoreyFragmentReportRow> Rows, string LogMessage,
+    FragmentMaskSet? Set = null);
 
 /// <summary>
 /// Команда «Маски из родителя…» без окон: список источников (постановки CSfea родителя со статусом «ok» и
@@ -93,18 +95,20 @@ public static class StoreyFragmentMaskFlow
             ? t.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)
             : Short(utc);
 
-    /// <summary>Снять маски из <paramref name="source"/>; отказ БД не меняет.</summary>
-    public static StoreyFragmentMaskFlowResult Extract(DatabaseService db, FemSchema fragment, FragmentMaskSourceItem source)
+    /// <summary>Снять маски из <paramref name="source"/>; отказ БД не меняет. <paramref name="save"/> = false — набор не
+    /// записывается (снятие в фоне), его пишет вызывающий в потоке соединения.</summary>
+    public static StoreyFragmentMaskFlowResult Extract(DatabaseService db, FemSchema fragment, FragmentMaskSourceItem source,
+        bool save = true)
     {
         ArgumentNullException.ThrowIfNull(source);
         var r = StoreyFragmentMaskService.Extract(db, fragment, source.SourceKind,
-            source.AnalysisId.ToString(CultureInfo.InvariantCulture));
+            source.AnalysisId.ToString(CultureInfo.InvariantCulture), save);
         var rows = Rows(r.Diagnostics);
         string log = r.HasErrors
             ? string.Format(Loc.S("StoreyFragmentMasksFailed"), fragment.Tag, source.AnalysisTag, rows.Count(x => x.IsError))
             : string.Format(Loc.S("StoreyFragmentMasksTaken"), fragment.Tag, source.AnalysisTag,
                 r.Set!.Items.Select(i => i.CutId).Distinct().Count(), rows.Count(x => !x.IsError && !x.IsSummary));
-        return new(r.HasErrors, rows, log);
+        return new(r.HasErrors, rows, log, r.HasErrors ? null : r.Set);
     }
 
     /// <summary>Отчёт снятия → строки окна: итог первым, затем ошибки и предупреждения.</summary>

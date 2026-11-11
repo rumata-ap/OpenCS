@@ -46,9 +46,11 @@ public static class StoreyFragmentMaskService
     /// <summary>
     /// Снять маски фрагмента <paramref name="fragment"/> из источника <paramref name="sourceKind"/>
     /// (<see cref="FragmentMaskSet.SourceCsfeaLinear"/> или <see cref="FragmentMaskSet.SourceCsfeaSecant"/>; ссылка —
-    /// Id постановки родителя). Отказ (ошибки отчёта) БД не меняет; иначе прежний набор заменяется.
+    /// Id постановки родителя). Отказ (ошибки отчёта) БД не меняет; иначе прежний набор заменяется. <paramref name="save"/> =
+    /// false — набор не записывается (счёт в фоне, запись — <see cref="DatabaseService.ReplaceFragmentMasks"/> в потоке соединения).
     /// </summary>
-    public static FragmentMaskExtractResult Extract(DatabaseService db, FemSchema fragment, string sourceKind, string sourceRef)
+    public static FragmentMaskExtractResult Extract(DatabaseService db, FemSchema fragment, string sourceKind, string sourceRef,
+        bool save = true)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(fragment);
@@ -64,7 +66,7 @@ public static class StoreyFragmentMaskService
         if (db.GetFemSchemaSourceType(parentId) is null)
             return Fail("fragment_mask_parent_deleted", "Схема-родитель фрагмента удалена — снять маски не из чего.");
         if (sourceKind is FragmentMaskSet.SourceScad or FragmentMaskSet.SourceLira)
-            return ExtractImported(db, fragment, parentId, z1, z2, sourceKind, diag);
+            return ExtractImported(db, fragment, parentId, z1, z2, sourceKind, diag, save);
         bool linear = sourceKind == FragmentMaskSet.SourceCsfeaLinear;
         if (!linear && sourceKind != FragmentMaskSet.SourceCsfeaSecant)
             return Fail("fragment_mask_source_unsupported", $"Источник масок «{sourceKind}» не поддерживается.");
@@ -162,7 +164,7 @@ public static class StoreyFragmentMaskService
             ReportJson = StoreyFragmentBuildReport.ToJson(diag),
             Items = extraction.Masks.Select(m => new FragmentMaskItem(cuts[m.CutIndex].Id, m.Key, m.Samples)).ToList(),
         };
-        db.ReplaceFragmentMasks(fragment.Id, set);
+        if (save) db.ReplaceFragmentMasks(fragment.Id, set);
         return new(set, diag) { BalanceResidual = residual };
     }
 
@@ -434,7 +436,7 @@ public static class StoreyFragmentMaskService
     /// но нет усилий КЭ полосы — маски кинематические с предупреждением.
     /// </summary>
     static FragmentMaskExtractResult ExtractImported(DatabaseService db, FemSchema fragment, int parentId, double z1, double z2,
-        string sourceKind, List<FemValidationDiagnostic> diag)
+        string sourceKind, List<FemValidationDiagnostic> diag, bool save)
     {
         FragmentMaskExtractResult Fail(string code, string message)
         {
@@ -529,7 +531,7 @@ public static class StoreyFragmentMaskService
             ReportJson = StoreyFragmentBuildReport.ToJson(diag),
             Items = extraction.Masks.Select(m => new FragmentMaskItem(cuts[m.CutIndex].Id, m.Key, m.Samples)).ToList(),
         };
-        db.ReplaceFragmentMasks(fragment.Id, set);
+        if (save) db.ReplaceFragmentMasks(fragment.Id, set);
         return new(set, diag) { BalanceResidual = residual };
     }
 
