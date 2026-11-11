@@ -797,6 +797,13 @@ public class Fem3DVM : ViewModelBase
         // Сетка прочитана — она же источник КЭ для фрагмента (после дискретизации номера КЭ новые).
         _meshOverlaySnapshot = (snapshot.nodes, snapshot.elements);
         Fragment.SetMeshSource(() => snapshot.elements);
+        // Глифы нагрузок на КЭ/КонЭ и собственного веса строятся по сетке (_loadMesh): после сборки сетки прежняя
+        // (у фрагмента без сохранения сетки — пустая) устарела — без сброса нагрузки на плите не видны до переоткрытия.
+        if (_loadMesh != null)
+        {
+            _loadMesh = null;
+            if (ShowLoadGlyphs) RefreshDiagramGlyphs();
+        }
         // Сетка схемы могла только что принять пластины областей — их снимки больше не рисуются отдельно.
         if (_edgeElements != null)
         {
