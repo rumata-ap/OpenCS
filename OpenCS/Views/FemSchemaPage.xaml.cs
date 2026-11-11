@@ -657,7 +657,15 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
     {
         var kept = _editorVm.KeptMeshMembers(tags);
         if (kept.Count == 0) return;
-        string target = kept.Count == 1 ? $"«{kept[0]}»" : string.Format(Loc.S("FemKeptMeshRemeshMany"), kept.Count);
+        // Несохранённая схема — отказ сразу: подтверждать необратимое действие, которое затем не выполнится, незачем.
+        if (_editorVm.Session.IsDirty)
+        {
+            _app.LogService.Error(Loc.S("FemKeptMeshRemeshUnsaved"));
+            MessageBox.Show(Window.GetWindow(this), Loc.S("FemKeptMeshRemeshUnsaved"), Loc.S("FemMemberRemeshKeptCtx"),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        string target =kept.Count == 1 ? $"«{kept[0]}»" : string.Format(Loc.S("FemKeptMeshRemeshMany"), kept.Count);
         if (MessageBox.Show(Window.GetWindow(this), string.Format(Loc.S("FemKeptMeshRemeshConfirm"), target),
                 Loc.S("FemMemberRemeshKeptCtx"), MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
             return;
