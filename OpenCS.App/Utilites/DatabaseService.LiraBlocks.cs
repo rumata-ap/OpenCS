@@ -116,6 +116,21 @@ namespace OpenCS.Utilites
          return Convert.ToInt64(cmd.ExecuteScalar()) != 0;
       }
 
+      /// <summary>
+      /// Есть сохранённая сетка — импортные КЭ или импортные узлы сетки. Узлы остаются и без КЭ: снятие замка с плиты
+      /// оставляет её узлы, на которые опирались соседние КЭ, — с ГУ и нагрузками; сборка встраивает их в новую сетку.
+      /// </summary>
+      public bool HasKeptMesh(int schemaId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT EXISTS(SELECT 1 FROM fem_elements WHERE schema_id=@sid AND origin='imported')
+                OR EXISTS(SELECT 1 FROM fem_mesh_nodes WHERE schema_id=@sid AND origin='imported')
+            """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         return Convert.ToInt64(cmd.ExecuteScalar()) != 0;
+      }
+
       /// <summary>Конструктивные элементы из кБ ЛИРЫ: прежние элементы этих кБ заменяются (см. <see cref="ApplyMeshMembers"/>).</summary>
       public void ApplyLiraBlockMembers(int schemaId, IReadOnlyList<LiraBlockInfo> blocks, IReadOnlyList<MeshMemberBuild> builds)
          => ApplyMeshMembers(schemaId, blocks.Select(b => b.Tag).ToList(), builds);

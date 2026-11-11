@@ -122,7 +122,7 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
     }
 
     /// <summary>Фрагмент с сохранённой сеткой: связность стыков — ошибка, лестница перемешивания разрешена.</summary>
-    bool IsStrict(int schemaId) => db.HasImportedMesh(schemaId) && db.GetFemSchemaFragmentSource(schemaId).IsFragment;
+    bool IsStrict(int schemaId) => db.HasKeptMesh(schemaId) && db.GetFemSchemaFragmentSource(schemaId).IsFragment;
 
     /// <summary>Вход планировщика снятия замков: узлы и КонЭ сборки, сетка, ГУ, тела и нагрузки сеточного уровня из БД.</summary>
     FemKeptMeshUnlockInput UnlockInput(int schemaId, IReadOnlyList<FemNode> nodes, IReadOnlyList<FemMember> members) => new(
@@ -147,7 +147,7 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
             nodes = unlock.Nodes;
             members = unlock.Members;
         }
-        bool keepImported = db.HasImportedMesh(schemaId);
+        bool keepImported = db.HasKeptMesh(schemaId);
         IReadOnlyList<FemMeshNode> storedNodes = unlock?.MeshNodes ?? (keepImported ? db.GetFemMeshNodes(schemaId) : []);
         IReadOnlyList<FemElement> storedElements = unlock?.MeshElements ?? (keepImported ? db.GetFemMeshElements(schemaId) : []);
         var (beamNodes, beamElements) = keepImported
@@ -185,7 +185,7 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
             info?.Invoke(string.Format(CultureInfo.CurrentCulture, Loc.S("FemSchemaMeshWaves"), ordered.Count, plan.Waves.Count));
             using var gate = new SemaphoreSlim(Math.Max(1, Environment.ProcessorCount));
             // Следы АЖТ не зависят от префикса — все заранее: ранняя область получает точки в вершинах следов поздних.
-            var keptPoints = strictImported ? KeptPoints(storedNodes) : [];
+            var keptPoints = strictImported ? KeptPoints(storedNodes, storedElements) : [];
             var allTraces = ordered.Select(p => junctionOptions != null
                 ? AwayFromKept(FemRigidJunctions.Build(p.Region, nodes, members, outlines, junctionOptions), p.Region, keptPoints, plateStep)
                 : null).ToArray();
@@ -338,7 +338,7 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
         var members = db.GetFemMembers(schemaId);
         var regions = db.GetPlanarRegions(schemaId);
         var ordered = FemPlanarMeshPlan.OrderedRegions(members, regions, PlateStep(schemaId));
-        bool keepImported = db.HasImportedMesh(schemaId);
+        bool keepImported = db.HasKeptMesh(schemaId);
         var (derivationNodes, derivationElements) = keepImported
             ? DerivationBase(schemaId, nodes, members, true, db.GetFemMeshNodes(schemaId), db.GetFemMeshElements(schemaId))
             : DerivationBase(schemaId, nodes, members, false, [], []);
@@ -357,7 +357,8 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
         var options = JunctionOptions(schemaId, keepImported);
         var outlines = SectionOutlines();
         double? step = PlateStep(schemaId);
-        var keptPoints = keepImported && db.GetFemSchemaFragmentSource(schemaId).IsFragment ? KeptPoints(db.GetFemMeshNodes(schemaId)) : [];
+        var keptPoints = keepImported && db.GetFemSchemaFragmentSource(schemaId).IsFragment
+            ? KeptPoints(db.GetFemMeshNodes(schemaId), db.GetFemMeshElements(schemaId)) : [];
         var traces = options != null ? AwayFromKept(FemRigidJunctions.Build(target, nodes, members, outlines, options), target, keptPoints, step) : null;
         // Следы — только касающихся поздних областей: другие в вывод не входят.
         var allTraces = new RigidJunctionTraceSet?[ordered.Count];
@@ -370,9 +371,24 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
             laterJunctions: index >= 0 ? LaterJunctions(plan, ordered, index, allTraces) : null);
     }
 
-    /// <summary>Узлы сохранённой (импортной) сетки — точки стыков, на которых следы АЖТ не ставят своих вершин.</summary>
-    static List<PlanarVector3> KeptPoints(IReadOnlyList<FemMeshNode> stored) =>
-        stored.Where(n => n.Origin == FemMember.MeshSourceImported).Select(n => new PlanarVector3(n.X, n.Y, n.Z)).ToList();
+    /// <summary>Узлы сохранённой (импортной) сетки — точки стыков, на которых следы АЖТ не ставят своих вершин. Только узлы
+    /// оставшихся КЭ сохранённой сетки: после снятия замка с плиты её узлы под сохранёнными стержнями остаются помеченными
+    /// импортными, и следы АЖТ колонн обрезались бы от стыка, которого уже нет (а проверка сетки, где этих узлов нет,
+    /// считала бы её устаревшей).</summary>
+    static List<PlanarVector3> KeptPoints(IReadOnlyList<FemMeshNode> stored, IReadOnlyList<FemElement> elements)
+    {
+        var kept = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var e in elements)
+        {
+            if (e.Origin != FemMember.MeshSourceImported) continue;
+            int[]? ids;
+            try { ids = System.Text.Json.JsonSerializer.Deserialize<int[]>(e.NodeIdsJson); }
+            catch (System.Text.Json.JsonException) { continue; }
+            foreach (var id in ids ?? []) kept.Add(id.ToString(CultureInfo.InvariantCulture));
+        }
+        return stored.Where(n => n.Origin == FemMember.MeshSourceImported && kept.Contains(n.NodeTag))
+            .Select(n => new PlanarVector3(n.X, n.Y, n.Z)).ToList();
+    }
 
     /// <summary>Следы АЖТ области — обрезанные в полшага сетки от стыков с сохранённой сеткой
     /// (<see cref="FemRigidJunctionSeams.AwayFromKeptSeams"/>).</summary>
@@ -433,7 +449,7 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
     {
         if (unlock is { IsEmpty: false })
             db.ApplyFemKeptMeshUnlock(schemaId, unlock, mesh.Nodes, mesh.Elements);
-        else if (db.HasImportedMesh(schemaId))
+        else if (db.HasKeptMesh(schemaId))
             db.SaveFemMeshSnapshotKeepingImported(schemaId, mesh.Nodes, mesh.Elements);
         else
             db.SaveFemMeshSnapshot(schemaId, mesh.Nodes, mesh.Elements);

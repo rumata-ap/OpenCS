@@ -19,8 +19,9 @@ public sealed class StoreyFragmentKeepMeshTests(ITestOutputHelper output)
 {
     const double Z1 = 1.5, Z2 = 4.5, Tol = 1e-6;
 
-    /// <summary>Родитель; колонна — сечение К400 (в памяти): у её узла в плите — авто-АЖТ примыкания.</summary>
-    static FemSchema CreateParent(DatabaseService db)
+    /// <summary>Родитель; колонна — сечение К400 (в памяти): у её узла в плите — авто-АЖТ примыкания. <paramref name="rib"/> —
+    /// ещё ребро B1 в плоскости плиты (1, 1, 3)–(5, 1, 3) тем же сечением.</summary>
+    static FemSchema CreateParent(DatabaseService db, bool rib = false)
     {
         var column = AddSections(db).Column;
         var schema = new FemSchema { Tag = "Каркас" };
@@ -44,6 +45,12 @@ public sealed class StoreyFragmentKeepMeshTests(ITestOutputHelper output)
             new() { Id = -3, ElemTag = "C1a", ElemType = "beam", NodeIdsJson = "[1,2]", CrossSectionId = column.Id },
             new() { Id = -4, ElemTag = "C1b", ElemType = "beam", NodeIdsJson = "[2,3]", CrossSectionId = column.Id },
         };
+        if (rib)
+        {
+            nodes.Add(new() { Id = -4, NodeTag = "4", X = 1, Y = 1, Z = 3 });
+            nodes.Add(new() { Id = -5, NodeTag = "5", X = 5, Y = 1, Z = 3 });
+            members.Add(new() { Id = -5, ElemTag = "B1", ElemType = "beam", NodeIdsJson = "[4,5]", CrossSectionId = column.Id });
+        }
         db.SaveFemSchemaEdit(schema.Id, nodes, members, [], [new FemLoadCase { Id = -1, Tag = "Пост." }], [], [], [], [], [], []);
         return db.FemSchemas.Single(s => s.Id == schema.Id);
     }
@@ -149,6 +156,51 @@ public sealed class StoreyFragmentKeepMeshTests(ITestOutputHelper output)
             Assert.All(slab, e => Assert.NotEqual(FemMember.MeshSourceImported, e.Origin));
             Assert.Equal(1, Components(elements));
             output.WriteLine($"После перестройки: КЭ {elements.Count}, областей перестроено {meshed.RebuiltRegionCount}");
+
+            // Узлы плиты под стеной и колонной остались импортными без импортных КЭ: записанная сетка — ровно собранная, и
+            // проверка перед расчётом видит её актуальной (не пересобирает: «Мирная», 17 334 → 17 313 узлов).
+            Assert.Equal(meshed.Mesh!.Nodes.Count, db.GetFemMeshNodes(fragment.Id).Count);
+            var recheck = await service.CheckAsync(fragment.Id, db.GetFemNodes(fragment.Id), db.GetFemMembers(fragment.Id), 1.0,
+                CancellationToken.None);
+            Assert.True(recheck.IsCurrent, string.Join("\n", recheck.Diagnostics.Select(d => d.Message)));
+        });
+    }
+
+    /// <summary>
+    /// «Мирная»: снят замок с плиты, на ней сохранённое ребро B1. Сборка мельче (0,5 м) — узлы плиты внутри КЭ ребра, шаг 1
+    /// лестницы снимает и его. Узлы прежней плиты под стеной и колонной остаются импортными без импортных КЭ: следы АЖТ не
+    /// обрезаются от снятого ребра, записанная сетка — ровно собранная и актуальна для проверки перед расчётом.
+    /// </summary>
+    [Fact]
+    public async Task ManualRemesh_KeptSlabWithKeptRib_LadderUnlocksRib_MeshCurrent()
+    {
+        await InTempRoot("opencs-fragment-remesh-rib", async root =>
+        {
+            using var db = new DatabaseService(Path.Combine(root, "test.db"));
+            var parent = CreateParent(db, rib: true);
+            await Mesh(db, parent, 1.0, root);
+            var fragment = Assert.IsType<FemSchema>(StoreyFragmentService.Build(db, parent.Id, new StoreyFragmentRequest(Z1, Z2, "Этаж 2")).Schema);
+            await Mesh(db, fragment, 1.0, root);
+            Assert.Contains(db.GetFemMeshElements(fragment.Id), e => e.SourceMemberTag == "B1" && e.Origin == FemMember.MeshSourceImported);
+
+            var service = new FemSchemaMeshService(db, GmshSettings(root));
+            service.UnlockKeptMembers(fragment.Id, db.GetFemNodes(fragment.Id), db.GetFemMembers(fragment.Id), ["S1"]);
+            fragment.MeshPlateStepM = fragment.MeshBarStepM = 0.5;
+            db.UpdateFemSchemaMeshSteps(fragment);
+            var meshed = await service.BuildAsync(fragment.Id, db.GetFemNodes(fragment.Id), db.GetFemMembers(fragment.Id), 0.5, null,
+                CancellationToken.None);
+            foreach (var d in meshed.Diagnostics) output.WriteLine($"{(d.IsError ? "ОШИБКА" : "предупр.")} {d.Code}: {d.Message}");
+            Assert.False(meshed.HasErrors);
+            Assert.Equal(1, meshed.LadderStep);
+            Assert.Contains("B1", meshed.Unlock!.UnlockedMemberTags);
+            Assert.DoesNotContain(meshed.Diagnostics, d => d.Code.StartsWith("rigid_junction_trace_kept", StringComparison.Ordinal));
+            service.Save(fragment.Id, meshed.Mesh!, meshed.Unlock);
+
+            Assert.DoesNotContain(db.GetFemMeshElements(fragment.Id), e => e.Origin == FemMember.MeshSourceImported);
+            Assert.Equal(meshed.Mesh!.Nodes.Count, db.GetFemMeshNodes(fragment.Id).Count);
+            var check = await service.CheckAsync(fragment.Id, db.GetFemNodes(fragment.Id), db.GetFemMembers(fragment.Id), 0.5,
+                CancellationToken.None);
+            Assert.True(check.IsCurrent, string.Join("\n", check.Diagnostics.Select(d => d.Message)));
         });
     }
 
