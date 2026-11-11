@@ -79,8 +79,10 @@ static class StoreyFragmentLoadFixtures
         };
     }
 
+    /// <summary>Сборка без сохранения сетки родителя: фикстуры проверяют перенос нагрузок и ГУ на перестраиваемую сетку
+    /// (с сохранением плита взяла бы КЭ родителя с нагрузками один к одному).</summary>
     public static StoreyFragmentDraft Build(StoreyFragmentParentSnapshot parent, double z1 = 1.5, double z2 = 4.5) =>
-        StoreyFragmentBuilder.Build(parent, new StoreyFragmentRequest(z1, z2, "Этаж 2"));
+        StoreyFragmentBuilder.Build(parent, new StoreyFragmentRequest(z1, z2, "Этаж 2", KeepParentMesh: false));
 
     public static FemElementLoad ElementLoad(int lc, string kind, string axis, double[] values, params string[] elements)
     {

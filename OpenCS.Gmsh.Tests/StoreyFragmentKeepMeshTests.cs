@@ -105,6 +105,54 @@ public sealed class StoreyFragmentKeepMeshTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// Ручная команда «Перестроить сетку КонЭ» (срез 5): снятие замка с сохранённой плиты без новой сетки — импортные КЭ
+    /// плиты удалены, сгенерированная сетка стены и колонны осталась, проверка видит сетку устаревшей; сборка строит
+    /// плиту заново, сетка связна.
+    /// </summary>
+    [Fact]
+    public async Task ManualRemesh_KeptSlab_MeshOutdatedThenRebuilt()
+    {
+        await InTempRoot("opencs-fragment-remesh", async root =>
+        {
+            using var db = new DatabaseService(Path.Combine(root, "test.db"));
+            var parent = CreateParent(db);
+            await Mesh(db, parent, 1.0, root);
+            var built = StoreyFragmentService.Build(db, parent.Id, new StoreyFragmentRequest(Z1, Z2, "Этаж 2"));
+            var fragment = Assert.IsType<FemSchema>(built.Schema);
+            Assert.True(fragment.FragmentKeepParentMesh); // умолчание запроса — сохранять
+            await Mesh(db, fragment, 1.0, root);
+            var before = db.GetFemMeshElements(fragment.Id);
+            var generatedBefore = before.Where(e => e.Origin != FemMember.MeshSourceImported).Select(e => e.ElemTag).Order().ToList();
+            Assert.Contains(before, e => e.SourceMemberTag == "S1" && e.Origin == FemMember.MeshSourceImported);
+
+            var service = new FemSchemaMeshService(db, GmshSettings(root));
+            var plan = service.UnlockKeptMembers(fragment.Id, db.GetFemNodes(fragment.Id), db.GetFemMembers(fragment.Id), ["S1"]);
+            foreach (var d in plan.Diagnostics) output.WriteLine($"{d.Code}: {d.Message}");
+            Assert.Equal(["S1"], plan.UnlockedMemberTags);
+
+            Assert.False(db.GetFemMembers(fragment.Id).Single(m => m.ElemTag == "S1").IsMeshLocked);
+            var after = db.GetFemMeshElements(fragment.Id);
+            Assert.DoesNotContain(after, e => e.SourceMemberTag == "S1");
+            Assert.Equal(generatedBefore, after.Where(e => e.Origin != FemMember.MeshSourceImported).Select(e => e.ElemTag).Order());
+            // Узлы сетки, на которые ссылаются оставшиеся КЭ, на месте.
+            var nodeTags = db.GetFemMeshNodes(fragment.Id).Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal);
+            Assert.All(after.SelectMany(Ids), t => Assert.Contains(t, nodeTags));
+
+            var check = await service.CheckAsync(fragment.Id, db.GetFemNodes(fragment.Id), db.GetFemMembers(fragment.Id), 1.0,
+                CancellationToken.None);
+            Assert.False(check.IsCurrent);
+
+            var meshed = await Mesh(db, fragment, 1.0, root);
+            var elements = db.GetFemMeshElements(fragment.Id);
+            var slab = elements.Where(e => e.SourceMemberTag == "S1").ToList();
+            Assert.NotEmpty(slab);
+            Assert.All(slab, e => Assert.NotEqual(FemMember.MeshSourceImported, e.Origin));
+            Assert.Equal(1, Components(elements));
+            output.WriteLine($"После перестройки: КЭ {elements.Count}, областей перестроено {meshed.RebuiltRegionCount}");
+        });
+    }
+
+    /// <summary>
     /// Стена на всю высоту сохранена, плита обрезана гранью призмы (y = 2) и перестроена, колонна в списке
     /// перемешивания: авто-АЖТ фрагмента строятся у перестраиваемой плиты, хотя у схемы есть сохранённая сетка.
     /// </summary>

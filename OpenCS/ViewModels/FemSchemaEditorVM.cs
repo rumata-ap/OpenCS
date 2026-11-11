@@ -1232,6 +1232,42 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         return string.Format(Loc.S("FemMergeNodesDone"), totalMerged, command.LastResult.Count);
     }
 
+    /// <summary>КонЭ из <paramref name="tags"/> с сохранённой сеткой родителя (замок) — только во фрагменте.</summary>
+    public IReadOnlyList<string> KeptMeshMembers(IEnumerable<string> tags)
+    {
+        if (!Session.Schema.IsFragment) return [];
+        var set = tags.ToHashSet(StringComparer.Ordinal);
+        return Session.Members.Where(m => m.IsMeshLocked && set.Contains(m.ElemTag)).Select(m => m.ElemTag).ToList();
+    }
+
+    /// <summary>
+    /// «Перестроить сетку КонЭ» (фрагмент, спека «сохранение сетки родителя», разд. 5): снимает замок сохранённой сетки с
+    /// КонЭ, удаляет их сохранённые КЭ, переносит ГУ и нагрузки на них так же, как лестница сборки; сетка схемы
+    /// становится устаревшей. Пишется сразу в БД — при несохранённых правках отказ. Обратной команды нет.
+    /// </summary>
+    public bool RemeshKeptMembers(IEnumerable<string> tags)
+    {
+        var kept = KeptMeshMembers(tags);
+        if (kept.Count == 0) return false;
+        if (Session.IsDirty)
+        {
+            _logService.Error(Loc.S("FemKeptMeshRemeshUnsaved"));
+            return false;
+        }
+        var schema = Session.Schema;
+        var service = new FemSchemaMeshService(_db, _app.GmshSettings);
+        var plan = service.UnlockKeptMembers(schema.Id, Session.Nodes, Session.Members, kept);
+        foreach (var d in plan.Diagnostics)
+            if (d.IsError) _logService.Error(d.Message); else _logService.Warning(d.Message);
+        if (plan.IsEmpty) return false;
+        ReloadSessionFromDb();
+        _logService.Info(string.Format(Loc.S("FemKeptMeshRemeshDone"), string.Join(", ", plan.UnlockedMemberTags),
+            plan.RemovedElementTags.Count));
+        service.ReportMeshChanged(schema, _logService);
+        MeshDiscretized?.Invoke(this, EventArgs.Empty);
+        return true;
+    }
+
     /// <summary>
     /// «Построить сетку схемы» (CSfea 4г): стержни и пластины областей своей схемы (Gmsh, общие узлы). Сетка
     /// импорта (ЛИРА/SCAD) и элементы на ней сохраняются как есть. Изменившаяся сетка сбрасывает результаты
@@ -1290,8 +1326,9 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         {
             var service = new FemSchemaMeshService(_db, _app.GmshSettings);
             // Общий шаг стержней хранится в схеме (БД); пластин — читает сервис.
+            // Несохранённая сессия: лестница перемешивания не запускается (её запись затёрла бы правки) — сразу отказ.
             var result = await service.BuildAsync(schema.Id, Session.Nodes, Session.Members, _db.GetFemSchemaMeshSteps(schema.Id).Bar,
-                _logService.Info, cts?.Token ?? CancellationToken.None);
+                _logService.Info, cts?.Token ?? CancellationToken.None, canUnlock: !Session.IsDirty);
             LastMeshDiagnostics = result.Diagnostics;
             foreach (var d in result.Diagnostics)
                 if (d.IsError) _logService.Error(d.Message); else _logService.Warning(d.Message);

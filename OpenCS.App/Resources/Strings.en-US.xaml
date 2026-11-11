@@ -4048,6 +4048,13 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemSchemaMeshDone">Schema mesh: {0} nodes, {1} bars, {2} plates; {3} regions ({4} meshed by Gmsh), {5} nodes shared with bars and regions, {6} bars split</system:String>
     <system:String x:Key="FemSchemaMeshNotSaved">Schema mesh not saved: there are errors</system:String>
     <system:String x:Key="FemSchemaMeshUnlockUnsaved">The build remeshes kept fragment members and changes the schema (mesh locks, nodes, boundary conditions, loads) — save the schema first</system:String>
+    <system:String x:Key="FemMemberRemeshKeptCtx">Remesh member</system:String>
+    <system:String x:Key="FemKeptMeshRemeshMany">{0} members</system:String>
+    <system:String x:Key="FemKeptMeshRemeshConfirm">The kept parent mesh of {0} will be deleted: boundary conditions and loads on its elements move to nodes and members, the schema mesh becomes outdated and is rebuilt by the mesh build or the analysis. The parent mesh can only be restored by cutting the fragment again. Continue?</system:String>
+    <system:String x:Key="FemKeptMeshRemeshUnsaved">Remeshing members changes the schema (mesh locks, nodes, boundary conditions, loads) — save the schema first</system:String>
+    <system:String x:Key="FemKeptMeshRemeshDone">Parent mesh removed from members {0} (elements deleted: {1}); the schema mesh is outdated — build the mesh</system:String>
+    <system:String x:Key="StoreyFragmentKeepParentMesh">Keep the parent mesh of uncut elements</system:String>
+    <system:String x:Key="StoreyFragmentKeepParentMeshTip">Slabs and walls taken from the parent without cutting keep its elements and nodes; cut elements are remeshed. The build remeshes a non-conforming joint by itself</system:String>
     <system:String x:Key="FemSchemaMeshCancelled">Schema mesh building cancelled</system:String>
     <system:String x:Key="FemSchemaMeshAnalysesInvalidated">Analysis results reset: {0}</system:String>
     <system:String x:Key="FemSchemaMeshForceSetsStale">Force sets built on the previous schema mesh (element numbers may have changed): {0}</system:String>

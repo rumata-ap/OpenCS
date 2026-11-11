@@ -50,17 +50,33 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
     /// конструктивный уровень (сессия редактора или БД).</summary>
     /// <remarks>Фрагмент с сохранённой сеткой родителя: при нарушениях связности — лестница перемешивания
     /// (<see cref="FemKeptMeshLadder"/>); снятие замков в итоге — <see cref="FemSchemaMeshBuildResult.Unlock"/>, пишется
-    /// в <see cref="Save"/> вместе с сеткой.</remarks>
+    /// в <see cref="Save"/> вместе с сеткой. <paramref name="canUnlock"/> = false (несохранённая сессия редактора: запись
+    /// снятия затёрла бы правки) — лестница не запускается, к ошибкам добавляется просьба сохранить схему.</remarks>
     public async Task<FemSchemaMeshBuildResult> BuildAsync(int schemaId, IReadOnlyList<FemNode> nodes,
-        IReadOnlyList<FemMember> members, double? defaultTargetLengthM, Action<string>? info, CancellationToken cancellationToken)
+        IReadOnlyList<FemMember> members, double? defaultTargetLengthM, Action<string>? info, CancellationToken cancellationToken,
+        bool canUnlock = true)
     {
         var first = await RunAsync(schemaId, nodes, members, defaultTargetLengthM, info, checkOnly: false, cancellationToken);
         if (!FemKeptMeshLadder.Needed(first) || !IsStrict(schemaId)) return first;
+        if (!canUnlock)
+            return new FemSchemaMeshBuildResult
+            {
+                Diagnostics = [.. first.Diagnostics, new("fragment_mesh_unlock_unsaved", Loc.S("FemSchemaMeshUnlockUnsaved"), true,
+                    [.. first.ImportedMembersAtFault])],
+                RegionCount = first.RegionCount, RebuiltRegionCount = first.RebuiltRegionCount,
+                ImportedMembersAtFault = first.ImportedMembersAtFault,
+            };
         var input = UnlockInput(schemaId, nodes, members);
-        return await FemKeptMeshLadder.RunAsync(first, members, async (tags, step, reason) =>
+        // Шаг, которому нечего снимать (пластина без области), — его пояснения добавляются к итогу.
+        var skipped = new List<FemValidationDiagnostic>();
+        var result = await FemKeptMeshLadder.RunAsync(first, members, async (tags, step, reason) =>
         {
             var plan = FemKeptMeshUnlock.Plan(input, tags);
-            if (plan.IsEmpty) return null;
+            if (plan.IsEmpty)
+            {
+                skipped.AddRange(plan.Diagnostics);
+                return null;
+            }
             var warning = new FemValidationDiagnostic($"fragment_mesh_unlock_step{step}",
                 $"Сохранённая сетка КонЭ {Join(plan.UnlockedMemberTags)} перестраивается (шаг {step} лестницы перемешивания): {reason}",
                 false, [.. plan.UnlockedMemberTags]);
@@ -68,6 +84,25 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
             return await RunAsync(schemaId, nodes, members, defaultTargetLengthM, info, checkOnly: false, cancellationToken,
                 plan, step, [warning, .. plan.Diagnostics]);
         });
+        var extra = skipped.Where(s => !result.Diagnostics.Any(d => d.Code == s.Code && d.Message == s.Message))
+            .DistinctBy(s => (s.Code, s.Message)).ToList();
+        if (extra.Count > 0) result.Diagnostics.AddRange(extra);
+        return result;
+    }
+
+    /// <summary>
+    /// Ручная команда «Перестроить сетку КонЭ» (фрагмент с сохранённой сеткой): снимает замок с КонЭ
+    /// <paramref name="memberTags"/> тем же планировщиком, что лестница (<see cref="FemKeptMeshUnlock.Plan"/>), и пишет
+    /// снятие без новой сетки — сгенерированная сетка остальных КонЭ остаётся, сетка схемы устаревает (её перестроит
+    /// сборка или расчёт). Пустой план (снимать нечего) — ничего не записано. <paramref name="nodes"/>/<paramref name="members"/>
+    /// — сохранённый конструктивный уровень.
+    /// </summary>
+    public FemKeptMeshUnlockPlan UnlockKeptMembers(int schemaId, IReadOnlyList<FemNode> nodes, IReadOnlyList<FemMember> members,
+        IEnumerable<string> memberTags)
+    {
+        var plan = FemKeptMeshUnlock.Plan(UnlockInput(schemaId, nodes, members), memberTags);
+        if (!plan.IsEmpty) db.ApplyFemKeptMeshUnlock(schemaId, plan, null, null);
+        return plan;
     }
 
     /// <summary>Проверка без Gmsh и без записи: актуальны ли снимки областей и совпадает ли сохранённая сетка схемы с

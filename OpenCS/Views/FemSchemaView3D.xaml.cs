@@ -2124,6 +2124,7 @@ public partial class FemSchemaView3D : UserControl
                     item.Visibility = isBeam ? Visibility.Visible : Visibility.Collapsed;
                 AppendMemberGroupItems(menu, target.Tag);
             }
+            SetRemeshKeptVisibility(menu, target.IsNode ? [] : ClickedWithSelection(target.Tag));
             AppendCheckRowTaskMenu(menu, target.IsNode ? [] : vm.MeshElementsOf(target.Tag));
             AppendFieldMenu(menu, target.IsNode ? [] : ClickedWithSelection(target.Tag), [], []);
             AppendFragmentItems(menu, target.IsNode ? [] : ClickedWithSelection(target.Tag), meshElements: false);
@@ -2153,6 +2154,7 @@ public partial class FemSchemaView3D : UserControl
         _contextMenuTargetTag = prHitTag;
         var prMenu = (ContextMenu)Resources["PlanarRegionContextMenu"];
         AppendMemberGroupItems(prMenu, prHitTag);
+        SetRemeshKeptVisibility(prMenu, ClickedWithSelection(prHitTag));
         AppendCheckRowTaskMenu(prMenu, vm.MeshElementsOf(prHitTag));
         AppendFieldMenu(prMenu, ClickedWithSelection(prHitTag), [], []);
         AppendFragmentItems(prMenu, ClickedWithSelection(prHitTag), meshElements: false);
@@ -2450,6 +2452,23 @@ public partial class FemSchemaView3D : UserControl
     {
         if (_contextMenuTargetTag is not { } tag) return;
         MemberMeshStepRequested?.Invoke(tag);
+    }
+
+    /// <summary>Пункт «Перестроить сетку КонЭ» — у КонЭ фрагмента с сохранённой сеткой родителя (щёлкнутого и выделенных
+    /// вместе с ним).</summary>
+    public event Action<string>? MemberRemeshKeptRequested;
+
+    void MemberRemeshKeptCtx_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMenuTargetTag is not { } tag) return;
+        MemberRemeshKeptRequested?.Invoke(tag);
+    }
+
+    void SetRemeshKeptVisibility(ContextMenu menu, IReadOnlyCollection<string> memberTags)
+    {
+        bool visible = memberTags.Count > 0 && Editor?.KeptMeshMembers(memberTags).Count > 0;
+        foreach (var item in menu.Items.OfType<MenuItem>().Where(i => Equals(i.Tag, "remeshKept")))
+            item.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>Пункт контекстного меню стержня «АЖТ примыкания…»: параметры щёлкнутого стержня (и выделенных вместе

@@ -12,10 +12,11 @@ namespace OpenCS.Utilites
       /// транзакцией: замок КонЭ → <c>generated</c>; маски и новые узлы схемы; узловые нагрузки, нагрузки КонЭ и пружины
       /// узлов; ГУ, нагрузки и тела удаляемых узлов сетки — удаляются; нагрузки на КЭ — замена; поле и опорная сетка —
       /// дописываются; импортные КЭ и узлы снятых КонЭ — удаляются; сгенерированная сетка — как
-      /// <see cref="SaveFemMeshSnapshotKeepingImported"/>.
+      /// <see cref="SaveFemMeshSnapshotKeepingImported"/>. Без сетки (<paramref name="meshNodes"/> = null, ручная команда
+      /// «Перестроить сетку КонЭ») сгенерированные строки не трогаются — сетка схемы становится устаревшей.
       /// </summary>
-      public void ApplyFemKeptMeshUnlock(int schemaId, FemKeptMeshUnlockPlan plan, IReadOnlyList<FemMeshNode> meshNodes,
-         IReadOnlyList<FemElement> meshElements)
+      public void ApplyFemKeptMeshUnlock(int schemaId, FemKeptMeshUnlockPlan plan, IReadOnlyList<FemMeshNode>? meshNodes,
+         IReadOnlyList<FemElement>? meshElements)
       {
          ArgumentNullException.ThrowIfNull(plan);
          using var tx = _connection.BeginTransaction();
@@ -118,18 +119,21 @@ namespace OpenCS.Utilites
 
             Each("DELETE FROM fem_elements WHERE schema_id=@sid AND origin='imported' AND elem_tag=@tag", plan.RemovedElementTags);
             Each("DELETE FROM fem_mesh_nodes WHERE schema_id=@sid AND origin='imported' AND node_tag=@tag", plan.RemovedNodeTags);
-            using (var delete = _connection.CreateCommand())
+            if (meshNodes != null && meshElements != null)
             {
-               delete.CommandText = """
-                  DELETE FROM fem_elements   WHERE schema_id=@sid AND origin<>'imported';
-                  DELETE FROM fem_mesh_nodes WHERE schema_id=@sid AND origin<>'imported';
-                  """;
-               delete.Parameters.AddWithValue("@sid", schemaId);
-               delete.ExecuteNonQuery();
+               using (var delete = _connection.CreateCommand())
+               {
+                  delete.CommandText = """
+                     DELETE FROM fem_elements   WHERE schema_id=@sid AND origin<>'imported';
+                     DELETE FROM fem_mesh_nodes WHERE schema_id=@sid AND origin<>'imported';
+                     """;
+                  delete.Parameters.AddWithValue("@sid", schemaId);
+                  delete.ExecuteNonQuery();
+               }
+               InsertFemMeshSnapshot(schemaId,
+                  meshNodes.Where(n => n.Origin != FemMember.MeshSourceImported).ToList(),
+                  meshElements.Where(e => e.Origin != FemMember.MeshSourceImported).ToList());
             }
-            InsertFemMeshSnapshot(schemaId,
-               meshNodes.Where(n => n.Origin != FemMember.MeshSourceImported).ToList(),
-               meshElements.Where(e => e.Origin != FemMember.MeshSourceImported).ToList());
             tx.Commit();
          }
          catch { tx.Rollback(); throw; }

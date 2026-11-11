@@ -71,6 +71,7 @@ public static class CommandIcons
         ["FemMemberRotationCtx"] = "CmdIcon_Rotate",
         ["FemMemberRigidJunctionCtx"] = "CmdIcon_Properties",
         ["FemMemberMeshStepCtx"] = "CmdIcon_MeshStep",
+        ["FemMemberRemeshKeptCtx"] = "CmdIcon_Refresh",
         ["FemMemberLoadCtx"] = "CmdIcon_MemberLoad",
         ["FemMemberSplitCtx"] = "CmdIcon_Split",
         ["FemMemberDeleteCtx"] = "CmdIcon_Delete",

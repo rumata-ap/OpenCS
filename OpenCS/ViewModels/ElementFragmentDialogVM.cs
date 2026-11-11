@@ -165,6 +165,9 @@ public sealed class ElementFragmentDialogVM : ViewModelBase
         }
     }
 
+    /// <summary>«Сохранять сетку родителя у необрезанных элементов» (<see cref="StoreyFragmentRequest.KeepParentMesh"/>).</summary>
+    public bool KeepParentMesh { get; set; } = true;
+
     /// <summary>Запрос сборки; ошибка — текст для пользователя, запрос null.</summary>
     public StoreyFragmentRequest? TryRequest(out string? error)
     {
@@ -174,9 +177,9 @@ public sealed class ElementFragmentDialogVM : ViewModelBase
         if (_selection.HasErrors) { error = Message.Length > 0 ? Message : Loc.S("ElementFragmentRefused"); return null; }
         string name = Name.Trim();
         if (name.Length == 0) { error = Loc.S("StoreyFragmentNameEmpty"); return null; }
-        if (_fullHeight) return ElementFragmentService.FullHeightRequest(_selection, name);
+        if (_fullHeight) return ElementFragmentService.FullHeightRequest(_selection, name) with { KeepParentMesh = KeepParentMesh };
         if (_from is null || _to is null) { error = Loc.S("StoreyFloorNotSelected"); return null; }
-        return ElementFragmentService.Request(_selection, _from.Index, _to.Index, name);
+        return ElementFragmentService.Request(_selection, _from.Index, _to.Index, name) with { KeepParentMesh = KeepParentMesh };
     }
 
     void Apply(ElementFragmentSelection selection, bool keepChoice)

@@ -34,6 +34,9 @@ internal static class FemMemberTreeMenus
         AddViewActions(items, app, schema, [member.ElemTag]);
         items.Add(Item("FemFieldAssign",
             () => app.CreateFemField(schema, new CScore.Fem.Fields.FemFieldTargets { MemberTags = [member.ElemTag] })));
+        if (schema.IsFragment && member.IsMeshLocked)
+            items.Add(Item("FemMemberRemeshKeptCtx",
+                () => app.InFemSchemaEditor(schema, page => page.RemeshKeptMembers([member.ElemTag]))));
 
         // Пластины плоских областей перемещаются и копируются вместе с областью — в её редакторе.
         if (member.PlanarRegionId == null)
@@ -68,7 +71,8 @@ internal static class FemMemberTreeMenus
     }
 
     /// <summary>
-    /// Меню нескольких КонЭ, отмеченных Ctrl+щелчком: выделение и видимость в схеме, поле, «Фрагмент вокруг элементов…»
+    /// Меню нескольких КонЭ, отмеченных Ctrl+щелчком: выделение и видимость в схеме, поле, «Перестроить сетку КонЭ» (у КонЭ
+    /// фрагмента с сохранённой сеткой), «Фрагмент вокруг элементов…»
     /// (невертикальные отсекаются в самом диалоге), группы.
     /// </summary>
     public static void FillMembers(ItemCollection items, FemSchema schema, IReadOnlyList<FemMemberTreeItem> selected, AppViewModel app)
@@ -79,6 +83,9 @@ internal static class FemMemberTreeMenus
         AddViewActions(items, app, schema, tags);
         items.Add(Item("FemFieldAssign",
             () => app.CreateFemField(schema, new CScore.Fem.Fields.FemFieldTargets { MemberTags = tags })));
+        var kept = selected.Where(i => i.Member.IsMeshLocked).Select(i => i.Member.ElemTag).ToList();
+        if (schema.IsFragment && kept.Count > 0)
+            items.Add(Item("FemMemberRemeshKeptCtx", () => app.InFemSchemaEditor(schema, page => page.RemeshKeptMembers(kept))));
 
         items.Add(new Separator());
         items.Add(Item("Fem3DElementFragmentCtx", () => app.BuildElementFragment(schema, tags)));

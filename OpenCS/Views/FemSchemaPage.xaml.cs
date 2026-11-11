@@ -174,6 +174,7 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         view3D.MemberRotationRequested    += OpenMemberRotation;
         view3D.MemberMeshStepRequested    += OpenMemberMeshStep;
         view3D.MemberRigidJunctionRequested += OpenMemberRigidJunction;
+        view3D.MemberRemeshKeptRequested  += RemeshKeptMembersAt;
         view3D.MemberForcesRequested      += tag => app.ShowMemberForceDiagram(schema, tag);
         view3D.FragmentTransformRequested += TransformFragment;
         view3D.NodeDeleteRequested += ConfirmAndDeleteNodes;
@@ -648,6 +649,25 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         _editorVm.SetMembersMeshStep(members.Select(m => m.ElemTag).ToList(), dlg.StepM);
         _app.LogService.Info(string.Format(Loc.S(dlg.StepM is null ? "FemMemberMeshStepSetCommon" : "FemMemberMeshStepSet"),
             members.Count, dlg.StepM is double s ? M(s) : ""));
+    }
+
+    /// <summary>«Перестроить сетку КонЭ»: щёлкнутый КонЭ фрагмента с сохранённой сеткой родителя; если он выделен — все
+    /// выделенные такие КонЭ. Необратимо — с подтверждением.</summary>
+    public void RemeshKeptMembers(IReadOnlyCollection<string> tags)
+    {
+        var kept = _editorVm.KeptMeshMembers(tags);
+        if (kept.Count == 0) return;
+        string target = kept.Count == 1 ? $"«{kept[0]}»" : string.Format(Loc.S("FemKeptMeshRemeshMany"), kept.Count);
+        if (MessageBox.Show(Window.GetWindow(this), string.Format(Loc.S("FemKeptMeshRemeshConfirm"), target),
+                Loc.S("FemMemberRemeshKeptCtx"), MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+        if (_editorVm.RemeshKeptMembers(kept)) _fem3d.LoadFromSession(_editorVm.Session);
+    }
+
+    void RemeshKeptMembersAt(string tag)
+    {
+        var selected = _editorVm.Selection.SelectedElemTags;
+        RemeshKeptMembers(selected.Contains(tag) ? selected.ToList() : [tag]);
     }
 
     /// <summary>«АЖТ примыкания…»: параметры щёлкнутого стержня; если он выделен — всех выделенных стержней.</summary>

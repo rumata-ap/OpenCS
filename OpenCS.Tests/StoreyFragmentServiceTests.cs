@@ -11,7 +11,9 @@ namespace OpenCS.Tests;
 public sealed class StoreyFragmentServiceTests : IDisposable
 {
     readonly string _path = Path.Combine(Path.GetTempPath(), $"opencs-fragment-svc-{Guid.NewGuid():N}.db");
-    static readonly StoreyFragmentRequest Band = new(1.5, 4.5, "Этаж 2");
+    /// <summary>Без сохранения сетки родителя: тесты проверяют перенос ГУ и нагрузок на перестраиваемую сетку
+    /// (сохранение — <c>StoreyFragmentDbTests.Commit_KeepParentMesh_WritesImportedMesh</c>).</summary>
+    static readonly StoreyFragmentRequest Band = new(1.5, 4.5, "Этаж 2", KeepParentMesh: false);
 
     public void Dispose()
     {

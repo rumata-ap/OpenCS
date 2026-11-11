@@ -100,6 +100,9 @@ public sealed class StoreyFragmentDialogVM : ViewModelBase
         }
     }
 
+    /// <summary>«Сохранять сетку родителя у необрезанных элементов» (<see cref="StoreyFragmentRequest.KeepParentMesh"/>).</summary>
+    public bool KeepParentMesh { get; set; } = true;
+
     /// <summary>Запрос сборки; ошибка — текст для пользователя, запрос null.</summary>
     public StoreyFragmentRequest? TryRequest(out string? error)
     {
@@ -108,7 +111,8 @@ public sealed class StoreyFragmentDialogVM : ViewModelBase
             error = Loc.S("StoreyFloorNotSelected");
             return null;
         }
-        return StoreyFragmentForm.TryRead(Z1Text, Z2Text, Name, out error);
+        return StoreyFragmentForm.TryRead(Z1Text, Z2Text, Name, out error) is { } request
+            ? request with { KeepParentMesh = KeepParentMesh } : null;
     }
 
     void Recompute()

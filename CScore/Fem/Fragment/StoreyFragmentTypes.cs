@@ -10,7 +10,7 @@ namespace CScore.Fem.Fragment;
 /// перемешиваются (<paramref name="MeshRebuildMemberTags"/>: высекаемые колонны).
 /// </summary>
 public sealed record StoreyFragmentRequest(double Z1, double Z2, string Name, double ToleranceM = 0.001, FragmentPrism? Prism = null,
-    FragmentPrismInfo? PrismInfo = null, bool KeepParentMesh = false, IReadOnlyList<string>? MeshRebuildMemberTags = null)
+    FragmentPrismInfo? PrismInfo = null, bool KeepParentMesh = true, IReadOnlyList<string>? MeshRebuildMemberTags = null)
 {
     /// <summary>
     /// Запас отбора снимка родителя в плане за габаритом призмы, м: читаются и элементы рядом с гранью — колонна с осью

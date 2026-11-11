@@ -60,6 +60,8 @@
 
         <TextBlock Text="{DynamicResource StoreyFragmentName}" Margin="0,0,0,2"/>
         <TextBox Margin="0,0,0,8" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/>
+        <CheckBox Content="{DynamicResource StoreyFragmentKeepParentMesh}" IsChecked="{Binding KeepParentMesh}"
+                  ToolTip="{DynamicResource StoreyFragmentKeepParentMeshTip}" Margin="0,0,0,8"/>
         <TextBlock Text="{DynamicResource ElementFragmentHint}" Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,8"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="{DynamicResource StoreyFragmentBuild}" MinWidth="72" Padding="8,0" IsDefault="True"
