@@ -152,8 +152,19 @@ public static class PlanarConstraintDeriver
 
             if (draft.DofMask != candidate.DofMask)
             {
-                diagnostics.Add(new("planar_constraint_dof_conflict",
-                    $"Для geometry locus '{key}' обнаружены несовместимые DOF policies."));
+                // Одна маска покрывает другую (общий узел и пересечение стержня в той же точке: у «паука» ЛИРЫ стержень с
+                // замком проходит через угол стены, где кончаются соседние) — общий узел даёт обе связи: точка одна, с
+                // большей маской. Несравнимые маски (UX и UY) — отказ.
+                var union = draft.DofMask | candidate.DofMask;
+                if (union == draft.DofMask || union == candidate.DofMask)
+                {
+                    draft.DofMask = union;
+                    draft.Sources.AddRange(candidate.Sources);
+                    if (draft.NodeId is null) draft.NodeId = candidate.NodeId;
+                    continue;
+                }
+                diagnostics.Add(new("planar_constraint_dof_conflict", DofConflictMessage(region, draft, candidate), true,
+                    [.. draft.Sources.Concat(candidate.Sources).Select(s => s.Member.ElemTag).Distinct(StringComparer.Ordinal)]));
                 continue;
             }
 
@@ -244,7 +255,7 @@ public static class PlanarConstraintDeriver
             var structuralFacet = new PlanarStructuralFacet(
                 PlanarStructuralKind.EmbeddedMember,
                 firstRelation.MasterReference,
-                firstRelation.DofMask);
+                draft.DofMask);
             var meshFacet = draft.Kind == PlanarConstraintGeometryKind.Point
                 ? new PlanarMeshFacet(PlanarMeshKind.EmbeddedPoint)
                 : new PlanarMeshFacet(PlanarMeshKind.ConformingPartition);
@@ -260,7 +271,7 @@ public static class PlanarConstraintDeriver
                 (source.Member.PlanarRegionId != null || source.Member.IsMeshLocked) &&
                 source.Elements.Any(element => string.Equals(element.ElemType, "shell", StringComparison.OrdinalIgnoreCase)));
             constraint.ToleranceM = options.GeometryToleranceM;
-            constraint.DofMask = firstRelation.DofMask;
+            constraint.DofMask = draft.DofMask;
             constraint.MasterReference = firstRelation.MasterReference;
             constraint.SourceReferences = sourceReferences;
             constraint.StructuralRelations = relations;
@@ -662,6 +673,25 @@ public static class PlanarConstraintDeriver
         return new(delta.Dot(frame.LocalX), delta.Dot(frame.LocalY), delta.Dot(frame.LocalZ));
     }
 
+    /// <summary>Текст конфликта связей: точка (линия) в общих осях, КонЭ обоих источников и их связи.</summary>
+    static string DofConflictMessage(PlanarRegion region, GeometryDraft draft, Candidate candidate)
+    {
+        string Where(IReadOnlyList<PlanarPoint2D> points) => string.Join(" — ", points.Take(2).Select(p =>
+        {
+            var g = PlanarBoundaryFrameConverter.ToGlobalPoint(region.Frame, new PlanarVector3(p.U, p.V, 0));
+            return string.Create(CultureInfo.InvariantCulture, $"({g.X:0.###}; {g.Y:0.###}; {g.Z:0.###})");
+        }));
+        string Members(IEnumerable<SourceData> sources) =>
+            string.Join(", ", sources.Select(s => $"«{s.Member.ElemTag}»").Distinct(StringComparer.Ordinal).Take(5));
+        string Dofs(PlanarDofMask mask) => mask == PlanarConstraintDerivationOptions.AllDofs
+            ? "общий узел — все перемещения и повороты"
+            : mask == PlanarConstraintDerivationOptions.Translations ? "только перемещения" : $"степени свободы {mask}";
+        string what = draft.Kind == PlanarConstraintGeometryKind.Point ? "точке" : "линии";
+        return $"Область «{region.Tag}»: в {what} {Where(draft.Points)} сходятся связи разного вида — " +
+               $"{Members(draft.Sources)} ({Dofs(draft.DofMask)}) и {Members(candidate.Sources)} ({Dofs(candidate.DofMask)}); " +
+               "сетка области не строится. Проверьте узлы этих элементов у точки: возможно, узел стоит в долях миллиметра от плоскости области.";
+    }
+
     static string GeometryKey(PlanarConstraintGeometryKind kind, IReadOnlyList<PlanarPoint2D> points, double tolerance)
     {
         var forward = string.Join(";", points.Select(point => PointKey(point, tolerance)));
@@ -742,7 +772,7 @@ public static class PlanarConstraintDeriver
         public PlanarConstraintGeometryKind Kind { get; }
         public IReadOnlyList<PlanarPoint2D> Points { get; }
         public List<SourceData> Sources { get; } = [];
-        public PlanarDofMask DofMask { get; }
+        public PlanarDofMask DofMask { get; set; }
         public int? NodeId { get; set; }
 
         public GeometryDraft(Candidate candidate)

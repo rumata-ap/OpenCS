@@ -191,6 +191,30 @@ public class FemPlanarMeshPlanTests
         Assert.Empty(PlanarConstraintValidator.Validate(slab, result.Constraints));
     }
 
+    /// <summary>
+    /// Узел ЛИРЫ на стыке плиты и стены в 0,125 мм ниже плиты (высекатель стены «Мирной»: стена его берёт — он в её
+    /// плоскости — и привязывает к кромке) и в 0,5 мм за кромкой — плита тоже берёт оба, на кромку; в 2 мм под плитой — нет.
+    /// </summary>
+    [Fact]
+    public void FreeNodeFractionOfMillimetreOffPlaneOrOutside_IncludedOnEdge()
+    {
+        var (slab, _) = SlabAndWallThrough();
+        FemNode[] nodes =
+        [
+            new() { NodeTag = "1", X = 3, Y = 0, Z = 3 - 1.25e-4 },
+            new() { NodeTag = "2", X = 4, Y = -5e-4, Z = 3 },
+            new() { NodeTag = "3", X = 5, Y = 1, Z = 3 - 2e-3 },
+        ];
+
+        var result = FemPlanarMeshPlan.Constraints(1, nodes, Members(), Empty, slab);
+
+        PlanarPoint2D At(string tag) => Assert.Single(result.Constraints, c => c.Id == $"free-node:{tag}").Geometry.Points[0];
+        Assert.Equal((3.0, 0.0), (At("1").U, At("1").V));
+        Assert.Equal((4.0, 0.0), (Math.Round(At("2").U, 9), Math.Round(At("2").V, 9)));
+        Assert.DoesNotContain(result.Constraints, c => c.Id == "free-node:3");
+        Assert.Empty(PlanarConstraintValidator.Validate(slab, result.Constraints));
+    }
+
     /// <summary>Стена упирается торцом в кромку x = 6 плиты: её след на плоскости плиты выходит за плиту и касается
     /// её одной точкой — точка стыка (узел там есть у стены).</summary>
     [Fact]

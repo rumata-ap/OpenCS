@@ -365,10 +365,12 @@ public static class FemPlanarMeshPlan
                 continue;
             var delta = new PlanarVector3(node.X, node.Y, node.Z) - region.Frame.Origin;
             double u = delta.Dot(region.Frame.LocalX), v = delta.Dot(region.Frame.LocalY), w = delta.Dot(region.Frame.LocalZ);
-            // Узел на стыке может стоять в микронах за кромкой (импортные контуры «Музея»: до 6 мкм) — соседняя область
-            // его берёт, и эта должна, иначе сетки на стыке разойдутся; точка потом привязывается к кромке.
-            if (Math.Abs(w) > options.PlaneToleranceM ||
-                !InsideRegion(u, v, region, Math.Max(options.GeometryToleranceM, SeamToleranceM))) continue;
+            // Узел на стыке может стоять за кромкой или вне плоскости (импортные контуры «Музея»: до 6 мкм; узлы ЛИРЫ на
+            // стыке плиты и стены «Мирной»: 0,12 мм ниже плиты) — соседняя область его берёт (он в её плоскости и в её
+            // контуре), и эта должна, иначе сетки на стыке разойдутся. Допуск — как у привязки к кромке и слияния узлов
+            // (MergeToleranceM), одинаковый по нормали и в плоскости; точка потом привязывается к кромке.
+            if (Math.Abs(w) > Math.Max(options.PlaneToleranceM, MergeToleranceM) ||
+                !InsideRegion(u, v, region, Math.Max(options.GeometryToleranceM, MergeToleranceM))) continue;
             var id = $"free-node:{node.NodeTag}";
             if (!ids.Add(id)) continue;
             freeNodes.Add((id, node, u, v));

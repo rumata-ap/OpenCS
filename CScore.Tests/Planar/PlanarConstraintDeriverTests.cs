@@ -204,7 +204,34 @@ public sealed class PlanarConstraintDeriverTests
         var result = PlanarConstraintDeriver.Derive(topology, Region(), options);
 
         Assert.False(result.IsCalculable);
-        Assert.Contains(result.Diagnostics, d => d.Code == "planar_constraint_dof_conflict");
+        var conflict = Assert.Single(result.Diagnostics, d => d.Code == "planar_constraint_dof_conflict");
+        Assert.Contains("сходятся связи разного вида", conflict.Message);
+        Assert.Contains("«bar»", conflict.Message);
+        Assert.Contains("«wall»", conflict.Message);
+        Assert.DoesNotContain("DOF policies", conflict.Message);
+        Assert.Equal(["bar", "wall"], conflict.SourceKeys!.Order());
+    }
+
+    /// <summary>
+    /// Стержень проходит через плоскость там, где у другого стержня узел (паук ЛИРЫ «Мирной»: стержень с замком через угол
+    /// стены 7): общий узел (все DOF) покрывает пересечение (перемещения) — одна точка с общим узлом, без отказа.
+    /// </summary>
+    [Fact]
+    public void Derive_BarCrossingAtAnotherBarNode_MergesIntoCommonNodePoint()
+    {
+        var topology = new FemSchemaTopology(
+            1,
+            [Node(1, 2, 2, -1), Node(2, 2, 2, 0), Node(3, 2, 2.5, -0.5), Node(4, 2, 1.5, 0.5)],
+            [HostMember(77), Member(10, "end", "beam", 1, 2), Member(11, "through", "beam", 3, 4)],
+            []);
+
+        var result = PlanarConstraintDeriver.Derive(topology, Region(), new());
+
+        Assert.True(result.IsCalculable, string.Join(Environment.NewLine, result.Diagnostics));
+        var point = Assert.Single(result.Constraints, c => c.Geometry.Kind == PlanarConstraintGeometryKind.Point);
+        Assert.Equal(PlanarConstraintDerivationOptions.AllDofs, point.DofMask);
+        Assert.Equal(PlanarConstraintDerivationOptions.AllDofs, point.StructuralFacet.DofMask);
+        Assert.Equal(["end", "through"], point.SourceReferences.Select(s => s.MemberTag).Order());
     }
 
     /// <summary>Стержень параллелен плоскости области вне её (колонна у стены) — пересечения нет, ошибки нет.</summary>

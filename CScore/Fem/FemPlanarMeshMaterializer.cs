@@ -86,6 +86,9 @@ public static class FemPlanarMeshMaterializer
         readonly IReadOnlyList<FemElement> _baseElements;
         readonly List<FemPlanarRegionMesh> _regions = [];
         readonly List<FemValidationDiagnostic> _diagnostics = [];
+        /// <summary>КонЭ сохранённой сетки, чьи узлы не стали общими с точками новых областей (<c>planar_materialize_point_not_shared</c>):
+        /// виновные для лестницы перемешивания.</summary>
+        readonly SortedSet<string> _pointFaults = new(StringComparer.Ordinal);
         readonly List<FemMeshNode> _nodes;
         readonly Dictionary<string, FemMeshNode> _nodesByTag = new(StringComparer.Ordinal);
         readonly PointGrid _fine = new(Tolerance);
@@ -167,7 +170,7 @@ public static class FemPlanarMeshMaterializer
             }
 
             _regionNodeTags.Add(tags);
-            CheckPointMappings(member, snapshot, tags, _nodesByTag, _diagnostics);
+            CheckPointMappings(member, snapshot, tags, _nodesByTag, _diagnostics, _pointFaults);
 
             var degenerate = new List<string>();
             foreach (var se in snapshot.Elements)
@@ -202,7 +205,7 @@ public static class FemPlanarMeshMaterializer
         public FemPlanarMaterializationResult Build(bool checkHangingNodes, bool strictImported)
         {
             var diagnostics = new List<FemValidationDiagnostic>(_diagnostics);
-            var atFault = new SortedSet<string>(StringComparer.Ordinal);
+            var atFault = new SortedSet<string>(_pointFaults, StringComparer.Ordinal);
 
             // Дробление стержней узлами пластин. Строгий режим (фрагмент с сохранённой сеткой): и узлами импортных пластин —
             // сгенерированный стержень на сохранённой плите делится по её узлам, сохранённый стержень с узлом сохранённой
@@ -282,9 +285,10 @@ public static class FemPlanarMeshMaterializer
         }
     }
 
-    /// <summary>Точка снимка, выведенная из узла стержня, должна слиться с этим узлом.</summary>
+    /// <summary>Точка снимка, выведенная из узла стержня, должна слиться с этим узлом. Не слился узел сохранённой сетки КонЭ
+    /// (два совпадающих узла ЛИРЫ у концов стержней «паука», общим становится один) — КонЭ в <paramref name="faults"/>.</summary>
     static void CheckPointMappings(FemMember member, PlanarMeshSnapshot snapshot, string[] tags,
-        IReadOnlyDictionary<string, FemMeshNode> nodesByTag, List<FemValidationDiagnostic> diagnostics)
+        IReadOnlyDictionary<string, FemMeshNode> nodesByTag, List<FemValidationDiagnostic> diagnostics, ISet<string> faults)
     {
         var missed = new List<string>();
         foreach (var mapping in snapshot.ConstraintMappings)
@@ -295,7 +299,11 @@ public static class FemPlanarMeshMaterializer
                 foreach (var sourceTag in source.NodeTags)
                     if (nodesByTag.TryGetValue(sourceTag, out var sourceNode) && sourceNode.NodeTag != tag &&
                         Distance(sourceNode, nodesByTag[tag]) <= Tolerance)
+                    {
                         missed.Add(sourceTag);
+                        if (sourceNode.Origin == FemMember.MeshSourceImported && sourceNode.SourceMemberTag is { } owner)
+                            faults.Add(owner);
+                    }
         }
         if (missed.Count > 0)
             diagnostics.Add(new("planar_materialize_point_not_shared",
@@ -311,8 +319,8 @@ public static class FemPlanarMeshMaterializer
         var coarse = new PointGrid(CoarseCellM);
         foreach (var tag in regionOfNode.Keys) coarse.Add(nodesByTag[tag]);
         var seen = new HashSet<(string, string)>();
-        var pairs = new SortedSet<(int, int)>();
-        var hanging = new SortedSet<string>(StringComparer.Ordinal);
+        // Узлы — по паре областей: общий список на все пары называл бы в каждой ошибке чужие узлы.
+        var pairs = new SortedDictionary<(int, int), SortedSet<string>>();
         foreach (var (element, r) in shells)
         {
             var ids = JsonSerializer.Deserialize<int[]>(element.NodeIdsJson)!.Select(i => i.ToString(CultureInfo.InvariantCulture)).ToArray();
@@ -325,13 +333,16 @@ public static class FemPlanarMeshMaterializer
                 {
                     var owners = regionOfNode[node.NodeTag];
                     if (owners.Contains(r)) continue;
-                    hanging.Add(node.NodeTag);
                     foreach (var other in owners)
-                        pairs.Add((Math.Min(r, other), Math.Max(r, other)));
+                    {
+                        var key = (Math.Min(r, other), Math.Max(r, other));
+                        if (!pairs.TryGetValue(key, out var hanging)) pairs[key] = hanging = new SortedSet<string>(StringComparer.Ordinal);
+                        hanging.Add(node.NodeTag);
+                    }
                 }
             }
         }
-        foreach (var (a, b) in pairs)
+        foreach (var ((a, b), hanging) in pairs)
             diagnostics.Add(new("planar_materialize_hanging_node",
                 $"Сетки областей «{regions[a].Member.ElemTag}» и «{regions[b].Member.ElemTag}» не совпадают на стыке " +
                 $"(узлы {Short(hanging)} внутри рёбер КЭ соседней области): постройте сетку заново или задайте областям одинаковый размер КЭ.",

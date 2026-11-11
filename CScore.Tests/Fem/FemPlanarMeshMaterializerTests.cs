@@ -176,6 +176,45 @@ public class FemPlanarMeshMaterializerTests
         Assert.Equal(["B"], result.ImportedMembersAtFault);
     }
 
+    /// <summary>
+    /// Два совпадающих узла сохранённой сетки у концов стержней «A» и «B» (паук ЛИРЫ «Мирной») и одна точка новой плиты:
+    /// общим становится один, второй — «не стал общим»; его КонЭ — виновный для лестницы перемешивания.
+    /// </summary>
+    [Fact]
+    public void CoincidentImportedNodes_PointNotShared_OwnerAtFault()
+    {
+        var meshNodes = new List<FemMeshNode>
+        {
+            new() { NodeTag = "1", X = 1, Y = 1, Z = 0, Origin = FemMember.MeshSourceImported, SourceMemberTag = "A" },
+            new() { NodeTag = "2", X = 1, Y = 1, Z = 0, Origin = FemMember.MeshSourceImported, SourceMemberTag = "B" },
+            new() { NodeTag = "3", X = 1, Y = 1, Z = -1, Origin = FemMember.MeshSourceImported, SourceMemberTag = "A" },
+            new() { NodeTag = "4", X = 1, Y = 1, Z = 1, Origin = FemMember.MeshSourceImported, SourceMemberTag = "B" },
+        };
+        FemElement Beam(string tag, string member, string ids) =>
+            new() { ElemTag = tag, ElemType = "beam", NodeIdsJson = ids, Origin = FemMember.MeshSourceImported, SourceMemberTag = member };
+        var plate = Region("P", 0, 0, 0, 2, 2, 1.0, 0.2);
+        var snapshot = new PlanarMeshSnapshot
+        {
+            RegionId = 1, IsCalculable = true, Nodes = plate.Snapshot.Nodes, Elements = plate.Snapshot.Elements,
+            ConstraintMappings =
+            [
+                new PlanarConstraintMeshMapping
+                {
+                    ConstraintObjectId = "derived:point", PointNodeIndices = [4],
+                    SourceReferences = [new PlanarSourceReference(0, "A", [], [], [], ["1", "2"])],
+                },
+            ],
+        };
+
+        var result = FemPlanarMeshMaterializer.Materialize(1, meshNodes, [Beam("10", "A", "[1,3]"), Beam("11", "B", "[2,4]")], [],
+            [new FemPlanarRegionMesh(plate.Member, plate.Region, snapshot, 0.2)], strictImported: true);
+
+        var d = Assert.Single(result.Diagnostics, x => x.Code == "planar_materialize_point_not_shared");
+        Assert.True(d.IsError);
+        var missed = Assert.Single(d.SourceKeys!);
+        Assert.Contains(missed == "1" ? "A" : "B", result.ImportedMembersAtFault);
+    }
+
     /// <summary>Импортная плита 2×2 (Q4 1 м) и новая справа шагом 0,5: узлы новой внутри рёбер импортной.</summary>
     [Theory]
     [InlineData(false)]
