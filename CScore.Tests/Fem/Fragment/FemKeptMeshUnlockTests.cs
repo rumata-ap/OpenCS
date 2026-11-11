@@ -136,6 +136,28 @@ public sealed class FemKeptMeshUnlockTests
 
         Assert.Equal([11], plan.RemovedRigidBodies.Select(b => b.Id));
         Assert.Contains(plan.Diagnostics, d => d.Code == "fragment_mesh_unlock_rigid_removed" && !d.IsError);
+        Assert.Empty(plan.NodeRigidBodies); // авто-АЖТ строится сборкой заново
+    }
+
+    /// <summary>Импортное тело (SCAD) на удаляемых узлах переводится на узлы схемы «по точкам»: ведущий — узел схемы 103
+    /// по <c>SourceNodeTag</c>, ведомые — новый свободный узел (1005 удаляется) и узел на сохранённом 1002.</summary>
+    [Fact]
+    public void ImportedRigidBodyOnRemovedNodes_ToSchemaNodePoints()
+    {
+        var f = new Fixture();
+        var scad = new FemRigidBody { Id = 13, MasterNodeTag = "1007", Origin = "fragment:import:scad", Mask = 63, SourceElemTag = "A1" };
+        scad.SetSlaveNodeTags(["1005", "1002"]);
+        f.Bodies.Add(scad);
+
+        var plan = f.Plan("P1");
+
+        Assert.Equal([13], plan.RemovedRigidBodies.Select(b => b.Id));
+        var body = Assert.Single(plan.NodeRigidBodies);
+        Assert.Equal(("103", "import:scad", 63, "A1"), (body.MasterNodeTag, body.Origin, body.Mask, body.SourceElemTag));
+        var slaves = body.SlaveNodeTags.Select(t => plan.Nodes.Single(n => n.NodeTag == t)).Select(n => (n.X, n.Y)).Order().ToList();
+        Assert.Equal([(1.0, 0.0), (1.0, 1.0)], slaves);
+        Assert.All(body.SlaveNodeTags, t => Assert.Contains(plan.NewNodes, n => n.NodeTag == t));
+        Assert.Contains(plan.Diagnostics, d => d.Code == "fragment_mesh_unlock_rigid_removed" && d.Message.Contains("по точкам"));
     }
 
     [Fact]

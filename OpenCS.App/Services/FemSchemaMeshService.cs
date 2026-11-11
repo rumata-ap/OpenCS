@@ -185,8 +185,10 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
             info?.Invoke(string.Format(CultureInfo.CurrentCulture, Loc.S("FemSchemaMeshWaves"), ordered.Count, plan.Waves.Count));
             using var gate = new SemaphoreSlim(Math.Max(1, Environment.ProcessorCount));
             // Следы АЖТ не зависят от префикса — все заранее: ранняя область получает точки в вершинах следов поздних.
+            var keptPoints = strictImported ? KeptPoints(storedNodes) : [];
             var allTraces = ordered.Select(p => junctionOptions != null
-                ? FemRigidJunctions.Build(p.Region, nodes, members, outlines, junctionOptions) : null).ToArray();
+                ? AwayFromKept(FemRigidJunctions.Build(p.Region, nodes, members, outlines, junctionOptions), p.Region, keptPoints, plateStep)
+                : null).ToArray();
             foreach (var wave in plan.Waves)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -282,7 +284,10 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
             }
         }
         // Тела на узлах схемы (АЖТ фрагмента «по точкам») — после тел примыканий: их узлы уже заняты.
-        var nodeBodies = db.GetFemNodeRigidBodies(schemaId);
+        // Снятие замка в этой сборке добавляет импортные тела, переведённые «по точкам» (пишутся вместе с сеткой).
+        List<FemRigidBody> nodeBodies = unlock is { NodeRigidBodies.Count: > 0 }
+            ? [.. db.GetFemNodeRigidBodies(schemaId), .. unlock.NodeRigidBodies]
+            : db.GetFemNodeRigidBodies(schemaId);
         if (nodeBodies.Count > 0 && !mesh.HasErrors && current != false)
         {
             var others = StoredRigidBodies(schemaId, unlock)
@@ -351,16 +356,29 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
         var prefixMesh = prefix.Build();
         var options = JunctionOptions(schemaId, keepImported);
         var outlines = SectionOutlines();
-        var traces = options != null ? FemRigidJunctions.Build(target, nodes, members, outlines, options) : null;
+        double? step = PlateStep(schemaId);
+        var keptPoints = keepImported && db.GetFemSchemaFragmentSource(schemaId).IsFragment ? KeptPoints(db.GetFemMeshNodes(schemaId)) : [];
+        var traces = options != null ? AwayFromKept(FemRigidJunctions.Build(target, nodes, members, outlines, options), target, keptPoints, step) : null;
         // Следы — только касающихся поздних областей: другие в вывод не входят.
         var allTraces = new RigidJunctionTraceSet?[ordered.Count];
         if (index >= 0 && options != null)
             foreach (var j in plan.Neighbours[index].Where(j => plan.WaveOf[j] > plan.WaveOf[index]))
-                allTraces[j] = FemRigidJunctions.Build(ordered[j].Region, nodes, members, outlines, options);
+                allTraces[j] = AwayFromKept(FemRigidJunctions.Build(ordered[j].Region, nodes, members, outlines, options),
+                    ordered[j].Region, keptPoints, step);
         return FemPlanarMeshPlan.Constraints(schemaId, nodes, members, prefixMesh, target,
             laterRegions: index >= 0 ? plan.Later(ordered, index) : null, junctions: traces,
             laterJunctions: index >= 0 ? LaterJunctions(plan, ordered, index, allTraces) : null);
     }
+
+    /// <summary>Узлы сохранённой (импортной) сетки — точки стыков, на которых следы АЖТ не ставят своих вершин.</summary>
+    static List<PlanarVector3> KeptPoints(IReadOnlyList<FemMeshNode> stored) =>
+        stored.Where(n => n.Origin == FemMember.MeshSourceImported).Select(n => new PlanarVector3(n.X, n.Y, n.Z)).ToList();
+
+    /// <summary>Следы АЖТ области — обрезанные в полшага сетки от стыков с сохранённой сеткой
+    /// (<see cref="FemRigidJunctionSeams.AwayFromKeptSeams"/>).</summary>
+    static RigidJunctionTraceSet AwayFromKept(RigidJunctionTraceSet set, PlanarRegion region, IReadOnlyList<PlanarVector3> kept,
+        double? plateStep) =>
+        kept.Count == 0 ? set : FemRigidJunctionSeams.AwayFromKeptSeams(set, region, kept, 0.5 * (plateStep ?? region.MeshMaxElementSizeM));
 
     /// <summary>Следы АЖТ касающихся областей, которые строятся позже <paramref name="index"/>-й, по тегу КонЭ.</summary>
     static Dictionary<string, RigidJunctionTraceSet?> LaterJunctions(FemPlanarMeshWaves plan,

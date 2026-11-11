@@ -5,7 +5,8 @@ namespace OpenCS.Services;
 /// <summary>
 /// Лестница перемешивания сохранённой сетки фрагмента (спека «сохранение сетки родителя», разд. 5): сборка с ошибками
 /// связности сохранённой сетки (<see cref="FemSchemaMeshBuildResult.ImportedMembersAtFault"/>) → шаг 1 — снять замок с
-/// виновных КонЭ; ошибки остались → шаг 2 — со всех КонЭ с замком; ошибки шага 2 — итог (обычные ошибки сборки).
+/// виновных КонЭ (повторяется, пока ошибки называют новые виновные КонЭ с замком); ошибки остались → шаг 2 — со всех
+/// КонЭ с замком; ошибки шага 2 — итог (обычные ошибки сборки).
 /// Шаг, которому нечего снимать сверх прошлого, пропускается.
 /// </summary>
 public static class FemKeptMeshLadder
@@ -26,11 +27,18 @@ public static class FemKeptMeshLadder
         var faulty = new SortedSet<string>(first.ImportedMembersAtFault.Where(locked.Contains), StringComparer.Ordinal);
         var last = first;
         IReadOnlySet<string> done = new HashSet<string>(StringComparer.Ordinal);
-        if (faulty.Count > 0 && await attempt(faulty, 1, Reason(first)) is { } step1)
+        // Шаг 1 повторяется: перестройка виновных может сделать виновными соседние сохранённые КонЭ (стержень в плоскости
+        // перестроенной плиты) — они добавляются, пока ошибки связности называют новые КонЭ с замком.
+        string reason = Reason(first);
+        while (faulty.Count > 0 && await attempt(faulty, 1, reason) is { } step1)
         {
             if (!step1.HasErrors) return step1;
             last = step1;
             done = step1.Unlock?.UnlockedMemberTags ?? done;
+            var more = step1.ImportedMembersAtFault.Where(t => locked.Contains(t) && !faulty.Contains(t)).ToList();
+            if (more.Count == 0) break;
+            faulty.UnionWith(more);
+            reason = Reason(step1);
         }
         if (locked.All(done.Contains)) return last;
         return await attempt(locked, 2, Reason(last)) ?? last;

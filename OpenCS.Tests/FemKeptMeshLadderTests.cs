@@ -72,6 +72,32 @@ public sealed class FemKeptMeshLadderTests
         Assert.False(result.HasErrors);
     }
 
+    /// <summary>Шаг 1 назвал новый виновный КонЭ с замком — шаг 1 повторяется с ним, до шага 2 не доходит.</summary>
+    [Fact]
+    public async Task Step1NewFaulty_Step1Repeated()
+    {
+        var members = Members.Append(new FemMember { ElemTag = "P3", MeshSource = FemMember.MeshSourceImported }).ToList();
+        var steps = new List<(int, string)>();
+        var result = await FemKeptMeshLadder.RunAsync(Faulty("P1"), members, (tags, step, _) =>
+        {
+            steps.Add((step, string.Join(",", tags)));
+            if (tags.Count == 1)
+            {
+                var r = Faulty("P2", "W1");
+                return Task.FromResult<FemSchemaMeshBuildResult?>(new FemSchemaMeshBuildResult
+                {
+                    Diagnostics = r.Diagnostics, ImportedMembersAtFault = r.ImportedMembersAtFault, Unlock = Result(tags, step, true).Unlock,
+                    LadderStep = step,
+                });
+            }
+            return Task.FromResult<FemSchemaMeshBuildResult?>(Result(tags, step, errors: false));
+        });
+
+        Assert.Equal([(1, "P1"), (1, "P1,P2")], steps);
+        Assert.Equal(1, result.LadderStep);
+        Assert.False(result.HasErrors);
+    }
+
     [Fact]
     public async Task Step2Fails_ErrorsReturned()
     {

@@ -42,6 +42,9 @@ public sealed class FemKeptMeshUnlockPlan
     public SortedSet<string> RemovedElementTags { get; } = new(StringComparer.Ordinal);
     /// <summary>Тела, ведущий или ведомый которых — удаляемый узел (удаляются по Id).</summary>
     public List<FemRigidBody> RemovedRigidBodies { get; } = [];
+    /// <summary>Импортные тела (ЛИРА, SCAD) из <see cref="RemovedRigidBodies"/>, переведённые на узлы схемы «по точкам»
+    /// (как у фрагмента без сохранения сетки); тела на узлах новой сетки строит сборка.</summary>
+    public List<FemRigidBody> NodeRigidBodies { get; } = [];
     /// <summary>Узловые нагрузки на узлы схемы (тег узла; загружение — Id фрагмента).</summary>
     public List<FragmentNodeLoad> NodeLoads { get; } = [];
     /// <summary>Пружины узлов схемы (<see cref="FemSpringTargetKinds.Node"/>).</summary>
@@ -244,19 +247,56 @@ public static class FemKeptMeshUnlock
         }
     }
 
-    /// <summary>Тела на удаляемых узлах удаляются; авто-АЖТ перестраиваемой области сборка строит заново.</summary>
+    /// <summary>
+    /// Тела на удаляемых узлах удаляются. Импортные (ЛИРА, SCAD) переводятся на узлы схемы «по точкам» — в точках
+    /// ведущего и ведомых, как построитель переносит их без сохранения сетки; тела на узлах новой сетки строит сборка
+    /// (<see cref="FemNodeRigidBodies.Materialize"/>). Авто-АЖТ перестраиваемой области сборка строит заново.
+    /// </summary>
     static void TransferRigidBodies(Ctx c)
     {
         foreach (var b in c.Input.RigidBodies)
             if (c.Plan.RemovedNodeTags.Contains(b.MasterNodeTag) || b.SlaveNodeTags.Any(c.Plan.RemovedNodeTags.Contains))
                 c.Plan.RemovedRigidBodies.Add(b);
         if (c.Plan.RemovedRigidBodies.Count == 0) return;
+        var lost = new List<string>();
+        foreach (var b in c.Plan.RemovedRigidBodies)
+        {
+            string origin = StoreyFragmentBuilder.BaseOrigin(b.Origin);
+            if (!origin.StartsWith("import:", StringComparison.Ordinal)) continue;
+            if (!c.MeshNodeByTag.TryGetValue(b.MasterNodeTag, out var master))
+            {
+                lost.Add(b.SourceElemTag ?? b.MasterNodeTag);
+                continue;
+            }
+            string masterTag = c.NodeFor(master).NodeTag;
+            var slaves = b.SlaveNodeTags.Select(t => c.MeshNodeByTag.GetValueOrDefault(t)).OfType<FemMeshNode>()
+                .Select(n => c.NodeFor(n).NodeTag).Where(t => t != masterTag).Distinct(StringComparer.Ordinal).ToList();
+            if (slaves.Count == 0)
+            {
+                lost.Add(b.SourceElemTag ?? b.MasterNodeTag);
+                continue;
+            }
+            var body = new FemRigidBody
+            {
+                SchemaId = c.Input.SchemaId, MasterNodeTag = masterTag, Mask = b.Mask, Kind = b.Kind, Origin = origin,
+                SourceElemTag = b.SourceElemTag,
+            };
+            body.SetSlaveNodeTags(slaves);
+            c.Plan.NodeRigidBodies.Add(body);
+        }
         var origins = c.Plan.RemovedRigidBodies.GroupBy(b => b.Origin, StringComparer.Ordinal)
             .Select(g => $"{g.Key} — {g.Count()}");
+        string points = c.Plan.NodeRigidBodies.Count > 0
+            ? $"; импортные переведены на узлы схемы (по точкам): {c.Plan.NodeRigidBodies.Count}"
+            : "";
         c.Plan.Diagnostics.Add(new("fragment_mesh_unlock_rigid_removed",
-            $"АЖТ на узлах перестраиваемой сетки удалены: {c.Plan.RemovedRigidBodies.Count} ({string.Join(", ", origins)}); " +
+            $"АЖТ на узлах перестраиваемой сетки удалены: {c.Plan.RemovedRigidBodies.Count} ({string.Join(", ", origins)}){points}; " +
             "автоматические АЖТ перестроенных областей строятся заново.", false,
             [.. c.Plan.RemovedRigidBodies.Select(b => b.MasterNodeTag).Distinct(StringComparer.Ordinal)]));
+        if (lost.Count > 0)
+            c.Plan.Diagnostics.Add(new("fragment_mesh_unlock_rigid_lost",
+                $"Импортные АЖТ перестраиваемой сетки не перенесены — нет узлов тела в сетке: {Short(lost)}.", false,
+                [.. lost.Distinct(StringComparer.Ordinal)]));
     }
 
     static void TransferNodeLoads(Ctx c)

@@ -111,6 +111,7 @@ namespace OpenCS.Utilites
                DELETE FROM fem_mesh_node_loads WHERE schema_id=@sid AND mesh_node_tag=@tag;
                """, plan.RemovedNodeTags);
             EachId("DELETE FROM fem_rigid_bodies WHERE id=@id", plan.RemovedRigidBodies.Select(b => b.Id));
+            InsertRigidBodiesCore("fem_node_rigid_bodies", schemaId, plan.NodeRigidBodies, updateObjects: false);
             InsertFemBoundaryCore(schemaId, [], plan.NodeSprings, [], updateObjects: false);
 
             EachId("DELETE FROM fem_element_loads WHERE id=@id", plan.ReplacedElementLoads.Select(l => l.Id));
