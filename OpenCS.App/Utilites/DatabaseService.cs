@@ -8169,7 +8169,12 @@ namespace OpenCS.Utilites
              SaveGmshSettings(settings);
              return settings;
           }
-          return JsonSerializer.Deserialize<GmshSettings>(json) ?? new GmshSettings();
+          var loaded = JsonSerializer.Deserialize<GmshSettings>(json) ?? new GmshSettings();
+          // Допуск шва вне диапазона (ручная правка базы) — к ближайшей границе: вывод ограничений его не примет.
+          loaded.SeamToleranceM = double.IsFinite(loaded.SeamToleranceM)
+             ? Math.Clamp(loaded.SeamToleranceM, CScore.Fem.FemPlanarMeshPlan.MinSeamToleranceM, CScore.Fem.FemPlanarMeshPlan.MaxSeamToleranceM)
+             : CScore.Fem.FemPlanarMeshPlan.SeamToleranceM;
+          return loaded;
        }
 
        public void SaveGmshSettings(GmshSettings settings)

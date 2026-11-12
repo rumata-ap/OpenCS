@@ -25,6 +25,11 @@ public sealed class GmshSettings
     /// исполняемым файлом OpenCS (см. ResolveArtifactsPath).</summary>
     public string? ArtifactsPath { get; set; }
 
+    /// <summary>Допуск совпадения узлов на шве, м: насколько узел соседней области или стержня может отходить от
+    /// плоскости и кромки пластины, чтобы встроиться в её сетку (вывод ограничений сетки схемы). Слияние близких узлов —
+    /// всегда 1 мм. Допуск входит в отпечаток сетки: после смены сетки областей устаревают.</summary>
+    public double SeamToleranceM { get; set; } = CScore.Fem.FemPlanarMeshPlan.SeamToleranceM;
+
     /// <summary>Заданный каталог или "GmshArtifacts" рядом с exe; путь другой ОС (проект с Windows на Linux
     /// и наоборот) считается незаданным.</summary>
     public string ResolveArtifactsPath() =>
@@ -39,6 +44,7 @@ public sealed class GmshSettings
         ElementMode = ElementMode,
         TimeoutSeconds = TimeoutSeconds,
         KeepArtifacts = KeepArtifacts,
-        ArtifactsPath = ArtifactsPath
+        ArtifactsPath = ArtifactsPath,
+        SeamToleranceM = SeamToleranceM
     };
 }
