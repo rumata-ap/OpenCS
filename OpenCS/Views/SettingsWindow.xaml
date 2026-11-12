@@ -614,6 +614,7 @@
                                 <RowDefinition Height="28"/>
                                 <RowDefinition Height="28"/>
                                 <RowDefinition Height="28"/>
+                                <RowDefinition Height="28"/>
                             </Grid.RowDefinitions>
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource GmshPresetLabel}" VerticalAlignment="Center"/>
                             <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,2">
@@ -639,6 +640,10 @@
                             </ComboBox>
                             <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource GmshTimeoutLabel}" VerticalAlignment="Center"/>
                             <TextBox Grid.Row="3" Grid.Column="1" x:Name="GmshTimeoutBox" VerticalContentAlignment="Center" Margin="0,2"/>
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource GmshSeamToleranceLabel}" VerticalAlignment="Center"
+                                       ToolTip="{DynamicResource GmshSeamToleranceTip}"/>
+                            <TextBox Grid.Row="4" Grid.Column="1" x:Name="GmshSeamToleranceBox" VerticalContentAlignment="Center" Margin="0,2"
+                                     ToolTip="{DynamicResource GmshSeamToleranceTip}"/>
                         </Grid>
                     </GroupBox>
                     <GroupBox Header="{DynamicResource GmshArtifactsPathLabel}" Margin="0,0,0,10">

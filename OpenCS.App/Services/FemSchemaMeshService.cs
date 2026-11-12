@@ -121,6 +121,9 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
         };
     }
 
+    /// <summary>Допуски вывода ограничений с допуском шва из настроек Gmsh (<see cref="GmshSettings.SeamToleranceM"/>).</summary>
+    PlanarConstraintDerivationOptions SeamOptions() => FemPlanarMeshPlan.SeamOptions(gmsh.SeamToleranceM);
+
     /// <summary>Фрагмент с сохранённой сеткой: связность стыков — ошибка, лестница перемешивания разрешена.</summary>
     bool IsStrict(int schemaId) => db.HasKeptMesh(schemaId) && db.GetFemSchemaFragmentSource(schemaId).IsFragment;
 
@@ -181,7 +184,7 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
             var prefixBuilder = new FemPlanarMeshMaterializer.Prefix(schemaId, derivationNodes, derivationElements, nodes);
             // Волны из несоприкасающихся областей: в волне вывод ограничений и Gmsh — параллельно, запись снимков — здесь
             // (одно соединение SQLite), по порядку; префикс волны — все области прошлых волн, по порядку сборки.
-            var plan = await Task.Run(() => FemPlanarMeshPlan.Waves(ordered, plateStep), cancellationToken);
+            var plan = await Task.Run(() => FemPlanarMeshPlan.Waves(ordered, plateStep, gmsh.SeamToleranceM), cancellationToken);
             info?.Invoke(string.Format(CultureInfo.CurrentCulture, Loc.S("FemSchemaMeshWaves"), ordered.Count, plan.Waves.Count));
             using var gate = new SemaphoreSlim(Math.Max(1, Environment.ProcessorCount));
             // Следы АЖТ не зависят от префикса — все заранее: ранняя область получает точки в вершинах следов поздних.
@@ -196,7 +199,7 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
                 var traces = wave.Select(i => allTraces[i]).ToArray();
                 var constraints = new FemPlanarRegionConstraints[wave.Count];
                 await Task.Run(() => Parallel.For(0, wave.Count, new ParallelOptions { CancellationToken = cancellationToken }, k =>
-                    constraints[k] = FemPlanarMeshPlan.Constraints(schemaId, nodes, members, prefix, ordered[wave[k]].Region,
+                    constraints[k] = FemPlanarMeshPlan.Constraints(schemaId, nodes, members, prefix, ordered[wave[k]].Region, SeamOptions(),
                         laterRegions: plan.Later(ordered, wave[k]), junctions: traces[k],
                         laterJunctions: LaterJunctions(plan, ordered, wave[k], allTraces))), cancellationToken);
 
@@ -343,7 +346,7 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
             ? DerivationBase(schemaId, nodes, members, true, db.GetFemMeshNodes(schemaId), db.GetFemMeshElements(schemaId))
             : DerivationBase(schemaId, nodes, members, false, [], []);
         var prefix = new FemPlanarMeshMaterializer.Prefix(schemaId, derivationNodes, derivationElements, nodes);
-        var plan = FemPlanarMeshPlan.Waves(ordered, PlateStep(schemaId));
+        var plan = FemPlanarMeshPlan.Waves(ordered, PlateStep(schemaId), gmsh.SeamToleranceM);
         int index = ordered.FindIndex(p => p.Region.Id == target.Id);
         // Префикс — области прошлых волн по порядку сборки (область вне порядка — заблокированная или новая — видит все).
         foreach (var i in plan.Sequence)
@@ -366,7 +369,7 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
             foreach (var j in plan.Neighbours[index].Where(j => plan.WaveOf[j] > plan.WaveOf[index]))
                 allTraces[j] = AwayFromKept(FemRigidJunctions.Build(ordered[j].Region, nodes, members, outlines, options),
                     ordered[j].Region, keptPoints, step);
-        return FemPlanarMeshPlan.Constraints(schemaId, nodes, members, prefixMesh, target,
+        return FemPlanarMeshPlan.Constraints(schemaId, nodes, members, prefixMesh, target, SeamOptions(),
             laterRegions: index >= 0 ? plan.Later(ordered, index) : null, junctions: traces,
             laterJunctions: index >= 0 ? LaterJunctions(plan, ordered, index, allTraces) : null);
     }

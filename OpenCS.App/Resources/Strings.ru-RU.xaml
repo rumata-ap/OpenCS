@@ -284,6 +284,9 @@
     <system:String x:Key="GmshElementModeQuads">Четырёхугольники (Q4)</system:String>
     <system:String x:Key="GmshElementModeMixed">Смешанный (T3+Q4)</system:String>
     <system:String x:Key="GmshTimeoutLabel">Таймаут запуска, с</system:String>
+    <system:String x:Key="GmshSeamToleranceLabel">Допуск совпадения узлов, мм</system:String>
+    <system:String x:Key="GmshSeamToleranceTip">Насколько узел соседней области или стержня может отходить от плоскости и кромки пластины, чтобы встроиться в её сетку (0,001–1 мм, по умолчанию 0,1). Слияние близких узлов — всегда 1 мм. После смены допуска сетки областей перестраиваются.</system:String>
+    <system:String x:Key="GmshSeamToleranceInvalid">Допуск совпадения узлов — число от 0,001 до 1 мм.</system:String>
     <system:String x:Key="GmshKeepArtifactsLabel">Сохранять артефакты запуска</system:String>
     <system:String x:Key="GmshKeepArtifactsTip">При выключении папка .geo/.msh/логов удаляется сразу после успешной сборки сетки; при ошибке артефакты сохраняются всегда.</system:String>
     <system:String x:Key="GmshArtifactsPathLabel">Каталог артефактов Gmsh</system:String>

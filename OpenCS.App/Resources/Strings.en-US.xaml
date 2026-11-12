@@ -284,6 +284,9 @@
     <system:String x:Key="GmshElementModeQuads">Quadrangles (Q4)</system:String>
     <system:String x:Key="GmshElementModeMixed">Mixed (T3+Q4)</system:String>
     <system:String x:Key="GmshTimeoutLabel">Run timeout, s</system:String>
+    <system:String x:Key="GmshSeamToleranceLabel">Node match tolerance, mm</system:String>
+    <system:String x:Key="GmshSeamToleranceTip">How far a node of a neighbouring region or bar may lie off the plate plane and edge to be embedded in its mesh (0.001–1 mm, default 0.1). Close nodes are always merged within 1 mm. Changing it makes region meshes stale.</system:String>
+    <system:String x:Key="GmshSeamToleranceInvalid">Node match tolerance must be a number from 0.001 to 1 mm.</system:String>
     <system:String x:Key="GmshKeepArtifactsLabel">Keep run artifacts</system:String>
     <system:String x:Key="GmshKeepArtifactsTip">When off, the .geo/.msh/log folder is deleted right after a successful mesh build; on failure artifacts are always kept.</system:String>
     <system:String x:Key="GmshArtifactsPathLabel">Gmsh artifacts folder</system:String>

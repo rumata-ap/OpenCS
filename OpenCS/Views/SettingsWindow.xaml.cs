@@ -613,6 +613,7 @@ namespace OpenCS.Views
           SelectComboByTag(GmshAlgorithmCombo, _gmshSettings.Algorithm.ToString());
           SelectComboByTag(GmshElementModeCombo, _gmshSettings.ElementMode.ToString());
           GmshTimeoutBox.Text = _gmshSettings.TimeoutSeconds.ToString();
+          GmshSeamToleranceBox.Text = SeamToleranceMmText(_gmshSettings.SeamToleranceM);
           GmshKeepArtifactsCb.IsChecked = _gmshSettings.KeepArtifacts;
           GmshArtifactsPathBox.Text = _gmshSettings.ArtifactsPath ?? "";
        }
@@ -633,6 +634,19 @@ namespace OpenCS.Views
           SelectComboByTag(GmshElementModeCombo, nameof(CScore.Planar.PlanarMeshElementMode.Mixed));
        }
 
+       /// <summary>Допуск шва в миллиметрах для поля ввода.</summary>
+       static string SeamToleranceMmText(double toleranceM) =>
+          (toleranceM * 1000).ToString("G6", System.Globalization.CultureInfo.CurrentCulture);
+
+       /// <summary>Разбирает допуск шва, введённый в мм; true — число в диапазоне 0,001–1 мм (результат в м).</summary>
+       static bool TrySeamToleranceMm(string text, out double toleranceM)
+       {
+          toleranceM = 0;
+          if (!Pars.ParseAny(text, out var mm) || !double.IsFinite(mm)) return false;
+          toleranceM = mm / 1000;
+          return toleranceM >= CScore.Fem.FemPlanarMeshPlan.MinSeamToleranceM && toleranceM <= CScore.Fem.FemPlanarMeshPlan.MaxSeamToleranceM;
+       }
+
        void HookGmshControls()
        {
           GmshExeBox.TextChanged += (_, _) =>
@@ -645,6 +659,16 @@ namespace OpenCS.Views
           GmshTimeoutBox.TextChanged += (_, _) =>
           {
              if (int.TryParse(GmshTimeoutBox.Text, out var v) && v > 0) _gmshSettings.TimeoutSeconds = v;
+          };
+          GmshSeamToleranceBox.TextChanged += (_, _) =>
+          {
+             if (TrySeamToleranceMm(GmshSeamToleranceBox.Text, out var m)) _gmshSettings.SeamToleranceM = m;
+          };
+          GmshSeamToleranceBox.LostFocus += (_, _) =>
+          {
+             if (TrySeamToleranceMm(GmshSeamToleranceBox.Text, out _)) return;
+             MessageBox.Show(Loc.S("GmshSeamToleranceInvalid"), Loc.S("GmshSettingsTab"), MessageBoxButton.OK, MessageBoxImage.Warning);
+             GmshSeamToleranceBox.Text = SeamToleranceMmText(_gmshSettings.SeamToleranceM);
           };
           GmshKeepArtifactsCb.Checked   += (_, _) => _gmshSettings.KeepArtifacts = true;
           GmshKeepArtifactsCb.Unchecked += (_, _) => _gmshSettings.KeepArtifacts = false;
