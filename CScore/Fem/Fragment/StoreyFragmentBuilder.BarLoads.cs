@@ -150,9 +150,11 @@ public static partial class StoreyFragmentBuilder
         bool found = false;
         foreach (var part in candidates)
         {
-            if (1 - Math.Abs(axis.Dot(part.Axis)) > 1e-6) continue;
+            // Оба конца КЭ у оси части (не строгая параллельность: КЭ у смещённого узла импорта бывает с изломом).
             double si = (p0 - part.A).Dot(part.Axis);
             if ((p0 - (part.A + part.Axis * si)).Length > SourceSnapM) continue;
+            var p1 = g.Points[1];
+            if ((p1 - (part.A + part.Axis * (p1 - part.A).Dot(part.Axis))).Length > SourceSnapM) continue;
             double sign = axis.Dot(part.Axis) > 0 ? 1 : -1;
             bool local = load.IsLocal && sign > 0 && rotation is { } r && Math.Abs(r - part.RotationDeg) < 1e-9;
             PlanarVector3 Vec(double q) => local ? Unit(load.AxisIndex) * q : dir * q;

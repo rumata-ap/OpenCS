@@ -75,11 +75,13 @@ public static class FragmentBarCutSampler
     /// <summary>
     /// КЭ родителя, на оси которого лежит <paramref name="point"/> (в пределах <paramref name="tol"/>); точка в узле двух
     /// КЭ — КЭ на отброшенной стороне. <paramref name="outward"/> — нормаль разреза от фрагмента к отброшенной части
-    /// (<see cref="FragmentCut.Outward"/>). null — такого КЭ нет.
+    /// (<see cref="FragmentCut.Outward"/>). <paramref name="lateralTol"/> — допуск удаления точки от оси КЭ (по умолчанию
+    /// <paramref name="tol"/>). null — такого КЭ нет.
     /// </summary>
     public static FragmentBarCutHit? Locate(PlanarVector3 point, PlanarVector3 outward, IEnumerable<FragmentBarElement> bars,
-        double tol)
+        double tol, double? lateralTol = null)
     {
+        double lat = lateralTol ?? tol;
         FragmentBarCutHit? best = null;
         foreach (var b in bars)
         {
@@ -89,7 +91,7 @@ public static class FragmentBarCutSampler
             double xi = (point - b.PI).Dot(d) / (l * l);
             if (xi < -tol / l || xi > 1 + tol / l) continue;
             xi = Math.Clamp(xi, 0, 1);
-            if ((b.PI + d * xi - point).Length > tol) continue;
+            if ((b.PI + d * xi - point).Length > lat) continue;
             bool towardJ = d.Dot(outward) > 0;
             // В узле: КЭ должен уходить в отброшенную сторону.
             bool atI = xi * l <= tol, atJ = (1 - xi) * l <= tol;

@@ -88,6 +88,20 @@ public sealed class StoreyFragmentMeshTests
         Assert.Equal(["C1 · низ"], varies.SourceKeys);
     }
 
+    /// <summary>Хорда КонЭ отходит от его КЭ на миллиметры (узел импорта смещён на 3 мм, как колонны 71/80 «Музея») —
+    /// сечение всё равно берётся от КЭ родителя.</summary>
+    [Fact]
+    public void BarWithoutSection_ChordOffsetFromElements_TakesSection()
+    {
+        var column = Bar("C1", "1", "2");
+        column.CrossSectionId = null;
+        var d = Build(1.5, 4.5, [N("1", 0, 0, 0), N("2", 0.003, 0, 6)], [(column, null), Slab("S1", 1, 3)], ColumnNodes,
+            [CoveredElement("S1"), B("1", "101", "102", "C1", section: 7), B("2", "102", "103", "C1", section: 7),
+             B("3", "103", "104", "C1", section: 7)]);
+
+        Assert.All(d.Members.Where(m => m.Member.ElemType == "beam"), m => Assert.Equal(7, m.Member.CrossSectionId));
+    }
+
     /// <summary>Своё сечение КонЭ не перебивается сечением КЭ.</summary>
     [Fact]
     public void BarWithSection_KeepsIt()

@@ -76,7 +76,8 @@ public static class FragmentMaskExtractor
         if (input.NodalForces is { } source && input.Bounds is { } bounds)
         {
             var nodalElements = input.NodalElements.Count > 0 ? input.NodalElements : input.ParentElements;
-            var endBars = FragmentNodalCut.EndCutBars(input.Cuts, input.ParentNodes, nodalElements, input.ToleranceM);
+            var endBars = FragmentNodalCut.EndCutBars(input.Cuts, input.ParentNodes, nodalElements,
+                Math.Max(input.ToleranceM, StoreyFragmentBuilder.SourceSnapM));
             nodal = FragmentNodalCut.Compute(input.Cuts, bounds, input.ParentNodes, nodalElements, endBars, input.Result.Keys, source);
             x.Diagnostics.AddRange(nodal.Diagnostics);
             if (!nodal.Ok) nodal = null;
@@ -128,7 +129,9 @@ public static class FragmentMaskExtractor
         string where, List<FragmentBarElement> bars)
     {
         if (c.EndPoint is not { } point
-            || FragmentBarCutSampler.Locate(point, outward, bars, input.ToleranceM) is not { } hit)
+            || (FragmentBarCutSampler.Locate(point, outward, bars, input.ToleranceM)
+                // Хорда импортного КонЭ может отходить от его КЭ на миллиметры («Музей», колонны 71/80).
+                ?? FragmentBarCutSampler.Locate(point, outward, bars, input.ToleranceM, StoreyFragmentBuilder.SourceSnapM)) is not { } hit)
         {
             Warn(x, "fragment_mask_cut_unmatched", $"Сечение {where}: нет КЭ стержня родителя в точке рассечения — маски нет.", c);
             return;

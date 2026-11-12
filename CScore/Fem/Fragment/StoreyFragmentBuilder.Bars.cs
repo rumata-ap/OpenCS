@@ -130,8 +130,9 @@ public static partial class StoreyFragmentBuilder
         foreach (var (a, b, section) in elements)
         {
             if (section is not int id) continue;
-            // КЭ на оси части: оба конца в допуске от прямой.
-            if (Offset(a - p, unit) > c.Tol || Offset(b - p, unit) > c.Tol) continue;
+            // КЭ на оси части: оба конца в допуске привязки к источнику (КЭ того же КонЭ; хорда импортного КонЭ может
+            // отходить от его КЭ на миллиметры — «Музей», колонны 71/80).
+            if (Offset(a - p, unit) > SourceSnapM || Offset(b - p, unit) > SourceSnapM) continue;
             double ta = (a - p).Dot(unit), tb = (b - p).Dot(unit);
             double overlap = Math.Min(len, Math.Max(ta, tb)) - Math.Max(0, Math.Min(ta, tb));
             if (overlap > c.Tol) lengths[id] = lengths.GetValueOrDefault(id) + overlap;
