@@ -417,6 +417,104 @@ public sealed class FragmentCutBoundaryTests
         Assert.DoesNotContain(r.Diagnostics, x => x.Code == "fragment_component_free");
     }
 
+    /// <summary>
+    /// Две несвязанные стены (деформационный шов): W1 (y = 0, узлы 10…14 / 20…24) и W2 (y = 5, узлы 40…44 / 50…54), обе с
+    /// разрезом низа z = 1,5; <paramref name="slab"/> — ещё отдельная плита z = 3 без разрезов (узлы 30…33).
+    /// </summary>
+    static FragmentCutBoundaryInput TwoWalls(FragmentBcPreset preset, bool slab = false, IReadOnlyList<KinematicDofRef>? other = null)
+    {
+        var nodes = new List<FemMeshNode>();
+        var elements = new List<FemElement>();
+        foreach (var (wall, y, b) in new[] { ("W1", 0.0, 10), ("W2", 5.0, 40) })
+        {
+            for (int i = 0; i < 5; i++)
+            {
+                nodes.Add(new() { NodeTag = $"{b + i}", X = 2 + i, Y = y, Z = 1.5 });
+                nodes.Add(new() { NodeTag = $"{b + 10 + i}", X = 2 + i, Y = y, Z = 2.5 });
+            }
+            for (int i = 0; i < 4; i++)
+                elements.Add(new() { ElemTag = $"{wall}.{i}", ElemType = "shell", SourceMemberTag = wall,
+                    NodeIdsJson = $"[{b + i},{b + 1 + i},{b + 10 + i},{b + 11 + i}]" });
+        }
+        if (slab)
+        {
+            nodes.Add(new() { NodeTag = "30", X = 8, Y = 0, Z = 3 });
+            nodes.Add(new() { NodeTag = "31", X = 8, Y = 1, Z = 3 });
+            nodes.Add(new() { NodeTag = "32", X = 9, Y = 0, Z = 3 });
+            nodes.Add(new() { NodeTag = "33", X = 9, Y = 1, Z = 3 });
+            elements.Add(new() { ElemTag = "s1", ElemType = "shell", SourceMemberTag = "S", NodeIdsJson = "[30,32,31,33]" });
+        }
+        var cutW2 = new FragmentCut("W2", FragmentCutKind.Edge, FragmentCutSide.Bottom, 1.5, null, [(V(2, 5, 1.5), V(6, 5, 1.5))]);
+        const int W2 = 105;
+        return new FragmentCutBoundaryInput
+        {
+            Cuts = [(W1, new(CutW1, null, V(0, 1, 0))), (W2, new(cutW2, null, V(0, 1, 0)))],
+            Preset = preset,
+            Masks = new FragmentMaskSet { SourceKind = FragmentMaskSet.SourceCsfeaLinear, Items = [new(W1, L1, Wall(1)), new(W2, L1, Wall(2))] },
+            MeshNodes = nodes, MeshElements = elements, OtherConstraints = other ?? [], Stages = [new("S1", [(1, 1.0)])],
+            LoadCaseTags = new Dictionary<int, string> { [1] = "G" },
+        };
+    }
+
+    /// <summary>Силовые разрезы обеих стен без опор: жёсткие смещения снимаются у каждой части, не одни шесть на фрагмент.</summary>
+    [Fact]
+    public void SplitParts_AllStatic_GaugePerPart()
+    {
+        var r = FragmentCutBoundary.Resolve(TwoWalls(FragmentBcPreset.Static));
+
+        Assert.False(r.HasErrors, Text(r));
+        var parts = Assert.Single(r.Diagnostics, x => x.Code == "fragment_components");
+        Assert.False(parts.IsError);
+        Assert.Contains("частей 2:", parts.Message);
+        Assert.Equal(6, r.Gauge.Count(g => int.Parse(g.MeshNodeTag) < 40));
+        Assert.Equal(6, r.Gauge.Count(g => int.Parse(g.MeshNodeTag) >= 40));
+        Assert.Contains("по частям сетки, 2", Assert.Single(r.Diagnostics, x => x.Code == "fragment_gauge").Message);
+        Assert.DoesNotContain(r.Diagnostics, x => x.Code == "fragment_mechanism");
+        Assert.DoesNotContain(r.Diagnostics, x => x.Code == "fragment_component_free");
+    }
+
+    /// <summary>
+    /// Опоры у стены W2 снимают её жёсткие смещения сами (автозакреплений у неё нет); свободная W1 уходит на перемещения из
+    /// родителя (спека 2026-11-06) и автозакрепления тоже не требует.
+    /// </summary>
+    [Fact]
+    public void SplitParts_SupportCountsOnlyForItsPart()
+    {
+        var other = new[] { 0, 1, 2 }.SelectMany(d => new[] { V(2, 5, 2.5), V(6, 5, 2.5), V(4, 5, 1.5) }
+            .Select(p => new KinematicDofRef(p, d))).ToList();
+        var r = FragmentCutBoundary.Resolve(TwoWalls(FragmentBcPreset.Static, other: other));
+
+        Assert.False(r.HasErrors, Text(r));
+        Assert.Empty(r.Gauge);
+        Assert.Contains("W1", Assert.Single(r.Diagnostics, x => x.Code == "fragment_component_free").SourceKeys!);
+        Assert.Contains(r.Prescribed, p => p.MeshNodeTag == "10");
+        Assert.Contains(r.Loads, l => l.MeshNodeTag == "40");
+    }
+
+    /// <summary>Плита без разрезов и без опор ничем не держится — механизм с её КонЭ; стены на перемещениях из родителя.</summary>
+    [Fact]
+    public void SplitParts_FloatingPart_Mechanism()
+    {
+        var r = FragmentCutBoundary.Resolve(TwoWalls(FragmentBcPreset.Kinematic, slab: true));
+
+        Assert.False(r.HasErrors, Text(r));
+        Assert.Contains("частей 3:", Assert.Single(r.Diagnostics, x => x.Code == "fragment_components").Message);
+        var m = Assert.Single(r.Diagnostics, x => x.Code == "fragment_mechanism");
+        Assert.Contains("«S»", m.Message);
+        Assert.DoesNotContain("«W1»", m.Message);
+    }
+
+    /// <summary>Одна связная часть — сообщения о частях нет, автозакрепление прежнее.</summary>
+    [Fact]
+    public void SingleConnectedPart_NoPartsMessage()
+    {
+        var body = new FemRigidBody { MasterNodeTag = "22" };
+        body.SetSlaveNodeTags(["32"]);
+        var r = FragmentCutBoundary.Resolve(FreePart(bodies: [body]));
+
+        Assert.DoesNotContain(r.Diagnostics, x => x.Code == "fragment_components");
+    }
+
     /// <summary>Закреплённых частей нет вовсе (только силовой боковой разрез) — режимы прежние, прежний отказ.</summary>
     [Fact]
     public void NoRestrainedComponent_Unchanged()
