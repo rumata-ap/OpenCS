@@ -4131,6 +4131,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="ElementFragmentNoFloors">The elements have no floors: element bottom and top ± 1 m</system:String>
     <system:String x:Key="ElementFragmentFloorOne">Floor {0}</system:String>
     <system:String x:Key="ElementFragmentFloorRange">Floors {0}…{1}</system:String>
+    <system:String x:Key="ElementFragmentFloorsCut">Floors outside z₁…z₂, not in the fragment: {0} — to include them, widen "From floor"/"To floor" or turn on "Full height of the elements"</system:String>
     <system:String x:Key="ElementFragmentCuts">Cuts: z₁ = {0}, z₂ = {1}</system:String>
     <system:String x:Key="ElementFragmentName">Fragment · {0}</system:String>
     <system:String x:Key="ElementFragmentNameMore">Fragment · {0} +{1}</system:String>

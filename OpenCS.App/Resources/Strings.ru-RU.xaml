@@ -4132,6 +4132,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="ElementFragmentFloorOne">Перекрытие {0}</system:String>
     <system:String x:Key="ElementFragmentFloorRange">Перекрытия {0}…{1}</system:String>
     <system:String x:Key="ElementFragmentCuts">Разрезы: z₁ = {0}, z₂ = {1}</system:String>
+    <system:String x:Key="ElementFragmentFloorsCut">Перекрытия вне z₁…z₂, во фрагмент не входят: {0} — чтобы взять, расширьте «С перекрытия»/«По перекрытие» или включите «Вся высота элементов»</system:String>
     <system:String x:Key="ElementFragmentName">Фрагмент · {0}</system:String>
     <system:String x:Key="ElementFragmentNameMore">Фрагмент · {0} +{1}</system:String>
     <system:String x:Key="ElementFragmentNameEmpty">Фрагмент</system:String>

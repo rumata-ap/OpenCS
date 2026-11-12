@@ -68,7 +68,7 @@ public static class ElementFragmentService
             SectionOutline = db.SectionOutlines(),
         };
         var prism = FragmentPrismBuilder.Build(parent, tags, d);
-        var empty = new ElementFragmentHeight([], null, null, null);
+        var empty = new ElementFragmentHeight([], null, null, null, null);
         if (prism.Prism is null || prism.Diagnostics.Any(x => x.IsError))
             return new(null, prism.Diagnostics, tags, d, [], empty, 0, 0, 0, 0);
 

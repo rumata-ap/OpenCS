@@ -2,15 +2,19 @@ namespace CScore.Fem.Fragment;
 
 /// <summary>Перекрытия для фрагмента вокруг стен и колонн (индексы в списке уровней <see cref="StoreyFloorLevels.Find"/>).</summary>
 /// <param name="Available">Перекрытия, которые можно выбрать крайними i…k, по возрастанию отметки.</param>
-/// <param name="Default">Перекрытие по умолчанию (одно — ближайшее к середине элементов); null — перекрытий нет.</param>
+/// <param name="DefaultFrom">Нижнее перекрытие по умолчанию: ближайшее к середине элементов, а у элементов на фундаментной плите
+/// (перекрытие на низе элементов без этажа под ним) — эта плита; null — перекрытий нет.</param>
+/// <param name="DefaultTo">Верхнее перекрытие по умолчанию: ближайшее к середине элементов, на фундаментной плите — не ниже
+/// следующего над ней доступного; null — перекрытий нет.</param>
 /// <param name="FullFrom">Нижнее перекрытие «вся высота»; null — перекрытий нет.</param>
 /// <param name="FullTo">Верхнее перекрытие «вся высота»; null — перекрытий нет.</param>
-public sealed record ElementFragmentHeight(IReadOnlyList<int> Available, int? Default, int? FullFrom, int? FullTo);
+public sealed record ElementFragmentHeight(IReadOnlyList<int> Available, int? DefaultFrom, int? DefaultTo, int? FullFrom, int? FullTo);
 
 /// <summary>
 /// Высота фрагмента вокруг стен и колонн (спека <c>2026-10-30-fem-element-fragment-prism-design.md</c>, разд. 2.2):
 /// доступные перекрытия — задевающие призму в плане на высоте элементов и по одному соседнему ниже и выше; «вся высота» —
-/// перекрытия на низе и верху элементов, иначе ближайшие за ними. Чистый класс, без БД.
+/// перекрытия на низе и верху элементов, иначе ближайшие за ними. По умолчанию — одно перекрытие у середины элементов; элементы на
+/// фундаментной плите — от плиты (решение пользователя 13.11: подвальную стену не резать посреди этажа). Чистый класс, без БД.
 /// </summary>
 public static class ElementFragmentLevels
 {
@@ -29,15 +33,26 @@ public static class ElementFragmentLevels
         if (below is int b) available.Add(b);
         available.AddRange(inside);
         if (above is int a) available.Add(a);
-        if (available.Count == 0) return new([], null, null, null);
+        if (available.Count == 0) return new([], null, null, null, null);
 
         double mid = (elemZMin + elemZMax) / 2;
         int def = available.OrderBy(i => Math.Abs(levels[i].Z - mid)).ThenBy(i => i).First();
         int? AtZ(double z) => inside.Where(i => Math.Abs(levels[i].Z - z) <= tol)
             .OrderBy(i => Math.Abs(levels[i].Z - z)).Select(i => (int?)i).FirstOrDefault();
-        int from = AtZ(elemZMin) ?? below ?? available[0];
+        int? bottom = AtZ(elemZMin);
+        int from = bottom ?? below ?? available[0];
         int to = AtZ(elemZMax) ?? above ?? available[^1];
-        return new(available, def, from, Math.Max(from, to));
+
+        // Элементы стоят на фундаментной плите (на низе элементов перекрытие, этажа под ним нет): умолчание — от плиты и не ниже
+        // следующего над ней перекрытия, иначе разрез посреди нижнего этажа отсекает плиту.
+        int defFrom = def, defTo = def;
+        if (bottom is int f && StoreyFloorLevels.Band(levels, f, elemZMin, elemZMax).HeightBelow is null)
+        {
+            int pos = available.IndexOf(f);
+            defFrom = f;
+            defTo = Math.Max(def, pos + 1 < available.Count ? available[pos + 1] : f);
+        }
+        return new(available, defFrom, defTo, from, Math.Max(from, to));
     }
 
     /// <summary>

@@ -33,7 +33,7 @@ public sealed class ElementFragmentServiceTests : IDisposable
         Assert.Equal((0.0, 6.0), (s.ElemZMin, s.ElemZMax));
         Assert.Equal([3.0, 9.0], s.Levels.Select(l => Math.Round(l.Z, 6)));
         Assert.Equal([0, 1], s.Height.Available);
-        Assert.Equal(0, s.Height.Default);
+        Assert.Equal(0, s.Height.DefaultFrom);
         Assert.Equal((0, 1), (s.Height.FullFrom, s.Height.FullTo));
 
         var one = ElementFragmentService.Request(s, 0, 0, "Фрагмент · C1");
@@ -70,7 +70,7 @@ public sealed class ElementFragmentServiceTests : IDisposable
         Assert.Equal((a.Prism!.CenterX, a.Prism.CenterY, a.Prism.HalfLength, a.Prism.HalfWidth),
             (b.Prism!.CenterX, b.Prism.CenterY, b.Prism.HalfLength, b.Prism.HalfWidth));
         Assert.Equal(a.Height.Available, b.Height.Available);
-        Assert.Equal((a.Height.Default, a.Height.FullFrom, a.Height.FullTo), (b.Height.Default, b.Height.FullFrom, b.Height.FullTo));
+        Assert.Equal((a.Height.DefaultFrom, a.Height.DefaultTo, a.Height.FullFrom, a.Height.FullTo), (b.Height.DefaultFrom, b.Height.DefaultTo, b.Height.FullFrom, b.Height.FullTo));
     }
 
     [Fact]

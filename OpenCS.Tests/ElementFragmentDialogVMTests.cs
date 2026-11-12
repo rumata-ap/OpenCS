@@ -28,14 +28,14 @@ public sealed class ElementFragmentDialogVMTests
     /// <summary>Колонна C1 z 0…3,3 с сечением 0,6 × 0,4: доступны ±0, +3,3 и сосед выше +6,6; по умолчанию +3,3.</summary>
     static ElementFragmentSelection Column(double d = 1.5, params string[] tags) => new(
         FragmentPrism.Create(2, 3, 1, 0, 0.3 + d, 0.2 + d), [], tags.Length == 0 ? ["C1"] : tags, d,
-        Floors, new ElementFragmentHeight([0, 1, 2], 1, 0, 1), 0, 3.3, -1, 11);
+        Floors, new ElementFragmentHeight([0, 1, 2], 1, 1, 0, 1), 0, 3.3, -1, 11);
 
     static ElementFragmentSelection NoFloors(double d = 1.5) => new(
-        FragmentPrism.Create(0, 0, 1, 0, d, d), [], ["C1"], d, [], new ElementFragmentHeight([], null, null, null), 0, 3, 0, 3);
+        FragmentPrism.Create(0, 0, 1, 0, d, d), [], ["C1"], d, [], new ElementFragmentHeight([], null, null, null, null), 0, 3, 0, 3);
 
     static ElementFragmentSelection Refused() => new(null,
         [new FemValidationDiagnostic("fragment_prism_not_vertical", "Элемент B1 — не вертикальная.", true, ["B1"])], ["B1"], 1.5,
-        [], new ElementFragmentHeight([], null, null, null), 0, 0, 0, 0);
+        [], new ElementFragmentHeight([], null, null, null, null), 0, 0, 0, 0);
 
     static ElementFragmentDialogVM Vm(ElementFragmentSelection s, Func<double, Task<ElementFragmentSelection>>? recompute = null,
         string[]? rejected = null) =>
@@ -56,6 +56,8 @@ public sealed class ElementFragmentDialogVMTests
         Assert.Equal(string.Format(Ru, Loc.S("ElementFragmentPrism"), "3,6", "3,4", "0", "2", "3", "1,5"), vm.PrismText);
         Assert.Contains(string.Format(Loc.S("ElementFragmentFloorOne"), "+3,300"), vm.RangeText);
         Assert.Contains(string.Format(Loc.S("ElementFragmentCuts"), "+1,650", "+4,950"), vm.RangeText);
+        // Перекрытие ±0 на низе колонны ниже z₁ — справка говорит, что оно не входит.
+        Assert.Contains(string.Format(Loc.S("ElementFragmentFloorsCut"), "±0,000"), vm.RangeText);
 
         var r = vm.TryRequest(out var error);
         Assert.Null(error);
@@ -107,6 +109,20 @@ public sealed class ElementFragmentDialogVMTests
         Assert.Equal((0.0, 3.3), (r.PrismInfo.FloorFromZ!.Value, r.PrismInfo.FloorToZ!.Value));
         Assert.Equal(4.95, r.Z2, 6);
         Assert.Contains(string.Format(Loc.S("ElementFragmentFloorRange"), "±0,000", "+3,300"), vm.RangeText);
+        Assert.DoesNotContain(Loc.S("ElementFragmentFloorsCut").Split("{0}")[0], vm.RangeText);
+    }
+
+    /// <summary>Колонна на фундаментной плите: умолчание ядра «с ±0 по +3,3» — диалог выставляет оба выпадающих.</summary>
+    [Fact]
+    public void FoundationDefault_FromAndToDiffer()
+    {
+        var s = Column() with { Height = new ElementFragmentHeight([0, 1, 2], 0, 1, 0, 1) };
+        var vm = Vm(s);
+        Assert.Same(vm.Levels[0], vm.FromLevel);
+        Assert.Same(vm.Levels[1], vm.ToLevel);
+        Assert.DoesNotContain(Loc.S("ElementFragmentFloorsCut").Split("{0}")[0], vm.RangeText);
+        var r = vm.TryRequest(out _);
+        Assert.Equal((0.0, 3.3), (r!.PrismInfo!.FloorFromZ!.Value, r.PrismInfo.FloorToZ!.Value));
     }
 
     [Fact]

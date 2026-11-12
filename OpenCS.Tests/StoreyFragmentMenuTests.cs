@@ -44,7 +44,7 @@ public sealed class StoreyFragmentMenuTests : IDisposable
         using var db = new DatabaseService(_path);
         var parent = StoreyFragmentDbFixture.CreateParent(db);
         var selection = ElementFragmentService.PrismFromSelection(db, parent.Id, ["C1"], ElementFragmentService.DefaultOffsetM);
-        var request = ElementFragmentService.Request(selection, selection.Height.Default!.Value, selection.Height.Default!.Value, "Фрагмент · C1");
+        var request = ElementFragmentService.Request(selection, selection.Height.DefaultFrom!.Value, selection.Height.DefaultTo!.Value, "Фрагмент · C1");
 
         var result = await StoreyFragmentMenuFlow.RunAsync(db, parent, request);
 

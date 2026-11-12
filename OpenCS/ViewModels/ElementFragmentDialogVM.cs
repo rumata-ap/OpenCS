@@ -193,10 +193,11 @@ public sealed class ElementFragmentDialogVM : ViewModelBase
             .ToList();
         StoreyFloorRow? Find(double? z) => z is { } v
             ? _levels.FirstOrDefault(r => Math.Abs(r.Level.Z - v) <= StoreyFloorLevels.LevelToleranceM) : null;
-        var def = _levels.FirstOrDefault(r => r.Index == selection.Height.Default);
+        var defFrom = _levels.FirstOrDefault(r => r.Index == selection.Height.DefaultFrom);
+        var defTo = _levels.FirstOrDefault(r => r.Index == selection.Height.DefaultTo);
         _settingLevels = true;
-        FromLevel = Find(fromZ) ?? def;
-        ToLevel = Find(toZ) ?? def;
+        FromLevel = Find(fromZ) ?? defFrom;
+        ToLevel = Find(toZ) ?? defTo;
         if (_from is not null && _to is not null && _to.Level.Z < _from.Level.Z) ToLevel = _from;
         _settingLevels = false;
         if (!HasLevels) _fullHeight = true;
@@ -241,8 +242,14 @@ public sealed class ElementFragmentDialogVM : ViewModelBase
                 ? string.Format(Loc.S("ElementFragmentFloorOne"), Signed(_selection.Levels[a].Z))
                 : string.Format(Loc.S("ElementFragmentFloorRange"), Signed(_selection.Levels[a].Z), Signed(_selection.Levels[b].Z));
         }
-        RangeText = string.Join(Environment.NewLine, elements, floors,
-            string.Format(Loc.S("ElementFragmentCuts"), Signed(z1), Signed(z2)));
+        var lines = new List<string> { elements, floors, string.Format(Loc.S("ElementFragmentCuts"), Signed(z1), Signed(z2)) };
+        // Перекрытия на высоте элементов, отсечённые разрезами (фундаментная плита при «С перекрытия» выше неё и т. п.).
+        const double tol = StoreyFloorLevels.LevelToleranceM;
+        var cut = _levels.Select(r => r.Level.Z)
+            .Where(z => z >= _selection.ElemZMin - tol && z <= _selection.ElemZMax + tol && (z < z1 || z > z2))
+            .Select(Signed).ToList();
+        if (cut.Count > 0) lines.Add(string.Format(Loc.S("ElementFragmentFloorsCut"), string.Join("; ", cut)));
+        RangeText = string.Join(Environment.NewLine, lines);
         SetDefaultName(DefaultName(_selection.MemberTags));
     }
 

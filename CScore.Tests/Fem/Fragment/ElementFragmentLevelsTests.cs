@@ -35,7 +35,8 @@ public sealed class ElementFragmentLevelsTests
         var levels = Building();
         var h = ElementFragmentLevels.Of(levels, Prism, 3, 6);
         Assert.Equal([0, 1, 2, 3], h.Available);
-        Assert.Equal(1, h.Default);
+        // Под перекрытием 3 есть этаж — умолчание одно перекрытие у середины.
+        Assert.Equal((1, 1), (h.DefaultFrom, h.DefaultTo));
         Assert.Equal((1, 2), (h.FullFrom, h.FullTo));
 
         var (z1, z2) = ElementFragmentLevels.Range(levels, 1, 2, 0, 9);
@@ -50,7 +51,7 @@ public sealed class ElementFragmentLevelsTests
         // Колонна 1…5: внутри перекрытие 3, ниже 0, выше 6 — «вся высота» по ближайшим за концами.
         var h = ElementFragmentLevels.Of(Building(), Prism, 1, 5);
         Assert.Equal([0, 1, 2], h.Available);
-        Assert.Equal(1, h.Default);
+        Assert.Equal((1, 1), (h.DefaultFrom, h.DefaultTo));
         Assert.Equal((0, 2), (h.FullFrom, h.FullTo));
     }
 
@@ -61,9 +62,36 @@ public sealed class ElementFragmentLevelsTests
         var h = ElementFragmentLevels.Of(levels, Prism, 0, 3);
         Assert.Equal([0, 1, 2], h.Available);
         Assert.Equal((0, 1), (h.FullFrom, h.FullTo));
+        // На фундаментной плите умолчание — от плиты до перекрытия над ней (не одно перекрытие у середины).
+        Assert.Equal((0, 1), (h.DefaultFrom, h.DefaultTo));
         // Под фундаментной плитой этажа нет — z₁ за низом схемы с запасом.
         var (z1, _) = ElementFragmentLevels.Range(levels, 0, 1, -0.5, 9);
         Assert.Equal(-0.5 - StoreyFloorLevels.EdgeMarginM, z1, 6);
+    }
+
+    /// <summary>
+    /// Подвальная стена −3,4…0 на фундаментной плите (случай «Мирной», стена 7): по умолчанию «−3,400 по ±0,000», z₁ под плитой —
+    /// плита входит; одно перекрытие резало бы стену посреди подвала и теряло плиту или перекрытие ±0.
+    /// </summary>
+    [Fact]
+    public void BasementWallOnFoundation_DefaultTakesSlab()
+    {
+        var levels = Levels(Plate("Ф", 0, 0, 10, 10, -3.4), Plate("П0", 0, 0, 10, 10, 0), Plate("П1", 0, 0, 10, 10, 3.3));
+        var h = ElementFragmentLevels.Of(levels, FragmentPrism.Create(5, 5, 1, 0, 3, 1.6), -3.4, 0);
+        Assert.Equal((0, 1), (h.DefaultFrom, h.DefaultTo));
+        var (z1, z2) = ElementFragmentLevels.Range(levels, h.DefaultFrom!.Value, h.DefaultTo!.Value, -3.4, 3.3);
+        Assert.True(z1 < -3.4);
+        Assert.Equal(1.65, z2, 6);
+    }
+
+    /// <summary>Стена над подвалом 0…3,3: под ±0 есть этаж — умолчание прежнее, одно перекрытие у середины.</summary>
+    [Fact]
+    public void WallAboveBasement_DefaultOneFloor()
+    {
+        var levels = Levels(Plate("Ф", 0, 0, 10, 10, -3.4), Plate("П0", 0, 0, 10, 10, 0), Plate("П1", 0, 0, 10, 10, 3.3),
+            Plate("П2", 0, 0, 10, 10, 6.6));
+        var h = ElementFragmentLevels.Of(levels, FragmentPrism.Create(5, 5, 1, 0, 3, 1.6), 0, 3.3);
+        Assert.Equal((1, 1), (h.DefaultFrom, h.DefaultTo));
     }
 
     [Fact]
@@ -73,7 +101,7 @@ public sealed class ElementFragmentLevelsTests
         var h = ElementFragmentLevels.Of(Building(), Prism, -3, -0.5);
         Assert.Equal([0], h.Available);
         Assert.Equal((0, 0), (h.FullFrom, h.FullTo));
-        Assert.Equal(0, h.Default);
+        Assert.Equal((0, 0), (h.DefaultFrom, h.DefaultTo));
     }
 
     [Fact]
@@ -82,7 +110,9 @@ public sealed class ElementFragmentLevelsTests
         var h = ElementFragmentLevels.Of(Building(), FragmentPrism.Create(5, 5, 1, 0, 4, 1.6), 0, 9);
         Assert.Equal([0, 1, 2, 3], h.Available);
         Assert.Equal((0, 3), (h.FullFrom, h.FullTo));
-        Assert.Contains(h.Default!.Value, new[] { 1, 2 });
+        // От фундамента до перекрытия у середины.
+        Assert.Equal(0, h.DefaultFrom);
+        Assert.Contains(h.DefaultTo!.Value, new[] { 1, 2 });
     }
 
     [Fact]
@@ -101,7 +131,8 @@ public sealed class ElementFragmentLevelsTests
     {
         var h = ElementFragmentLevels.Of([], Prism, 0, 3);
         Assert.Empty(h.Available);
-        Assert.Null(h.Default);
+        Assert.Null(h.DefaultFrom);
+        Assert.Null(h.DefaultTo);
         Assert.Null(h.FullFrom);
         Assert.Null(h.FullTo);
         var (z1, z2) = ElementFragmentLevels.FullHeightNoFloors(0, 3);
