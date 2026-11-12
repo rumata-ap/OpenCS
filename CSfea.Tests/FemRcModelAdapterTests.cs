@@ -24,6 +24,7 @@ public class FemRcModelAdapterTests
         RunMeshLoadsAndSelfWeight();
         RunKinematicAndMissingCases();
         RunKinematicSettlement();
+        RunNodeLoadOnMergedNode();
     }
 
     /// <summary>Упругие свойства: стержни — прямоугольник 0,3 × 0,5, пластины — E, ν 0,2, h 0,2; удельный вес 25 кН/м³.</summary>
@@ -319,6 +320,29 @@ public class FemRcModelAdapterTests
         TestHarness.Check("повтор DOF узла в загружении", codes.Contains("kinematic_duplicate"), string.Join(", ", codes));
         TestHarness.Check("нет загружения", codes.Contains("stage_load_case_missing"));
         TestHarness.Check("пустая стадия", codes.Contains("stage_empty"));
+    }
+
+    /// <summary>
+    /// Свободный узел схемы 3 с силой в 0,4 мм от конца консоли (узел схемы 2 → узел сетки 5): сетка слила их точки, у
+    /// узла сетки источник — 2; сила узла 3 идёт в узел сетки 5 по положению, информационное сообщение вместо ошибки.
+    /// </summary>
+    private static void RunNodeLoadOnMergedNode()
+    {
+        TestHarness.Section("FemRcModelAdapter: узловая нагрузка узла схемы, слитого сеткой с соседним");
+        var input = Cantilever([]);
+        var r = FemRcModelAdapter.Adapt(new FemRcModelInput
+        {
+            MeshNodes = input.MeshNodes, MeshElements = input.MeshElements,
+            Nodes = [.. input.Nodes, new FemNode { Id = 3, NodeTag = "3", X = 4.0004 }], Members = input.Members,
+            Properties = input.Properties, LoadCases = input.LoadCases, Stages = input.Stages,
+            NodeLoads = [new FemNodeLoad { LoadCaseId = 1, NodeId = 3, Fz = -1e3 }],
+        });
+        TestHarness.Check("нет ошибок", !r.HasErrors, string.Join("; ", r.Report));
+        var nodal = r.Model.LoadCases.Single(c => c.Id == 1).Nodal;
+        TestHarness.Check("сила в узле сетки 5", nodal.Count == 1 && nodal[0].NodeId == 5 && nodal[0].Force[2] == -1e3,
+            string.Join("; ", nodal.Select(n => $"{n.NodeId}: {n.Force[2]}")));
+        TestHarness.Check("сообщение schema_node_mesh_by_position",
+            r.Diagnostics.Any(d => d.Code == "schema_node_mesh_by_position" && !d.IsError && d.SourceKeys!.SequenceEqual(["3"])));
     }
 
     /// <summary>

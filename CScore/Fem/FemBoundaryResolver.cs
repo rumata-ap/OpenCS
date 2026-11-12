@@ -50,8 +50,8 @@ public static class FemBoundaryResolver
     {
         var diagnostics = new List<FemValidationDiagnostic>();
         var meshTags = meshNodes.Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal);
-        var meshBySource = meshNodes.Where(n => n.SourceNodeTag != null)
-            .ToLookup(n => n.SourceNodeTag!, n => n.NodeTag, StringComparer.Ordinal);
+        // Узел схемы → узлы сетки: по источнику, иначе ближайший в 1 мм (сетка слила его точку с соседним узлом).
+        var meshBySource = new FemSchemaNodeMeshMap(meshNodes, nodes);
 
         // Закрепления: конструктивный уровень через исходный узел, сеточный — напрямую.
         var masks = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -61,7 +61,7 @@ public static class FemBoundaryResolver
         {
             int mask = node.DofMask & FemBoundaryDofs.All;
             if (mask == 0) continue;
-            var mapped = meshBySource[node.NodeTag].ToList();
+            var mapped = meshBySource.Find(node.NodeTag);
             if (mapped.Count == 0) { notInMesh.Add(node.NodeTag); continue; }
             foreach (var tag in mapped) Fix(tag, mask);
         }
@@ -86,7 +86,7 @@ public static class FemBoundaryResolver
             IEnumerable<string> targets;
             if (s.TargetKind == FemSpringTargetKinds.Node)
             {
-                var mapped = meshBySource[s.NodeTag].ToList();
+                var mapped = meshBySource.Find(s.NodeTag);
                 if (mapped.Count == 0) { missing.Add(s.NodeTag); continue; }
                 targets = mapped;
             }
@@ -103,6 +103,7 @@ public static class FemBoundaryResolver
             }
         }
         Warn(diagnostics, "spring_node_missing", "Пружины на отсутствующих узлах", missing);
+        if (meshBySource.Diagnostic("Опоры и пружины") is { } byPosition) diagnostics.Add(byPosition);
 
         var inFixed = new List<string>();
         foreach (var (tag, k) in stiffness)

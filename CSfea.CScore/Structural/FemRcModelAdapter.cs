@@ -496,9 +496,8 @@ public static class FemRcModelAdapter
         var beamTags = model.Beams.Select(b => b.Id.ToString(CultureInfo.InvariantCulture)).ToHashSet(StringComparer.Ordinal);
         var mesh = new FemLoadMeshContext(input.MeshNodes, input.MeshElements, input.Groups, input.Properties,
             members.ToDictionary(kv => kv.Key, kv => kv.Value.RotationDeg, StringComparer.Ordinal));
-        var meshNodeBySource = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var n in input.MeshNodes)
-            if (n.SourceNodeTag is { } s) meshNodeBySource.TryAdd(s, n.NodeTag);
+        // Узел схемы → узел сетки: по источнику, иначе ближайший в 1 мм (сетка слила его точку с соседним узлом).
+        var meshNodeBySource = new FemSchemaNodeMeshMap(input.MeshNodes, input.Nodes);
         var nodeById = input.Nodes.GroupBy(n => n.Id).ToDictionary(g => g.Key, g => g.First());
         var nodeByTag = new Dictionary<string, FemNode>(StringComparer.Ordinal);
         foreach (var n in input.Nodes) nodeByTag.TryAdd(n.NodeTag, n);
@@ -539,7 +538,7 @@ public static class FemRcModelAdapter
             var lostNodeLoads = new List<string>();
             foreach (var l in input.NodeLoads.Where(l => l.LoadCaseId == caseId))
             {
-                if (!nodeById.TryGetValue(l.NodeId, out var n) || !meshNodeBySource.TryGetValue(n.NodeTag, out var tag))
+                if (!nodeById.TryGetValue(l.NodeId, out var n) || meshNodeBySource.FindFirst(n.NodeTag) is not { } tag)
                 {
                     lostNodeLoads.Add(nodeById.GetValueOrDefault(l.NodeId)?.NodeTag ?? $"#{l.NodeId}");
                     continue;
@@ -565,7 +564,7 @@ public static class FemRcModelAdapter
             {
                 string nodeTag = nodeById.GetValueOrDefault(l.NodeId)?.NodeTag ?? $"#{l.NodeId}";
                 if (l.Dof is < 1 or > 6) { badDof.Add(nodeTag); continue; }
-                if (!nodeById.TryGetValue(l.NodeId, out var n) || !meshNodeBySource.TryGetValue(n.NodeTag, out var tag))
+                if (!nodeById.TryGetValue(l.NodeId, out var n) || meshNodeBySource.FindFirst(n.NodeTag) is not { } tag)
                 {
                     lostKinematic.Add(nodeTag);
                     continue;
@@ -620,6 +619,7 @@ public static class FemRcModelAdapter
             }
             model.LoadCases.Add(rc);
         }
+        if (meshNodeBySource.Diagnostic("Узловые и кинематические нагрузки") is { } byPosition) diag.Add(byPosition);
 
         var totals = new List<FemRcStageTotal>();
         var rcById = model.LoadCases.ToDictionary(c => c.Id);

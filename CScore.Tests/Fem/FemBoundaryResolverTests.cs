@@ -38,13 +38,37 @@ public sealed class FemBoundaryResolverTests
     public void Supports_MissingNodes_AreWarnings()
     {
         var r = Resolve(
-            nodes: [new FemNode { NodeTag = "A", DofMask = 7 }],
+            nodes: [new FemNode { NodeTag = "A", X = 5, DofMask = 7 }],
             mesh: [Mesh("1")],
             supports: [new FemMeshNodeSupport { NodeTag = "99", Mask = 7 }]);
 
         Assert.Empty(r.SupportMasks);
         Assert.False(r.HasErrors);
         Assert.Equal(["node_support_not_in_mesh", "mesh_support_node_missing"], r.Diagnostics.Select(d => d.Code));
+    }
+
+    /// <summary>
+    /// Опора B в 0,4 мм от узла КонЭ A: сетка слила их точки в узел 1 с источником A — опора B идёт в него по положению
+    /// (информационное сообщение); опора C в 2 мм — по-прежнему «не попала в сетку».
+    /// </summary>
+    [Fact]
+    public void Supports_NodeMergedByMesh_MappedByPosition()
+    {
+        var r = Resolve(
+            nodes:
+            [
+                new FemNode { NodeTag = "A", X = 1, Y = 2, Z = 3 },
+                new FemNode { NodeTag = "B", X = 1.0004, Y = 2, Z = 3, DofMask = 0b000111 },
+                new FemNode { NodeTag = "C", X = 1, Y = 2.002, Z = 3, DofMask = 0b000001 },
+            ],
+            mesh: [new FemMeshNode { NodeTag = "1", X = 1, Y = 2, Z = 3, SourceNodeTag = "A" }]);
+
+        Assert.Equal(0b000111, r.SupportMasks["1"]);
+        var info = Assert.Single(r.Diagnostics, d => d.Code == "schema_node_mesh_by_position");
+        Assert.False(info.IsError);
+        Assert.Contains("B → 1 (0", info.Message);
+        Assert.Equal(["B"], info.SourceKeys!);
+        Assert.Equal(["C"], Assert.Single(r.Diagnostics, d => d.Code == "node_support_not_in_mesh").SourceKeys!);
     }
 
     [Fact]
