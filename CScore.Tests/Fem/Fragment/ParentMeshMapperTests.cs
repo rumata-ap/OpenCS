@@ -52,4 +52,22 @@ public sealed class ParentMeshMapperTests
         Assert.Null(m.MapBar(V(0.1, 0, 3), V(0, 0, 1)));
         Assert.Null(m.MapBar(V(0, 0, 3), V(1, 0, 0)));
     }
+
+    /// <summary>
+    /// Ось стержня фрагмента, привязанная к узлам источника с расхождением в миллиметры (колонны 71/80 «Музея»: 2,6 мм),
+    /// — ближайший параллельный КЭ родителя в пределах <see cref="StoreyFragmentBuilder.SourceSnapM"/>; точная пара важнее.
+    /// </summary>
+    [Fact]
+    public void Bar_OffsetAxisWithinSourceSnap_NearestParallel()
+    {
+        var m = new ParentMeshMapper([
+            new("a", "beam", [V(0, 0, 0), V(0, 0, 2)]),
+            new("b", "beam", [V(0.004, 0, 0), V(0.004, 0, 2)]),
+            new("h", "beam", [V(0, 0, 1), V(2, 0, 1)])]);
+        Assert.Equal("a", m.MapBar(V(0, 0.0026, 1.5), V(0, 0, 1))!.Tag);
+        Assert.Equal("b", m.MapBar(V(0.0035, 0, 1.5), V(0, 0, 1))!.Tag);
+        Assert.Equal("a", m.MapBar(V(0.0005, 0, 1.5), V(0, 0, 1))!.Tag);
+        Assert.Null(m.MapBar(V(0, 0.011, 1.5), V(0, 0, 1)));
+        Assert.Null(m.MapBar(V(0, 0.003, 2.1), V(0, 0, 1)));
+    }
 }

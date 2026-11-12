@@ -41,18 +41,27 @@ public sealed class ParentMeshMapper
         return best;
     }
 
-    /// <summary>КЭ-стержень родителя на оси <paramref name="axis"/>, содержащий точку.</summary>
-    public FragmentRefElement? MapBar(PlanarVector3 point, PlanarVector3 axis)
+    /// <summary>
+    /// КЭ-стержень родителя на оси <paramref name="axis"/>, содержащий точку; нет — ближайший параллельный, ось которого
+    /// не дальше <paramref name="maxDistance"/> (по умолчанию <see cref="StoreyFragmentBuilder.SourceSnapM"/>: сборка
+    /// фрагмента привязывает КонЭ к узлам источника с тем же допуском, и ось стержня фрагмента может расходиться с осью КЭ
+    /// родителя на миллиметры — у «Музея» колонны 71/80 на 2,6 мм).
+    /// </summary>
+    public FragmentRefElement? MapBar(PlanarVector3 point, PlanarVector3 axis, double maxDistance = StoreyFragmentBuilder.SourceSnapM)
     {
-        foreach (var r in _bars.Near(point, _tol))
+        FragmentRefElement? best = null;
+        double bestDistance = double.PositiveInfinity;
+        foreach (var r in _bars.Near(point, Math.Max(maxDistance, _tol)))
         {
             if (1 - Math.Abs(axis.Dot(r.Direction)) > ParallelTolerance) continue;
             var a = r.Points[0];
             double t = (point - a).Dot(r.Direction);
             if (t < -_tol || t > r.Geometry.Length + _tol) continue;
-            if ((point - (a + r.Direction * t)).Length <= _tol) return r;
+            double d = (point - (a + r.Direction * t)).Length;
+            if (d <= _tol) return r;
+            if (d <= maxDistance && d < bestDistance) (best, bestDistance) = (r, d);
         }
-        return null;
+        return best;
     }
 
     /// <summary>Расстояние от точки (в плоскости КЭ) до его контура; 0 — внутри.</summary>

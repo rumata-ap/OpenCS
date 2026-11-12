@@ -48,7 +48,17 @@ public static class FemSelfWeightSourceFactory
         }
         if (programSource is not null)
         {
-            if (parentId is not null) programSource = new ParentStiffnessNumberSource(programSource, FragmentMap(db, schemaId));
+            if (parentId is not null)
+            {
+                var map = FragmentMap(db, schemaId, out var elements);
+                programSource = new ParentStiffnessNumberSource(programSource, map);
+                // КЭ без своего номера жёсткости и без пары в сетке родителя — свойства по сечениям проекта (не программы).
+                var own = elements.Where(e => e.StiffnessNum is not null).Select(e => e.ElemTag).ToHashSet(StringComparer.Ordinal);
+                var lost = map.Unmapped.Where(t => !own.Contains(t)).ToList();
+                if (lost.Count > 0)
+                    list.Add($"КЭ фрагмента без пары в сетке родителя: {lost.Count} ({CScore.Fem.FemNodeRigidBodies.Short(lost)}) — " +
+                             "жёсткости программы-источника к ним не применены, свойства — по сечениям проекта.");
+            }
             sources.Add(programSource);
         }
 
@@ -98,11 +108,12 @@ public static class FemSelfWeightSourceFactory
     }
 
     /// <summary>Сопоставление КЭ фрагмента с опорными КЭ родителя по геометрии сетки фрагмента.</summary>
-    static FragmentParentMap FragmentMap(DatabaseService db, int schemaId)
+    static FragmentParentMap FragmentMap(DatabaseService db, int schemaId, out List<CScore.Fem.FemElement> elements)
     {
         var nodes = new Dictionary<string, CScore.Fem.FemMeshNode>(StringComparer.Ordinal);
         foreach (var n in db.GetFemMeshNodes(schemaId)) nodes.TryAdd(n.NodeTag, n);
-        return FragmentParentMap.Build(db.GetFemMeshElements(schemaId), nodes,
+        elements = db.GetFemMeshElements(schemaId);
+        return FragmentParentMap.Build(elements, nodes,
             new ParentMeshMapper(db.GetFragmentRefElements(schemaId)));
     }
 
