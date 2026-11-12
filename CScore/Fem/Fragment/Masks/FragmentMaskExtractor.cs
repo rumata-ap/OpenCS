@@ -121,7 +121,7 @@ public static class FragmentMaskExtractor
             double dF = (k.MaskF - k.DirectF).Length / scaleF, dM = (k.MaskM - k.DirectM).Length / scaleM;
             if (dF > CutResultantTolerance || dM > CutResultantTolerance)
                 Warn(x, "fragment_mask_cut_resultant", string.Create(CultureInfo.CurrentCulture,
-                    $"Сечение {k.Where}, {KeyText(k.Key)}: равнодействующая маски расходится с суммой по КЭ на {Math.Max(dF, dM):P1}."), k.Cut);
+                    $"Сечение {k.Where}, {KeyText(k.Key)}: равнодействующая МНК расходилась с суммой по КЭ на {Math.Max(dF, dM):P1} — маска исправлена к сумме по КЭ."), k.Cut);
         }
     }
 
@@ -182,13 +182,20 @@ public static class FragmentMaskExtractor
                     }
                 offset += g.Length;
             }
-            x.Masks.Add(new FragmentCutMask(index, key, samples));
+            // МНК сглаживает пики у краёв кромки и проёмов — маска исправляется к прямой сумме «центр КЭ × хорда»
+            // (FragmentMaskResultantCorrection); сверка ниже сообщает о величине поправки.
+            IReadOnlyList<FragmentMaskSample> masked = samples;
+            if (!noF && FragmentMaskBalance.Resultant(c, samples, PlanarVector3.Zero) is { } res)
+            {
+                checks.Add(new(c, key, where, geometries.Sum(g => g.Length), res.F, res.M, direct.F, direct.M));
+                if (c.ShellNormal is { } shellNormal)
+                    masked = FragmentMaskResultantCorrection.Correct(c, samples, direct.F, direct.M, shellNormal);
+            }
+            x.Masks.Add(new FragmentCutMask(index, key, masked));
             if (noU) Warn(x, "fragment_mask_no_displacement", $"Сечение {where}, {KeyText(key)}: в части точек нет перемещений источника.", c);
             if (noF) Warn(x, "fragment_mask_no_forces", $"Сечение {where}, {KeyText(key)}: в части точек нет усилий КЭ источника.", c);
             if (degenerate > 0) Warn(x, "fragment_mask_patch_degenerate",
                 $"Сечение {where}, {KeyText(key)}: в {degenerate} точках патч КЭ вырожден — усилия по ближайшим центрам.", c);
-            if (!noF && FragmentMaskBalance.Resultant(c, samples, PlanarVector3.Zero) is { } res)
-                checks.Add(new(c, key, where, geometries.Sum(g => g.Length), res.F, res.M, direct.F, direct.M));
         }
     }
 

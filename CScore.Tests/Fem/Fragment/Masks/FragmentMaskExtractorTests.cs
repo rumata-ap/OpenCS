@@ -51,6 +51,48 @@ public sealed class FragmentMaskExtractorTests
         Assert.DoesNotContain(x.Diagnostics, d => d.Code == "fragment_mask_cut_resultant");
     }
 
+    /// <summary>
+    /// Пик сдвига у края кромки («Мирная», стена 28 у проёма: МНК 37,6 кН против 40,8 кН по центрам КЭ и 41,1 кН по
+    /// узловым силам): Nxy = 10 кН/м только в крайнем столбце КЭ, всюду Ny = −2 кН/м. МНК сглаживает пик; маска
+    /// исправляется к прямой сумме по КЭ — равнодействующая и момент совпадают с ней, о поправке — сообщение.
+    /// </summary>
+    [Fact]
+    public void Wall_ShearPeakAtEdge_MaskResultantEqualsElementSum()
+    {
+        var (nodes, elements) = Wall(3, 3, 6, 6);
+        var t = new FragmentParentResultTable();
+        t.AddKey(K1);
+        foreach (var (tag, n) in nodes) t.SetDisplacement(K1, tag, Dof6.Zero);
+        var direct = (F: V(0, 0, 0), M: V(0, 0, 0));
+        var cut = WallCut(FragmentCutSide.Top, 2.2, (0, 3));
+        foreach (var e in elements)
+        {
+            var g = CScore.Fem.Loads.FemElementGeometry.Of(e, nodes)!;
+            var (ax, ay, _) = g.ShellFrame();
+            var c = g.Points.Aggregate(V(0, 0, 0), (a, p) => a + p) * (1.0 / g.Points.Count);
+            double nxy = c.X > 2.5 ? 10000 : 0;
+            var f = new FragmentShellForces(ax, ay, [0, -2000, nxy, 0, 0, 0, 0, 0]);
+            t.SetShellForces(K1, e.ElemTag, f);
+            if (c.Z is > 2 and < 2.5)
+            {
+                var tr = FragmentShellForceRecovery.Traction(f, V(0, 0, 1));
+                direct.F += tr.Force * 0.5;
+                direct.M += tr.Moment * 0.5 + V(c.X, 0, 2.2).Cross(tr.Force * 0.5);
+            }
+        }
+
+        var x = FragmentMaskExtractor.Extract(new FragmentMaskInput
+        {
+            Cuts = [cut], ParentNodes = nodes, ParentElements = elements, Result = t,
+        });
+
+        Assert.Equal(5000, Math.Abs(direct.F.X), 6);
+        var (rf, rm) = FragmentMaskBalance.Resultant(cut, Assert.Single(x.Masks).Samples, V(0, 0, 0))!.Value;
+        Assert.Equal(0, (rf - direct.F).Length, 6);
+        Assert.Equal(0, (rm - direct.M).Length, 6);
+        Assert.Contains(x.Diagnostics, d => d.Code == "fragment_mask_cut_resultant");
+    }
+
     /// <summary>Колонна: маска в точке, s = 0; сечение без КЭ родителя — предупреждение, маски нет.</summary>
     [Fact]
     public void Column_SampleAndUnmatched()
