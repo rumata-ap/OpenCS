@@ -41,6 +41,32 @@ public sealed class StoreyFragmentRigidBodyTests
         }
     }
 
+    /// <summary>
+    /// Импортный АЖТ колонны с ведомым узлом стены вне плиты (в проёме; «Музей», АЖТ 126056 у колонны 80: углы стен 56/57)
+    /// — след по сечению для плиты и тело «по точкам» с тем же ведущим для узла стены; ведомые в плите туда не входят.
+    /// </summary>
+    [Fact]
+    public void ImportedColumnBody_SlaveOffSlab_TransferredByPointsWithSameMaster()
+    {
+        var slab = Slab("S1", 1, 3, Box(0.45, -0.5, 1.5, 0.5, "h"));
+        var wall = Wall("W1", 2, 0.5, 0, 0, 1, 6);
+        FemNode[] nodes = [N("1", 0, 0, 0), N("2", 0, 0, 6)];
+        (FemMember, CScore.Planar.PlanarRegion?)[] members = [(Bar("C1", "1", "2"), null), slab, wall];
+        FemMeshNode[] mesh = [.. Body, M("505", 0.5, 0, 3)];
+        var body = new FemRigidBody { MasterNodeTag = "500", Origin = "import:scad", SourceElemTag = "126056" };
+        body.SetSlaveNodeTags(["501", "502", "503", "504", "505"]);
+        var d = Build(1.5, 4.5, nodes, members, mesh, [CoveredElement("S1")], [body]);
+
+        Assert.All(d.Members.Where(m => m.Member.ElemType == "beam"), m => Assert.NotNull(m.Member.RigidJunctionTraceJson));
+        var b = Assert.Single(d.NodeRigidBodies);
+        var at = d.Nodes.ToDictionary(n => n.NodeTag);
+        Assert.Equal((0.0, 0.0, 3.0), (at[b.MasterNodeTag].X, at[b.MasterNodeTag].Y, at[b.MasterNodeTag].Z));
+        var slave = at[Assert.Single(b.SlaveNodeTags)];
+        Assert.Equal((0.5, 0.0, 3.0), (slave.X, Math.Round(slave.Y, 12), slave.Z));
+        Assert.Equal("import:scad", b.Origin);
+        Assert.Contains(d.Diagnostics, x => x.Code == "fragment_rigid_body_trace_points" && x.SourceKeys!.SequenceEqual(["126056"]));
+    }
+
     [Fact]
     public void ManualBody_ReportedLost_AutoBodySilent()
     {

@@ -27,6 +27,7 @@ public static partial class StoreyFragmentBuilder
         var points = new List<string>();
         var byTags = new List<string>();
         var fromTrace = new List<string>();
+        var tracePoints = new List<string>();
         var mergedRigid = new List<string>();
         var mergedHinge = new List<string>();
         var hingeMasks = new SortedSet<string>(StringComparer.Ordinal);
@@ -74,6 +75,27 @@ public static partial class StoreyFragmentBuilder
                 .ToList();
             if (bars.Count > 0)
             {
+                // Ведомые вне плиты (в проёме, за кромкой, вне её плоскости — узлы стен и стержней): след ведёт только узлы
+                // сетки плиты, поэтому они переносятся «по точкам» отдельным телом с тем же ведущим.
+                var offSlab = new List<string>();
+                foreach (var tag in body.SlaveNodeTags)
+                {
+                    if (meshNode.GetValueOrDefault(tag) is not { } n || !c.InBox(P(n))) continue;
+                    var p = new PlanarVector3(n.X, n.Y, n.Z);
+                    if (RegionContains(slab!.Region, p, c.Tol) || Attach(c, p) is not { } q) continue;
+                    if (c.Nodes.Get(q).NodeTag is var t && t != node!.NodeTag && !offSlab.Contains(t)) offSlab.Add(t);
+                }
+                if (offSlab.Count > 0)
+                {
+                    var extra = new FemRigidBody
+                    {
+                        MasterNodeTag = node!.NodeTag, Mask = body.Mask, Kind = body.Kind, Origin = origin, SourceElemTag = body.SourceElemTag,
+                    };
+                    extra.SetSlaveNodeTags(offSlab);
+                    c.Draft.NodeRigidBodies.Add(extra);
+                    tracePoints.Add(label);
+                    origins.Add(origin);
+                }
                 var hull = PlanarPolygonOps.ConvexHull(body.SlaveNodeTags.Append(body.MasterNodeTag)
                     .Select(t => meshNode.GetValueOrDefault(t))
                     .Where(n => n is not null && Math.Abs(n.Z - slab!.Z) <= c.Tol)
@@ -148,6 +170,9 @@ public static partial class StoreyFragmentBuilder
         Row("fragment_rigid_body_lost", masterOutside, "АЖТ не перенесены — ведущий узел вне КонЭ фрагмента: {0} ({1}).");
         Row("fragment_rigid_body_lost", slavesOutside, "АЖТ не перенесены — все ведомые узлы вне КонЭ фрагмента: {0} ({1}).");
         Row("fragment_rigid_body_lost", manual, "АЖТ заданы вручную — во фрагмент не переносятся: {0} ({1}).");
+        Row("fragment_rigid_body_trace_points", tracePoints,
+            $"АЖТ {source} у колонн с ведомыми узлами вне плиты (стены, стержни): плита — следом по узлам тела, эти узлы — " +
+            "по узлам схемы с тем же ведущим: {0} ({1}).");
         Row("fragment_rigid_body_degenerate", degenerate, "АЖТ у колонн, узлы тела в плите не образуют площадки — след по сечению: {0} ({1}).");
         Row("fragment_rigid_body_kept", byTags, "АЖТ родителя перенесены по тегам сохранённой сетки: {0} ({1}).");
         Row("fragment_rigid_from_trace", fromTrace,
