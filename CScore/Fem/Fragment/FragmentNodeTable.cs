@@ -12,7 +12,9 @@ namespace CScore.Fem.Fragment;
 sealed class FragmentNodeTable(List<FemNode> nodes, IReadOnlySet<int>? reservedTags = null)
 {
     const double Snap = 1e-6;
+    const double MergeM = FemPlanarMeshPlan.MergeToleranceM;
     readonly Dictionary<(long, long, long), FemNode> _byKey = [];
+    readonly Dictionary<(long, long, long), List<FemNode>> _byCell = [];
     readonly Dictionary<(long, long, long), FemMeshNode> _kept = [];
     readonly Dictionary<string, FemNode> _byTag = new(StringComparer.Ordinal);
     int _next = 1;
@@ -39,7 +41,32 @@ sealed class FragmentNodeTable(List<FemNode> nodes, IReadOnlySet<int>? reservedT
         nodes.Add(node);
         _byTag[tag] = node;
         _byKey[Key(new PlanarVector3(node.X, node.Y, node.Z))] = node;
+        var cell = Cell(new PlanarVector3(node.X, node.Y, node.Z));
+        if (!_byCell.TryGetValue(cell, out var list)) _byCell[cell] = list = [];
+        list.Add(node);
         return node;
+    }
+
+    /// <summary>
+    /// Ближайший узел не дальше <see cref="FemPlanarMeshPlan.MergeToleranceM"/>, иначе новый в точке. Для узлов нагрузок:
+    /// сетка всё равно сливает точки ближе допуска в один узел сетки, а он сопоставляется одному узлу схемы — нагрузка
+    /// второго терялась бы (ветер ЛИРЫ «Мирной» — в 0,68 мм от угла плиты).
+    /// </summary>
+    public FemNode GetMerged(PlanarVector3 p)
+    {
+        var (cx, cy, cz) = Cell(p);
+        FemNode? best = null;
+        double bestD = MergeM;
+        for (long dx = -1; dx <= 1; dx++)
+            for (long dy = -1; dy <= 1; dy++)
+                for (long dz = -1; dz <= 1; dz++)
+                    if (_byCell.TryGetValue((cx + dx, cy + dy, cz + dz), out var list))
+                        foreach (var n in list)
+                        {
+                            double d = (new PlanarVector3(n.X, n.Y, n.Z) - p).Length;
+                            if (d <= bestD) (best, bestD) = (n, d);
+                        }
+        return best ?? Get(p);
     }
 
     /// <summary>Узел сохранённой сетки: новые узлы схемы в его точке берут его тег и координаты.</summary>
@@ -67,4 +94,8 @@ sealed class FragmentNodeTable(List<FemNode> nodes, IReadOnlySet<int>? reservedT
 
     static (long, long, long) Key(PlanarVector3 p) =>
         ((long)Math.Round(p.X / Snap), (long)Math.Round(p.Y / Snap), (long)Math.Round(p.Z / Snap));
+
+    /// <summary>Ячейка решётки размером с допуск слияния: узлы в пределах допуска — в соседних ячейках.</summary>
+    static (long, long, long) Cell(PlanarVector3 p) =>
+        ((long)Math.Floor(p.X / MergeM), (long)Math.Floor(p.Y / MergeM), (long)Math.Floor(p.Z / MergeM));
 }

@@ -75,6 +75,28 @@ public sealed class StoreyFragmentShellLoadTests
         Assert.Empty(d.FieldLoads);
     }
 
+    /// <summary>
+    /// Сосредоточенные силы ближе допуска слияния сетки (1 мм) — в одном узле: иначе сетка сливает их точки в один узел
+    /// сетки и нагрузка второго узла схемы теряется (ветер ЛИРЫ «Мирной» в 0,68 мм от угла плиты). Дальше допуска — разные узлы.
+    /// </summary>
+    [Fact]
+    public void ShellPoints_CloserThanMergeTolerance_ShareNode()
+    {
+        var d = Build(Snapshot(elementLoads:
+        [
+            ElementLoad(7, "point", "z", [-700, 0.5, 0.25], "1"),
+            ElementLoad(7, "point", "z", [-300, 0.5004, 0.25], "1"),
+            ElementLoad(7, "point", "z", [-100, 0.502, 0.25], "1"),
+        ]));
+
+        Assert.Equal(2, d.NodeLoads.Count);
+        var near = d.NodeLoads.Single(l => l.Load.Fz < -500);
+        Assert.Equal(-1000, near.Load.Fz, 9);
+        var node = d.Nodes.Single(n => n.NodeTag == near.NodeTag);
+        Assert.Equal(-2.5, node.X, 9);
+        Assert.Equal(-100, d.NodeLoads.Single(l => l != near).Load.Fz, 9);
+    }
+
     [Fact]
     public void SelfWeight_SameK_Lifted_MixedK_Warned()
     {

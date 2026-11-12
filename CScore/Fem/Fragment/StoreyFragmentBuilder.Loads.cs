@@ -153,10 +153,13 @@ public static partial class StoreyFragmentBuilder
             return _barPart[e.ElemTag] = part;
         }
 
-        /// <summary>Узловая нагрузка фрагмента в точке: узел схемы фрагмента (новый — свободный), сумма по загружению и виду.</summary>
+        /// <summary>
+        /// Узловая нагрузка фрагмента в точке: узел схемы фрагмента ближе допуска слияния сетки (1 мм) или новый свободный,
+        /// сумма по загружению и виду. Смещение силы до 1 мм в момент не переводится — родитель и так раздаёт её по узлам КЭ.
+        /// </summary>
         public void AddNodeLoad(int lc, string category, PlanarVector3 at, PlanarVector3 f, PlanarVector3 m)
         {
-            var node = C.Nodes.Get(at);
+            var node = C.Nodes.GetMerged(at);
             if (!_nodeLoads.TryGetValue((lc, node.NodeTag, category), out var load))
             {
                 _nodeLoads[(lc, node.NodeTag, category)] = load = new FemNodeLoad { LoadCaseId = lc };
