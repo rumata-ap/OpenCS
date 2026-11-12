@@ -21,6 +21,8 @@ public class FemMemberGroup : IFemCheckable, INotifyPropertyChanged
     public const string OriginManual = "manual";
     /// <summary>Создана автоматикой OpenCS (авто-группировка по сечению).</summary>
     public const string OriginAuto = "auto";
+    /// <summary>Перенесена из группы родителя при сборке фрагмента этажа (сечение пластины).</summary>
+    public const string OriginFragment = "fragment";
     /// <summary>Префикс происхождения из импорта: «import:lira», «import:scad», «import:robot»…</summary>
     public const string OriginImportPrefix = "import:";
 

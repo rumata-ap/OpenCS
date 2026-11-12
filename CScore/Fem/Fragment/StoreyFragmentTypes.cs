@@ -129,6 +129,8 @@ public sealed class StoreyFragmentDraft
     /// <summary>АЖТ родителя на узлах сохранённой сетки — теги родителя, происхождение
     /// <see cref="StoreyFragmentBuilder.ParentRigidOriginPrefix"/> + исходное (сборка сетки их не пересоздаёт).</summary>
     public List<FemRigidBody> MeshRigidBodies { get; } = [];
+    /// <summary>Группы КонЭ фрагмента из групп родителя с сечением пластины (<see cref="FemMemberGroup.OriginFragment"/>).</summary>
+    public List<FemMemberGroup> Groups { get; } = [];
     /// <summary>Опорная сетка: КЭ родителя полосы.</summary>
     public List<FragmentRefElement> RefElements { get; } = [];
     /// <summary>Узлы сохранённой сетки родителя (копии с тегами родителя, <c>Origin = imported</c>).</summary>

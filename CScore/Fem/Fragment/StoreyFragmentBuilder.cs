@@ -39,6 +39,8 @@ public static partial class StoreyFragmentBuilder
         public List<Slab> Slabs { get; } = [];
         /// <summary>Стержневые КЭ родителя по тегу КонЭ: концы и сечение — источник сечения частей фрагмента.</summary>
         public Dictionary<string, List<(PlanarVector3 A, PlanarVector3 B, int? SectionId)>> ParentBars { get; set; } = [];
+        /// <summary>КЭ родителя исходных КонЭ «КЭ без КонЭ · k» (у КонЭ родителя — КЭ с его тегом в полосе).</summary>
+        public Dictionary<string, List<string>> SourceElements { get; } = new(StringComparer.Ordinal);
 
         public void Error(string code, string message, params string[] keys) => draft.Diagnostics.Add(new(code, message, true, keys));
         public void Warn(string code, string message, params string[] keys) => draft.Diagnostics.Add(new(code, message, false, keys));
@@ -97,6 +99,7 @@ public static partial class StoreyFragmentBuilder
         TransferRigidBodies(c, parent);
         ReportNotTransferred(c, parent);
         TransferLoads(c, parent);
+        TransferGroups(c, parent);
         LinkKeptNodes(c);
         return draft;
     }

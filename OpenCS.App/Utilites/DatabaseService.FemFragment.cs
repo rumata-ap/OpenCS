@@ -807,6 +807,12 @@ namespace OpenCS.Utilites
             InsertFemMeshLevelLoadsCore(sid, draft.ElementLoads, draft.MeshNodeLoads, Lc, _ => null, updateObjects: false);
             InsertStoreyFragmentDataCore(sid, draft.Cuts, draft.RefElements, draft.FieldLoads, Lc);
             CopyFragmentRebarSourcesCore(parentId, sid);
+            foreach (var g in draft.Groups)
+            {
+               g.Id = 0;
+               SaveFemMemberGroupCore(g, sid);
+               schema.MemberGroups.Add(g);
+            }
             tx.Commit();
          }
          catch { tx.Rollback(); throw; }
