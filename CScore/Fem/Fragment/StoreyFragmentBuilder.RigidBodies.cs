@@ -73,7 +73,14 @@ public static partial class StoreyFragmentBuilder
             var bars = node is null ? [] : c.Draft.Members
                 .Where(x => x.Member.ElemType == "beam" && NodeTags(x.Member).Contains(int.Parse(node.NodeTag)))
                 .ToList();
-            if (bars.Count > 0)
+            var hull = bars.Count == 0 ? [] : PlanarPolygonOps.ConvexHull(body.SlaveNodeTags.Append(body.MasterNodeTag)
+                .Select(t => meshNode.GetValueOrDefault(t))
+                .Where(n => n is not null && Math.Abs(n.Z - slab!.Z) <= c.Tol)
+                .Select(n => new PlanarPoint2D(n!.X, n.Y)));
+            bool flat = hull.Count < 3 || Math.Abs(PlanarPolygonOps.SignedArea(hull)) < c.Tol * c.Tol;
+            // Ведущий только на рёбрах в плоскости плиты и площадки нет («Музей», АЖТ 126043: конец ребра и верх стены
+            // в 0,1 м) — это не тело колонны: следа у ребра без сечения с контуром нет, тело переносится «по точкам».
+            if (bars.Count > 0 && (!flat || bars.Any(x => !InSlabPlane(c, x.Member, slab!.Z))))
             {
                 // Ведомые вне плиты (в проёме, за кромкой, вне её плоскости — узлы стен и стержней): след ведёт только узлы
                 // сетки плиты, поэтому они переносятся «по точкам» отдельным телом с тем же ведущим.
@@ -96,11 +103,7 @@ public static partial class StoreyFragmentBuilder
                     tracePoints.Add(label);
                     origins.Add(origin);
                 }
-                var hull = PlanarPolygonOps.ConvexHull(body.SlaveNodeTags.Append(body.MasterNodeTag)
-                    .Select(t => meshNode.GetValueOrDefault(t))
-                    .Where(n => n is not null && Math.Abs(n.Z - slab!.Z) <= c.Tol)
-                    .Select(n => new PlanarPoint2D(n!.X, n.Y)));
-                if (hull.Count < 3 || Math.Abs(PlanarPolygonOps.SignedArea(hull)) < c.Tol * c.Tol)
+                if (flat)
                 {
                     degenerate.Add(label);
                     continue;
@@ -237,4 +240,11 @@ public static partial class StoreyFragmentBuilder
         }
         return best;
     }
+
+    /// <summary>Оба конца стержня фрагмента на отметке плиты <paramref name="z"/> (ребро в её плоскости).</summary>
+    static bool InSlabPlane(Ctx c, FemMember bar, double z) =>
+        NodeTags(bar) is { Length: >= 2 } ids
+        && c.Nodes.ByTag(ids[0].ToString(CultureInfo.InvariantCulture)) is { } a
+        && c.Nodes.ByTag(ids[^1].ToString(CultureInfo.InvariantCulture)) is { } b
+        && Math.Abs(a.Z - z) <= c.Tol && Math.Abs(b.Z - z) <= c.Tol;
 }

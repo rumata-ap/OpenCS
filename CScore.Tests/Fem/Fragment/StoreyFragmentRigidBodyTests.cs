@@ -67,6 +67,32 @@ public sealed class StoreyFragmentRigidBodyTests
         Assert.Contains(d.Diagnostics, x => x.Code == "fragment_rigid_body_trace_points" && x.SourceKeys!.SequenceEqual(["126056"]));
     }
 
+    /// <summary>
+    /// Импортный АЖТ на конце горизонтального ребра в плоскости плиты с одним ведомым в плите («Музей», АЖТ 126043: конец
+    /// ребра 1870 и верх стены в 0,1 м) — площадки нет, а ребро не колонна: тело переносится «по точкам», след ребру не
+    /// задаётся (раньше тело терялось: ребро без сечения с контуром следа не строит).
+    /// </summary>
+    [Fact]
+    public void ImportedRibBody_Degenerate_TransferredByPoints()
+    {
+        var (nodes, members) = Column();
+        FemNode[] withRib = [.. nodes, N("3", 2, 1, 3), N("4", 2.5, 1, 3)];
+        (FemMember, CScore.Planar.PlanarRegion?)[] all = [.. members, (Bar("R1", "3", "4"), null)];
+        FemMeshNode[] mesh = [M("600", 2, 1, 3), M("601", 2, 1.1, 3)];
+        var body = new FemRigidBody { MasterNodeTag = "600", Origin = "import:scad", SourceElemTag = "126043" };
+        body.SetSlaveNodeTags(["601"]);
+        var d = Build(1.5, 4.5, withRib, all, mesh, [CoveredElement("S1")], [body]);
+
+        var b = Assert.Single(d.NodeRigidBodies);
+        var at = d.Nodes.ToDictionary(n => n.NodeTag);
+        Assert.Equal((2.0, 1.0, 3.0), (at[b.MasterNodeTag].X, at[b.MasterNodeTag].Y, at[b.MasterNodeTag].Z));
+        var slave = at[Assert.Single(b.SlaveNodeTags)];
+        Assert.Equal((2.0, 1.1, 3.0), (slave.X, Math.Round(slave.Y, 12), slave.Z));
+        Assert.All(d.Members.Where(m => m.Member.ElemType == "beam"), m => Assert.Null(m.Member.RigidJunctionTraceJson));
+        Assert.Contains(d.Diagnostics, x => x.Code == "fragment_rigid_body_points" && x.SourceKeys!.SequenceEqual(["126043"]));
+        Assert.DoesNotContain(d.Diagnostics, x => x.Code == "fragment_rigid_body_degenerate");
+    }
+
     [Fact]
     public void ManualBody_ReportedLost_AutoBodySilent()
     {
