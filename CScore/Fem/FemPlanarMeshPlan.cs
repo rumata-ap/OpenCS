@@ -166,7 +166,7 @@ public static class FemPlanarMeshPlan
     /// число волн задают локальные касания, а не этажность.
     /// </summary>
     public static FemPlanarMeshWaves Waves(IReadOnlyList<(FemMember Member, PlanarRegion Region)> ordered,
-        double? schemaPlateStepM = null)
+        double? schemaPlateStepM = null, double seamToleranceM = SeamToleranceM)
     {
         int n = ordered.Count;
         var boxes = ordered.Select(p => Box(p.Region, 2 * MergeToleranceM)).ToArray();
@@ -182,7 +182,7 @@ public static class FemPlanarMeshPlan
                 if (p.Y0 <= q.Y1 && p.Y1 >= q.Y0 && p.Z0 <= q.Z1 && p.Z1 >= q.Z0) candidates.Add((Math.Min(i, j), Math.Max(i, j)));
             }
         }
-        var options = DefaultOptions();
+        var options = SeamOptions(seamToleranceM);
         var touches = new bool[candidates.Count];
         Parallel.For(0, candidates.Count, k =>
         {
@@ -226,8 +226,17 @@ public static class FemPlanarMeshPlan
     }
 
     /// <summary>Допуски вывода по умолчанию — как у швов (см. <see cref="Constraints(int, IReadOnlyList{FemNode}, IReadOnlyList{FemMember}, FemPlanarMeshPrefix, PlanarRegion, PlanarConstraintDerivationOptions?, IReadOnlyList{ValueTuple{string, PlanarRegion}}?, RigidJunctionTraceSet?)"/>).</summary>
-    static PlanarConstraintDerivationOptions DefaultOptions() =>
-        new() { PlaneToleranceM = SeamToleranceM, GeometryToleranceM = SeamToleranceM };
+    static PlanarConstraintDerivationOptions DefaultOptions() => SeamOptions(SeamToleranceM);
+
+    /// <summary>Допуски вывода ограничений с заданным допуском шва (плоскость и кромка стыка), м.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">Допуск вне [<see cref="MinSeamToleranceM"/>, <see cref="MaxSeamToleranceM"/>].</exception>
+    public static PlanarConstraintDerivationOptions SeamOptions(double toleranceM)
+    {
+        if (!double.IsFinite(toleranceM) || toleranceM < MinSeamToleranceM || toleranceM > MaxSeamToleranceM)
+            throw new ArgumentOutOfRangeException(nameof(toleranceM), toleranceM,
+                $"Допуск шва должен быть от {MinSeamToleranceM} до {MaxSeamToleranceM} м.");
+        return new() { PlaneToleranceM = toleranceM, GeometryToleranceM = toleranceM };
+    }
 
     /// <summary>Сетка стержней для вывода ограничений: КонЭ-стержни, разбитые только узлами схемы (без дробления
     /// по целевой длине — она задаётся в редакторе и не хранится).</summary>
@@ -728,9 +737,17 @@ public static class FemPlanarMeshPlan
 
     /// <summary>
     /// Допуск плоскости стыка, м: узлы готовой сетки соседней области и свободные узлы на стыке отходят от плоскости и
-    /// кромки этой области на микроны (импортные контуры «Музея» — до 6 мкм); 0,1 мм — с запасом.
+    /// кромки этой области на микроны (импортные контуры «Музея» — до 6 мкм); 0,1 мм — с запасом. Значение по
+    /// умолчанию: в сборке сетки схемы допуск берётся из настроек Gmsh (<c>GmshSettings.SeamToleranceM</c>, <see cref="SeamOptions"/>).
     /// </summary>
     public const double SeamToleranceM = 1e-4;
+
+    /// <summary>Наименьший допуск шва, м (1 мкм).</summary>
+    public const double MinSeamToleranceM = 1e-6;
+
+    /// <summary>Наибольший допуск шва, м: не больше допуска слияния (<see cref="MergeToleranceM"/>), иначе узлы, попавшие
+    /// в шов, не сольются с узлами соседней сетки и останутся висячими.</summary>
+    public const double MaxSeamToleranceM = MergeToleranceM;
 
     /// <summary>
     /// Допуск слияния вершин швов и выведенных ограничений, м, — тот же, что у слияния узлов сетки схемы

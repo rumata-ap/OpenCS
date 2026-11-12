@@ -89,6 +89,44 @@ public class FemPlanarMeshPlanImportedPrefixTests
         Assert.True(seam.KeepVertices);
     }
 
+    /// <summary>Импортная плита, сдвинутая по y на <paramref name="dy"/>: кромка отходит от плоскости стены.</summary>
+    static FemPlanarRegionConstraints WallConstraintsWithSlabOffset(double dy, PlanarConstraintDerivationOptions? options)
+    {
+        var (nodes, members, meshNodes, meshElements) = ImportedSlabWithWallMember();
+        foreach (var n in meshNodes) n.Y += dy;
+        var (baseNodes, baseElements) = FemPlanarMeshPlan.DerivationBeams(1, nodes, members, meshNodes, meshElements);
+        var prefix = new FemPlanarMeshMaterializer.Prefix(1, baseNodes, baseElements, nodes).Build();
+        return FemPlanarMeshPlan.Constraints(1, nodes, members, prefix, Wall(), options);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1e-4)]
+    [InlineData(2e-3)]
+    [InlineData(double.NaN)]
+    public void SeamOptions_OutOfRange_Throws(double tol) =>
+        Assert.Throws<ArgumentOutOfRangeException>(() => FemPlanarMeshPlan.SeamOptions(tol));
+
+    /// <summary>Кромка плиты на 0,08 мм от плоскости стены: шов выводится при допуске 0,1 мм и не выводится при 0,05 мм.</summary>
+    [Fact]
+    public void SeamTolerance_DecidesSeamAtOffsetEdge()
+    {
+        static bool HasSeam(FemPlanarRegionConstraints c) =>
+            c.Constraints.Any(x => x.IsDerived && x.Geometry.Kind == PlanarConstraintGeometryKind.Curve);
+
+        Assert.True(HasSeam(WallConstraintsWithSlabOffset(8e-5, FemPlanarMeshPlan.SeamOptions(1e-4))));
+        Assert.False(HasSeam(WallConstraintsWithSlabOffset(8e-5, FemPlanarMeshPlan.SeamOptions(5e-5))));
+    }
+
+    /// <summary>Допуск по умолчанию даёт прежний отпечаток (старые снимки не устаревают), другой — новый.</summary>
+    [Fact]
+    public void SeamOptions_Default_KeepsFingerprint()
+    {
+        var plain = WallConstraintsWithSlabOffset(0, null).SourceFingerprint;
+        Assert.Equal(plain, WallConstraintsWithSlabOffset(0, FemPlanarMeshPlan.SeamOptions(FemPlanarMeshPlan.SeamToleranceM)).SourceFingerprint);
+        Assert.NotEqual(plain, WallConstraintsWithSlabOffset(0, FemPlanarMeshPlan.SeamOptions(5e-4)).SourceFingerprint);
+    }
+
     /// <summary>Без импортных строк — то же, что старая перегрузка.</summary>
     [Fact]
     public void NoImportedRows_SameAsBeamsOnly()
