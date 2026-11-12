@@ -132,8 +132,23 @@ class FemChecksRootNode
 }
 
 /// <summary>Обёртка над FemSchema для дерева МКЭ; экспонирует подузлы конструктивной модели и сетки.</summary>
-class FemSchemaTreeVM
+class FemSchemaTreeVM : System.ComponentModel.INotifyPropertyChanged
 {
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    bool _isModified;
+
+    /// <summary>У схемы открыт редактор с несохранёнными правками — в дереве «*» у имени.</summary>
+    public bool IsModified
+    {
+        get => _isModified;
+        private set
+        {
+            if (_isModified == value) return;
+            _isModified = value;
+            PropertyChanged?.Invoke(this, new(nameof(IsModified)));
+        }
+    }
+
     public FemSchema    Schema   { get; }
     public FemSubNode[] SubNodes { get; }
 
@@ -352,15 +367,27 @@ class FemSchemaTreeVM
         => Task.Run(() => _db.GetFemMeshElements(Schema.Id)
             .Where(e => e.ElemType == "shell").ToList());
 
-    /// <summary>Перечитывает счётчики после SaveFemTopology.</summary>
-    public void ReloadTopology() => RefreshCounts();
+    /// <summary>Перечитывает счётчики после SaveFemTopology (или после отказа от правок редактора) — по базе, отметки «изменено» нет.</summary>
+    public void ReloadTopology()
+    {
+        RefreshCounts();
+        IsModified = false;
+    }
 
     /// <summary>Перечитывает счётчики после сохранения mesh-снимка.</summary>
     public void ReloadMeshSnapshot() => RefreshMeshSnapshotCounts();
 
-    /// <summary>Узловые и линейные связи, загружения и комбинации по сессии редактора (до сохранения схемы).</summary>
+    /// <summary>Узловые и линейные связи, загружения, комбинации, счётчики узлов и КонЭ и отметка «изменено» — по сессии
+    /// редактора (до сохранения схемы).</summary>
     public void ReloadSupports(CScore.Fem.Editing.FemSchemaEditSession session)
     {
+        int bars = session.Members.Count(m => m.ElemType == "beam"), shells = session.Members.Count(m => m.ElemType == "shell");
+        NodesSubNode.Count           = session.Nodes.Count;
+        ElementsSubNode.BarCount     = bars;
+        ElementsSubNode.ShellCount   = shells;
+        ElementsSubNode.Bars.Count   = bars;
+        ElementsSubNode.Shells.Count = shells;
+        IsModified = session.IsDirty;
         BoundarySubNode.ReloadSupports(_db, session.Nodes, session.Members, session.LineSupports, session.NodeSprings);
         LoadCasesSubNode.Reset(session.LoadCases, _db.GetFemActiveLoadCaseTag(Schema.Id), _db.GetFemImperfections(Schema.Id));
         CombinationsSubNode.Reset(session.LoadDefinitions, session.LoadCases);

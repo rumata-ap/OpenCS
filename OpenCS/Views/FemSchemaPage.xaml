@@ -116,6 +116,8 @@
                     <TextBlock Text="{DynamicResource FemSchemaPageTitle}"
                                FontWeight="Bold" FontSize="14" Margin="0,0,6,0"/>
                     <TextBlock Text="{Binding Session.Schema.Tag}" FontSize="14"/>
+                    <TextBlock Text="{DynamicResource FemSchemaModifiedMark}" FontSize="14" Foreground="DarkOrange" Margin="6,0,0,0"
+                               Visibility="{Binding IsDirty, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                 </StackPanel>
 
                 <Grid Grid.Row="1" Margin="0,0,0,8">

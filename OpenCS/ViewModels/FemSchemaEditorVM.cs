@@ -18,6 +18,9 @@ namespace OpenCS.ViewModels;
 /// доменные объекты), пересинхронизируемые после каждой команды, чтобы гриды видели изменения.</summary>
 public sealed class FemSchemaEditorVM : ViewModelBase
 {
+    /// <summary>Есть несохранённые правки — отметка «(изменено)» в заголовке страницы схемы.</summary>
+    public bool IsDirty => Session.IsDirty;
+
     readonly AppViewModel _app;
     readonly DatabaseService _db;
     readonly ILogService _logService;
@@ -521,7 +524,11 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         Session = new FemSchemaEditSession(schema);
         LoadSession();
         RefreshCollections();
-        Session.Changed += () => app.ScheduleFemSupportsTreeRefresh(Session);
+        Session.Changed += () =>
+        {
+            app.ScheduleFemSupportsTreeRefresh(Session);
+            OnPropertyChanged(nameof(IsDirty));
+        };
 
         UndoCommand = new RelayCommand(_ => UndoHistoryStep(), _ => Session.CanUndo);
         RedoCommand = new RelayCommand(_ => RedoHistoryStep(), _ => Session.CanRedo);

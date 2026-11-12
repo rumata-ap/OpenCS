@@ -15,6 +15,11 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+        <!-- Строки «этаж ниже/выше» держат место и пустыми: окно не растёт после выбора перекрытия. -->
+        <Style x:Key="ReservedNoteText" TargetType="TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
     </Window.Resources>
     <StackPanel Margin="12">
         <TextBlock Text="{Binding ParentTag}" FontWeight="SemiBold" Margin="0,0,0,8"/>
@@ -24,8 +29,8 @@
             <TextBlock Text="{DynamicResource StoreyFloorLabel}" Margin="0,0,0,2"/>
             <ListBox x:Name="levelsList" ItemsSource="{Binding Levels}" SelectedItem="{Binding SelectedLevel}"
                      DisplayMemberPath="Label" MaxHeight="180" Margin="0,0,0,6" IsEnabled="{Binding Auto}"/>
-            <TextBlock Text="{Binding BelowText}" Style="{StaticResource NoteText}"/>
-            <TextBlock Text="{Binding AboveText}" Style="{StaticResource NoteText}"/>
+            <TextBlock Text="{Binding BelowText}" Style="{StaticResource ReservedNoteText}"/>
+            <TextBlock Text="{Binding AboveText}" Style="{StaticResource ReservedNoteText}"/>
             <TextBlock Text="{Binding Warning}" Foreground="DarkOrange" Style="{StaticResource NoteText}"/>
             <CheckBox Content="{DynamicResource StoreyFloorManual}" IsChecked="{Binding Manual}" Margin="0,2,0,6"/>
         </StackPanel>

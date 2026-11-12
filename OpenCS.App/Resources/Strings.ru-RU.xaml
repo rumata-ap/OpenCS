@@ -3231,6 +3231,8 @@
     <system:String x:Key="LiraSectionsSummary">Создано материалов: {0}, сечений: {1}; сечение назначено целям: {2}; пропущено: {3}</system:String>
     <system:String x:Key="LiraSectionsNothing">У всех пластинчатых целей схемы сечение уже назначено</system:String>
     <system:String x:Key="FemCheckRunning">Проверка «{0}»…</system:String>
+    <system:String x:Key="FemSchemaModifiedMark">(изменено)</system:String>
+    <system:String x:Key="FemSchemaModifiedTip">Есть несохранённые правки в редакторе схемы</system:String>
     <system:String x:Key="FemNodes">Узлы</system:String>
     <system:String x:Key="FemElements">Конструктивные элементы</system:String>
     <system:String x:Key="FemBars">Стержни</system:String>

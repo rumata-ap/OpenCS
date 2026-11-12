@@ -3231,6 +3231,8 @@
     <system:String x:Key="LiraSectionsSummary">Materials created: {0}, sections: {1}; section assigned to targets: {2}; skipped: {3}</system:String>
     <system:String x:Key="LiraSectionsNothing">All plate targets of the model already have a section</system:String>
     <system:String x:Key="FemCheckRunning">Checking “{0}”…</system:String>
+    <system:String x:Key="FemSchemaModifiedMark">(modified)</system:String>
+    <system:String x:Key="FemSchemaModifiedTip">The schema editor has unsaved changes</system:String>
     <system:String x:Key="FemNodes">Nodes</system:String>
     <system:String x:Key="FemElements">Structural Elements</system:String>
     <system:String x:Key="FemBars">Bars</system:String>
