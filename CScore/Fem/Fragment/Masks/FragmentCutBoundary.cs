@@ -149,6 +149,7 @@ public static class FragmentCutBoundary
                 for (int d = 0; d < 6; d++)
                     if (Rank(c.Modes[d]) > Rank(m.Modes[d])) { m.Modes[d] = c.Modes[d]; m.Owner[d] = c; }
             }
+        FollowRigidMasters(input, r, nodeModes);
 
         foreach (var (tag, (modes, _)) in nodeModes)
         {
@@ -162,6 +163,39 @@ public static class FragmentCutBoundary
         if (r.HasErrors) return r;
         Gauge(input, r, nodeModes, nodeByTag);
         return r;
+    }
+
+    /// <summary>
+    /// Ведомый узел жёсткого тела на разрезе следует за ведущим: по DOF маски тела закрепление и заданное перемещение у него
+    /// снимаются (решатель не задаёт подчинённые DOF; тела SCAD у «Музея» лежат целиком в плоскости разреза), силы масок
+    /// остаются. Ведущий без кинематики на том же DOF — предупреждение со списком ведомых.
+    /// </summary>
+    static void FollowRigidMasters(FragmentCutBoundaryInput input, FragmentCutBoundaryResult r,
+        Dictionary<string, (FragmentDofMode[] Modes, CutState?[] Owner)> nodeModes)
+    {
+        static bool Kinematic(FragmentDofMode m) => m is FragmentDofMode.Fixed or FragmentDofMode.MaskDisplacement;
+        var original = nodeModes.ToDictionary(kv => kv.Key, kv => (FragmentDofMode[])kv.Value.Modes.Clone(), StringComparer.Ordinal);
+        var unanchored = new List<string>();
+        foreach (var b in input.RigidBodies)
+        {
+            var master = original.GetValueOrDefault(b.MasterNodeTag);
+            foreach (var s in b.SlaveNodeTags)
+            {
+                if (!nodeModes.TryGetValue(s, out var m)) continue;
+                bool lost = false;
+                for (int d = 0; d < 6; d++)
+                {
+                    if ((b.Mask & (1 << d)) == 0 || !Kinematic(m.Modes[d])) continue;
+                    m.Modes[d] = FragmentDofMode.Free;
+                    if (master == null || !Kinematic(master[d])) lost = true;
+                }
+                if (lost) unanchored.Add(s);
+            }
+        }
+        if (unanchored.Count == 0) return;
+        r.Diagnostics.Add(new("fragment_cut_rigid_slave", $"Узлы разрезов — ведомые узлы жёстких тел, ведущий узел которых не " +
+            $"получает кинематики разреза: их закрепления и перемещения из масок сняты, они следуют за ведущим ({unanchored.Count}): " +
+            $"{string.Join(", ", unanchored.Take(10))}{(unanchored.Count > 10 ? " …" : "")}.", false, [.. unanchored]));
     }
 
     /// <summary>Значения масок по загружениям расчёта: заданные перемещения и силы узлов.</summary>

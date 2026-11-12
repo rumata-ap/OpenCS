@@ -82,6 +82,47 @@ public sealed class FragmentCutBoundaryTests
         Assert.Equal(2e-3, Prescribed(r, 1, "1", 1), 15);
     }
 
+    /// <summary>Ведомый узел АЖТ на разрезе (узел стены 11 у ведущего 10 на том же разрезе) следует за ведущим: заданных
+    /// перемещений по DOF тела у него нет, у ведущего — есть; предупреждения нет. Тело по X Y Z — повороты ведомого из маски.</summary>
+    [Fact]
+    public void Kinematic_RigidSlaveOnCut_FollowsMaster()
+    {
+        var body = new FemRigidBody { MasterNodeTag = "10", Mask = 0b111 };
+        body.SetSlaveNodeTags(["11"]);
+        var input = Input(FragmentBcPreset.Kinematic, Masks(L1, L2));
+        var r = FragmentCutBoundary.Resolve(new FragmentCutBoundaryInput
+        {
+            Cuts = input.Cuts, Preset = input.Preset, Masks = input.Masks, MeshNodes = input.MeshNodes, Stages = input.Stages,
+            LoadCaseTags = input.LoadCaseTags, RigidBodies = [body],
+        });
+
+        Assert.False(r.HasErrors, string.Join("; ", r.Diagnostics.Select(d => d.Message)));
+        Assert.DoesNotContain(r.Prescribed, p => p.MeshNodeTag == "11" && p.Dof < 3);
+        Assert.Contains(r.Prescribed, p => p.MeshNodeTag == "11" && p.Dof == 3);
+        Assert.Equal(3, r.Prescribed.Count(p => p.LoadCaseId == 1 && p.MeshNodeTag == "10" && p.Dof < 3));
+        Assert.Equal(2 * (6 + 4 * 5 + 6) - 2 * 3, r.Prescribed.Count);
+        Assert.DoesNotContain(r.Diagnostics, d => d.Code == "fragment_cut_rigid_slave");
+    }
+
+    /// <summary>Ведущий узел вне разрезов: кинематика ведомого всё равно снимается — предупреждение со списком узлов.</summary>
+    [Fact]
+    public void Kinematic_RigidSlaveOnCut_MasterOffCut_Warns()
+    {
+        var body = new FemRigidBody { MasterNodeTag = "50" };
+        body.SetSlaveNodeTags(["12"]);
+        var input = Input(FragmentBcPreset.Kinematic, Masks(L1, L2));
+        var r = FragmentCutBoundary.Resolve(new FragmentCutBoundaryInput
+        {
+            Cuts = input.Cuts, Preset = input.Preset, Masks = input.Masks, MeshNodes = input.MeshNodes, Stages = input.Stages,
+            LoadCaseTags = input.LoadCaseTags, RigidBodies = [body],
+        });
+
+        Assert.DoesNotContain(r.Prescribed, p => p.MeshNodeTag == "12");
+        var w = Assert.Single(r.Diagnostics, d => d.Code == "fragment_cut_rigid_slave");
+        Assert.False(w.IsError);
+        Assert.Equal(["12"], w.SourceKeys);
+    }
+
     [Fact]
     public void Static_ForcesPreserveResultant_GaugeSixTranslations()
     {
