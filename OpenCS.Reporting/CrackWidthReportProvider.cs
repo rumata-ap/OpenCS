@@ -87,6 +87,13 @@ public sealed class CrackWidthReportProvider : IReportProvider
             return document;
         }
 
+        if (!data.PlaneConverged)
+        {
+            document.Add(new ReportWarning(
+                "Нагрузка выше момента образования трещин, но напряжённо-деформированное состояние сечения с трещиной не найдено (как правило, нагрузка выше несущей способности). Ширина раскрытия не определена, проверка не выполнена."));
+            return document;
+        }
+
         document
             .Add(new ReportHeading(1, "Расчёт ширины раскрытия"))
             .Add(new ReportFormula(

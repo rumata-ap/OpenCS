@@ -113,6 +113,14 @@ public sealed class CrackWidthCore
         ArgumentNullException.ThrowIfNull(onset);
         double phi3Eff = phi3 ?? (n > 1e-3 ? 1.2 : 1.0);
         var zero = new CrackWidthResult { Cracked = false, AcrcUltLong = _acrcUltLong, AcrcUltShort = _acrcUltShort };
+        // Трещины образуются (нагрузка выше Mcrc), но НДС сечения с трещиной не найден — как правило, нагрузка
+        // выше несущей способности. Ширина раскрытия не определена, проверка не выполнена: это не «трещин нет».
+        CrackWidthResult planeNotFound = new()
+        {
+            Cracked = true, TotalConverged = false,
+            PassedLong = false, PassedShort = false, PassedSteel = false,
+            AcrcUltLong = _acrcUltLong, AcrcUltShort = _acrcUltShort,
+        };
 
         // Длительная нагрузка ниже Mcrc (трещины образует только полная): по (8.120) при
         // acrc1 = acrc3 = 0 непродолжительное раскрытие равно acrc2. Трещина от продольной силы
@@ -129,7 +137,7 @@ public sealed class CrackWidthCore
         {
             planeLong = SolveDamped(n, mxLong, myLong, seedLong ?? SafeGuess(n, mxLong, myLong),
                 _calcServiceLong, out bool convLong);
-            if (!convLong) return zero;
+            if (!convLong) return planeNotFound;
         }
 
         Kurvature planeTotal;
@@ -144,7 +152,7 @@ public sealed class CrackWidthCore
                 _calcService, out totalConverged);
             if (!totalConverged)
             {
-                if (!planeLong.HasValue) return zero;
+                if (!planeLong.HasValue) return planeNotFound;
                 // Фолбэк для σs,total — только чтобы показать длительную часть; непродолжительное
                 // раскрытие и σs ≤ Rs,ser при этом не определены (полная нагрузка, как правило, выше
                 // несущей способности сечения с трещиной) и считаются невыполненными.

@@ -94,6 +94,8 @@ public static class BatchRowVerdictReader
         double ul = Ratio(res.AcrcLong, res.AcrcUltLong);
         var acrcLong = new BatchCriterion("acrc_long", ul, "п. 8.2.6, (8.118)",
             $"acrc,1 = {F3(res.AcrcLong)} мм {Cmp(ul)} acrc,ult = {F3(res.AcrcUltLong)} мм");
+        if (res.Cracked && res.PlaneLong == null && res.PlaneTotal == null)
+            return BatchRowVerdict.NotConverged("НДС сечения с трещиной не найден (нагрузка, вероятно, выше несущей способности) — ширина раскрытия не определена");
         if (!res.TotalConverged)
             return ul > BatchRowVerdict.Threshold
                 ? BatchRowVerdict.Worst(acrcLong)

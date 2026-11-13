@@ -227,7 +227,9 @@ public sealed class CrackWidthHandler : ITaskHandler
                 TaskKind = task.Kind,
                 TaskTag = task.Tag,
                 Created = created,
-                Status = (res.PassedLong && res.PassedShort && res.PassedSteel) ? "ok" : "not_passed",
+                // Трещины есть, а НДС с трещиной не найден — ширина не определена: «не сошлось», а не «не проходит».
+                Status = res.Cracked && !plane.HasValue ? "not_converged"
+                    : (res.PassedLong && res.PassedShort && res.PassedSteel) ? "ok" : "not_passed",
                 DataJson = JsonSerializer.Serialize(data)
             };
         }

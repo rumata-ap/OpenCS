@@ -112,4 +112,27 @@ public sealed class BatchRowVerdictTests
         Assert.Equal("1,200", BatchVerdictText.F3(1.2));
         Assert.Equal("∞", BatchVerdictText.F3(double.PositiveInfinity));
     }
+
+    [Fact]
+    public void CrackWidth_CrackedWithoutPlane_IsNotConverged_NotOk()
+    {
+        // Нагрузка выше несущей способности: трещины есть, НДС с трещиной не найден — не «acrc = 0, проходит».
+        var res = new CrackWidthResult
+        {
+            Cracked = true, TotalConverged = false, PassedLong = false, PassedShort = false, PassedSteel = false,
+            AcrcUltLong = 0.3, AcrcUltShort = 0.4,
+        };
+        var v = BatchRowVerdictReader.CrackWidthVerdict(res);
+        Assert.Equal(BatchRowStatus.NotConverged, v.Status);
+        Assert.Null(v.Util);
+    }
+
+    [Theory]
+    [InlineData(2853.7, 3, "2850")]
+    [InlineData(-2853.7, 3, "-2850")]
+    [InlineData(0.000041234, 3, "0,0000412")]
+    [InlineData(12.5, 4, "12,5")]
+    [InlineData(1234567.0, 4, "1235000")]
+    public void Text_NoExponent(double v, int sig, string expected)
+        => Assert.Equal(expected, BatchVerdictText.N(v, sig));
 }
