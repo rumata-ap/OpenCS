@@ -1956,7 +1956,7 @@
    <system:String x:Key="StrainStateBatch_StatusNotApplicable">Неприменимо</system:String>
     <system:String x:Key="CalcTaskKind_strength_ndm_batch">Проверка прочности (весь набор)</system:String>
     <system:String x:Key="StrengthNDMBatch_TabRows">Строки набора</system:String>
-    <system:String x:Key="StrengthNDMBatch_SummaryFormat">Всего: {0}, прошло: {1}, не прошло: {2}, сошлось: {3}</system:String>
+    <system:String x:Key="StrengthNDMBatch_SummaryFormat">Всего: {0}, прошло: {1}, не прошло: {2}, не сошлось: {3}</system:String>
     <system:String x:Key="StrengthNDM_Passed">Да</system:String>
     <system:String x:Key="StrengthNDM_NotPassed">Нет</system:String>
     <system:String x:Key="StrengthNDM_ColEpsConcrete">ε_b_max</system:String>
@@ -4952,7 +4952,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="CrackWidth_ForceItemLong">Строка усилия (длительные)</system:String>
 
     <system:String x:Key="CrackingBatch_SummaryFormat">Всего: {0}, сошлось: {1}, не сошлось: {2}</system:String>
-    <system:String x:Key="CrackWidthBatch_SummaryFormat">Всего: {0}, прошло: {1}, не прошло: {2}</system:String>
+    <system:String x:Key="CrackWidthBatch_SummaryFormat">Всего: {0}, прошло: {1}, не прошло: {2}, не сошлось: {3}</system:String>
     <system:String x:Key="Cracking_ColMxCrc">Mx,crc, кН·м</system:String>
     <system:String x:Key="Cracking_ColMyCrc">My,crc, кН·м</system:String>
     <system:String x:Key="Cracking_ColMcrc">Mcrc, кН·м</system:String>
@@ -4976,6 +4976,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="CrackWidth_PlaneNotConverged">Плоскость деформаций не сошлась — эпюры и таблица арматуры недоступны.</system:String>
     <system:String x:Key="CrackWidth_TotalNotConverged">Полная нагрузка: решение не сошлось</system:String>
     <system:String x:Key="CrackWidth_TotalNotConvergedNote">Полная нагрузка не сошлась (обычно она выше несущей способности сечения с трещиной): непродолжительное раскрытие и σs ≤ Rs,ser не определены. Продолжительная часть посчитана по плоскости длительной нагрузки.</system:String>
+    <system:String x:Key="CrackWidth_NoPlaneNote">Напряжённо-деформированное состояние сечения с трещиной не найдено ни при полной, ни при длительной нагрузке (обычно нагрузка выше несущей способности сечения с трещиной): ширина раскрытия не определена, проверка не выполнена.</system:String>
     <system:String x:Key="CrackWidth_Undetermined">не определено</system:String>
     <system:String x:Key="CrackWidth_SteelHeader">Напряжения в арматуре: σs ≤ Rs,ser (п. 8.2.16)</system:String>
     <system:String x:Key="CrackWidth_SigmaSLongRowLabel">σs, длит.</system:String>

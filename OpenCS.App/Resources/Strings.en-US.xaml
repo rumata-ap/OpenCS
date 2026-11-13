@@ -1956,7 +1956,7 @@
    <system:String x:Key="StrainStateBatch_StatusNotApplicable">Not applicable</system:String>
     <system:String x:Key="CalcTaskKind_strength_ndm_batch">Strength check (full set)</system:String>
     <system:String x:Key="StrengthNDMBatch_TabRows">Set rows</system:String>
-    <system:String x:Key="StrengthNDMBatch_SummaryFormat">Total: {0}, passed: {1}, failed: {2}, converged: {3}</system:String>
+    <system:String x:Key="StrengthNDMBatch_SummaryFormat">Total: {0}, passed: {1}, failed: {2}, not converged: {3}</system:String>
     <system:String x:Key="StrengthNDM_Passed">Yes</system:String>
     <system:String x:Key="StrengthNDM_NotPassed">No</system:String>
     <system:String x:Key="StrengthNDM_ColEpsConcrete">ε_b_max</system:String>
@@ -4952,7 +4952,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="CrackWidth_ForceItemLong">Force row (long-term)</system:String>
 
     <system:String x:Key="CrackingBatch_SummaryFormat">Total: {0}, converged: {1}, not converged: {2}</system:String>
-    <system:String x:Key="CrackWidthBatch_SummaryFormat">Total: {0}, passed: {1}, failed: {2}</system:String>
+    <system:String x:Key="CrackWidthBatch_SummaryFormat">Total: {0}, passed: {1}, failed: {2}, not converged: {3}</system:String>
     <system:String x:Key="Cracking_ColMxCrc">Mx,crc, kN·m</system:String>
     <system:String x:Key="Cracking_ColMyCrc">My,crc, kN·m</system:String>
     <system:String x:Key="Cracking_ColMcrc">Mcrc, kN·m</system:String>
@@ -4976,6 +4976,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="CrackWidth_PlaneNotConverged">Strain plane did not converge — plots and rebar table are unavailable.</system:String>
     <system:String x:Key="CrackWidth_TotalNotConverged">Full load: solution did not converge</system:String>
     <system:String x:Key="CrackWidth_TotalNotConvergedNote">The full load did not converge (usually it exceeds the bearing capacity of the cracked section): the short-term opening and σs ≤ Rs,ser are undetermined. The long-term part is computed on the long-term strain plane.</system:String>
+    <system:String x:Key="CrackWidth_NoPlaneNote">The cracked-section stress-strain state was found neither for the full nor for the long-term load (usually the load exceeds the bearing capacity of the cracked section): the crack width is undetermined, the check is not performed.</system:String>
     <system:String x:Key="CrackWidth_Undetermined">undetermined</system:String>
     <system:String x:Key="CrackWidth_SteelHeader">Rebar stress: σs ≤ Rs,ser (cl. 8.2.16)</system:String>
     <system:String x:Key="CrackWidth_SigmaSLongRowLabel">σs, long-term</system:String>

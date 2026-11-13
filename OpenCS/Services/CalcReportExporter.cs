@@ -142,6 +142,10 @@ static class CalcReportExporter
             if (sectionTag == null) return null;
 
             var single = BatchRowTaskFactory.Create(batch, num, sectionTag, app.ForceSets, app.PlateSections);
+            // Задача в проект не сохраняется и номера не получает — в шапке вложенного отчёта
+            // был «№ 0»; показываем номер пакета и строку, к которой относится ход вычислений.
+            single.Num = batch.Num;
+            single.Tag = $"строка № {num} пакета — {single.Tag}";
             if (!app.ReportProviders.TryResolve(single, out var singleProvider) || singleProvider is BatchReportProvider)
                 return null;
             var item = app.BarForceSets.FirstOrDefault(fs => fs.Id == single.ForceSetId)?

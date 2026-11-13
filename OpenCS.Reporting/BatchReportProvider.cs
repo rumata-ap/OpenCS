@@ -100,7 +100,7 @@ public sealed class BatchReportProvider : IReportProvider
                 ("Не сошлись", data.Count(BatchRowStatus.NotConverged).ToString()),
                 ("Не применимо", data.Count(BatchRowStatus.NotApplicable).ToString()),
                 ("Ошибки", data.Count(BatchRowStatus.Error).ToString()),
-                ("Определяющая строка", data.GoverningNum is { } g ? Governing(data, g) : "Кисп не определён"),
+                ("Определяющая строка", data.GoverningNum is { } g ? Governing(data, g) : NoGoverning(data)),
             ], "Параметр", "Значение"));
         if (data.Count(BatchRowStatus.NotConverged) > 0)
             document.Add(new ReportParagraph(
@@ -117,6 +117,15 @@ public sealed class BatchReportProvider : IReportProvider
         string util = row.Verdict.Util is { } u ? BatchVerdictText.F3(u) : "—";
         return $"№ {num} ({row.Label}): Кисп = {util}";
     }
+
+    /// <summary>
+    /// Почему определяющей строки нет: вид расчёта Кисп не даёт (НДС, полная кривизна) —
+    /// или ни одна строка не сошлась.
+    /// </summary>
+    static string NoGoverning(BatchReportData data)
+        => data.Rows.Any(r => r.Verdict.Status is BatchRowStatus.Ok or BatchRowStatus.NotPassed)
+            ? "не определяется — у строк этого вида расчёта нет Кисп"
+            : "нет — ни у одной строки Кисп не получен";
 
     static void AddTable(ReportDocument document, BatchReportData data)
     {

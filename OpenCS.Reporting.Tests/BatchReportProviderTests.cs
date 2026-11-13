@@ -108,6 +108,28 @@ public sealed class BatchReportProviderTests
     }
 
     [Fact]
+    public void NoUtilization_SaysKindHasNoUtilization()
+    {
+        // НДС-пакет: строки сошлись, Кисп у вида нет — не «Кисп не определён», а пояснение.
+        const string json = """
+            {"rows":[
+              {"num":1,"label":"a","verdict":{"status":"ok","util":null,"util_inf":false,"code":"","ref":"","text":""}},
+              {"num":2,"label":"b","verdict":{"status":"not_converged","util":null,"util_inf":false,"code":"","ref":"","text":""}}]}
+            """;
+        string text = AllText(new BatchReportProvider().Build(Ctx(json, "strain_state_batch")));
+        Assert.Contains("Определяющая строка: не определяется — у строк этого вида расчёта нет Кисп", text);
+        Assert.DoesNotContain("Определяющая строка №", text);
+    }
+
+    [Fact]
+    public void NoUtilization_AllNotConverged_SaysNoneConverged()
+    {
+        const string json = """{"rows":[{"num":1,"label":"a","N":0,"Mx":900,"status":"not_converged"}]}""";
+        string text = AllText(new BatchReportProvider().Build(Ctx(json)));
+        Assert.Contains("Определяющая строка: нет — ни у одной строки Кисп не получен", text);
+    }
+
+    [Fact]
     public void ErrorResult_ReportsError()
         => Assert.Contains("нет набора", AllText(new BatchReportProvider().Build(Ctx("""{"error":"нет набора"}"""))));
 }

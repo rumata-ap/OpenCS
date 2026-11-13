@@ -72,15 +72,11 @@ public sealed class StrengthNDMBatchVM : ViewModelBase
             var root = doc.RootElement;
 
             int  total     = root.TryGetProperty("total",           out var t)  ? t.GetInt32()     : 0;
-            int  converged = root.TryGetProperty("converged_count", out var c)  ? c.GetInt32()     : 0;
-            int  passed    = root.TryGetProperty("passed_count",    out var pc) ? pc.GetInt32()     : 0;
             bool allOk     = root.TryGetProperty("all_passed",     out var ap) && ap.GetBoolean();
 
             StatusBrush = allOk
                 ? new SolidColorBrush(Color.FromArgb(70, 80, 180, 80))
                 : Brushes.OrangeRed;
-            SummaryText = string.Format(Loc.S("StrengthNDMBatch_SummaryFormat"),
-                total, passed, total - passed, converged);
 
             if (root.TryGetProperty("rows", out var rows) && rows.ValueKind == JsonValueKind.Array)
             {
@@ -114,6 +110,10 @@ public sealed class StrengthNDMBatchVM : ViewModelBase
                     { Reason = BatchResultRowHelper.Verdict(result, row) });
                 }
             }
+            // Не сошедшиеся строки — отдельно: проверка для них не выполнена, это не «не прошло».
+            var (passed, notPassed, notConverged) = BatchResultRowHelper.Counts(Rows.Select(r => r.Reason));
+            SummaryText = string.Format(Loc.S("StrengthNDMBatch_SummaryFormat"),
+                total > 0 ? total : Rows.Count, passed, notPassed, notConverged);
         }
         catch (Exception ex)
         {

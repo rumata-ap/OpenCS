@@ -54,13 +54,11 @@ public sealed class CrackWidthBatchVM : ViewModelBase
             var root = doc.RootElement;
 
             int total = root.TryGetProperty("total", out var t) ? t.GetInt32() : 0;
-            int passed = root.TryGetProperty("passed_count", out var pc) ? pc.GetInt32() : 0;
             bool allPassed = root.TryGetProperty("all_passed", out var ap) && ap.GetBoolean();
 
             StatusBrush = allPassed
                 ? new SolidColorBrush(Color.FromArgb(70, 80, 180, 80))
                 : Brushes.OrangeRed;
-            SummaryText = string.Format(Loc.S("CrackWidthBatch_SummaryFormat"), total, passed, total - passed);
 
             if (root.TryGetProperty("rows", out var rows) && rows.ValueKind == JsonValueKind.Array)
             {
@@ -89,6 +87,10 @@ public sealed class CrackWidthBatchVM : ViewModelBase
                         UtilSteelText: Num(row, "util_steel", 3)) { Reason = BatchResultRowHelper.Verdict(result, row) });
                 }
             }
+            // Строка, у которой НДС сечения с трещиной не найден, — «не сошлось», а не «не прошло».
+            var (passed, notPassed, notConverged) = BatchResultRowHelper.Counts(Rows.Select(r => r.Reason));
+            SummaryText = string.Format(Loc.S("CrackWidthBatch_SummaryFormat"),
+                total > 0 ? total : Rows.Count, passed, notPassed, notConverged);
         }
         catch (Exception ex)
         {

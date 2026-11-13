@@ -170,7 +170,9 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
         // Старые результаты без ключа total_converged считаются сошедшимися.
         TotalNotConverged = Cracked && root.TryGetProperty("total_converged", out var tcv) && tcv.ValueKind == JsonValueKind.False;
         UndeterminedText = Loc.S("CrackWidth_Undetermined");
-        TotalNotConvergedText = Loc.S("CrackWidth_TotalNotConvergedNote");
+        // Без плоскости длительной нагрузки «продолжительная часть посчитана» неверно — как в отчёте:
+        // ширина не определена вовсе.
+        TotalNotConvergedText = Loc.S(PlaneConverged ? "CrackWidth_TotalNotConvergedNote" : "CrackWidth_NoPlaneNote");
 
         NText = NumUnit(root, "N", "кН");
         MxLongText = NumUnit(root, "Mx_long", "кН·м");
