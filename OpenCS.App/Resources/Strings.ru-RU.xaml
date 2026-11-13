@@ -5891,6 +5891,10 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MosaicUtilization">Коэффициент использования</system:String>
     <system:String x:Key="MosaicHoverSection" xml:space="preserve">    сечение {0}: {1}</system:String>
     <system:String x:Key="MosaicNotChecked">Не проверено</system:String>
+    <system:String x:Key="MosaicNotConverged">Не сошлось</system:String>
+    <system:String x:Key="MosaicSourceBatchCracks">Трещины пакета ПС2</system:String>
+    <system:String x:Key="MosaicBatchAcrc">acrc, мм (наибольшая по строкам КЭ)</system:String>
+    <system:String x:Key="MosaicBatchAcrcLimit">acrc,ult = {0:F2} мм</system:String>
     <system:String x:Key="MosaicFailedNoUtilization">Не проходит (без коэффициента)</system:String>
     <system:String x:Key="MosaicCrackWithoutRebar">Трещина у грани без арматуры (a_crc = ∞)</system:String>
     <system:String x:Key="MosaicElement">КЭ</system:String>

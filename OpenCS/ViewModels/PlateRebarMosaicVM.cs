@@ -25,6 +25,8 @@ public enum PlateRebarMosaicSourceKind
    Springs,
    /// <summary>Результат расчёта постановки схемы (OpenSees, CSfea): перемещения на сетке схемы.</summary>
    Analysis,
+   /// <summary>Ширина раскрытия трещин из пакета ПС2 слоистой пластины по набору усилий схемы.</summary>
+   BatchCracks,
 }
 
 /// <summary>Пункт списка источников мозаики.</summary>
@@ -71,7 +73,10 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    /// <summary>Пороги шкалы коэффициента использования по умолчанию.</summary>
    public static IReadOnlyList<double> UtilizationThresholds { get; } = [0.25, 0.5, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 2.0];
 
-   const int FailedWithoutUtilization = 1, NotChecked = 2, CrackWithoutRebar = 3;
+   const int FailedWithoutUtilization = 1, NotChecked = 2, CrackWithoutRebar = 3, NotConverged = 4;
+
+   /// <summary>Компоненты мозаики пакета ПС2: наибольшая acrc КЭ и Кисп = acrc/acrc,ult.</summary>
+   const string BatchAcrcComponent = "batch_acrc", BatchUtilComponent = "batch_util";
 
    /// <summary>Компонента мозаики упругого основания (единственная).</summary>
    const string FoundationComponent = "C1";
@@ -98,6 +103,10 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    /// <param name="LoadRows">Чтение строк результата с номерами КЭ (по требованию).</param>
    public sealed record CheckInfo(FemCheck Check, string Label, Func<string?> LoadJson,
       Func<IReadOnlyList<FemCheckRowResult>> LoadRows);
+
+   /// <summary>Пакет ПС2 слоистой пластины по набору усилий схемы с результатом.</summary>
+   /// <param name="LoadJson">Чтение <c>DataJson</c> последнего результата пакета.</param>
+   public sealed record BatchInfo(CalcTask Task, string Label, int ResultId, Func<string?> LoadJson);
 
    /// <summary>Постановка расчёта схемы с результатом.</summary>
    public sealed record AnalysisInfo(FemAnalysis Analysis, string Label)
@@ -127,6 +136,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    IReadOnlyList<ForceSet> _forceSets = [];
    IReadOnlyList<CheckInfo> _checks = [];
    IReadOnlyList<AnalysisInfo> _analyses = [];
+   IReadOnlyList<BatchInfo> _batches = [];
+   (int ResultId, ShellSlsBatchCrackMap Map)? _batchMap;
    readonly Dictionary<string, FemResult.FemResultLayer?> _resultLayers = new(StringComparer.Ordinal);
    readonly Dictionary<int, IReadOnlyList<FemCheckElementResult>> _checkResults = [];
    readonly Dictionary<int, IReadOnlyList<FemCheckRowResult>> _checkRows = [];
@@ -174,7 +185,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
 
    /// <summary>Нужен второй список — набор усилий или проверка.</summary>
    public bool HasSubject => Kind is PlateRebarMosaicSourceKind.Forces or PlateRebarMosaicSourceKind.Utilization
-      or PlateRebarMosaicSourceKind.Analysis;
+      or PlateRebarMosaicSourceKind.Analysis or PlateRebarMosaicSourceKind.BatchCracks;
 
    /// <summary>Нужен выбор строки КЭ (усилия: у КЭ в наборе может быть несколько строк).</summary>
    public bool HasAggregate => Kind == PlateRebarMosaicSourceKind.Forces;
@@ -655,6 +666,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
          "B:" + SelectedComponent?.Component,
       PlateRebarMosaicSourceKind.DifferenceBars => "BD:" + SelectedComponent?.Component,
       PlateRebarMosaicSourceKind.Utilization => "U",
+      // Кисп пакета — общая шкала с Кисп проверок; acrc — своя, по пределу пакета.
+      PlateRebarMosaicSourceKind.BatchCracks => Equals(SelectedComponent?.Component, BatchUtilComponent) ? "U" : "BC",
       PlateRebarMosaicSourceKind.Difference => "D",
       PlateRebarMosaicSourceKind.LayoutDifference => "LD",
       PlateRebarMosaicSourceKind.Foundation => "C1",
@@ -711,6 +724,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       public IReadOnlyList<CheckInfo> Checks { get; init; } = [];
       /// <summary>Постановки расчёта схемы, у которых есть результат.</summary>
       public IReadOnlyList<AnalysisInfo> Analyses { get; init; } = [];
+      /// <summary>Пакеты ПС2 слоистой пластины по наборам усилий схемы, у которых есть результат.</summary>
+      public IReadOnlyList<BatchInfo> Batches { get; init; } = [];
 
       /// <summary>Дополнить наборами усилий и проверками схемы. Только в UI-потоке: читает коллекции проекта.</summary>
       public Data WithProject(DatabaseService db, int schemaId)
@@ -746,12 +761,22 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             .Select(a => new AnalysisInfo(a, $"{a.Tag} — {AnalysisKindLabel(a.Kind)}"))
             .ToList();
 
+         var setIds = db.ForceSets.Where(fs => fs.SourceSchemaId == schemaId).Select(fs => fs.Id).ToHashSet();
+         var batches = new List<BatchInfo>();
+         foreach (var t in db.CalcTasks.Where(t => t.Kind == "shell_layered_sls_batch" && setIds.Contains(t.ForceSetId)))
+            if (db.CalcResults.LastOrDefault(r => r.TaskId == t.Id) is { } last)
+            {
+               int resultId = last.Id;
+               batches.Add(new BatchInfo(t, t.Tag, resultId, () => db.CalcResults.FirstOrDefault(r => r.Id == resultId)?.DataJson));
+            }
+
          string key = Key
             + "|" + string.Join(',', sets.Select(s => $"{s.Id}:{s.RowCount}"))
             + "|" + string.Join(',', checks.Select(c => $"{c.Check.Id}:{c.Check.ResultId}"))
             + "|" + string.Join(',', analyses.Select(a => a.Key))
+            + "|" + string.Join(',', batches.Select(b => $"{b.Task.Id}:{b.ResultId}"))
             + "|" + layoutKey;
-         return this with { ForceSets = sets, Checks = checks, Analyses = analyses, Layout = layout, Key = key };
+         return this with { ForceSets = sets, Checks = checks, Analyses = analyses, Batches = batches, Layout = layout, Key = key };
       }
 
       /// <summary>Раскладка OpenCS схемы и её отпечаток (зоны регионов, слои и толщины сечений элементов).</summary>
@@ -988,6 +1013,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
          .Where(c => CheckFilter == null || CheckFilter(c.Check))
          .ToList();
       _analyses = ResultLoader != null && !ShellOnly && ScopeTags == null ? data.Analyses : [];
+      _batches = data.Batches;
+      _batchMap = null;
       // Слои прежних результатов (постановку пересчитали или удалили) больше не нужны.
       foreach (string stale in _resultLayers.Keys.Where(k => _analyses.All(a => a.Key != k)).ToList())
          _resultLayers.Remove(stale);
@@ -1016,6 +1043,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       if (_foundationC1.Count > 0) options.Add(new(PlateRebarMosaicSourceKind.Foundation, Loc.S("MosaicSourceFoundation")));
       if (_springsByElem.Count > 0) options.Add(new(PlateRebarMosaicSourceKind.Springs, Loc.S("MosaicSourceSprings")));
       if (_analyses.Count > 0) options.Add(new(PlateRebarMosaicSourceKind.Analysis, Loc.S("MosaicSourceAnalysis")));
+      if (_batches.Count > 0) options.Add(new(PlateRebarMosaicSourceKind.BatchCracks, Loc.S("MosaicSourceBatchCracks")));
       SourceOptions = options;
       OnPropertyChanged(nameof(SourceOptions));
       OnPropertyChanged(nameof(HasData));
@@ -1098,6 +1126,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             _checks.Select(c => new PlateRebarMosaicSubjectOption(c, c.Label)).ToList(),
          PlateRebarMosaicSourceKind.Analysis =>
             _analyses.Select(a => new PlateRebarMosaicSubjectOption(a, a.Label)).ToList(),
+         PlateRebarMosaicSourceKind.BatchCracks =>
+            _batches.Select(b => new PlateRebarMosaicSubjectOption(b, b.Label)).ToList(),
          _ => [],
       };
       OnPropertyChanged(nameof(SubjectOptions));
@@ -1158,6 +1188,13 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
                .Select(key => new PlateRebarMosaicComponentOption(key,
                   key == "" ? Loc.S("MosaicUtilization") : FemCheckContext.SourceName(key)))
                .ToList();
+
+         case PlateRebarMosaicSourceKind.BatchCracks:
+            return
+            [
+               new PlateRebarMosaicComponentOption(BatchAcrcComponent, Loc.S("MosaicBatchAcrc")),
+               new PlateRebarMosaicComponentOption(BatchUtilComponent, Loc.S("MosaicUtilization")),
+            ];
 
          case PlateRebarMosaicSourceKind.Foundation:
             return [new PlateRebarMosaicComponentOption(FoundationComponent, Loc.S("MosaicFoundationC1"))];
@@ -1410,6 +1447,26 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             return new Field(values, bars, Diverging: true, Palette.Forces);
          }
 
+         case PlateRebarMosaicSourceKind.BatchCracks when SelectedSubject?.Subject is BatchInfo batch:
+         {
+            if (_batchMap is not { } cached || cached.ResultId != batch.ResultId)
+               _batchMap = cached = (batch.ResultId, ShellSlsBatchCrackMap.Build(batch.LoadJson() ?? "{}"));
+            var map = cached.Map;
+            bool util = Equals(comp.Component, BatchUtilComponent);
+            var byElem = util ? map.UtilByElement : map.AcrcByElement;
+            var notConverged = map.NotConvergedElements.ToHashSet();
+            var values = new Dictionary<string, PlateRebarValue>(StringComparer.Ordinal);
+            foreach (string tag in shellTags)
+            {
+               if (!int.TryParse(tag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n)) continue;
+               values[tag] = byElem.TryGetValue(n, out double v) ? PlateRebarValue.Of(v)
+                  : notConverged.Contains(n) ? PlateRebarValue.Failure(NotConverged) : PlateRebarValue.Missing;
+            }
+            return util
+               ? new Field(values, Bars: false, Diverging: false, Palette.Utilization, UtilizationThresholds)
+               : new Field(values, Bars: false, Diverging: false, Palette.Rebar, BatchAcrcThresholds(map.AcrcLimMm));
+         }
+
          case PlateRebarMosaicSourceKind.Utilization when SelectedSubject?.Subject is CheckInfo check:
          {
             bool bars = !FemCheckContext.IsPlate(check.Check);
@@ -1637,6 +1694,10 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             return $"{comp}\n{SelectedSource!.Label}";
          case PlateRebarMosaicSourceKind.Springs:
             return $"{comp}\n{SelectedSource!.Label}\n{Loc.S("MosaicSpringsNote")}";
+         case PlateRebarMosaicSourceKind.BatchCracks:
+            return $"{comp}\n{SelectedSubject?.Label}"
+                   + (_batchMap?.Map.AcrcLimMm is { } lim
+                      ? "\n" + string.Format(CultureInfo.CurrentCulture, Loc.S("MosaicBatchAcrcLimit"), lim) : "");
          case PlateRebarMosaicSourceKind.Analysis:
             return $"{comp}\n{SelectedSubject?.Label}\n{ActiveResult?.StepLabel}"
                    + (_resultComputing || _barComputing ? "\n" + Loc.S("FemCsfeaCrackComputing") : "");
@@ -1654,9 +1715,16 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       }
    }
 
+   /// <summary>Шкала acrc, мм: доли предела пакета (граница 1,0 — сам предел); без предела — шкала по умолчанию.</summary>
+   static IReadOnlyList<double>? BatchAcrcThresholds(double? limMm)
+      => limMm is > 1e-12
+         ? [0.25 * limMm.Value, 0.5 * limMm.Value, 0.75 * limMm.Value, 0.9 * limMm.Value, limMm.Value, 1.25 * limMm.Value, 1.5 * limMm.Value]
+         : null;
+
    static (Color Color, string Label) FailureStyle(Palette palette, int code) => palette switch
    {
       _ when code == CrackWithoutRebar => (FailureColor, Loc.S("MosaicCrackWithoutRebar")),
+      _ when code == NotConverged => (NotCheckedColor, Loc.S("MosaicNotConverged")),
       Palette.Utilization when code == NotChecked => (NotCheckedColor, Loc.S("MosaicNotChecked")),
       Palette.Utilization => (FailureColor, Loc.S("MosaicFailedNoUtilization")),
       _ => (FailureColor, Loc.S("PlateRebarMosaicFailure")),

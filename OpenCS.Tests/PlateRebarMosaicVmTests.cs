@@ -290,6 +290,40 @@ public class PlateRebarMosaicVmTests
     }
 
     [Fact]
+    public void BatchCracks_ColorsByElementAndMarksNotConverged()
+    {
+        const string json = """
+            {"acrc_lim_mm":0.3,"rows":[
+              {"num":1,"elem":1,"status":"ok","acrc_mm":0.1},
+              {"num":2,"elem":2,"status":"not_passed","acrc_mm":0.45},
+              {"num":3,"elem":3,"status":"not_converged"}]}
+            """;
+        var vm = new PlateRebarMosaicVM();
+        vm.Apply(Data());
+        Assert.DoesNotContain(vm.SourceOptions, o => o.Kind == PlateRebarMosaicSourceKind.BatchCracks);
+
+        vm.Apply(Data() with { Batches = [new(new CalcTask { Id = 9, Tag = "ПС2 стены", Kind = "shell_layered_sls_batch" }, "ПС2 стены", 77, () => json)] });
+        Select(vm, PlateRebarMosaicSourceKind.BatchCracks);
+        Assert.True(vm.HasSubject);
+        Assert.Equal(2, vm.ComponentOptions.Count);
+
+        SelectComponent(vm, "batch_util");
+        var coloring = vm.Compute(["1", "2", "3", "4"])!;
+        var low = coloring.ColorByTag["1"];
+        var high = coloring.ColorByTag["2"];
+        Assert.True(low.G > low.R);
+        Assert.True(high.R > high.G);
+        Assert.Equal(PlateRebarMosaicVM.NotCheckedColor, coloring.ColorByTag["3"]);
+        Assert.False(coloring.ColorByTag.ContainsKey("4"));
+
+        SelectComponent(vm, "batch_acrc");
+        coloring = vm.Compute(["1", "2", "3"])!;
+        Assert.NotEqual(coloring.ColorByTag["1"], coloring.ColorByTag["2"]);
+        vm.SetHover("2");
+        Assert.Contains("0", vm.HoverText);
+    }
+
+    [Fact]
     public void Utilization_ColorsByThresholdOneAndMarksUnchecked()
     {
         var vm = new PlateRebarMosaicVM();

@@ -5891,6 +5891,10 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MosaicUtilization">Utilization</system:String>
     <system:String x:Key="MosaicHoverSection" xml:space="preserve">    section {0}: {1}</system:String>
     <system:String x:Key="MosaicNotChecked">Not checked</system:String>
+    <system:String x:Key="MosaicNotConverged">Not converged</system:String>
+    <system:String x:Key="MosaicSourceBatchCracks">SLS batch cracks</system:String>
+    <system:String x:Key="MosaicBatchAcrc">acrc, mm (max over FE rows)</system:String>
+    <system:String x:Key="MosaicBatchAcrcLimit">acrc,ult = {0:F2} mm</system:String>
     <system:String x:Key="MosaicFailedNoUtilization">Fails (no utilization value)</system:String>
     <system:String x:Key="MosaicCrackWithoutRebar">Crack at an unreinforced face (a_crc = ∞)</system:String>
     <system:String x:Key="MosaicElement">FE</system:String>
