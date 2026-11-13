@@ -3690,9 +3690,20 @@ namespace OpenCS
                MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
          }
-         if (await Tasks.FemAnalysisExecutor.RunAndSaveAsync(this, analysis) == null)
+         var run = await Tasks.FemAnalysisExecutor.RunAndSaveAsync(this, analysis);
+         if (run == null)
          {
             MessageBox.Show(Loc.S("StoreyFragmentMasksAllNotRun"), Loc.S("StoreyFragmentMasksTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+         if (run.Status == "error")
+         {
+            // Служебный расчёт упал: снимать нечего, причина — первая строка «Ошибка: …» его отчёта.
+            string? cause = Services.FemCsfeaResultSummary.Parse(run.DataJson)?.Report
+               .FirstOrDefault(l => l.StartsWith("Ошибка: ", StringComparison.Ordinal));
+            MessageBox.Show(string.Format(Loc.S("StoreyFragmentMasksAllFailed"), analysis.Tag) +
+               (cause == null ? "" : Environment.NewLine + cause), Loc.S("StoreyFragmentMasksTitle"),
                MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
          }

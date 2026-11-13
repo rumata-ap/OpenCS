@@ -84,6 +84,22 @@ public sealed class ElementFragmentLevelsTests
         Assert.Equal(1.65, z2, 6);
     }
 
+    /// <summary>
+    /// Стена 0…6,6 на плите ±0, подвал −3,4 — в другой части здания (вне призмы, но в плане пересекается с плитой ±0):
+    /// под стеной этажа нет — умолчание «с плиты» (W62 «Музея», ручная сверка 13.11).
+    /// </summary>
+    [Fact]
+    public void WallOnSlab_BasementElsewhere_DefaultTakesSlab()
+    {
+        var levels = Levels(Plate("Ф", 0, 8, 10, 10, -3.4), Plate("П0", 0, 0, 10, 10, 0), Plate("П1", 0, 0, 10, 10, 3.3),
+            Plate("П2", 0, 0, 10, 10, 6.6));
+        Assert.NotNull(StoreyFloorLevels.Band(levels, 1, -3.4, 6.6).HeightBelow);
+        var h = ElementFragmentLevels.Of(levels, FragmentPrism.Create(5, 5, 1, 0, 3, 1.6), 0, 6.6);
+        Assert.Equal([1, 2, 3], h.Available);
+        Assert.Equal(1, h.DefaultFrom);
+        Assert.True(h.DefaultTo >= 2);
+    }
+
     /// <summary>Стена над подвалом 0…3,3: под ±0 есть этаж — умолчание прежнее, одно перекрытие у середины.</summary>
     [Fact]
     public void WallAboveBasement_DefaultOneFloor()

@@ -4153,6 +4153,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="StoreyFragmentMasksAllHint">A service linear analysis of the parent over all common load cases (one run, tag “Маски фрагмента”); the masks are taken again. User analyses are not changed.</system:String>
     <system:String x:Key="StoreyFragmentMasksNoCommonLoadCases">The parent and the fragment have no common load cases — the analysis for masks cannot be created.</system:String>
     <system:String x:Key="StoreyFragmentMasksAllNotRun">The service analysis “Маски фрагмента” was not run — masks are not taken (see the log).</system:String>
+    <system:String x:Key="StoreyFragmentMasksAllFailed">The service analysis “{0}” failed — masks are not taken, the previous ones are kept.</system:String>
     <system:String x:Key="StoreyFragmentMasksParentNotOpen">The parent schema is not open in the project — the analysis was not run.</system:String>
     <system:String x:Key="StoreyFragmentMasksSecant">Masks for the secant analysis</system:String>
     <system:String x:Key="StoreyFragmentMasksSecantHint">A service secant analysis of the parent (tag “Маски фрагмента · секущий”) over the stages of the fragment's secant analyses (nonlinear, long run). The masks are one set: linear masks are replaced, and vice versa.</system:String>

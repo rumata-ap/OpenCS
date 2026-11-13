@@ -35,6 +35,38 @@ public sealed partial class StoreyFragmentMaskServiceTests
         Assert.Single(p.Db.GetFemAnalyses(p.Schema.Id), a => a.Tag == StoreyFragmentMaskSupply.AnalysisTag);
     }
 
+    /// <summary>
+    /// Загружение-несовершенство (крен) нагрузок не содержит: стадия из него одного валит линейный расчёт целиком
+    /// («Стадия … без загружений», ручная сверка «Музея» 13.11) — в служебную линейную постановку оно не входит.
+    /// </summary>
+    [Fact]
+    public void SupplyAnalysisSkipsImperfectionLoadCases()
+    {
+        var p = Create();
+        foreach (var schemaId in new[] { p.Schema.Id, p.Fragment.Id })
+            p.Db.SaveFemLoadCase(new FemLoadCase { SchemaId = schemaId, Tag = "Крен", Sp20Type = FemSp20Types.Imperfection });
+
+        var analysis = Assert.IsType<FemAnalysis>(StoreyFragmentMaskSupply.Prepare(p.Db, p.Fragment, out _));
+        var stages = FemAnalysisParams.Parse(analysis.ParamsJson).Stages;
+        Assert.Equal(["Пост.", "Ветер"], stages.Select(s => s.Tag));
+    }
+
+    /// <summary>
+    /// Служебная постановка из БД — другой экземпляр, чем в дереве схемы: сохранение заменяет строку с тем же Id, а не
+    /// добавляет вторую («Маски фрагмента» [ok] и [error] рядом в дереве, сверка 13.11).
+    /// </summary>
+    [Fact]
+    public void SupplyAnalysisSavedTwice_SingleTreeEntry()
+    {
+        var p = Create();
+        p.Db.LoadAll();
+        var first = Assert.IsType<FemAnalysis>(StoreyFragmentMaskSupply.Prepare(p.Db, p.Fragment, out _));
+        var second = Assert.IsType<FemAnalysis>(StoreyFragmentMaskSupply.Prepare(p.Db, p.Fragment, out _));
+        Assert.NotSame(first, second);
+        var schema = p.Db.FemSchemas.Single(s => s.Id == p.Schema.Id);
+        Assert.Same(second, Assert.Single(schema.Analyses, a => a.Tag == StoreyFragmentMaskSupply.AnalysisTag));
+    }
+
     [Fact]
     public void SecantSupplyAnalysisMirrorsFragmentStagesOnParentLoadCases()
     {

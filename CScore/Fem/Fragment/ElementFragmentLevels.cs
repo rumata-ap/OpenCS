@@ -43,10 +43,11 @@ public static class ElementFragmentLevels
         int from = bottom ?? below ?? available[0];
         int to = AtZ(elemZMax) ?? above ?? available[^1];
 
-        // Элементы стоят на фундаментной плите (на низе элементов перекрытие, этажа под ним нет): умолчание — от плиты и не ниже
-        // следующего над ней перекрытия, иначе разрез посреди нижнего этажа отсекает плиту.
+        // Элементы стоят на фундаментной плите (на низе элементов перекрытие, под ним в призме перекрытий нет): умолчание — от
+        // плиты и не ниже следующего над ней перекрытия, иначе разрез посреди нижнего этажа отсекает плиту. Этаж ниже — именно
+        // в призме: подвал в другой части здания (W62 «Музея», плита −3,400 вне призмы) стену не делает «надподвальной».
         int defFrom = def, defTo = def;
-        if (bottom is int f && StoreyFloorLevels.Band(levels, f, elemZMin, elemZMax).HeightBelow is null)
+        if (bottom is int f && below is null)
         {
             int pos = available.IndexOf(f);
             defFrom = f;

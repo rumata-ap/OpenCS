@@ -26,7 +26,8 @@ public static class StoreyFragmentMaskSupply
     public static FemAnalysis? Prepare(DatabaseService db, FemSchema fragment, out string? reason)
     {
         if (!Context(db, fragment, out var ctx, out reason)) return null;
-        var stages = ctx.ParentLoadCases.Where(c => ctx.Map.ContainsKey(c.Id)).Select(c => new FemAnalysisStage
+        // Несовершенство (крен) нагрузок не содержит: стадия из него одного — ошибка «без загружений» на весь расчёт.
+        var stages = ctx.ParentLoadCases.Where(c => ctx.Map.ContainsKey(c.Id) && !FemSp20Types.IsImperfection(c)).Select(c => new FemAnalysisStage
         {
             Tag = c.Tag,
             LoadExpressionJson = new FemLoadExpression { Mode = FemLoadExpressionMode.Single, LoadCaseIds = [c.Id] }.ToJson(),

@@ -4153,6 +4153,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="StoreyFragmentMasksAllHint">Служебная линейная постановка «Маски фрагмента» родителя по всем общим загружениям (один расчёт); маски снимаются заново. Пользовательские постановки не меняются.</system:String>
     <system:String x:Key="StoreyFragmentMasksNoCommonLoadCases">У родителя и фрагмента нет общих загружений — постановку для масок не создать.</system:String>
     <system:String x:Key="StoreyFragmentMasksAllNotRun">Расчёт служебной постановки «Маски фрагмента» не выполнен — маски не сняты (см. журнал).</system:String>
+    <system:String x:Key="StoreyFragmentMasksAllFailed">Служебный расчёт «{0}» завершился с ошибкой — маски не сняты, прежние сохранены.</system:String>
     <system:String x:Key="StoreyFragmentMasksParentNotOpen">Схема-родитель не открыта в проекте — расчёт постановки не запущен.</system:String>
     <system:String x:Key="StoreyFragmentMasksSecant">Маски для секущего расчёта</system:String>
     <system:String x:Key="StoreyFragmentMasksSecantHint">Служебная секущая постановка «Маски фрагмента · секущий» родителя по стадиям секущих расчётов фрагмента (нелинейный расчёт, долгий). Маски фрагмента — один набор: линейные маски заменяются, и наоборот.</system:String>

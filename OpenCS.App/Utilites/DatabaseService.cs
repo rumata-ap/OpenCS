@@ -5357,7 +5357,12 @@ namespace OpenCS.Utilites
             }
             var schema = FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId);
             if (schema != null && !schema.Analyses.Contains(analysis))
-               schema.Analyses.Add(analysis);
+            {
+               // Та же постановка, прочитанная из БД заново (служебные «Маски фрагмента»), — замена, а не вторая строка дерева.
+               int same = schema.Analyses.ToList().FindIndex(a => a.Id == analysis.Id);
+               if (same >= 0) schema.Analyses[same] = analysis;
+               else schema.Analyses.Add(analysis);
+            }
             tx.Commit();
          }
          catch { tx.Rollback(); throw; }
