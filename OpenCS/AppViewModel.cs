@@ -5112,8 +5112,8 @@ namespace OpenCS
       }
 
       /// <summary>
-      /// «Дочитать граничные условия»: из вложения SCAD, если оно уже с пружинами, шарнирами, основанием и осями стержней,
-      /// иначе — повторным чтением .SPR через SCADAPIX.dll (вложение и повороты сечений стержней обновляются, нагрузки заново
+      /// «Дочитать граничные условия»: из вложения SCAD, если оно уже с пружинами, шарнирами, основанием и осями стержней
+      /// (с осями вертикальных стержней по правилу 13.11.2026), иначе — повторным чтением .SPR через SCADAPIX.dll (вложение и повороты сечений стержней обновляются, нагрузки заново
       /// не переносятся).
       /// </summary>
       async Task RefreshScadBoundary(CScore.Fem.FemSchema schema)
@@ -5121,7 +5121,7 @@ namespace OpenCS
          if (IsBusy) return;
          bool editorOpen = ReferenceEquals(currentFemSchema, schema) && currentPage is Views.FemSchemaPage;
          if (editorOpen && !TryLeaveFemSchemaEditor()) return;
-         if (LoadScadAnalysisModel(schema.Id) is { HasBoundaryV2: true, HasBeds: true, HasRodAxes: true } stored)
+         if (LoadScadAnalysisModel(schema.Id) is { HasBoundaryV2: true, HasBeds: true, HasRodAxes: true, HasVerticalAxesFix: true } stored)
          {
             TransferScadBoundary(schema, stored, showSummary: true);
             return;

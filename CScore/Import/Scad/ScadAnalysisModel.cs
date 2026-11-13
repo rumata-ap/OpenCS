@@ -112,6 +112,13 @@ public sealed class ScadAnalysisModel
     /// </summary>
     public bool HasRodAxes { get; init; }
 
+    /// <summary>
+    /// Повороты сечений стержней посчитаны с осью Y1 вертикального стержня против глобальной Y (исправление 13.11.2026,
+    /// <see cref="ScadRodAxes.LocalY"/>); false — по прежнему правилу «вдоль Y»: оси колонн развёрнуты на 180°, их надо
+    /// дочитать из .SPR.
+    /// </summary>
+    public bool HasVerticalAxesFix { get; init; }
+
     /// <summary>Загружения по возрастанию номера.</summary>
     public List<ScadLoadCase> LoadCases { get; init; } = [];
 

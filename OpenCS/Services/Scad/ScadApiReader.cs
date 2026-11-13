@@ -212,7 +212,7 @@ internal static unsafe class ScadApiReader
             Bounds = bounds, RigidBodies = bodies, LoadCases = loads, LengthUnitM = data.LengthUnitM,
             ForceUnitN = force.Coef > 0 ? 9810.0 / force.Coef : 1,
             SchemaType = schemaType, Springs = springs, Joints = joints, NotTransferred = notTransferred,
-            HasBoundaryV2 = true, Beds = beds, HasBeds = true, HasRodAxes = rodAxes,
+            HasBoundaryV2 = true, Beds = beds, HasBeds = true, HasRodAxes = rodAxes, HasVerticalAxesFix = rodAxes,
         };
     }
 

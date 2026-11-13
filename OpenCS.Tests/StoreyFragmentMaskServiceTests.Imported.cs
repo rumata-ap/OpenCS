@@ -19,7 +19,7 @@ public sealed partial class StoreyFragmentMaskServiceTests
 {
     /// <summary>
     /// Снимок «как SCAD» из полей записанного результата постановки: шаг i — загружение программы № i; стержни — силы
-    /// сечений в знаках <see cref="ImportedForceConvention.LiraScad"/>, пластины — в осях выдачи CSfea (их угол
+    /// сечений в знаках <see cref="ImportedForceConvention.Scad"/>, пластины — в осях выдачи CSfea (их угол
     /// записывается в сетку родителя), поворот стержней — как у CSfea.
     /// </summary>
     ImportedResultSnapshot ScadSnapshotFromCsfea(DatabaseService db, FemSchema parent, FemAnalysis analysis, int loads)
@@ -43,7 +43,7 @@ public sealed partial class StoreyFragmentMaskServiceTests
                     $"UPDATE fem_elements SET beam_rotation_deg={FemRcModelAdapter.BeamRotationDeg(e, members):R} WHERE schema_id={parent.Id} AND elem_tag='{e.ElemTag}'"));
         }
 
-        var c = ImportedForceConvention.LiraScad;
+        var c = ImportedForceConvention.Scad;
         var result = new List<ImportedResultLoad>();
         for (int i = 1; i <= loads; i++)
         {
@@ -123,6 +123,39 @@ public sealed partial class StoreyFragmentMaskServiceTests
         db.SaveFemSchemaSourceFile(p.Schema.Id, FemSchemaSourceFileKind.ScadMaskResults, "каркас.SPR",
             ImportedResultSnapshotCodec.Encode(snapshot));
         Assert.Equal(FragmentMaskStatus.Stale, StoreyFragmentMaskService.CheckMasks(db, p.Fragment));
+    }
+
+    /// <summary>
+    /// Опора родителя внутри фрагмента, а реакций в снимке нет: «равновесие» масок с нагрузками заведомо не сходится
+    /// («Музей», колонна 13: 185 % при верных масках) — сверка не проводится, в отчёте — почему. Без опоры в полосе
+    /// сообщения нет (<see cref="Extract_Scad_MatchesCsfeaLinear_AndTracksSnapshot"/>).
+    /// </summary>
+    [Fact]
+    public void Extract_Scad_SupportInsideFragment_SkipsBalance()
+    {
+        var p = Create();
+        using var db = p.Db;
+        var lc = db.GetFemLoadCases(p.Schema.Id);
+        var stages = new[] { Single("Пост.", lc[0].Id), Single("Ветер", lc[1].Id) };
+        var analysis = SaveResult(db, p.Schema, FemCsfeaRunner.LinearAnalysisKind, stages, stages);
+        var snapshot = ScadSnapshotFromCsfea(db, p.Schema, analysis, 2);
+        for (int i = 0; i < 2; i++)
+            Exec($"UPDATE fem_load_cases SET origin='import:scad', source_load_num={i + 1} WHERE id={lc[i].Id}");
+        db.SaveFemSchemaSourceFile(p.Schema.Id, FemSchemaSourceFileKind.ScadMaskResults, "каркас.SPR",
+            ImportedResultSnapshotCodec.Encode(snapshot));
+
+        var without = StoreyFragmentMaskService.Extract(db, p.Fragment, FragmentMaskSet.SourceScad, "", save: false);
+        Assert.DoesNotContain(without.Diagnostics, d => d.Code == "fragment_mask_no_reactions");
+        Assert.NotNull(without.BalanceResidual);
+
+        db.SaveFemBoundary(p.Schema.Id, FemLoadOrigin.Import("scad"),
+            [new FemMeshNodeSupport { SchemaId = p.Schema.Id, NodeTag = S(Slab(2, 2)), Mask = 4 }], [], []);
+        var with = StoreyFragmentMaskService.Extract(db, p.Fragment, FragmentMaskSet.SourceScad, "", save: false);
+
+        Assert.False(with.HasErrors, string.Join("\n", with.Diagnostics.Select(d => d.Message)));
+        Assert.Contains(with.Diagnostics, d => d.Code == "fragment_mask_no_reactions" && d.Message.Contains("узлов 1"));
+        Assert.DoesNotContain(with.Diagnostics, d => d.Code == "fragment_mask_balance");
+        Assert.Null(with.BalanceResidual);
     }
 
     /// <summary>Окно «Маски из родителя…»: снимок SCAD — источник после постановок CSfea; по умолчанию — источник масок.</summary>

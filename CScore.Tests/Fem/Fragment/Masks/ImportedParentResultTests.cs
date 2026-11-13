@@ -78,7 +78,7 @@ public sealed class ImportedParentResultTests
         var snapshot = new ImportedResultSnapshot
         {
             Program = ImportedResultSnapshot.ProgramLira,
-            Loads = [new ImportedResultLoad { Num = 1, BarNums = [7], BarForces = [0, -P, -P, 0, -P * L, -P * L, 0, -P, -P, 0, 0, 0] }],
+            Loads = [new ImportedResultLoad { Num = 1, BarNums = [7], BarForces = [0, -P, -P, 0, -P * L, P * L, 0, -P, -P, 0, 0, 0] }],
         };
         var (ry, rz, _) = new ImportedParentResult(snapshot, Map, nodes, elements).ShearConsistency();
         Assert.Equal(-1, ry!.Value, 9);
@@ -87,7 +87,7 @@ public sealed class ImportedParentResultTests
 
     /// <summary>
     /// Знаки ЛИРЫ в плоскости XY по реальным данным: Qy = −dMz/dx. Конвенция <see cref="ImportedForceConvention.Lira"/>
-    /// даёт согласованность +1, общая <see cref="ImportedForceConvention.LiraScad"/> — −1.
+    /// даёт согласованность +1, прежняя общая (Mz без инверсии) — −1.
     /// </summary>
     [Fact]
     public void ShearConsistency_LiraConventionXY()
@@ -103,7 +103,8 @@ public sealed class ImportedParentResultTests
         };
 
         var lira = new ImportedParentResult(snapshot, Map, nodes, elements, ImportedForceConvention.Lira).ShearConsistency();
-        var shared = new ImportedParentResult(snapshot, Map, nodes, elements, ImportedForceConvention.LiraScad).ShearConsistency();
+        var shared = new ImportedParentResult(snapshot, Map, nodes, elements,
+            new ImportedForceConvention([1, -1, -1, 1, -1, 1], [1, 1, 1, -1, -1, -1, 1, 1])).ShearConsistency();
 
         Assert.Equal(1, lira.Ry!.Value, 9);
         Assert.Equal(-1, shared.Ry!.Value, 9);
@@ -126,7 +127,7 @@ public sealed class ImportedParentResultTests
         Assert.Equal([1, -1, -1, -1, -1, -1], ImportedForceConvention.Lira.Bar);
     }
 
-    /// <summary>Оси выдачи пластины: угол 90° — X выдачи вдоль Y1 КЭ; моменты инвертируются, N и Q — нет.</summary>
+    /// <summary>Оси выдачи пластины: угол 90° — X выдачи вдоль Y1 КЭ; знаки SCAD — моменты и Q инвертируются, N — нет.</summary>
     [Fact]
     public void Shell_AxesAndSigns()
     {
@@ -143,7 +144,7 @@ public sealed class ImportedParentResultTests
         var (_, y1, z1) = FemElementGeometry.Of(elements[0], nodes)!.ShellFrame();
         Assert.True((s.AxisX - y1).Length < 1e-12);
         Assert.True((s.AxisX.Cross(s.AxisY) - z1).Length < 1e-12);
-        Assert.Equal([1, 2, 3, -4, -5, -6, 7, 8], s.Values);
+        Assert.Equal([1, 2, 3, -4, -5, -6, -7, -8], s.Values);
     }
 
     /// <summary>Нет пары загружения, угла пластины, поворота стержня, узла — данных нет (false), а не ноль.</summary>
@@ -203,7 +204,7 @@ public sealed class ImportedParentResultTests
         }
         var shellNums = new List<int>();
         var shellF = new List<double>();
-        double[] signs = ImportedForceConvention.LiraScad.Shell;
+        double[] signs = ImportedForceConvention.Scad.Shell;
         foreach (var e in elements)
         {
             var g = FemElementGeometry.Of(e, nodes)!;

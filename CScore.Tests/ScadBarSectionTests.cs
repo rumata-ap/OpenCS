@@ -48,7 +48,7 @@ public sealed class ScadBarSectionTests
     [Theory]
     [InlineData(1, 0, 0, 0, 1, 0)]   // вдоль X: Z1 вверх, Y1 = Z × X = +Y
     [InlineData(0, 1, 0, -1, 0, 0)]  // вдоль Y: Y1 = Z × Y = −X
-    [InlineData(0, 0, 1, 0, 1, 0)]   // вертикальный: Y1 вдоль глобальной Y
+    [InlineData(0, 0, 1, 0, -1, 0)]  // вертикальный: Y1 против глобальной Y (сверка снимка «Музея» 13.11.2026)
     public void LocalY_Default(double dx, double dy, double dz, double yx, double yy, double yz)
     {
         var y = ScadRodAxes.LocalY(null, (0, 0, 0), (dx, dy, dz))!;

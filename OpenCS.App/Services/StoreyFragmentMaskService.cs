@@ -391,6 +391,15 @@ public static class StoreyFragmentMaskService
         return (f, m);
     }
 
+    /// <summary>Узлы сетки родителя с закреплением или пружиной внутри границ фрагмента.</summary>
+    static int SupportedNodesIn(FemRcModelInput input, IReadOnlyDictionary<string, FemMeshNode> nodes, FragmentBounds bounds)
+    {
+        var tags = input.Supports.Where(s => s.Mask != 0).Select(s => s.NodeTag)
+            .Concat(input.Springs.Where(s => s.TargetKind == FemSpringTargetKinds.MeshNode).Select(s => s.NodeTag))
+            .ToHashSet(StringComparer.Ordinal);
+        return tags.Count(t => nodes.TryGetValue(t, out var n) && bounds.InBox(new PlanarVector3(n.X, n.Y, n.Z)));
+    }
+
     /// <summary>Допуск по отметкам полосы, м.</summary>
     const double Tol = 1e-3;
 
@@ -464,9 +473,13 @@ public static class StoreyFragmentMaskService
         if (cuts.Count == 0)
             return Fail("fragment_mask_no_cuts", "У фрагмента нет сечений рассечения.");
 
+        if (sourceKind == FragmentMaskSet.SourceScad && !ScadVerticalAxesFixed(db, parentId))
+            diag.Add(new("fragment_mask_scad_axes_old", "Местные оси стержней схемы-родителя прочитаны из SCAD до 13.11.2026: у " +
+                "вертикальных стержней они развёрнуты на 180°, и поперечные силы и моменты колонн в масках выйдут с обратным знаком. " +
+                "Выполните у схемы-родителя «Дочитать граничные условия из SCAD» и снимите маски заново.", false));
         var band = Band(db, parentId, z1, z2, out var nodes, out _);
         var parentResult = new ImportedParentResult(snapshot, byNum, nodes, band,
-            sourceKind == FragmentMaskSet.SourceLira ? ImportedForceConvention.Lira : null);
+            sourceKind == FragmentMaskSet.SourceLira ? ImportedForceConvention.Lira : ImportedForceConvention.Scad);
         if (parentResult.BarsWithoutAxes.Count > 0)
             diag.Add(new("fragment_mask_bar_axes", $"Стержней полосы без местных осей программы: {parentResult.BarsWithoutAxes.Count} " +
                 "— их усилия не взяты (обновите схему из программы).", false, parentResult.BarsWithoutAxes));
@@ -499,12 +512,18 @@ public static class StoreyFragmentMaskService
         if (hasForces)
         {
             var origin = FragmentMaskBalance.Origin(cutInputs, BandOrigin(band, nodes));
-            diag.Add(new("fragment_mask_no_reactions", $"В снимке {program} нет реакций опор: если опоры внутри полосы, сверка " +
-                "равновесия покажет расхождение.", false));
             try
             {
-                var loads = BandActions(ParentModelOf(db, parentId, new FemCsfeaSetup(), sections: false), parentResult.Keys, map,
-                    Bounds(fragment, z1, z2), origin, diag, null);
+                var model = ParentModelOf(db, parentId, new FemCsfeaSetup(), sections: false);
+                var bounds = Bounds(fragment, z1, z2);
+                // Реакций в снимке нет: опора или пружина внутри фрагмента (колонна на опоре, плита на упругом основании) —
+                // без её реакции «равновесие» масок с нагрузками заведомо не сходится («Музей», колонна 13: 185 % при верных
+                // масках), сверка не проводится.
+                int supported = SupportedNodesIn(model.Input, nodes, bounds);
+                var loads = supported > 0 ? null : BandActions(model, parentResult.Keys, map, bounds, origin, diag, null);
+                if (supported > 0)
+                    diag.Add(new("fragment_mask_no_reactions", $"Внутри фрагмента есть опоры или пружины схемы-родителя (узлов " +
+                        $"{supported}), а реакций в снимке {program} нет — равновесие масок не проверяется.", false));
                 if (loads != null)
                 {
                     diag.AddRange(FragmentMaskBalance.Check(cutInputs, extraction.Masks, loads, origin));
@@ -533,6 +552,14 @@ public static class StoreyFragmentMaskService
         };
         if (save) db.ReplaceFragmentMasks(fragment.Id, set);
         return new(set, diag) { BalanceResidual = residual };
+    }
+
+    /// <summary>Оси стержней схемы SCAD прочитаны по правилу 13.11.2026 (вложение с <see cref="CScore.Import.ScadAnalysisModel.HasVerticalAxesFix"/>).</summary>
+    static bool ScadVerticalAxesFixed(DatabaseService db, int schemaId)
+    {
+        if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadAnalysisModel) is not { } file) return false;
+        try { return CScore.Import.ScadAnalysisModel.FromJson(System.Text.Encoding.UTF8.GetString(file.Data)).HasVerticalAxesFix; }
+        catch (InvalidDataException) { return false; }
     }
 
     /// <summary>Отпечаток снимка программы: SHA-256 вложения и отпечаток полосы родителя.</summary>

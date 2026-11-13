@@ -14,17 +14,17 @@ namespace CScore.Fem.Fragment.Masks;
 public sealed record ImportedForceConvention(double[] Bar, double[] Shell)
 {
     /// <summary>
-    /// Для SCAD (для ЛИРЫ — <see cref="Lira"/>, знак Mz по реальным данным обратный): N растяжение +; My + растягивает волокна со стороны −Z1 (нижние,
-    /// <c>LiraForceMapper.MapBar</c>, сверено с подбором ЛИРЫ 30.09), Mz — по импорту наборов (<c>My OpenCS = −Mz</c>);
-    /// поперечные силы — <c>Qz = dMy/dx</c>, <c>Qy = dMz/dx</c> в знаках программы (проверяется по снимку —
-    /// <see cref="ImportedParentResult.ShearConsistency"/>); Mк — как std. Пластины: Mx My Mxy + растягивают низ (−Z1),
-    /// инверсия как у импорта наборов (Mxy ЛИРЫ сверен 22.09); N, Q — без инверсии.
+    /// SCAD: те же знаки, что у ЛИРЫ (<see cref="Lira"/>) — все поперечные силы и моменты стержня, кроме N, и моменты и
+    /// поперечные силы пластины противоположны std. Сверено 13.11.2026 поэлементно по снимку SCAD «Музея» с линейным CSfea
+    /// той же сетки (полоса +10,090, 9 загружений): N k ≈ 1; Qy, Qz, Mк, My, Mz стержней k ≈ −1 (r ≈ −0,95…−1) одинаково у
+    /// горизонтальных и вертикальных стержней — после исправления оси Y1 вертикального стержня
+    /// (<see cref="Import.ScadRodAxes.LocalY"/>: против глобальной Y); пластины Mx, My, Mxy, Qx, Qy — k &lt; 0.
     /// </summary>
-    public static ImportedForceConvention LiraScad { get; } = new([1, -1, -1, 1, -1, 1], [1, 1, 1, -1, -1, -1, 1, 1]);
+    public static ImportedForceConvention Scad { get; } = new([1, -1, -1, -1, -1, -1], [1, 1, 1, -1, -1, -1, -1, -1]);
 
     /// <summary>
     /// ЛИРА по реальным данным («Мирная», 10.11.2026): в знаках ЛИРЫ <c>dMy/dx = +Qz</c> и <c>dMz/dx = −Qy</c>
-    /// (<see cref="ImportedParentResult.ShearConsistency"/> с <see cref="LiraScad"/> давала −1 в плоскости XY), а узловое
+    /// (<see cref="ImportedParentResult.ShearConsistency"/> с прежней общей для SCAD и ЛИРЫ конвенцией — Mz и Mк без инверсии — давала −1 в плоскости XY), а узловое
     /// равновесие колонн под сосредоточенной силой даёт <c>Qy std = −Qy ЛИРЫ</c> (скачок ΔQy = +P при ожидаемых −P в std) — значит,
     /// Mz — с обратным знаком, как My: все поперечные силы и изгибающие моменты ЛИРЫ противоположны std.
     /// Поэлементная сверка снимка «Мирной» с линейным CSfea той же сетки (10.11.2026, перемещения k = 1,00, r = 1,00;
@@ -78,12 +78,12 @@ public sealed class ImportedParentResult : IFragmentParentResult
     /// <param name="loadCaseIdByNum">Номер загружения программы → Id загружения родителя.</param>
     /// <param name="nodes">Узлы сетки родителя по тегу.</param>
     /// <param name="elements">КЭ сетки родителя.</param>
-    /// <param name="convention">Знаки программы; null — <see cref="ImportedForceConvention.LiraScad"/>.</param>
+    /// <param name="convention">Знаки программы; null — <see cref="ImportedForceConvention.Scad"/>.</param>
     public ImportedParentResult(ImportedResultSnapshot snapshot, IReadOnlyDictionary<int, int> loadCaseIdByNum,
         IReadOnlyDictionary<string, FemMeshNode> nodes, IReadOnlyList<FemElement> elements,
         ImportedForceConvention? convention = null)
     {
-        _convention = convention ?? ImportedForceConvention.LiraScad;
+        _convention = convention ?? ImportedForceConvention.Scad;
         foreach (var load in snapshot.Loads)
         {
             if (!loadCaseIdByNum.TryGetValue(load.Num, out int id)) { UnmatchedLoads.Add(load.Num); continue; }
