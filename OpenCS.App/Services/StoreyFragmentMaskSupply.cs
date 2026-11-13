@@ -49,12 +49,28 @@ public static class StoreyFragmentMaskSupply
     /// префиксами — тогда их ключи масок входят в набор) с Id загружений родителя. Параметры секущего расчёта (тип
     /// расчёта, настройки CSfea) — как у той же постановки фрагмента. Пакетные постановки не поддерживаются.
     /// </summary>
-    public static FemAnalysis? PrepareSecant(DatabaseService db, FemSchema fragment, out string? reason)
+    /// <param name="fragmentAnalysisId">Секущая постановка фрагмента, по которой строится родитель; null — по всем секущим
+    /// постановкам фрагмента (они должны продолжать одна другую).</param>
+    public static FemAnalysis? PrepareSecant(DatabaseService db, FemSchema fragment, out string? reason, int? fragmentAnalysisId = null)
     {
+        if (SecantParams(db, fragment, fragmentAnalysisId, out reason, out int parentId) is not { } pars) return null;
+        return Save(db, parentId, SecantAnalysisTag, FemCsfeaRunner.AnalysisKind, pars.Stages[0].LoadExpressionJson, pars.ToJson());
+    }
+
+    /// <summary>Служебную секущую постановку можно построить (без записи в БД); иначе <paramref name="reason"/> — почему.</summary>
+    public static bool CanPrepareSecant(DatabaseService db, FemSchema fragment, int? fragmentAnalysisId, out string? reason) =>
+        SecantParams(db, fragment, fragmentAnalysisId, out reason, out _) != null;
+
+    /// <summary>Параметры служебной секущей постановки родителя; null — отказ с причиной.</summary>
+    static FemAnalysisParams? SecantParams(DatabaseService db, FemSchema fragment, int? fragmentAnalysisId, out string? reason,
+        out int parentId)
+    {
+        parentId = 0;
         if (!Context(db, fragment, out var ctx, out reason)) return null;
+        parentId = ctx.ParentId;
         var inverse = ctx.Map.ToDictionary(kv => kv.Value, kv => kv.Key);
         var variants = new List<(FemAnalysis Analysis, FemAnalysisParams Pars, List<FemAnalysisStage> Stages)>();
-        foreach (var a in db.GetFemAnalyses(fragment.Id).Where(a => a.Kind == FemCsfeaRunner.AnalysisKind))
+        foreach (var a in SecantAnalyses(db, fragment).Where(a => fragmentAnalysisId == null || a.Id == fragmentAnalysisId))
         {
             var pars = FemAnalysisParams.Parse(a.ParamsJson);
             if (pars.Batch != null)
@@ -83,11 +99,19 @@ public static class StoreyFragmentMaskSupply
             return null;
         }
         var longest = variants.MaxBy(v => v.Stages.Count);
-        bool prefixes = variants.All(v => v.Stages.Count <= longest.Stages.Count
-            && v.Stages.Zip(longest.Stages).All(p => p.First.LoadExpressionJson == p.Second.LoadExpressionJson));
-        if (!prefixes)
+        foreach (var v in variants)
         {
-            reason = Loc.S("StoreyFragmentMasksSecantNotPrefix");
+            int k = v.Stages.Zip(longest.Stages).TakeWhile(p => p.First.LoadExpressionJson == p.Second.LoadExpressionJson).Count();
+            if (k == v.Stages.Count) continue;
+            // Постановки расходятся: служебный родитель — один набор стадий. Назвать, какие постановки и где, и отдельно —
+            // крен: родитель с креном и без даёт разные маски, одним расчётом их не получить.
+            bool impV = v.Stages.Any(s => HasImperfection(s.LoadExpressionJson, ctx.ParentLoadCases));
+            bool impL = longest.Stages.Any(s => HasImperfection(s.LoadExpressionJson, ctx.ParentLoadCases));
+            string imperfection = impV == impL ? ""
+                : string.Format(Loc.S("StoreyFragmentMasksSecantImperfection", SecantImperfectionFallback), impV ? v.Analysis.Tag : longest.Analysis.Tag,
+                    impV ? longest.Analysis.Tag : v.Analysis.Tag);
+            reason = string.Format(Loc.S("StoreyFragmentMasksSecantNotPrefix", SecantNotPrefixFallback), longest.Analysis.Tag, v.Analysis.Tag, k + 1,
+                v.Stages[k].Tag, imperfection);
             return null;
         }
         // Родитель для масок: концы всех стадий записываются (ключ маски — стадия), второй порядок — полный (P-Δ каркаса;
@@ -101,9 +125,28 @@ public static class StoreyFragmentMaskSupply
             csfea.RecordSteps = "";
         }
         csfea.RecordStageEnds = true;
-        var pSecant = new FemAnalysisParams { Stages = longest.Stages, CalcType = longest.Pars.CalcType, Csfea = csfea };
-        return Save(db, ctx.ParentId, SecantAnalysisTag, FemCsfeaRunner.AnalysisKind, longest.Stages[0].LoadExpressionJson,
-            pSecant.ToJson());
+        return new FemAnalysisParams { Stages = longest.Stages, CalcType = longest.Pars.CalcType, Csfea = csfea };
+    }
+
+    // Форматы отказа без словаря строк (тесты, ранний старт) — те же, что в Strings.ru-RU.xaml.
+    const string SecantNotPrefixFallback = "Секущие постановки фрагмента «{0}» и «{1}» расходятся на стадии {2} («{3}»){4}. " +
+        "Служебный расчёт родителя для масок — один набор стадий: выберите в окне масок постановку фрагмента, по которой его считать.";
+    const string SecantImperfectionFallback = ": «{0}» — с креном, «{1}» — без, а крен меняет перемещения и усилия родителя";
+
+    /// <summary>Секущие (нелинейные) постановки CSfea фрагмента — варианты для служебного секущего расчёта родителя.</summary>
+    public static IReadOnlyList<FemAnalysis> SecantAnalyses(DatabaseService db, FemSchema fragment)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(fragment);
+        return db.GetFemAnalyses(fragment.Id).Where(a => a.Kind == FemCsfeaRunner.AnalysisKind).ToList();
+    }
+
+    /// <summary>Выражение загружения ссылается на загружение-несовершенство (крен).</summary>
+    static bool HasImperfection(string json, IReadOnlyList<FemLoadCase> loadCases)
+    {
+        var e = FemLoadExpression.Parse(json);
+        var ids = e.LoadCaseIds.Concat(e.Terms.Select(t => t.LoadCaseId)).ToHashSet();
+        return loadCases.Any(c => ids.Contains(c.Id) && FemSp20Types.IsImperfection(c));
     }
 
     /// <summary>Общая проверка: фрагмент, родитель и карта загружений родитель → фрагмент.</summary>

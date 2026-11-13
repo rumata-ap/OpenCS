@@ -3655,13 +3655,14 @@ namespace OpenCS
          if (fragment?.ParentSchemaId == null) return;
          var owner = Application.Current?.MainWindow;
          var sources = ViewModels.StoreyFragmentMaskFlow.Sources(db, fragment, out string? reason);
+         var secantChoices = ViewModels.StoreyFragmentMaskFlow.SecantChoices(db, fragment, out var secantSelected);
          var dlg = new Views.StoreyFragmentMasksDialog(fragment.Tag, sources,
             ViewModels.StoreyFragmentMaskFlow.DefaultSource(db, fragment, sources), reason,
-            ViewModels.StoreyFragmentMaskFlow.CurrentText(db, fragment)) { Owner = owner };
+            ViewModels.StoreyFragmentMaskFlow.CurrentText(db, fragment), secantChoices, secantSelected) { Owner = owner };
          if (dlg.ShowDialog() != true) return;
          if (dlg.AllLoadCases || dlg.SecantAll)
          {
-            await TakeAllStoreyFragmentMasks(fragment, owner, dlg.SecantAll);
+            await TakeAllStoreyFragmentMasks(fragment, owner, dlg.SecantAll, dlg.SecantAnalysisId);
             return;
          }
          if (dlg.Source is not { } source) return;
@@ -3673,11 +3674,13 @@ namespace OpenCS
       /// расчёт (как у постановок схемы: занятость, статус, журнал) → снятие масок из неё. Пересчёт каждый раз — маски
       /// не отстают от родителя; пользовательские постановки не меняются.
       /// </summary>
-      async Task TakeAllStoreyFragmentMasks(CScore.Fem.FemSchema fragment, System.Windows.Window? owner, bool secant)
+      /// <param name="secantAnalysisId">Секущая постановка фрагмента для служебного расчёта; null — все секущие.</param>
+      async Task TakeAllStoreyFragmentMasks(CScore.Fem.FemSchema fragment, System.Windows.Window? owner, bool secant,
+         int? secantAnalysisId = null)
       {
          string? reason;
          var analysis = secant
-            ? Services.StoreyFragmentMaskSupply.PrepareSecant(db, fragment, out reason)
+            ? Services.StoreyFragmentMaskSupply.PrepareSecant(db, fragment, out reason, secantAnalysisId)
             : Services.StoreyFragmentMaskSupply.Prepare(db, fragment, out reason);
          if (analysis == null)
          {

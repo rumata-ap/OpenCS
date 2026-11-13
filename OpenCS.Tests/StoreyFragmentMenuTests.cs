@@ -131,12 +131,18 @@ public sealed class StoreyFragmentMenuTests : IDisposable
                 Assert.False(empty.takeButton.IsEnabled);
                 Assert.Equal(Visibility.Visible, empty.reasonText.Visibility);
                 Assert.Equal("не сняты", empty.currentText.Text);
+                Assert.False(empty.secantButton.IsEnabled);
+                Assert.Equal(Visibility.Visible, empty.secantNoneText.Visibility);
                 empty.Close();
 
                 FragmentMaskSourceItem a = new(1, "csfea_linear", "Лин", "Лин · Линейный · 2026-10-28 10:00");
                 FragmentMaskSourceItem b = new(2, "csfea", "Сек", "Сек · Секущий · 2026-10-28 11:00");
-                var dialog = new StoreyFragmentMasksDialog("Этаж", [a, b], b, null, "из «Сек»");
+                FragmentSecantChoice all = new(null, "Все"), one = new(7, "С креном");
+                var dialog = new StoreyFragmentMasksDialog("Этаж", [a, b], b, null, "из «Сек»", [all, one], one);
                 ShowOffscreen(dialog);
+                Assert.True(dialog.secantButton.IsEnabled);
+                Assert.Same(one, dialog.secantBox.SelectedItem);
+                Assert.Equal(Visibility.Collapsed, dialog.secantNoneText.Visibility);
                 Assert.True(dialog.takeButton.IsEnabled);
                 Assert.Same(b, dialog.sourceBox.SelectedItem);
                 Assert.Equal(Visibility.Collapsed, dialog.reasonText.Visibility);

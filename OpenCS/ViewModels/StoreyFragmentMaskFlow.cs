@@ -16,6 +16,10 @@ namespace OpenCS.ViewModels;
 /// <param name="AnalysisTag">Имя постановки или программы — для журнала.</param>
 public sealed record FragmentMaskSourceItem(int AnalysisId, string SourceKind, string AnalysisTag, string Label);
 
+/// <summary>Вариант «По постановке фрагмента» служебного секущего расчёта родителя.</summary>
+/// <param name="AnalysisId">Секущая постановка фрагмента; null — все секущие постановки (одна продолжает другую).</param>
+public sealed record FragmentSecantChoice(int? AnalysisId, string Label);
+
 /// <summary>Итог снятия масок из окна: отказ (прежние маски целы), строки отчёта, строка журнала.</summary>
 /// <param name="Set">Снятый набор (без отказа); при снятии без записи его пишет вызывающий.</param>
 public sealed record StoreyFragmentMaskFlowResult(bool IsError, IReadOnlyList<StoreyFragmentReportRow> Rows, string LogMessage,
@@ -78,6 +82,36 @@ public static class StoreyFragmentMaskFlow
         return sources.FirstOrDefault(s => set != null && s.SourceKind == set.SourceKind
             && (s.SourceKind is FragmentMaskSet.SourceScad or FragmentMaskSet.SourceLira
                 || s.AnalysisId.ToString(CultureInfo.InvariantCulture) == set.SourceRef)) ?? sources[0];
+    }
+
+    /// <summary>
+    /// Варианты «По постановке фрагмента» для служебного секущего расчёта родителя: секущие постановки фрагмента, при
+    /// двух и более — первым «Все секущие постановки». По умолчанию «Все», если постановки продолжают одна другую, иначе —
+    /// постановка с наибольшим числом стадий (маски по ней покрывают больше ключей).
+    /// </summary>
+    public static IReadOnlyList<FragmentSecantChoice> SecantChoices(DatabaseService db, FemSchema fragment,
+        out FragmentSecantChoice? selected)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(fragment);
+        selected = null;
+        var analyses = StoreyFragmentMaskSupply.SecantAnalyses(db, fragment);
+        if (analyses.Count == 0) return [];
+        var items = analyses.Select(a => new FragmentSecantChoice(a.Id, a.Tag)).ToList();
+        if (analyses.Count == 1)
+        {
+            selected = items[0];
+            return items;
+        }
+        var all = new FragmentSecantChoice(null, Loc.S("StoreyFragmentMasksSecantAllChoice"));
+        if (StoreyFragmentMaskSupply.CanPrepareSecant(db, fragment, null, out _))
+            selected = all;
+        else
+        {
+            var longest = analyses.MaxBy(a => OpenCS.Tasks.FemAnalysisParams.Parse(a.ParamsJson).ResolveStages(a).Count)!;
+            selected = items.First(i => i.AnalysisId == longest.Id);
+        }
+        return [all, .. items];
     }
 
     /// <summary>Строка о действующих масках: «не сняты» или «из «источник» от дата».</summary>

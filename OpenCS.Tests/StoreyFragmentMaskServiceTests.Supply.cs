@@ -129,4 +129,66 @@ public sealed partial class StoreyFragmentMaskServiceTests
         Assert.False(c.FragmentSecondOrderOnFirstOrderMasks);
         Assert.Equal((FemCsfeaRecording.Selected, "", true), (c.ResultRecording, c.RecordSteps, c.RecordStageEnds));
     }
+    /// <summary>
+    /// Секущие постановки фрагмента с креном и без (сверка GUI 13.11): по всем — отказ с именами постановок, номером стадии и
+    /// причиной «крен»; по выбранной — постановка родителя по её стадиям. Выбор по умолчанию — самая длинная постановка.
+    /// </summary>
+    [Fact]
+    public void SecantSupply_ImperfectionAndPlain_RefusesWithNames_PicksChosen()
+    {
+        var p = Create();
+        foreach (var schemaId in new[] { p.Schema.Id, p.Fragment.Id })
+            p.Db.SaveFemLoadCase(new FemLoadCase { SchemaId = schemaId, Tag = "Крен", Sp20Type = FemSp20Types.Imperfection });
+        var f = p.Db.GetFemLoadCases(p.Fragment.Id).ToDictionary(c => c.Tag, c => c.Id);
+        FemAnalysisStage SumStage(string tag, params int[] ids) => new()
+        {
+            Tag = tag, LoadFactorStep = 0.1, MaxLoadFactor = 1.0,
+            LoadExpressionJson = new FemLoadExpression { Mode = FemLoadExpressionMode.Sum, LoadCaseIds = [.. ids] }.ToJson(),
+        };
+        var plain = new FemAnalysis
+        {
+            SchemaId = p.Fragment.Id, Tag = "Без крена", Kind = FemCsfeaRunner.AnalysisKind,
+            ParamsJson = new FemAnalysisParams { Stages = [Single("Пост.", f["Пост."])] }.ToJson(),
+        };
+        var sway = new FemAnalysis
+        {
+            SchemaId = p.Fragment.Id, Tag = "С креном", Kind = FemCsfeaRunner.AnalysisKind,
+            ParamsJson = new FemAnalysisParams { Stages = [SumStage("Пост. + крен", f["Пост."], f["Крен"]), Single("Ветер", f["Ветер"])] }.ToJson(),
+        };
+        p.Db.SaveFemAnalysis(plain);
+        p.Db.SaveFemAnalysis(sway);
+
+        Assert.Null(StoreyFragmentMaskSupply.PrepareSecant(p.Db, p.Fragment, out var reason));
+        Assert.Contains("«С креном»", reason);
+        Assert.Contains("«Без крена»", reason);
+        Assert.Contains("стадии 1", reason);
+        Assert.Contains("с креном", reason);
+
+        var chosen = Assert.IsType<FemAnalysis>(StoreyFragmentMaskSupply.PrepareSecant(p.Db, p.Fragment, out var none, sway.Id));
+        Assert.Null(none);
+        Assert.Equal(["Пост. + крен", "Ветер"], FemAnalysisParams.Parse(chosen.ParamsJson).Stages.Select(s => s.Tag));
+
+        var choices = OpenCS.ViewModels.StoreyFragmentMaskFlow.SecantChoices(p.Db, p.Fragment, out var selected);
+        Assert.Equal(3, choices.Count);
+        Assert.Null(choices[0].AnalysisId);
+        Assert.Equal(sway.Id, selected?.AnalysisId);
+    }
+
+    /// <summary>Постановки, продолжающие одна другую: по умолчанию «Все секущие постановки».</summary>
+    [Fact]
+    public void SecantChoices_Prefixes_DefaultAll()
+    {
+        var p = Create();
+        var f = p.Db.GetFemLoadCases(p.Fragment.Id).ToDictionary(c => c.Tag, c => c.Id);
+        foreach (var (tag, stages) in new[] { ("Короткий", new[] { Single("Пост.", f["Пост."]) }),
+                     ("Длинный", new[] { Single("Пост.", f["Пост."]), Single("Ветер", f["Ветер"]) }) })
+            p.Db.SaveFemAnalysis(new FemAnalysis
+            {
+                SchemaId = p.Fragment.Id, Tag = tag, Kind = FemCsfeaRunner.AnalysisKind,
+                ParamsJson = new FemAnalysisParams { Stages = [.. stages] }.ToJson(),
+            });
+        var choices = OpenCS.ViewModels.StoreyFragmentMaskFlow.SecantChoices(p.Db, p.Fragment, out var selected);
+        Assert.Equal(3, choices.Count);
+        Assert.Same(choices[0], selected);
+    }
 }
