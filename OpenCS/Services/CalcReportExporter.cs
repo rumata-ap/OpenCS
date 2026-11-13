@@ -18,9 +18,11 @@ static class CalcReportExporter
         var task = app.CalcTasks.FirstOrDefault(candidate => candidate.Id == result.TaskId);
         if (task == null || !app.ReportProviders.TryResolve(task, out var provider)) return;
 
-        var section = app.CrossSections.FirstOrDefault(candidate => candidate.Id == task.SectionId);
-        // Пластинные задачи (одиночные и пакеты) ссылаются на плитное сечение.
-        var plateSection = task.Kind.StartsWith("shell_", StringComparison.Ordinal)
+        // Пластинные задачи (одиночные и пакеты) ссылаются на плитное сечение; стержневое сечение
+        // с тем же Id к ним не относится (иначе в отчёте пластины — «Балка 300×600»).
+        bool plateTask = task.Kind.StartsWith("shell_", StringComparison.Ordinal);
+        var section = plateTask ? null : app.CrossSections.FirstOrDefault(candidate => candidate.Id == task.SectionId);
+        var plateSection = plateTask
             ? app.PlateSections.FirstOrDefault(candidate => candidate.Id == task.SectionId)
             : null;
         if (section == null && plateSection == null) return;

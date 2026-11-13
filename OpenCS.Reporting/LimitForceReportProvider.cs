@@ -45,7 +45,6 @@ public sealed class LimitForceReportProvider : IReportProvider
             .Add(new ReportHeading(1, "Исходные данные"))
             .Add(new ReportKeyValueTable(
             [
-                ("Тип задачи", context.Task.Kind),
                 ("Метод решателя", data.SolverMethod),
                 ("Итерации", data.Iterations.ToString()),
                 ("Итерации Ньютона", data.NewtonIterations.ToString()),

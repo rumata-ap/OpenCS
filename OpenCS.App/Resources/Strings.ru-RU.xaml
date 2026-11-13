@@ -1926,7 +1926,7 @@
    <system:String x:Key="BatchRowTasksNoGoverning">Кисп нет ни у одной строки — определяющую строку выбрать нельзя.</system:String>
    <system:String x:Key="BatchRowTasksNoFailed">Все строки проходят — задачи не нужны.</system:String>
    <system:String x:Key="BatchRowTasksConfirm">Будет создано задач: {0}. Продолжить?</system:String>
-   <system:String x:Key="BatchRowTasksCreated">Пакет «{0}»: создано задач по не прошедшим строкам — {1}, уже были — {2}.</system:String>
+   <system:String x:Key="BatchRowTasksCreated">Пакет «{0}»: создано задач по не прошедшим и не сошедшимся строкам — {1}, уже были — {2}.</system:String>
    <system:String x:Key="ShellSimplBatchSummary">Всего: {0}, выполнено: {1}, нарушений: {2}</system:String>
    <system:String x:Key="BatchVerdictColReason">Причина</system:String>
    <system:String x:Key="BatchVerdictShow">Показать:</system:String>

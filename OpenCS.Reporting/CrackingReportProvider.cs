@@ -42,7 +42,6 @@ public sealed class CrackingReportProvider : IReportProvider
             .Add(new ReportHeading(1, "Исходные данные"))
             .Add(new ReportKeyValueTable(
             [
-                ("Тип задачи", context.Task.Kind),
                 ("N", SectionReportSections.Force(data.N)),
                 ("Направление момента", $"Mx = {SectionReportSections.Moment(data.MxCrc)}, My = {SectionReportSections.Moment(data.MyCrc)}"),
                 ("Сходимость", data.Converged ? "достигнута" : "не достигнута")

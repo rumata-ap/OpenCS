@@ -23,6 +23,24 @@ public sealed class SectionReportSectionsTests
     }
 
     [Fact]
+    public void Identification_NoInternalIds_PlateSectionFirst()
+    {
+        var task = new CalcTask { Id = 7, Num = 3, Kind = "shell_simpl_wa_uls_batch", Tag = "Плита", CalcType = CalcType.C, SectionId = 1 };
+        var result = new CalcResult { Id = 2, TaskKind = task.Kind, Status = "partial", Created = "2026-11-13 18:00:00" };
+        var context = new ReportContext(task, result, new CrossSection { Id = 1, Tag = "Балка 300×600" },
+            new PlateSection { Id = 1, Tag = "Плита 200" });
+
+        var rows = SectionReportSections.Identification(new ReportDocument("id"), context, "кН")
+            .Blocks.OfType<ReportKeyValueTable>().Single().Rows.ToDictionary(r => r.Key, r => r.Value);
+
+        Assert.Equal("№ 3 — Плита", rows["Задача"]);
+        Assert.Equal("Плита 200", rows["Сечение"]);
+        Assert.Equal("ПС1, непродолжительное действие", rows["Вид расчёта"]);
+        Assert.StartsWith("выполнен частично", rows["Статус результата"]);
+        Assert.DoesNotContain(rows.Values, v => v.Contains('#'));
+    }
+
+    [Fact]
     public void EmptyOptionalSections_DoNotAddBlocks_AndMissingSectionWarns()
     {
         var etaDocument = SectionReportSections.Eta(new ReportDocument("eta"), null);

@@ -49,9 +49,8 @@ public sealed class StrainStateReportProvider : IReportProvider
             .Add(new ReportHeading(1, "Исходные данные"))
             .Add(new ReportKeyValueTable(
             [
-                ("Тип задачи", task.Kind),
-                ("Вид расчёта", task.CalcType.ToString()),
-                ("Статус", context.Result.Status),
+                ("Вид расчёта", ReportNames.Calc(task.CalcType)),
+                ("Статус", ReportNames.Status(context.Result.Status)),
                 ("Сходимость", data.Converged ? "достигнута" : "не достигнута"),
                 ("Итерации Ньютона", data.Iterations.ToString(CultureInfo.InvariantCulture)),
                 ("Невязка, кН", Force(data.Residual)),

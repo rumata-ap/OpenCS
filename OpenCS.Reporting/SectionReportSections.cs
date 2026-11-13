@@ -10,20 +10,22 @@ public static class SectionReportSections
     public static ReportDocument Identification(ReportDocument document, ReportContext context,
         string unitsNote)
     {
-        string sectionId = context.Section?.Id.ToString(CultureInfo.InvariantCulture)
-            ?? context.PlateSection?.Id.ToString(CultureInfo.InvariantCulture)
-            ?? "не загружено";
-        string sectionTag = context.Section?.Tag ?? context.PlateSection?.Tag
+        // Плитное сечение — первым: у пластинной задачи SectionId указывает на PlateSection,
+        // стержневое сечение с тем же Id к ней не относится.
+        string sectionTag = context.PlateSection?.Tag ?? context.Section?.Tag
             ?? "модель сечения не передана";
+        string taskName = string.IsNullOrWhiteSpace(context.Task.Tag)
+            ? $"№ {context.Task.Num}"
+            : $"№ {context.Task.Num} — {context.Task.Tag}";
         return document
             .Add(new ReportHeading(1, "Идентификация и единицы"))
             .Add(new ReportKeyValueTable(
             [
-                ("Результат", $"{context.Result.Id}#{context.Result.TaskKind}; создан: {ValueOrDash(context.Result.Created)}"),
-                ("Задача", $"{context.Task.Num}#{context.Task.Id}; {ValueOrDash(context.Task.Tag)}"),
-                ("Сечение", $"{context.Task.SectionId}#{sectionId}; {sectionTag}"),
-                ("Вид расчёта", context.Task.CalcType.ToString()),
-                ("Статус результата", context.Result.Status),
+                ("Задача", taskName),
+                ("Сечение", sectionTag),
+                ("Вид расчёта", ReportNames.Calc(context.Task.CalcType)),
+                ("Результат получен", ValueOrDash(context.Result.Created)),
+                ("Статус результата", ReportNames.Status(context.Result.Status)),
                 ("Единицы", unitsNote)
             ], "Параметр", "Значение"))
             .Add(new ReportParagraph($"Все числовые результаты ниже приведены с единицами: {unitsNote}."));
@@ -39,7 +41,7 @@ public static class SectionReportSections
             return (IReadOnlyList<string>)[
                 (index + 1).ToString(CultureInfo.InvariantCulture),
                 area.Tag,
-                area.Category.ToString(),
+                ReportNames.Category(area.Category),
                 area.Material?.Tag ?? "не задан",
                 area.HostArea?.Tag ?? (area.HostAreaId?.ToString(CultureInfo.InvariantCulture) ?? "—"),
                 F(props.A),
@@ -81,13 +83,13 @@ public static class SectionReportSections
             [
                 area.Tag,
                 area.Material?.Tag ?? "не задан",
-                area.Material?.Type.ToString() ?? "—",
-                area.DiagrammType.ToString(),
+                area.Material is { } m ? ReportNames.Material(m.Type) : "—",
+                ReportNames.Diagram(area.DiagrammType),
                 diagram?.Tag ?? "диаграмма не разрешена",
-                diagram == null ? "—" : calc.ToString()
+                diagram == null ? "—" : ReportNames.Calc(calc)
             ]);
             if (diagram != null && seenDiagrams.Add(diagram))
-                diagrams.Add(($"{area.Material?.Tag ?? area.Tag} — {diagram.Tag} ({calc})", diagram));
+                diagrams.Add(($"{area.Material?.Tag ?? area.Tag} — {diagram.Tag} ({ReportNames.Calc(calc)})", diagram));
         }
 
         document
@@ -112,7 +114,7 @@ public static class SectionReportSections
                 var chars = material.GetChars(calc);
                 return (IReadOnlyList<string>)[
                     material.Tag,
-                    material.Type.ToString(),
+                    ReportNames.Material(material.Type),
                     F((chars?.E ?? material.E) / 1000.0),
                     F((chars?.Fc ?? 0) / 1000.0),
                     F((chars?.Ft ?? 0) / 1000.0),

@@ -9,6 +9,9 @@ namespace CScore;
 /// </summary>
 public static class ShellLayeredCheck
 {
+    /// <summary>Культура чисел пользовательского текста примечания (десятичная запятая, как в отчёте).</summary>
+    static readonly System.Globalization.CultureInfo Ru = System.Globalization.CultureInfo.GetCultureInfo("ru-RU");
+
     /// <summary>
     /// Проверка прочности по СП 63 п. 8.1.30: предельные деформации сжатия бетона
     /// (εb2/εb0 с учётом одно/двузначной эпюры) и растяжения арматуры
@@ -86,13 +89,13 @@ public static class ShellLayeredCheck
         else if (eps1 >= 0)
         {
             epsBUlt  = epsB2;
-            epsBDesc = $"двузн., εb,ult={epsB2:G3}";
+            epsBDesc = $"двузн., εb,ult={Batch.BatchVerdictText.N(epsB2, 3)}";
         }
         else
         {
             double ratio = Math.Abs(eps2) > 1e-12 ? Math.Clamp(eps1 / eps2, 0.0, 1.0) : 1.0;
             epsBUlt  = epsB2 - (epsB2 - epsB0) * ratio;
-            epsBDesc = $"однозн., ε₁/ε₂={ratio:F2}, εb,ult={epsBUlt:G3}";
+            epsBDesc = $"однозн., ε₁/ε₂={ratio.ToString("F2", Ru)}, εb,ult={Batch.BatchVerdictText.N(epsBUlt, 3)}";
         }
 
         double utilC = eps2 < 0 ? Math.Abs(eps2) / epsBUlt : 0.0;
@@ -112,11 +115,11 @@ public static class ShellLayeredCheck
 
         if (utilC >= utilS)
             return new Result(passed, util, "п. 8.1.24, (8.37); εb,ult — п. 8.1.30",
-                epsBDesc + $", ε={Math.Abs(eps2):G3}" + refinedNote,
+                epsBDesc + $", ε={Batch.BatchVerdictText.N(Math.Abs(eps2), 3)}" + refinedNote,
                 true, res.Iterations, res.Residual);
         else
             return new Result(passed, util, "п. 8.1.24, (8.38); εs,ult — п. 8.1.30",
-                $"εs={utilS * epsSUlt:G3}, εs,ult={epsSUlt:G3}" + refinedNote,
+                $"εs={Batch.BatchVerdictText.N(utilS * epsSUlt, 3)}, εs,ult={Batch.BatchVerdictText.N(epsSUlt, 3)}" + refinedNote,
                 true, res.Iterations, res.Residual);
     }
 

@@ -73,7 +73,7 @@ public sealed class RcCheckHandler : ITaskHandler
                 dataJson = JsonSerializer.Serialize(new
                 {
                     passed = false,
-                    reason = $"НДС не найден за {r.Iterations} ит. (невязка {r.Residual:G3}): "
+                    reason = $"НДС не найден за {r.Iterations} ит. (невязка {CScore.Batch.BatchVerdictText.N(r.Residual, 3)}): "
                            + "сечение не воспринимает заданные усилия" + etaNote,
                     iterations = r.Iterations,
                     residual = Math.Round(r.Residual, 6),

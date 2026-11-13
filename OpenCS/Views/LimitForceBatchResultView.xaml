@@ -79,7 +79,8 @@
                   </DataGridTextColumn.Header>
                </DataGridTextColumn>
                <DataGridTextColumn Header="k" Binding="{Binding FactorText}" Width="70"/>
-               <DataGridTextColumn Header="Использ." Binding="{Binding UtilText}" Width="70"/>
+               <!-- Кисп = 1/k — то же значение, что в отчёте пакета и в общей колонке Кисп других пакетов -->
+               <DataGridTextColumn Header="{DynamicResource BatchVerdictColUtil}" Binding="{Binding UtilText}" Width="70"/>
                <DataGridTextColumn Header="{DynamicResource LimitForce_Governing}"
                                    Binding="{Binding GovText}" Width="90"/>
                <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColIter}"
