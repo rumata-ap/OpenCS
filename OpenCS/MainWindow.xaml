@@ -1121,6 +1121,12 @@
                      <!-- Подгруппа задач (НДС / Несущая способность / Пластины / Огнестойкость / Прочие) -->
                      <HierarchicalDataTemplate DataType="{x:Type vm:CalcTasksSubGroupNode}"
                                                ItemsSource="{Binding Tasks}">
+                        <!-- Узел задачи раскрывается, когда у неё появляется новый результат (CalcTaskVM.IsExpanded). -->
+                        <HierarchicalDataTemplate.ItemContainerStyle>
+                           <Style TargetType="TreeViewItem">
+                              <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                           </Style>
+                        </HierarchicalDataTemplate.ItemContainerStyle>
                         <StackPanel Orientation="Horizontal"
                                     Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                            <StackPanel.ContextMenu>

@@ -72,9 +72,13 @@ class CalcTasksRootNode
         foreach (var g in Groups)
             foreach (var vm in g.Tasks)
             {
+                var fresh = _app.CalcResults.Where(r => r.TaskId == vm.Model.Id).ToList();
+                // Новый результат (пересчёт) — раскрыть задачу, иначе он не виден в свёрнутом узле.
+                bool added = fresh.Any(r => !vm.Results.Contains(r));
                 vm.Results.Clear();
-                foreach (var r in _app.CalcResults.Where(r => r.TaskId == vm.Model.Id))
+                foreach (var r in fresh)
                     vm.Results.Add(r);
+                if (added) vm.IsExpanded = true;
             }
     }
 

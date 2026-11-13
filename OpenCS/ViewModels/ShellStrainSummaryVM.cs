@@ -192,6 +192,9 @@ public sealed class ShellStrainSummaryVM
                 bool passed = chk.TryGetProperty("passed", out var pv) && pv.GetBoolean();
                 string verdict = chk.TryGetProperty("verdict", out var vv) ? vv.GetString() ?? "" : "";
                 VerdictText  = $"{CheckHeader}: {verdict}";
+                // Кисп — тот же, что в строке пакета (наибольшее ε/εult); без него сводка расходилась с таблицей пакета.
+                if (chk.TryGetProperty("utilization", out var uv) && uv.ValueKind == JsonValueKind.Number)
+                    VerdictText += $"; {Loc.S("BatchVerdictColUtil")} = {uv.GetDouble().ToString("F3", CultureInfo.CurrentCulture)}";
                 VerdictBrush = passed ? Brushes.Green : Brushes.Red;
                 CheckFormula = chk.TryGetProperty("formula", out var ff) ? ff.GetString() ?? "" : "";
                 CheckNote    = chk.TryGetProperty("note", out var nn)    ? nn.GetString() ?? "" : "";

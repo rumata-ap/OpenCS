@@ -43,6 +43,15 @@ namespace OpenCS.ViewModels
       /// <summary>Результаты выполнения этой задачи (отфильтрованные из общей коллекции).</summary>
       public ObservableCollection<CalcResult> Results { get; } = [];
 
+      bool isExpanded;
+
+      /// <summary>Узел задачи раскрыт в дереве; ставится, когда у задачи появился новый результат.</summary>
+      public bool IsExpanded
+      {
+         get => isExpanded;
+         set { if (isExpanded == value) return; isExpanded = value; OnPropertyChanged(); }
+      }
+
       public CalcTaskVM(CalcTask model) => Model = model;
    }
 }
