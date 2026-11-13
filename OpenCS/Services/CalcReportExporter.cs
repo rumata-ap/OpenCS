@@ -1,6 +1,7 @@
 using CScore;
 using OpenCS.Reporting;
 using OpenCS.Reporting.Pandoc;
+using OpenCS.Tasks;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
 
@@ -18,7 +19,8 @@ static class CalcReportExporter
         if (task == null || !app.ReportProviders.TryResolve(task, out var provider)) return;
 
         var section = app.CrossSections.FirstOrDefault(candidate => candidate.Id == task.SectionId);
-        var plateSection = task.Kind == "shell_layered_sls"
+        // Пластинные задачи (одиночные и пакеты) ссылаются на плитное сечение.
+        var plateSection = task.Kind.StartsWith("shell_", StringComparison.Ordinal)
             ? app.PlateSections.FirstOrDefault(candidate => candidate.Id == task.SectionId)
             : null;
         if (section == null && plateSection == null) return;
@@ -62,22 +64,34 @@ static class CalcReportExporter
         {
             var settings = app.CalcSettings;
             var svgExporter = new SectionStateSvgExporter();
-            var images = new Dictionary<string, string>();
-            foreach (var request in provider.DescribeImages(task, result))
+            Dictionary<string, string> Images(IReportProvider p, CalcTask t, CalcResult r)
             {
-                if (section == null) continue;
-                bool ten = settings.ResolveConcreteTension(request.Calc);
-                section.SetEps(request.Plane, request.Calc, ten);
-                var mode = request.Mode == ReportImageMode.Stress
-                    ? SectionPlotMode.Stress
-                    : SectionPlotMode.Strain;
-                var plot = new SectionPlotVM(section, request.Plane, request.Calc,
-                    mode, settings, ten);
-                images[request.Key] = svgExporter.Render(plot, request.Title);
+                var images = new Dictionary<string, string>();
+                foreach (var request in p.DescribeImages(t, r))
+                {
+                    if (section == null) continue;
+                    bool ten = settings.ResolveConcreteTension(request.Calc);
+                    section.SetEps(request.Plane, request.Calc, ten);
+                    var mode = request.Mode == ReportImageMode.Stress
+                        ? SectionPlotMode.Stress
+                        : SectionPlotMode.Strain;
+                    var plot = new SectionPlotVM(section, request.Plane, request.Calc,
+                        mode, settings, ten);
+                    images[request.Key] = svgExporter.Render(plot, request.Title);
+                }
+                return images;
             }
 
-            var document = provider.Build(new ReportContext(task, result, section, plateSection,
-                images, parametricSection, parametricSectionWarning));
+            var context = new ReportContext(task, result, section, plateSection,
+                Images(provider, task, result), parametricSection, parametricSectionWarning);
+            ReportDocument document;
+            if (provider is BatchReportProvider batchProvider)
+            {
+                var detail = await GoverningRowReportAsync(app, task, result, section, plateSection, Images);
+                document = batchProvider.Build(context, detail);
+            }
+            else
+                document = provider.Build(context);
             var service = new ReportExportService();
             await service.ExportAsync(document, outputPath);
 
@@ -106,6 +120,41 @@ static class CalcReportExporter
         catch (Exception ex)
         {
             app.Notifier.Error(string.Format(Loc.S("ReportExportError"), ex.Message), Loc.S("ReportExportErrorTitle"));
+        }
+    }
+
+    /// <summary>
+    /// Отчёт одиночной задачи по определяющей строке пакета: задача строится фабрикой (в проект не сохраняется),
+    /// считается в памяти, отчёт — её поставщиком. null — строки нет, одиночного отчёта для вида нет или расчёт упал
+    /// (тогда в отчёте пакета — указание создать задачу по строке).
+    /// </summary>
+    static async Task<ReportDocument?> GoverningRowReportAsync(IProjectContext app, CalcTask batch, CalcResult result,
+        CrossSection? section, PlateSection? plateSection,
+        Func<IReportProvider, CalcTask, CalcResult, Dictionary<string, string>> images)
+    {
+        try
+        {
+            var data = BatchReportData.Parse(batch.Kind, result.DataJson);
+            if (data.GoverningNum is not { } num || !BatchRowTaskFactory.Supports(batch.Kind)) return null;
+            string? sectionTag = section?.Tag ?? plateSection?.Tag;
+            if (sectionTag == null) return null;
+
+            var single = BatchRowTaskFactory.Create(batch, num, sectionTag, app.ForceSets, app.PlateSections);
+            if (!app.ReportProviders.TryResolve(single, out var singleProvider) || singleProvider is BatchReportProvider)
+                return null;
+            var item = app.BarForceSets.FirstOrDefault(fs => fs.Id == single.ForceSetId)?
+                .Items.FirstOrDefault(i => i.Id == single.ForceItemId) ?? new LoadItem();
+            var ctx = new TaskRunContext { Database = app.Db, FireSections = app.FireSections };
+            var settings = app.CalcSettings;
+            var singleResult = await Task.Run(() => TaskRunner.Run(single, section!, item, settings, ctx));
+            if (singleResult.Status == "error") return null;
+            return singleProvider.Build(new ReportContext(single, singleResult, section, plateSection,
+                images(singleProvider, single, singleResult)));
+        }
+        catch (Exception ex)
+        {
+            app.LogService.Warning($"Отчёт пакета «{batch.Tag}»: ход определяющей строки не построен — {ex.Message}");
+            return null;
         }
     }
 }

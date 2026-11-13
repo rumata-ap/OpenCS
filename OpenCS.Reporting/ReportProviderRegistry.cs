@@ -36,7 +36,8 @@ public sealed class ReportProviderRegistry
             new Sp63CrackWidthReportProvider(),
             new Sp63DeflectionReportProvider(),
             new ShellLayeredCrackWidthReportProvider(),
-            new LoadHistoryReportProvider()
+            new LoadHistoryReportProvider(),
+            new BatchReportProvider()
         ]);
 
     /// <summary>Пытается подобрать поставщика; false, если для задачи его нет.</summary>
