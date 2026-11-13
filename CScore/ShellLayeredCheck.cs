@@ -111,11 +111,11 @@ public static class ShellLayeredCheck
         bool passed = util <= 1.0;
 
         if (utilC >= utilS)
-            return new Result(passed, util, "п.8.1.30 бетон",
+            return new Result(passed, util, "п. 8.1.24, (8.37); εb,ult — п. 8.1.30",
                 epsBDesc + $", ε={Math.Abs(eps2):G3}" + refinedNote,
                 true, res.Iterations, res.Residual);
         else
-            return new Result(passed, util, "п.8.1.30 арм.",
+            return new Result(passed, util, "п. 8.1.24, (8.38); εs,ult — п. 8.1.30",
                 $"εs={utilS * epsSUlt:G3}, εs,ult={epsSUlt:G3}" + refinedNote,
                 true, res.Iterations, res.Residual);
     }
@@ -175,7 +175,7 @@ public static class ShellLayeredCheck
     /// <summary>Результат проверки прочности.</summary>
     /// <param name="Passed">Прочность обеспечена (util ≤ 1.0).</param>
     /// <param name="Utilization">Коэффициент использования (для МКЭ-таблицы; UI простых задач не показывает).</param>
-    /// <param name="Formula">Определяющая формула: "п.8.1.30 бетон" / "п.8.1.30 арм." / "НДС".</param>
+    /// <param name="Formula">Определяющая формула: "п. 8.1.24, (8.37); εb,ult — п. 8.1.30" / "п. 8.1.24, (8.38); εs,ult — п. 8.1.30" / "НДС".</param>
     /// <param name="Description">Текстовое пояснение критического волокна/слоя.</param>
     /// <param name="Converged">Сошёлся ли решатель.</param>
     /// <param name="Iterations">Число итераций финальной попытки.</param>

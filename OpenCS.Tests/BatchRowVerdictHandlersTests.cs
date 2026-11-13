@@ -18,7 +18,7 @@ public sealed class BatchRowVerdictHandlersTests
         Assert.Equal(BatchRowStatus.NotPassed, v.Status);
         Assert.Equal("eps_s", v.Code);
         Assert.Equal(1.2, v.Util!.Value, 6);
-        Assert.Equal("п. 8.1.24, (8.38)", v.Ref);
+        Assert.Equal("п. 8.1.24, (8.38); εs,ult — п. 8.1.30", v.Ref);
     }
 
     [Fact]

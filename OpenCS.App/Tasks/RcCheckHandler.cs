@@ -102,14 +102,14 @@ public sealed class RcCheckHandler : ITaskHandler
                     {
                         new
                         {
-                            formula = "п. 8.1.30",
+                            formula = "п. 8.1.24, (8.37); εb,ult — п. 8.1.30",
                             description = $"бетон: ε_b = {r.EpsConcreteCompression:F5} / ε_b,ult = {r.EpsConcreteUlt:F5}" + etaNote,
                             ratio = Math.Round(r.ConcreteRatio, 6),
                             passed = r.ConcreteOk
                         },
                         new
                         {
-                            formula = "п. 8.1.30",
+                            formula = "п. 8.1.24, (8.38); εs,ult — п. 8.1.30",
                             description = $"арматура: ε_s = {r.EpsRebarTension:F5} / ε_s,ult = {r.EpsRebarUlt:F5}" + etaNote,
                             ratio = Math.Round(r.RebarRatio, 6),
                             passed = r.RebarOk

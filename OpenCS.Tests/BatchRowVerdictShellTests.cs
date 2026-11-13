@@ -30,10 +30,10 @@ public sealed class BatchRowVerdictShellTests
     [Fact]
     public void Uls_NotPassedKeepsFormulaAndUtil()
     {
-        var v = ShellLayeredBatchVerdicts.Uls(new ShellLayeredCheck.Result(false, 1.3, "п.8.1.30 бетон", "εb2 = …", true, 7, 1e-8));
+        var v = ShellLayeredBatchVerdicts.Uls(new ShellLayeredCheck.Result(false, 1.3, "п. 8.1.24, (8.37); εb,ult — п. 8.1.30", "εb2 = …", true, 7, 1e-8));
         Assert.Equal(BatchRowStatus.NotPassed, v.Status);
         Assert.Equal(1.3, v.Util);
-        Assert.Equal("п.8.1.30 бетон", v.Ref);
+        Assert.Equal("п. 8.1.24, (8.37); εb,ult — п. 8.1.30", v.Ref);
     }
 
     [Fact]

@@ -51,15 +51,15 @@ public static class BatchRowVerdictReader
         return NdmVerdict(eb, ebu, es, esu);
     }
 
-    /// <summary>Причина проверки прочности по НДМ: определяющая из εb/εb,ult и εs/εs,ult (п. 8.1.30).</summary>
+    /// <summary>Причина проверки прочности по НДМ: определяющая из εb/εb,ult и εs/εs,ult (условия (8.37)/(8.38) п. 8.1.24, предельные деформации — п. 8.1.30).</summary>
     public static BatchRowVerdict NdmVerdict(double epsB, double epsBUlt, double epsS, double epsSUlt)
     {
         double eb = Math.Abs(epsB), ebu = Math.Abs(epsBUlt);
         double ub = Ratio(eb, ebu);
         double us = Ratio(Math.Max(epsS, 0), epsSUlt);
         return BatchRowVerdict.Worst(
-            new BatchCriterion("eps_b", ub, "п. 8.1.24, (8.37)", $"εb = {N(eb)} {Cmp(ub)} εb,ult = {N(ebu)}"),
-            new BatchCriterion("eps_s", us, "п. 8.1.24, (8.38)", $"εs = {N(epsS)} {Cmp(us)} εs,ult = {N(epsSUlt)}"));
+            new BatchCriterion("eps_b", ub, "п. 8.1.24, (8.37); εb,ult — п. 8.1.30", $"εb = {N(eb)} {Cmp(ub)} εb,ult = {N(ebu)}"),
+            new BatchCriterion("eps_s", us, "п. 8.1.24, (8.38); εs,ult — п. 8.1.30", $"εs = {N(epsS)} {Cmp(us)} εs,ult = {N(epsSUlt)}"));
     }
 
     static BatchRowVerdict Limit(JsonElement row)
