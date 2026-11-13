@@ -1,6 +1,7 @@
 <UserControl x:Class="OpenCS.Views.ShellStrainBatchResultView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="clr-namespace:OpenCS.Views">
     <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -16,30 +17,36 @@
         </Border>
 
         <!-- Таблица строк -->
-        <DataGrid Grid.Row="1" x:Name="RowsGrid" ItemsSource="{Binding Rows}" AutoGenerateColumns="False"
-                  IsReadOnly="True" GridLinesVisibility="Horizontal"
-                  CanUserSortColumns="True" HeadersVisibility="Column"
-                  SelectionMode="Single" SelectionUnit="FullRow"
-                  MouseDoubleClick="RowsGrid_MouseDoubleClick">
-            <DataGrid.ContextMenu>
-                <ContextMenu>
-                    <MenuItem Header="{DynamicResource CalcTaskNew}"
-                              Click="CreateTask_Click"/>
-                    <Separator/>
-                    <MenuItem Header="{DynamicResource ExportCsvBtn}"
-                              Click="ExportCsv_Click"/>
-                </ContextMenu>
-            </DataGrid.ContextMenu>
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}" Binding="{Binding Num}" Width="40"/>
-                <DataGridTextColumn Header="{DynamicResource ShellStrainColLabel}" Binding="{Binding Label}" Width="*"/>
-                <DataGridTextColumn Header="{DynamicResource ShellStrainColStatus}" Binding="{Binding Status}" Width="120"/>
-                <DataGridTextColumn Header="{DynamicResource ShellStrainColVerdict}" Binding="{Binding Verdict}" Width="120"/>
-                <DataGridTextColumn Header="{DynamicResource ShellStrainColFormula}" Binding="{Binding Formula}" Width="120"/>
-                <DataGridTextColumn Header="{DynamicResource ShellStrainColIter}" Binding="{Binding Iterations}" Width="90"/>
-                <DataGridTextColumn Header="{DynamicResource ShellStrainColResidual}" Binding="{Binding Residual}" Width="120"/>
-            </DataGrid.Columns>
-        </DataGrid>
+        <DockPanel Grid.Row="1">
+           <v:BatchVerdictFilterBar DockPanel.Dock="Top" Target="{Binding ElementName=RowsGrid}"/>
+           <DataGrid x:Name="RowsGrid" RowStyle="{StaticResource BatchVerdictRowStyle}" ItemsSource="{Binding Rows}" AutoGenerateColumns="False"
+                     IsReadOnly="True" GridLinesVisibility="Horizontal"
+                     CanUserSortColumns="True" HeadersVisibility="Column"
+                     SelectionMode="Single" SelectionUnit="FullRow"
+                     MouseDoubleClick="RowsGrid_MouseDoubleClick">
+               <DataGrid.ContextMenu>
+                   <ContextMenu>
+                       <MenuItem Header="{DynamicResource CalcTaskNew}"
+                                 Click="CreateTask_Click"/>
+                       <Separator/>
+                       <MenuItem Header="{DynamicResource ExportCsvBtn}"
+                                 Click="ExportCsv_Click"/>
+                   </ContextMenu>
+               </DataGrid.ContextMenu>
+               <DataGrid.Columns>
+                   <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}" Binding="{Binding Num}" Width="40"/>
+                   <DataGridTextColumn Header="{DynamicResource ShellStrainColLabel}" Binding="{Binding Label}" Width="*"/>
+                   <DataGridTextColumn Header="{DynamicResource ShellStrainColStatus}" Binding="{Binding Status}" Width="120"/>
+                   <DataGridTextColumn Header="{DynamicResource ShellStrainColVerdict}" Binding="{Binding Verdict}" Width="120"/>
+                   <DataGridTextColumn Header="{DynamicResource ShellStrainColFormula}" Binding="{Binding Formula}" Width="120"/>
+                   <DataGridTextColumn Header="{DynamicResource ShellStrainColIter}" Binding="{Binding Iterations}" Width="90"/>
+                   <DataGridTextColumn Header="{DynamicResource ShellStrainColResidual}" Binding="{Binding Residual}" Width="120"/>
+                   <DataGridTextColumn Header="{DynamicResource BatchVerdictColUtil}" Binding="{Binding Reason.UtilText}"
+                                       SortMemberPath="Reason.SortUtil" Width="60"/>
+                   <DataGridTextColumn Header="{DynamicResource BatchVerdictColReason}" Binding="{Binding Reason.ReasonText}" Width="2*"/>
+               </DataGrid.Columns>
+           </DataGrid>
+        </DockPanel>
 
         <!-- Кнопки внизу -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">

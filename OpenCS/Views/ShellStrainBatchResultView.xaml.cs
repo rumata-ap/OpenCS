@@ -16,7 +16,11 @@ namespace OpenCS.Views
 public partial class ShellStrainBatchResultView : UserControl
 {
     public sealed record Row(int Num, string Label, string Status, int Iterations, string Residual,
-                              string Verdict, string Formula);
+                              string Verdict, string Formula) : IBatchVerdictRow
+    {
+        /// <summary>Причина строки.</summary>
+        public BatchVerdictView Reason { get; init; } = BatchVerdictView.Empty;
+    }
 
     private readonly AppViewModel _app;
     private readonly CalcTask _task;
@@ -68,7 +72,8 @@ public partial class ShellStrainBatchResultView : UserControl
                     r.GetProperty("status").GetString() ?? "",
                     r.GetProperty("iterations").GetInt32(),
                     r.GetProperty("residual").GetDouble().ToString("E3", CultureInfo.InvariantCulture),
-                    verdict, formula));
+                    verdict, formula)
+                { Reason = new BatchVerdictView(CScore.Batch.BatchRowVerdictReader.Read(result.TaskKind, r)) });
             }
         }
         catch { vm.SummaryText = "—"; }

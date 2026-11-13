@@ -24,7 +24,11 @@ public sealed class TotalCurvatureBatchVM : ViewModelBase
         int Num, string Label, double N, double MxTotal, double MyTotal,
         double MxLong, double MyLong, string NText, string MxTotalText, string MyTotalText,
         string McrcText,
-        string CrackedText, string KyFullText, string StatusText, bool IsConverged);
+        string CrackedText, string KyFullText, string StatusText, bool IsConverged) : IBatchVerdictRow
+    {
+        /// <summary>Причина строки.</summary>
+        public BatchVerdictView Reason { get; init; } = BatchVerdictView.Empty;
+    }
 
     public TotalCurvatureBatchVM(CalcResult result)
     {
@@ -97,7 +101,7 @@ public sealed class TotalCurvatureBatchVM : ViewModelBase
                         StatusText: isConverged
                             ? Loc.S("ResultConvergedYes")
                             : Loc.S("ResultConvergedNo"),
-                        IsConverged: isConverged));
+                        IsConverged: isConverged) { Reason = BatchResultRowHelper.Verdict(result, row) });
                 }
             }
         }

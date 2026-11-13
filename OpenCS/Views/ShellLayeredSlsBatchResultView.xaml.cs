@@ -16,16 +16,16 @@ public partial class ShellLayeredSlsBatchResultView : UserControl
       _app = app;
       _task = task;
       DataContext = new ShellLayeredSlsBatchResultVM(result.DataJson);
-      RowsList.SelectionChanged += (_, _) => CreateTaskBtn.IsEnabled = RowsList.SelectedItem != null;
+      RowsGrid.SelectionChanged += (_, _) => CreateTaskBtn.IsEnabled = RowsGrid.SelectedItem != null;
    }
 
-   void RowsList_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e) => CreateTask();
+   void RowsGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e) => CreateTask();
 
    void CreateTask_Click(object sender, RoutedEventArgs e) => CreateTask();
 
    void CreateTask()
    {
-      if (RowsList.SelectedItem is ShellLayeredSlsBatchRowVM row)
+      if (RowsGrid.SelectedItem is ShellLayeredSlsBatchRowVM row)
          BatchRowTask.CreateAndRun(_app, _task, row.Num);
    }
 }

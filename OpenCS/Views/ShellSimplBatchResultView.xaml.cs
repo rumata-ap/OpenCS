@@ -83,8 +83,10 @@ public partial class ShellSimplBatchResultView : System.Windows.Controls.UserCon
     }
 }
 
-public class ShellSimplBatchRow : ViewModelBase
+public class ShellSimplBatchRow : ViewModelBase, IBatchVerdictRow
 {
+    /// <summary>Причина строки.</summary>
+    public BatchVerdictView Reason { get; set; } = BatchVerdictView.Empty;
     public int Num { get; set; }
     public string Label { get; set; } = "";
     public double EtaMax { get; set; }
@@ -127,9 +129,10 @@ public class ShellSimplBatchResultVM : ViewModelBase
                 Num = r.TryGetProperty("num", out var nv) && nv.ValueKind == JsonValueKind.Number
                     ? nv.GetInt32() : idx,
                 Label = r.GetProperty("label").GetString() ?? "",
-                Status = r.GetProperty("status").GetString() == "ok" ? "Выполняется" : "Не выполняется",
                 Ok = r.GetProperty("status").GetString() == "ok",
+                Reason = new BatchVerdictView(CScore.Batch.BatchRowVerdictReader.Read(result.TaskKind, r)),
             };
+            row.Status = row.Reason.StatusText;
             if (r.TryGetProperty("eta_max", out var em) && em.ValueKind == System.Text.Json.JsonValueKind.Number)
                 row.EtaMax = em.GetDouble();
             if (r.TryGetProperty("eta_q", out var eq) && eq.ValueKind == JsonValueKind.Number)
@@ -137,6 +140,6 @@ public class ShellSimplBatchResultVM : ViewModelBase
             Rows.Add(row);
         }
 
-        Summary = $"Всего: {total}, выполнено: {okCount}, нарушений: {total - okCount}";
+        Summary = string.Format(CultureInfo.CurrentCulture, Loc.S("ShellSimplBatchSummary"), total, okCount, total - okCount);
     }
 }

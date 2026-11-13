@@ -1,6 +1,7 @@
 <UserControl x:Class="OpenCS.Views.CapraMauryDesignBatchResultView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="clr-namespace:OpenCS.Views">
    <DockPanel Margin="8">
       <StackPanel DockPanel.Dock="Top">
          <TextBlock FontWeight="Bold" FontSize="14" Text="{Binding Title}" Margin="0,0,0,4"/>
@@ -23,28 +24,22 @@
                     IsEnabled="False" Click="CreateTask_Click"/>
          </StackPanel>
       </StackPanel>
-      <DataGrid x:Name="RowsGrid" ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True"
-                RowHeaderWidth="0" SelectionMode="Single" MouseDoubleClick="RowsGrid_MouseDoubleClick">
-         <DataGrid.RowStyle>
-            <Style TargetType="DataGridRow">
-               <Style.Triggers>
-                  <DataTrigger Binding="{Binding Feasible}" Value="False">
-                     <Setter Property="Foreground" Value="Firebrick"/>
-                  </DataTrigger>
-               </Style.Triggers>
-            </Style>
-         </DataGrid.RowStyle>
-         <DataGrid.Columns>
-            <DataGridTextColumn Header="#" Binding="{Binding Num}"/>
-            <DataGridTextColumn Header="{DynamicResource CapriDesignColLabel}" Binding="{Binding Label}"/>
-            <DataGridTextColumn Header="{DynamicResource CapriDesignTopX}" Binding="{Binding TopX}"/>
-            <DataGridTextColumn Header="{DynamicResource CapriDesignTopY}" Binding="{Binding TopY}"/>
-            <DataGridTextColumn Header="{DynamicResource CapriDesignBotX}" Binding="{Binding BotX}"/>
-            <DataGridTextColumn Header="{DynamicResource CapriDesignBotY}" Binding="{Binding BotY}"/>
-            <DataGridTextColumn x:Name="AswColumn" Header="{DynamicResource PlateShearAswComponent}" Binding="{Binding Asw}"
-                                Visibility="Collapsed"/>
-            <DataGridTextColumn Header="{DynamicResource CapriDesignDiagnostics}" Binding="{Binding Diagnostics}"/>
-         </DataGrid.Columns>
-      </DataGrid>
+      <DockPanel>
+         <v:BatchVerdictFilterBar DockPanel.Dock="Top" Target="{Binding ElementName=RowsGrid}"/>
+         <DataGrid x:Name="RowsGrid" RowStyle="{StaticResource BatchVerdictRowStyle}" ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True"
+                   RowHeaderWidth="0" SelectionMode="Single" MouseDoubleClick="RowsGrid_MouseDoubleClick">
+            <DataGrid.Columns>
+               <DataGridTextColumn Header="#" Binding="{Binding Num}"/>
+               <DataGridTextColumn Header="{DynamicResource CapriDesignColLabel}" Binding="{Binding Label}"/>
+               <DataGridTextColumn Header="{DynamicResource CapriDesignTopX}" Binding="{Binding TopX}"/>
+               <DataGridTextColumn Header="{DynamicResource CapriDesignTopY}" Binding="{Binding TopY}"/>
+               <DataGridTextColumn Header="{DynamicResource CapriDesignBotX}" Binding="{Binding BotX}"/>
+               <DataGridTextColumn Header="{DynamicResource CapriDesignBotY}" Binding="{Binding BotY}"/>
+               <DataGridTextColumn x:Name="AswColumn" Header="{DynamicResource PlateShearAswComponent}" Binding="{Binding Asw}"
+                                   Visibility="Collapsed"/>
+               <DataGridTextColumn Header="{DynamicResource CapriDesignDiagnostics}" Binding="{Binding Diagnostics}"/>
+            </DataGrid.Columns>
+         </DataGrid>
+      </DockPanel>
    </DockPanel>
 </UserControl>

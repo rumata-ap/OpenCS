@@ -38,7 +38,11 @@ public sealed class StrengthNDMBatchVM : ViewModelBase
         string IterText,
         string StatusText,
         bool   IsPassed,
-        bool   IsConverged);
+        bool   IsConverged) : IBatchVerdictRow
+    {
+        /// <summary>Причина строки.</summary>
+        public BatchVerdictView Reason { get; init; } = BatchVerdictView.Empty;
+    }
 
     public StrengthNDMBatchVM(CalcResult result, CrossSection? section = null, CalcSettings? settings = null)
     {
@@ -106,7 +110,8 @@ public sealed class StrengthNDMBatchVM : ViewModelBase
                         IterText:         row.TryGetProperty("iterations", out var iv) ? iv.GetInt32().ToString() : "—",
                         StatusText:       conv ? Loc.S("ResultConvergedYes") : Loc.S("ResultConvergedNo"),
                         IsPassed:         passedRow,
-                        IsConverged:      conv));
+                        IsConverged:      conv)
+                    { Reason = BatchResultRowHelper.Verdict(result, row) });
                 }
             }
         }

@@ -1919,6 +1919,19 @@
    <system:String x:Key="CalcTaskForceMy">My, kN·m</system:String>
    <system:String x:Key="CalcResultNotPassed">Task "{0}": check not passed.</system:String>
    <system:String x:Key="CalcResultIncomplete">Task "{0}": not all elements were checked.</system:String>
+   <system:String x:Key="BatchVerdictColUtil">Util.</system:String>
+   <system:String x:Key="ShellSimplBatchSummary">Total: {0}, passed: {1}, violations: {2}</system:String>
+   <system:String x:Key="BatchVerdictColReason">Reason</system:String>
+   <system:String x:Key="BatchVerdictShow">Show:</system:String>
+   <system:String x:Key="BatchVerdictFilterAll">all rows</system:String>
+   <system:String x:Key="BatchVerdictFilterFailed">not passed</system:String>
+   <system:String x:Key="BatchVerdictFilterNotConverged">not converged / error</system:String>
+   <system:String x:Key="BatchVerdictCounts">not passed: {0}; not converged: {1}; errors: {2}</system:String>
+   <system:String x:Key="BatchVerdictStatus_ok">passed</system:String>
+   <system:String x:Key="BatchVerdictStatus_not_passed">not passed</system:String>
+   <system:String x:Key="BatchVerdictStatus_not_converged">not converged</system:String>
+   <system:String x:Key="BatchVerdictStatus_not_applicable">not applicable</system:String>
+   <system:String x:Key="BatchVerdictStatus_error">error</system:String>
    <system:String x:Key="CalcResultOk">Task "{0}" completed successfully.</system:String>
    <system:String x:Key="CalcResultNotConverged">Task "{0}" did not converge.</system:String>
    <system:String x:Key="CalcResultPartial">Task "{0}": part of the calculation did not converge or failed.</system:String>
@@ -2401,6 +2414,8 @@
     <system:String x:Key="ShellLayeredSlsBatchAcrcColumn">acrc, mm</system:String>
     <system:String x:Key="ShellLayeredSlsBatchAngleColumn">Angle, °</system:String>
     <system:String x:Key="ShellLayeredSlsBatchDirFaceColumn">Dir./face</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchElemColumn">FE</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchSummary">Rows: {0}; acrc,ult = {1} mm</system:String>
     <system:String x:Key="ShellLayeredSlsBatchStatusOk">Completed</system:String>
     <system:String x:Key="ShellLayeredSlsBatchStatusNotPassed">Not passed</system:String>
     <system:String x:Key="ShellLayeredSlsBatchStatusNotConverged">No convergence</system:String>

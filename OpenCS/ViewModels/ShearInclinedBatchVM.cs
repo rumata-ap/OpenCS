@@ -6,8 +6,11 @@ using OpenCS.Utilites;
 namespace OpenCS.ViewModels;
 
 /// <summary>Строка сводки пакетного расчёта наклонных сечений.</summary>
-public sealed class ShearInclinedBatchRowVM
+public sealed class ShearInclinedBatchRowVM : IBatchVerdictRow
 {
+    /// <summary>Причина строки.</summary>
+    public BatchVerdictView Reason { get; init; } = BatchVerdictView.Empty;
+
     /// <summary>Номер строки усилий.</summary>
     public int Num { get; init; }
     /// <summary>Метка строки усилий.</summary>
@@ -75,6 +78,7 @@ public sealed class ShearInclinedBatchVM
             string status = row.GetProperty("status").GetString() ?? "";
             Rows.Add(new ShearInclinedBatchRowVM
             {
+                Reason = new BatchVerdictView(CScore.Batch.BatchRowVerdictReader.Read("shear_inclined_batch", row)),
                 Num = row.GetProperty("num").GetInt32(),
                 Label = row.GetProperty("label").GetString() ?? "",
                 Vy = row.GetProperty("vy").GetDouble(),

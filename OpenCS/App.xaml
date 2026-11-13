@@ -133,6 +133,32 @@
          <Geometry x:Key="Icon_ReSteelU">M3,8 a2,2 0 1,0 0.001,0 Z M8,8 a2,2 0 1,0 0.001,0 Z M13,8 a2,2 0 1,0 0.001,0 Z</Geometry>
          <Geometry x:Key="Icon_Steel">M1,3 H15 V13 H1 Z M2,4 H14 V12 H2 Z</Geometry>
 
+         <!-- Строка пакета: подсветка по причине (IBatchVerdictRow.Reason.Tone) -->
+         <Style x:Key="BatchVerdictRowStyle" TargetType="DataGridRow">
+            <Setter Property="ToolTip" Value="{Binding Reason.RefText}"/>
+            <Setter Property="ToolTipService.IsEnabled" Value="True"/>
+            <Style.Triggers>
+               <DataTrigger Binding="{Binding Reason.Tone}" Value="{x:Static vm:BatchVerdictTone.Ok}">
+                  <Setter Property="Background" Value="#1A2D7A3E"/>
+               </DataTrigger>
+               <DataTrigger Binding="{Binding Reason.Tone}" Value="{x:Static vm:BatchVerdictTone.NearLimit}">
+                  <Setter Property="Background" Value="#40F1C40F"/>
+               </DataTrigger>
+               <DataTrigger Binding="{Binding Reason.Tone}" Value="{x:Static vm:BatchVerdictTone.Fail}">
+                  <Setter Property="Background" Value="#26C0392B"/>
+               </DataTrigger>
+               <DataTrigger Binding="{Binding Reason.Tone}" Value="{x:Static vm:BatchVerdictTone.NotConverged}">
+                  <Setter Property="Background" Value="#26808080"/>
+               </DataTrigger>
+               <DataTrigger Binding="{Binding Reason.Tone}" Value="{x:Static vm:BatchVerdictTone.Error}">
+                  <Setter Property="Background" Value="#408B0000"/>
+               </DataTrigger>
+               <DataTrigger Binding="{Binding Reason.RefText}" Value="">
+                  <Setter Property="ToolTipService.IsEnabled" Value="False"/>
+               </DataTrigger>
+            </Style.Triggers>
+         </Style>
+
          <!-- Converters -->
          <conv:MatTypeToBrushConverter x:Key="MatTypeToBrushConverter"/>
          <conv:MatTypeToGeometryConverter x:Key="MatTypeToGeometryConverter"/>

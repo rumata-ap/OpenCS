@@ -21,7 +21,11 @@ public sealed class CrackingBatchVM : ViewModelBase
 
     public sealed record BatchRow(
         int Num, string Label, string NText, string MxCrcText, string MyCrcText,
-        string McrcText, string StatusText, bool IsConverged, string NCrcText = "—");
+        string McrcText, string StatusText, bool IsConverged, string NCrcText = "—") : IBatchVerdictRow
+    {
+        /// <summary>Причина строки.</summary>
+        public BatchVerdictView Reason { get; init; } = BatchVerdictView.Empty;
+    }
 
     public CrackingBatchVM(CalcResult result)
     {
@@ -72,7 +76,7 @@ public sealed class CrackingBatchVM : ViewModelBase
                         McrcText: Num(row, "Mcrc", 4),
                         StatusText: conv ? Loc.S("ResultConvergedYes") : Loc.S("ResultConvergedNo"),
                         IsConverged: conv,
-                        NCrcText: Num(row, "N_crc", 6)));
+                        NCrcText: Num(row, "N_crc", 6)) { Reason = BatchResultRowHelper.Verdict(result, row) });
                 }
             }
         }

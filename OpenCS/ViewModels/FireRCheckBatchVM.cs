@@ -30,7 +30,11 @@ public sealed class FireRCheckBatchVM : ViewModelBase
         string PassedText,
         string MarginText,
         string FactorText,
-        string GoverningText);
+        string GoverningText) : IBatchVerdictRow
+    {
+        /// <summary>Причина строки.</summary>
+        public BatchVerdictView Reason { get; init; } = BatchVerdictView.Empty;
+    }
 
     public FireRCheckBatchVM(CalcResult result)
     {
@@ -75,7 +79,7 @@ public sealed class FireRCheckBatchVM : ViewModelBase
                     PassedText: rowPassed ? Loc.S("FireRCheck_PassedShort") : Loc.S("FireRCheck_NotPassedShort"),
                     MarginText: FireResultJson.Fmt(FireResultJson.Dbl(row, "margin"), 4),
                     FactorText: FireResultJson.Fmt(FireResultJson.Dbl(row, "factor"), 4),
-                    GoverningText: FireResultJson.Str(row, "governing", "—"));
+                    GoverningText: FireResultJson.Str(row, "governing", "—")) { Reason = BatchResultRowHelper.Verdict(result, row) };
 
                 AllRows.Add(item);
                 if (!rowPassed)

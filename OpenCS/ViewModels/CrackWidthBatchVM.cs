@@ -23,7 +23,11 @@ public sealed class CrackWidthBatchVM : ViewModelBase
         int Num, string Label, string NText, string MxLongText, string MxTotalText,
         string AcrcLongText, string AcrcShortText,
         string PassedLongText, string PassedShortText, bool IsPassed, bool IsCracked,
-        string UtilSteelText = "—");
+        string UtilSteelText = "—") : IBatchVerdictRow
+    {
+        /// <summary>Причина строки.</summary>
+        public BatchVerdictView Reason { get; init; } = BatchVerdictView.Empty;
+    }
 
     public CrackWidthBatchVM(CalcResult result)
     {
@@ -82,7 +86,7 @@ public sealed class CrackWidthBatchVM : ViewModelBase
                         PassedShortText: passedShort ? Loc.S("StrengthNDM_Passed") : Loc.S("StrengthNDM_NotPassed"),
                         IsPassed: passedLong && passedShort && passedSteel,
                         IsCracked: cracked,
-                        UtilSteelText: Num(row, "util_steel", 3)));
+                        UtilSteelText: Num(row, "util_steel", 3)) { Reason = BatchResultRowHelper.Verdict(result, row) });
                 }
             }
         }

@@ -49,7 +49,11 @@ public sealed class LimitForceBatchVM : ViewModelBase
         bool   IsConverged,
         RowVerdict Verdict,
         string EtaXText,
-        string EtaYText);
+        string EtaYText) : IBatchVerdictRow
+    {
+        /// <summary>Причина строки.</summary>
+        public BatchVerdictView Reason { get; init; } = BatchVerdictView.Empty;
+    }
 
     /// <summary>
     /// Вердикт по Кисп: null — Кисп = ∞ (фиксированная часть сечению не по силам) — не проходит.
@@ -150,7 +154,7 @@ public sealed class LimitForceBatchVM : ViewModelBase
                         IsConverged: conv,
                         Verdict:    Classify(conv, util),
                         EtaXText: etaXText,
-                        EtaYText: etaYText));
+                        EtaYText: etaYText) { Reason = BatchResultRowHelper.Verdict(result, row) });
                 }
             }
 

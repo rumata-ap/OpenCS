@@ -42,9 +42,16 @@ public partial class CapraMauryDesignBatchResultView : System.Windows.Controls.U
     }
 }
 
-public sealed class CapraMauryDesignBatchRowVM
+public sealed class CapraMauryDesignBatchRowVM : IBatchVerdictRow
 {
+    BatchVerdictView? _reason;
+
     public CapraMauryDesignBatchRow Source { get; init; } = new();
+    /// <summary>Причина строки: неподобранная строка — «не проходит», текст — диагностика подбора.</summary>
+    public BatchVerdictView Reason => _reason ??= new BatchVerdictView(Source.Feasible
+        ? CScore.Batch.BatchRowVerdict.Converged()
+        : new CScore.Batch.BatchRowVerdict(CScore.Batch.BatchRowStatus.NotPassed, null, "design_infeasible", "",
+            Source.Diagnostics.Length > 0 ? Source.Diagnostics : "армирование не подобрано"));
     public int Num => Source.Num;
     public string Label => Source.Label;
     public bool Feasible => Source.Feasible;

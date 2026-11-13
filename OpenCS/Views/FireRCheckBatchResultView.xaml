@@ -1,6 +1,7 @@
 <UserControl x:Class="OpenCS.Views.FireRCheckBatchResultView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="clr-namespace:OpenCS.Views">
 
    <Grid Margin="12">
       <Grid.RowDefinitions>
@@ -24,26 +25,32 @@
       <!-- Таблица строк -->
       <TabControl Grid.Row="1">
          <TabItem Header="{DynamicResource FireRCheckBatch_TabAll}">
-            <DataGrid x:Name="AllRowsGrid" ItemsSource="{Binding AllRows}" AutoGenerateColumns="False"
-                      IsReadOnly="True" CanUserAddRows="False" GridLinesVisibility="Horizontal"
-                      CanUserSortColumns="True" SelectionMode="Single" SelectionUnit="FullRow"
-                      MouseDoubleClick="RowsGrid_MouseDoubleClick">
-               <DataGrid.ContextMenu>
-                  <ContextMenu>
-                     <MenuItem Header="{DynamicResource CalcTaskNew}" Click="CreateTask_Click"/>
-                     <MenuItem Header="{DynamicResource ExportCsvBtn}"
-                               Click="ExportCsv_Click"/>
-                  </ContextMenu>
-               </DataGrid.ContextMenu>
-               <DataGrid.Columns>
-                  <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}" Binding="{Binding Num}" Width="40"/>
-                  <DataGridTextColumn Header="{DynamicResource FireRCheckBatch_ColLabel}" Binding="{Binding Label}" Width="*"/>
-                  <DataGridTextColumn Header="{DynamicResource FireRCheckBatch_ColPassed}" Binding="{Binding PassedText}" Width="90"/>
-                  <DataGridTextColumn Header="k" Binding="{Binding FactorText}" Width="70"/>
-                  <DataGridTextColumn Header="{DynamicResource FireRCheck_Margin}" Binding="{Binding MarginText}" Width="80"/>
-                  <DataGridTextColumn Header="{DynamicResource FireRCheck_Governing}" Binding="{Binding GoverningText}" Width="100"/>
-               </DataGrid.Columns>
-            </DataGrid>
+            <DockPanel>
+               <v:BatchVerdictFilterBar DockPanel.Dock="Top" Target="{Binding ElementName=AllRowsGrid}"/>
+               <DataGrid x:Name="AllRowsGrid" RowStyle="{StaticResource BatchVerdictRowStyle}" ItemsSource="{Binding AllRows}" AutoGenerateColumns="False"
+                         IsReadOnly="True" CanUserAddRows="False" GridLinesVisibility="Horizontal"
+                         CanUserSortColumns="True" SelectionMode="Single" SelectionUnit="FullRow"
+                         MouseDoubleClick="RowsGrid_MouseDoubleClick">
+                  <DataGrid.ContextMenu>
+                     <ContextMenu>
+                        <MenuItem Header="{DynamicResource CalcTaskNew}" Click="CreateTask_Click"/>
+                        <MenuItem Header="{DynamicResource ExportCsvBtn}"
+                                  Click="ExportCsv_Click"/>
+                     </ContextMenu>
+                  </DataGrid.ContextMenu>
+                  <DataGrid.Columns>
+                     <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}" Binding="{Binding Num}" Width="40"/>
+                     <DataGridTextColumn Header="{DynamicResource FireRCheckBatch_ColLabel}" Binding="{Binding Label}" Width="*"/>
+                     <DataGridTextColumn Header="{DynamicResource FireRCheckBatch_ColPassed}" Binding="{Binding PassedText}" Width="90"/>
+                     <DataGridTextColumn Header="k" Binding="{Binding FactorText}" Width="70"/>
+                     <DataGridTextColumn Header="{DynamicResource FireRCheck_Margin}" Binding="{Binding MarginText}" Width="80"/>
+                     <DataGridTextColumn Header="{DynamicResource FireRCheck_Governing}" Binding="{Binding GoverningText}" Width="100"/>
+                     <DataGridTextColumn Header="{DynamicResource BatchVerdictColUtil}" Binding="{Binding Reason.UtilText}"
+                                         SortMemberPath="Reason.SortUtil" Width="60"/>
+                     <DataGridTextColumn Header="{DynamicResource BatchVerdictColReason}" Binding="{Binding Reason.ReasonText}" Width="2*"/>
+                  </DataGrid.Columns>
+               </DataGrid>
+            </DockPanel>
          </TabItem>
 
          <TabItem Header="{DynamicResource FireRCheckBatch_TabFailed}"

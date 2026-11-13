@@ -38,8 +38,10 @@ public sealed class StrainStateBatchVM : ViewModelBase
         string MxEffText,
         string MyEffText,
         string EtaXText,
-        string EtaYText)
+        string EtaYText) : IBatchVerdictRow
     {
+        /// <summary>Причина строки.</summary>
+        public BatchVerdictView Reason { get; init; } = BatchVerdictView.Empty;
         /// <summary>Строка остановлена guard применимости и не запускала решатель.</summary>
         public bool IsNotApplicable { get; init; }
         /// <summary>Стабильный код причины неприменимости.</summary>
@@ -135,6 +137,7 @@ public sealed class StrainStateBatchVM : ViewModelBase
                         EtaXText:   etaXText,
                         EtaYText:   etaYText)
                     {
+                        Reason = BatchResultRowHelper.Verdict(result, row),
                         IsNotApplicable = notApp,
                         ReasonCode = row.TryGetProperty("reason_code", out var rc)
                             ? rc.GetString() ?? "" : ""

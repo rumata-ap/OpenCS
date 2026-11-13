@@ -1919,6 +1919,19 @@
    <system:String x:Key="CalcTaskForceMy">My, кН·м</system:String>
    <system:String x:Key="CalcResultNotPassed">Задача «{0}»: проверка не пройдена.</system:String>
    <system:String x:Key="CalcResultIncomplete">Задача «{0}»: проверены не все элементы.</system:String>
+   <system:String x:Key="BatchVerdictColUtil">Кисп</system:String>
+   <system:String x:Key="ShellSimplBatchSummary">Всего: {0}, выполнено: {1}, нарушений: {2}</system:String>
+   <system:String x:Key="BatchVerdictColReason">Причина</system:String>
+   <system:String x:Key="BatchVerdictShow">Показать:</system:String>
+   <system:String x:Key="BatchVerdictFilterAll">все строки</system:String>
+   <system:String x:Key="BatchVerdictFilterFailed">не проходят</system:String>
+   <system:String x:Key="BatchVerdictFilterNotConverged">не сошлись / ошибка</system:String>
+   <system:String x:Key="BatchVerdictCounts">не проходят: {0}; не сошлись: {1}; ошибок: {2}</system:String>
+   <system:String x:Key="BatchVerdictStatus_ok">проходит</system:String>
+   <system:String x:Key="BatchVerdictStatus_not_passed">не проходит</system:String>
+   <system:String x:Key="BatchVerdictStatus_not_converged">не сошлось</system:String>
+   <system:String x:Key="BatchVerdictStatus_not_applicable">не применимо</system:String>
+   <system:String x:Key="BatchVerdictStatus_error">ошибка</system:String>
    <system:String x:Key="CalcResultOk">Задача «{0}» выполнена успешно.</system:String>
    <system:String x:Key="CalcResultNotConverged">Задача «{0}» завершена без сходимости.</system:String>
    <system:String x:Key="CalcResultPartial">Задача «{0}»: часть расчёта не сошлась или завершилась ошибкой.</system:String>
@@ -2401,6 +2414,8 @@
     <system:String x:Key="ShellLayeredSlsBatchAcrcColumn">acrc, мм</system:String>
     <system:String x:Key="ShellLayeredSlsBatchAngleColumn">Угол, °</system:String>
     <system:String x:Key="ShellLayeredSlsBatchDirFaceColumn">Направл./грань</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchElemColumn">КЭ</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchSummary">Строк: {0}; acrc,ult = {1} мм</system:String>
     <system:String x:Key="ShellLayeredSlsBatchStatusOk">Выполнено</system:String>
     <system:String x:Key="ShellLayeredSlsBatchStatusNotPassed">Не выполнено</system:String>
     <system:String x:Key="ShellLayeredSlsBatchStatusNotConverged">Нет сходимости</system:String>

@@ -1,6 +1,7 @@
 <UserControl x:Class="OpenCS.Views.ShearInclinedBatchResultView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="clr-namespace:OpenCS.Views">
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -43,35 +44,41 @@
             <Button Content="{DynamicResource ExportCsvBtn}" Padding="12,4" Click="ExportCsv_Click"/>
         </StackPanel>
 
-        <DataGrid Grid.Row="4" x:Name="RowsGrid" ItemsSource="{Binding Rows}"
-                  AutoGenerateColumns="False" IsReadOnly="True"
-                  SelectionMode="Single" SelectionUnit="FullRow"
-                  MouseDoubleClick="RowsGrid_MouseDoubleClick">
-            <DataGrid.ContextMenu>
-                <ContextMenu>
-                    <MenuItem Header="{DynamicResource CalcTaskNew}" Click="CreateTask_Click"/>
-                </ContextMenu>
-            </DataGrid.ContextMenu>
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="#" Binding="{Binding Num}"/>
-                <DataGridTextColumn Header="{DynamicResource ShearInclinedColumnLabel}"
-                                    Binding="{Binding Label}"/>
-                <DataGridTextColumn Header="Vy" Binding="{Binding Vy, StringFormat=F1}"/>
-                <DataGridTextColumn Header="Vx" Binding="{Binding Vx, StringFormat=F1}"/>
-                <DataGridTextColumn Header="{DynamicResource ShearInclinedColumnUtilization}"
-                                    Binding="{Binding UtilizationText}">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="{Binding UtilizationBrush}"/>
-                            <Setter Property="FontWeight" Value="SemiBold"/>
-                        </Style>
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
-                <DataGridTextColumn Header="{DynamicResource ShearInclinedColumnWorst}"
-                                    Binding="{Binding WorstFormula}"/>
-                <DataGridTextColumn Header="{DynamicResource ShearInclinedColumnStatus}"
-                                    Binding="{Binding StatusText}"/>
-            </DataGrid.Columns>
-        </DataGrid>
+        <DockPanel Grid.Row="4">
+           <v:BatchVerdictFilterBar DockPanel.Dock="Top" Target="{Binding ElementName=RowsGrid}"/>
+           <DataGrid x:Name="RowsGrid" RowStyle="{StaticResource BatchVerdictRowStyle}" ItemsSource="{Binding Rows}"
+                     AutoGenerateColumns="False" IsReadOnly="True"
+                     SelectionMode="Single" SelectionUnit="FullRow"
+                     MouseDoubleClick="RowsGrid_MouseDoubleClick">
+               <DataGrid.ContextMenu>
+                   <ContextMenu>
+                       <MenuItem Header="{DynamicResource CalcTaskNew}" Click="CreateTask_Click"/>
+                   </ContextMenu>
+               </DataGrid.ContextMenu>
+               <DataGrid.Columns>
+                   <DataGridTextColumn Header="#" Binding="{Binding Num}"/>
+                   <DataGridTextColumn Header="{DynamicResource ShearInclinedColumnLabel}"
+                                       Binding="{Binding Label}"/>
+                   <DataGridTextColumn Header="Vy" Binding="{Binding Vy, StringFormat=F1}"/>
+                   <DataGridTextColumn Header="Vx" Binding="{Binding Vx, StringFormat=F1}"/>
+                   <DataGridTextColumn Header="{DynamicResource ShearInclinedColumnUtilization}"
+                                       Binding="{Binding UtilizationText}">
+                       <DataGridTextColumn.ElementStyle>
+                           <Style TargetType="TextBlock">
+                               <Setter Property="Foreground" Value="{Binding UtilizationBrush}"/>
+                               <Setter Property="FontWeight" Value="SemiBold"/>
+                           </Style>
+                       </DataGridTextColumn.ElementStyle>
+                   </DataGridTextColumn>
+                   <DataGridTextColumn Header="{DynamicResource ShearInclinedColumnWorst}"
+                                       Binding="{Binding WorstFormula}"/>
+                   <DataGridTextColumn Header="{DynamicResource ShearInclinedColumnStatus}"
+                                       Binding="{Binding StatusText}"/>
+                   <DataGridTextColumn Header="{DynamicResource BatchVerdictColUtil}" Binding="{Binding Reason.UtilText}"
+                                       SortMemberPath="Reason.SortUtil" Width="60"/>
+                   <DataGridTextColumn Header="{DynamicResource BatchVerdictColReason}" Binding="{Binding Reason.ReasonText}" Width="2*"/>
+               </DataGrid.Columns>
+           </DataGrid>
+        </DockPanel>
     </Grid>
 </UserControl>
