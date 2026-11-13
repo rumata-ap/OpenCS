@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Text.Json;
 using CScore;
+using CScore.Batch;
 using OpenCS.Utilites;
 
 namespace OpenCS.Tasks;
@@ -87,6 +88,31 @@ public sealed class ShellSimplCapriUlsHandler : ShellSimplHandlerBase
 
 public abstract class ShellSimplBatchHandlerBase : ITaskHandler
 {
+    /// <summary>
+    /// Причина строки по η: определяющий из η полос/фасеток и ηQ (ηQ входит в EtaMax решателя).
+    /// При равенстве определяющей считается ηQ. Кисп не определён (нет полос) — «не проходит».
+    /// </summary>
+    internal static BatchRowVerdict SimplEtaVerdict(double? etaMax, double? etaQ, bool ok)
+    {
+        var crit = new List<BatchCriterion>();
+        if (etaQ is { } q) crit.Add(new("eta_q", q, "", $"ηQ = {BatchVerdictText.F3(q)}"));
+        if (etaMax is { } m) crit.Add(new("eta_m", m, "", $"η = {BatchVerdictText.F3(m)}"));
+        if (crit.Count == 0)
+            return new BatchRowVerdict(BatchRowStatus.NotPassed, null, "eta_m", "", "Кисп не определён");
+        var v = BatchRowVerdict.Worst(crit.ToArray());
+        return !ok && v.IsPassed ? v with { Status = BatchRowStatus.NotPassed } : v;
+    }
+
+    /// <summary>Причина строки ПС2 без ограничений Капра–Мори: наибольшая acrc полос против acrc,ult.</summary>
+    internal static BatchRowVerdict SimplAcrcVerdict(double maxAcrcMm, double acrcLimMm, bool ok)
+    {
+        double u = acrcLimMm > 1e-12 ? maxAcrcMm / acrcLimMm : 0.0;
+        string cmp = u > BatchRowVerdict.Threshold ? ">" : "≤";
+        var v = BatchRowVerdict.Worst(new BatchCriterion("acrc", u, "п. 8.2.6, (8.118)",
+            $"acrc = {BatchVerdictText.F3(maxAcrcMm)} мм {cmp} acrc,ult = {BatchVerdictText.F3(acrcLimMm)} мм"));
+        return !ok && v.IsPassed ? v with { Status = BatchRowStatus.NotPassed } : v;
+    }
+
     protected abstract string KindId { get; }
     public string Kind => KindId;
     protected abstract bool IsSls { get; }
@@ -127,6 +153,7 @@ public abstract class ShellSimplBatchHandlerBase : ITaskHandler
             int total = items.Count;
             var rows = new object[total];
             var passed = new bool[total];
+            var verdicts = new BatchRowVerdict[total];
 
             // Строки независимы: решатель только читает плиту и материалы (диаграммы строятся на каждый вызов).
             void SolveRow(int i)
@@ -143,6 +170,7 @@ public abstract class ShellSimplBatchHandlerBase : ITaskHandler
 
                 double? etaMax = result.EtaMax;
                 bool ok;
+                BatchRowVerdict verdict;
 
                 // Через ограничения ПС2 тоже даёт Кисп = max r/As_n.
                 if (IsSls && result.CapriConstraints == null)
@@ -150,18 +178,25 @@ public abstract class ShellSimplBatchHandlerBase : ITaskHandler
                     double maxAcrc = result.CapriDirs is { Count: > 0 } dirs ? dirs.Max(d => d.Strip.Acrc_mm)
                         : result.WaStrips is { Count: > 0 } strips ? strips.Max(s => s.Acrc_mm) : 0;
                     ok = maxAcrc <= sp.AcrcLimMm;
+                    verdict = SimplAcrcVerdict(maxAcrc, sp.AcrcLimMm, ok);
                 }
                 else
+                {
                     ok = etaMax.HasValue && etaMax.Value <= 1.0;
+                    verdict = SimplEtaVerdict(etaMax, result.Shear?.Eta, ok);
+                }
 
                 passed[i] = ok;
+                verdicts[i] = verdict;
                 rows[i] = new
                 {
                     num = si.Num,
                     label = si.Label,
+                    elem = si.SourceElementNum,
                     status = ok ? "ok" : "not_passed",
                     eta_max = etaMax,
                     eta_q = result.Shear?.Eta,
+                    verdict = verdict.ToJson(),
                 };
             }
 
@@ -174,6 +209,7 @@ public abstract class ShellSimplBatchHandlerBase : ITaskHandler
                 all_ok = allOk,
                 converged_count = convergedCount,
                 total,
+                verdict_summary = BatchVerdictSummary.ToJson(verdicts, items.Select(si => si.Num).ToList()),
                 rows,
                 method = KindId.Contains("wa_") ? "wa" : "capri",
                 calc_type = IsSls ? "sls" : "uls",
@@ -182,7 +218,7 @@ public abstract class ShellSimplBatchHandlerBase : ITaskHandler
             return new CalcResult
             {
                 TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag,
-                Created = created, Status = allOk ? "ok" : "partial",
+                Created = created, Status = BatchVerdictSummary.PackageStatus(verdicts),
                 DataJson = JsonSerializer.Serialize(data)
             };
         }

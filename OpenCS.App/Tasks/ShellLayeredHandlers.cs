@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Text.Json;
 using CScore;
+using CScore.Batch;
 using CScore.Fem;
 using OpenCS.Utilites;
 
@@ -137,6 +138,7 @@ public sealed class ShellLayeredUlsBatchHandler : ITaskHandler
             var items = forceSet.ShellItems;
             var rows = new object[items.Count];
             var passedArr = new bool[items.Count];
+            var verdicts = new BatchRowVerdict[items.Count];
 
             BatchProgress.ForEachRow(items.Count, settings, ctx, i =>
             {
@@ -159,17 +161,20 @@ public sealed class ShellLayeredUlsBatchHandler : ITaskHandler
                 passedArr[i] = passed;
                 string rowStatus = !chk.Converged ? "not_converged"
                                  : passed ? "ok" : "not_passed";
+                verdicts[i] = ShellLayeredBatchVerdicts.Uls(chk);
 
                 rows[i] = new
                 {
                     num = si.Num,
                     label = si.Label,
+                    elem = si.SourceElementNum,
                     status = rowStatus,
                     passed,
                     formula = chk.Formula,
                     note = chk.Description,
                     iterations = chk.Iterations,
                     residual = Math.Round(chk.Residual, 6),
+                    verdict = verdicts[i].ToJson(),
                 };
             });
 
@@ -180,13 +185,14 @@ public sealed class ShellLayeredUlsBatchHandler : ITaskHandler
                 all_ok = allOk,
                 converged_count = passedCount,
                 total = rows.Length,
+                verdict_summary = BatchVerdictSummary.ToJson(verdicts, items.Select(si => si.Num).ToList()),
                 rows,
             };
 
             return new CalcResult
             {
                 TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag,
-                Created = created, Status = allOk ? "ok" : "partial",
+                Created = created, Status = BatchVerdictSummary.PackageStatus(verdicts),
                 DataJson = JsonSerializer.Serialize(data),
             };
         }
@@ -427,6 +433,7 @@ public sealed class ShellLayeredSlsBatchHandler : ITaskHandler
             var items = forceSet.ShellItems;
             var rows = new object[items.Count];
             var okArr = new bool[items.Count];
+            var verdicts = new BatchRowVerdict[items.Count];
             BatchProgress.ForEachRow(items.Count, settings, ctx, i =>
             {
                 var si = items[i];
@@ -470,25 +477,35 @@ public sealed class ShellLayeredSlsBatchHandler : ITaskHandler
                 }
 
                 okArr[i] = rowStatus == "ok";
+                verdicts[i] = ShellLayeredBatchVerdicts.Sls(solveResult.Converged, solveResult.Residual,
+                    acrcMm ?? 0.0, p.AcrcLimMm, direction, face);
                 rows[i] = new
                 {
                     num = si.Num,
                     label = si.Label,
+                    elem = si.SourceElementNum,
                     status = rowStatus,
                     acrc_mm = acrcMm,
                     crack_angle_deg = angle,
                     direction,
                     face,
+                    verdict = verdicts[i].ToJson(),
                 };
             });
 
             int okCount = okArr.Count(x => x);
             bool allOk = okCount == rows.Length;
-            var data = new { all_ok = allOk, ok_count = okCount, total = rows.Length, rows };
+            var data = new
+            {
+                all_ok = allOk, ok_count = okCount, total = rows.Length,
+                acrc_lim_mm = p.AcrcLimMm,
+                verdict_summary = BatchVerdictSummary.ToJson(verdicts, items.Select(si => si.Num).ToList()),
+                rows,
+            };
             return new CalcResult
             {
                 TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag,
-                Created = created, Status = allOk ? "ok" : "partial",
+                Created = created, Status = BatchVerdictSummary.PackageStatus(verdicts),
                 DataJson = JsonSerializer.Serialize(data),
             };
         }
@@ -501,5 +518,30 @@ public sealed class ShellLayeredSlsBatchHandler : ITaskHandler
                 DataJson = JsonSerializer.Serialize(new { error = ex.Message }),
             };
         }
+    }
+}
+
+/// <summary>Причина строки пакетов слоистой пластины (ПС1 — деформации, ПС2 — ширина трещин).</summary>
+internal static class ShellLayeredBatchVerdicts
+{
+    /// <summary>ПС1: Кисп и критерий решателя проверки; несходимость НДС — «не сошлось», а не «не проходит».</summary>
+    public static BatchRowVerdict Uls(ShellLayeredCheck.Result chk)
+        => !chk.Converged
+            ? BatchRowVerdict.NotConverged(
+                $"НДС слоистой оболочки не найден за {chk.Iterations} ит. (невязка {BatchVerdictText.N(chk.Residual, 3)})")
+            : new BatchRowVerdict(chk.Passed ? BatchRowStatus.Ok : BatchRowStatus.NotPassed,
+                chk.Utilization, "shell_uls", chk.Formula, chk.Description);
+
+    /// <summary>ПС2: acrc ≤ acrc,ult (п. 8.2.6, (8.118)); направление и грань — в тексте.</summary>
+    public static BatchRowVerdict Sls(bool converged, double residual, double acrcMm, double acrcLimMm,
+        string direction, string face)
+    {
+        if (!converged)
+            return BatchRowVerdict.NotConverged($"НДС слоистой оболочки не найден (невязка {BatchVerdictText.N(residual, 3)})");
+        double u = acrcLimMm > 1e-12 ? acrcMm / acrcLimMm : 0.0;
+        string where = direction.Length > 0 ? $", {direction} / {face}" : "";
+        string cmp = u > BatchRowVerdict.Threshold ? ">" : "≤";
+        return BatchRowVerdict.Worst(new BatchCriterion("acrc", u, "п. 8.2.6, (8.118)",
+            $"acrc = {BatchVerdictText.F3(acrcMm)} мм {cmp} acrc,ult = {BatchVerdictText.F3(acrcLimMm)} мм{where}"));
     }
 }

@@ -224,7 +224,7 @@ public sealed class CapraMauryDesignHandlerTests
             var result = new CapraMauryDesignUlsBatchHandler().Run(task, null!, new LoadItem(), CalcSettings.Default,
                 new TaskRunContext { Database = database });
 
-            Assert.Equal("partial", result.Status);
+            Assert.Equal("not_passed", result.Status);   // строка 3 не подобрана — «не проходит»
             var data = JsonSerializer.Deserialize<CapraMauryDesignBatchData>(result.DataJson)!;
             Assert.Equal(0.0, data.Rows[0].AswPerSw);
             Assert.True(data.Rows[1].AswPerSw > 0.0);

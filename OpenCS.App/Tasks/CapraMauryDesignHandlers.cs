@@ -174,7 +174,8 @@ public abstract class CapraMauryDesignBatchHandlerBase(bool sls) : ITaskHandler
             return new CalcResult
             {
                 TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag,
-                Created = created, Status = data.Feasible == data.Total ? "ok" : "partial",
+                // Неподобранная строка — «не проходит», а не «частичная сходимость».
+                Created = created, Status = data.Feasible == data.Total ? "ok" : "not_passed",
                 DataJson = JsonSerializer.Serialize(data)
             };
         }
