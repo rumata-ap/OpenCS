@@ -70,6 +70,6 @@ public sealed class BatchReportData
     static string Str(JsonElement e, string k)
         => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
 
-    /// <summary>Число для таблицы отчёта: до 4 значащих цифр, запятая.</summary>
-    internal static string F(double v) => v.ToString("G4", CultureInfo.GetCultureInfo("ru-RU"));
+    /// <summary>Число для таблицы отчёта: до 4 значащих цифр, запятая, без экспоненты.</summary>
+    internal static string F(double v) => BatchVerdictText.N(v, 4);
 }

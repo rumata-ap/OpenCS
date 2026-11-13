@@ -258,7 +258,11 @@ public static class SectionReportSections
 
     internal static string F(double? value) => value.HasValue ? F(value.Value) : "—";
     internal static string F(double value)
-        => double.IsFinite(value) ? value.ToString("G8", CultureInfo.InvariantCulture) : "—";
+        // 8 значащих цифр с точкой, без экспоненты: «1E-07» и «5.3291E-08» в отчётах нечитаемы;
+        // |v| < 1e-12 — численный шум (невязки, якобиан), пишется 0.
+        => !double.IsFinite(value) ? "—"
+            : Math.Abs(value) < 1e-12 ? "0"
+            : CScore.Batch.BatchVerdictText.N(value, 8, CultureInfo.InvariantCulture);
     internal static string Force(double? value) => $"{F(value)} кН";
     internal static string Moment(double? value) => $"{F(value)} кН·м";
     internal static string Curvature(double? value) => $"{F(value)} 1/м";
