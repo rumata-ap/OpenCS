@@ -76,6 +76,43 @@ public sealed class BatchRowVerdictHandlersTests
         { Converged = true, Utilization = 0.7, Governing = "rebar" }).Status);
 
     [Fact]
+    public void Shear_NullUtil_IsInfiniteFail()
+    {
+        var v = ShearInclinedBatchHandler.RowVerdict("ok", null, "(8.55)", "Qb + Qsw", "");
+        Assert.Equal(BatchRowStatus.NotPassed, v.Status);
+        Assert.True(double.IsPositiveInfinity(v.Util!.Value));
+        Assert.Equal("(8.55)", v.Ref);
+        Assert.Contains("Qb + Qsw", v.Text);
+    }
+
+    [Fact]
+    public void Shear_NotApplicable_And_Error()
+    {
+        Assert.Equal(BatchRowStatus.NotApplicable, ShearInclinedBatchHandler.RowVerdict("not_applicable", null, "", "", "").Status);
+        var e = ShearInclinedBatchHandler.RowVerdict("error", null, "", "", "нет хомутов");
+        Assert.Equal(BatchRowStatus.Error, e.Status);
+        Assert.Equal("нет хомутов", e.Text);
+    }
+
+    [Fact]
+    public void Fire_FactorBelowOne_Fails()
+    {
+        var check = new CScore.Fire.FireCheckResult
+        {
+            Passed = false, Margin = -0.2,
+            Details = new() { ["governing"] = "concrete" },
+        };
+        var v = FireRCheckBatchHandler.RowVerdict(check);
+        Assert.Equal(BatchRowStatus.NotPassed, v.Status);
+        Assert.Equal(1.25, v.Util!.Value, 6);
+        Assert.Equal("fire_concrete", v.Code);
+    }
+
+    [Fact]
+    public void Fire_ExactlyOne_Passes()
+        => Assert.Equal(BatchRowStatus.Ok, FireRCheckBatchHandler.RowVerdict(new CScore.Fire.FireCheckResult { Passed = true, Margin = 0 }).Status);
+
+    [Fact]
     public void Limit_NotConverged()
         => Assert.Equal(BatchRowStatus.NotConverged, LimitForceTaskHelper.RowVerdict(new LimitForceResult { Converged = false }).Status);
 }

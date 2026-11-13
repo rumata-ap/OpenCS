@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using CScore;
+using CScore.Batch;
 using CScore.Fire;
 using CScore.Fire.Entities;
 using OpenCS.Utilites;
@@ -9,6 +10,11 @@ namespace OpenCS.Tasks;
 /// <summary>R-проверка по всем строкам набора усилий задачи.</summary>
 public sealed class FireRCheckBatchHandler : ITaskHandler
 {
+    /// <summary>Причина строки R-проверки: Кисп = 1/запас (запас = Margin + 1, Passed = запас ≥ 1).</summary>
+    internal static BatchRowVerdict RowVerdict(FireCheckResult check)
+        => BatchRowVerdictReader.FireVerdict(check.Margin + 1.0,
+            check.Details.GetValueOrDefault("governing")?.ToString() is { Length: > 0 } g ? g : "r");
+
     public string Kind => "fire_r_check_batch";
 
     public CalcResult Run(CalcTask task, CrossSection section, LoadItem item, CalcSettings settings, TaskRunContext? ctx = null)
@@ -42,6 +48,7 @@ public sealed class FireRCheckBatchHandler : ITaskHandler
             var rows = new object[items.Count];
             var passedArr = new bool[items.Count];
             var margins = new double[items.Count];
+            var verdicts = new BatchRowVerdict[items.Count];
 
             BatchProgress.ForEachRow(items.Count, settings, ctx, i =>
             {
@@ -65,6 +72,7 @@ public sealed class FireRCheckBatchHandler : ITaskHandler
 
                 passedArr[i] = check.Passed;
                 margins[i] = check.Margin;
+                verdicts[i] = RowVerdict(check);
 
                 rows[i] = new
                 {
@@ -74,7 +82,8 @@ public sealed class FireRCheckBatchHandler : ITaskHandler
                     passed = check.Passed,
                     margin = check.Margin,
                     factor = check.Details.GetValueOrDefault("factor"),
-                    governing = check.Details.GetValueOrDefault("governing")
+                    governing = check.Details.GetValueOrDefault("governing"),
+                    verdict = verdicts[i].ToJson()
                 };
             });
 
@@ -91,6 +100,7 @@ public sealed class FireRCheckBatchHandler : ITaskHandler
                 thermal_result_id = reference.ResultId,
                 thermal_input_hash = reference.InputHash,
                 mesh_warning = FireMeshWarning.Text(section, fireDef),
+                verdict_summary = BatchVerdictSummary.ToJson(verdicts, items.Select(fi => fi.Num).ToList()),
                 rows
             };
 
@@ -100,7 +110,7 @@ public sealed class FireRCheckBatchHandler : ITaskHandler
                 TaskKind = task.Kind,
                 TaskTag = task.Tag,
                 Created = created,
-                Status = allPassed ? "ok" : "not_passed",
+                Status = BatchVerdictSummary.PackageStatus(verdicts),
                 DataJson = JsonSerializer.Serialize(data)
             };
         }

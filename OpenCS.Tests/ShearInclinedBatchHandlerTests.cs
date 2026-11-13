@@ -57,9 +57,11 @@ public sealed class ShearInclinedBatchHandlerTests
                 task, ShearInclinedFixtures.Beam(), new LoadItem(), CalcSettings.Default,
                 new TaskRunContext { Database = database });
 
-            Assert.Equal("ok", result.Status);
             using var doc = JsonDocument.Parse(result.DataJson);
             var rows = doc.RootElement.GetProperty("rows").EnumerateArray().ToList();
+            // Статус пакета — по причинам строк: не проходит хотя бы одна строка — not_passed.
+            bool anyFails = rows.Any(r => r.GetProperty("utilization").GetDouble() > 1.0);
+            Assert.Equal(anyFails ? "not_passed" : "ok", result.Status);
 
             Assert.Equal(2, rows.Count);
             Assert.Equal("оп. A", rows[0].GetProperty("label").GetString());
@@ -105,7 +107,8 @@ public sealed class ShearInclinedBatchHandlerTests
             var parallel = new ShearInclinedBatchHandler().Run(task, ShearInclinedFixtures.Beam(), new LoadItem(),
                 new CalcSettings { BatchParallel = true }, ctx);
 
-            Assert.Equal("ok", sequential.Status);
+            // «перегруз» (Vy = 600 кН) не проходит — пакет not_passed, а не ok и не error.
+            Assert.Equal("not_passed", sequential.Status);
             Assert.Equal(sequential.DataJson, parallel.DataJson);
         }
         finally { TryDelete(path); }

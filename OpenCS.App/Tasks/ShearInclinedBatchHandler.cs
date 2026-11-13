@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CScore;
+using CScore.Batch;
 using OpenCS.Utilites;
 
 namespace OpenCS.Tasks;
@@ -52,7 +53,7 @@ public class ShearInclinedBatchHandler : ITaskHandler
                 TaskKind = task.Kind,
                 TaskTag = task.Tag,
                 Created = created,
-                Status = "ok",
+                Status = BatchVerdictSummary.PackageStatus(outcomes.Select(o => o.Verdict)),
                 DataJson = JsonSerializer.Serialize(new
                 {
                     sectionTag = section.Tag,
@@ -62,6 +63,7 @@ public class ShearInclinedBatchHandler : ITaskHandler
                     // за область применимости. При этом строки не теряются из сводки.
                     utilizationStatus = notApplicable ? "not_applicable"
                         : zeroCapacity ? "no_capacity" : "ok",
+                    verdict_summary = BatchVerdictSummary.ToJson(outcomes.Select(o => o.Verdict).ToList(), items.Select(i => i.Num).ToList()),
                     rows,
                     warnings = warnings.ToList()
                 })
@@ -83,7 +85,21 @@ public class ShearInclinedBatchHandler : ITaskHandler
 
     enum RowKind { Error, NotApplicable, Ok }
 
-    sealed record RowOutcome(object Row, IReadOnlyList<string> Warnings, RowKind Kind, double? Utilization);
+    sealed record RowOutcome(object Row, IReadOnlyList<string> Warnings, RowKind Kind, double? Utilization, BatchRowVerdict Verdict);
+
+    /// <summary>
+    /// Причина строки: error — ошибка расчёта, not_applicable — вне области применимости, иначе Кисп худшей
+    /// проверки (null — нулевая несущая способность, то есть +∞).
+    /// </summary>
+    internal static BatchRowVerdict RowVerdict(string status, double? utilization, string worstFormula,
+        string worstDescription, string error)
+    {
+        if (status == "error") return BatchRowVerdict.Error(error);
+        if (status == "not_applicable") return BatchRowVerdict.NotApplicable("shear", "вне области применимости метода");
+        double u = utilization ?? double.PositiveInfinity;
+        string text = worstDescription.Length > 0 ? $"{worstDescription}: Кисп = {BatchVerdictText.F3(u)}" : $"Кисп = {BatchVerdictText.F3(u)}";
+        return BatchRowVerdict.Worst(new BatchCriterion("shear", u, worstFormula, text));
+    }
 
     static RowOutcome Evaluate(CalcTask task, CrossSection section, LoadItem row, CalcSettings settings, TaskRunContext? ctx)
     {
@@ -94,6 +110,8 @@ public class ShearInclinedBatchHandler : ITaskHandler
 
         if (single.Status != "ok")
         {
+            string error = root.TryGetProperty("error", out var err) ? err.GetString() ?? "" : "";
+            var ve = RowVerdict("error", null, "", "", error);
             return new RowOutcome(new
             {
                 num = row.Num,
@@ -103,8 +121,9 @@ public class ShearInclinedBatchHandler : ITaskHandler
                 utilization = (double?)null,
                 status = "error",
                 worstFormula = "",
-                error = root.TryGetProperty("error", out var err) ? err.GetString() : ""
-            }, [], RowKind.Error, null);
+                error,
+                verdict = ve.ToJson()
+            }, [], RowKind.Error, null, ve);
         }
 
         var warnings = root.GetProperty("warnings").EnumerateArray()
@@ -115,6 +134,7 @@ public class ShearInclinedBatchHandler : ITaskHandler
             ? statusValue.GetString() ?? "ok" : "ok";
         if (utilizationStatus == "not_applicable")
         {
+            var vna = RowVerdict("not_applicable", null, "", "", "");
             return new RowOutcome(new
             {
                 num = row.Num,
@@ -124,8 +144,9 @@ public class ShearInclinedBatchHandler : ITaskHandler
                 utilization = (double?)null,
                 status = "not_applicable",
                 worstFormula = "",
-                error = ""
-            }, warnings, RowKind.NotApplicable, null);
+                error = "",
+                verdict = vna.ToJson()
+            }, warnings, RowKind.NotApplicable, null, vna);
         }
 
         var utilizationValue = root.GetProperty("utilization");
@@ -133,12 +154,15 @@ public class ShearInclinedBatchHandler : ITaskHandler
             ? utilizationValue.GetDouble()
             : null;
 
-        string worstFormula = root.GetProperty("details").EnumerateArray()
+        var worstDetail = root.GetProperty("details").EnumerateArray()
             .OrderByDescending(d => d.GetProperty("ratio").ValueKind == JsonValueKind.Number
                 ? d.GetProperty("ratio").GetDouble()
                 : double.PositiveInfinity)
-            .Select(d => d.GetProperty("formula").GetString() ?? "")
-            .FirstOrDefault() ?? "";
+            .Select(d => (formula: d.GetProperty("formula").GetString() ?? "",
+                          description: d.TryGetProperty("description", out var ds) ? ds.GetString() ?? "" : ""))
+            .FirstOrDefault();
+        string worstFormula = worstDetail.formula ?? "";
+        var verdict = RowVerdict("ok", utilization, worstFormula, worstDetail.description ?? "", "");
 
         return new RowOutcome(new
         {
@@ -148,7 +172,8 @@ public class ShearInclinedBatchHandler : ITaskHandler
             vx = row.Vx,
             utilization,
             status = utilization is double ok && ok <= 1.0 ? "ok" : "failed",
-            worstFormula
-        }, warnings, RowKind.Ok, utilization);
+            worstFormula,
+            verdict = verdict.ToJson()
+        }, warnings, RowKind.Ok, utilization, verdict);
     }
 }
