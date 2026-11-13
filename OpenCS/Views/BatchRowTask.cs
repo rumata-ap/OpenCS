@@ -46,6 +46,59 @@ static class BatchRowTask
         RunOrOpen(app, BatchRowTaskFactory.FindExisting(app.CalcTasks, batch, rowNum), built);
     }
 
+    /// <summary>
+    /// Задачи по причинам результата пакета: определяющая строка — создаётся, считается и открывается;
+    /// не прошедшие и не сошедшиеся — создаются без расчёта (уже созданные по тем же строкам не дублируются).
+    /// </summary>
+    public static void CreateForRows(AppViewModel app, CalcTask batch, CalcResult result, BatchRowSelection selection)
+    {
+        if (app.IsBusy) return;
+        var nums = BatchRowTaskFactory.SelectRows(result, selection);
+        if (nums.Count == 0)
+        {
+            MessageBox.Show(Loc.S(selection == BatchRowSelection.Governing ? "BatchRowTasksNoGoverning" : "BatchRowTasksNoFailed"),
+                Loc.S("CalcTaskNew"), MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        if (selection == BatchRowSelection.Governing)
+        {
+            CreateAndRun(app, batch, nums[0]);
+            return;
+        }
+
+        var fresh = nums.Where(n => BatchRowTaskFactory.FindExisting(app.CalcTasks, batch, n) == null).ToList();
+        if (fresh.Count > 20 && MessageBox.Show(string.Format(Loc.S("BatchRowTasksConfirm"), fresh.Count),
+                Loc.S("CalcTaskNew"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+
+        string? sectionTag = batch.Kind.StartsWith("shell_", StringComparison.Ordinal)
+            ? app.PlateSections.FirstOrDefault(s => s.Id == batch.SectionId)?.Tag
+            : app.CrossSections.FirstOrDefault(s => s.Id == batch.SectionId)?.Tag;
+        if (sectionTag == null)
+        {
+            MessageBox.Show(Loc.S("CalcTaskSectionNotFound"), Loc.S("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        int created = 0;
+        int next = app.CalcTasks.Count > 0 ? app.CalcTasks.Max(t => t.Num) + 1 : 1;
+        foreach (int n in fresh)
+        {
+            try
+            {
+                var task = BatchRowTaskFactory.Create(batch, n, sectionTag, app.ForceSets, app.PlateSections);
+                task.Num = next++;
+                app.db.SaveCalcTask(task);
+                created++;
+            }
+            catch (InvalidOperationException ex)
+            {
+                app.LogService.Error(ex.Message);
+            }
+        }
+        app.LogService.Info(string.Format(Loc.S("BatchRowTasksCreated"), batch.Tag, created, nums.Count - fresh.Count));
+    }
+
     /// <summary>По точке окна поверхности: одиночная задача предельного усилия в режиме луча Кисп.</summary>
     public static void CreateAndRun(AppViewModel app, CalcTask surface, LimitSurfacePointRecord point, UtilizationMode mode)
     {

@@ -1920,6 +1920,13 @@
    <system:String x:Key="CalcResultNotPassed">Task "{0}": check not passed.</system:String>
    <system:String x:Key="CalcResultIncomplete">Task "{0}": not all elements were checked.</system:String>
    <system:String x:Key="BatchVerdictColUtil">Util.</system:String>
+   <system:String x:Key="BatchRowTasksMenu">Create tasks ▾</system:String>
+   <system:String x:Key="BatchRowTasksGoverning">For the governing row (max utilization)</system:String>
+   <system:String x:Key="BatchRowTasksFailed">For all failed and non-converged rows</system:String>
+   <system:String x:Key="BatchRowTasksNoGoverning">No row has a utilization — the governing row cannot be chosen.</system:String>
+   <system:String x:Key="BatchRowTasksNoFailed">All rows pass — no tasks needed.</system:String>
+   <system:String x:Key="BatchRowTasksConfirm">{0} tasks will be created. Continue?</system:String>
+   <system:String x:Key="BatchRowTasksCreated">Batch "{0}": tasks created for failed rows — {1}, already existed — {2}.</system:String>
    <system:String x:Key="ShellSimplBatchSummary">Total: {0}, passed: {1}, violations: {2}</system:String>
    <system:String x:Key="BatchVerdictColReason">Reason</system:String>
    <system:String x:Key="BatchVerdictShow">Show:</system:String>

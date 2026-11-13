@@ -13,8 +13,12 @@ namespace OpenCS.Views
     {
         SectionCutWindowService? _cutWindow;
 
+    /// <summary>Показываемый результат (нужен общим панелям вложенных окон, например фильтру пакета).</summary>
+    public CalcResult Result { get; }
+
     public CalcResultView(CalcResult result, AppViewModel app)
     {
+        Result = result;
         var task = app.CalcTasks.FirstOrDefault(t => t.Id == result.TaskId);
 
         if (task?.Kind == "opensees_section_moment_curvature")

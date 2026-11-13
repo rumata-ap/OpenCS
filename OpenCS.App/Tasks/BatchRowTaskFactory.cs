@@ -1,8 +1,18 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using CScore;
+using CScore.Batch;
 
 namespace OpenCS.Tasks;
+
+/// <summary>Какие строки пакета превращать в задачи.</summary>
+public enum BatchRowSelection
+{
+    /// <summary>Определяющая строка — наибольший Кисп.</summary>
+    Governing,
+    /// <summary>Все не прошедшие и не сошедшиеся строки.</summary>
+    Failed,
+}
 
 /// <summary>
 /// Одиночная задача по выбранной строке результата пакетного расчёта: тот же вид без «_batch»,
@@ -76,6 +86,33 @@ public static class BatchRowTaskFactory
         task.Tag = $"{sectionTag} — {label}";
         task.ParamsJson = WithSource(paramsJson, batch.Id, rowNum);
         return task;
+    }
+
+    /// <summary>
+    /// Номера строк набора для задач по результату пакета: определяющая (наибольший Кисп) или все не прошедшие
+    /// и не сошедшиеся. Причина — сохранённая или восстановленная для старых результатов.
+    /// </summary>
+    public static IReadOnlyList<int> SelectRows(CalcResult result, BatchRowSelection selection)
+    {
+        using var doc = System.Text.Json.JsonDocument.Parse(result.DataJson);
+        var root = doc.RootElement;
+        if (!root.TryGetProperty("rows", out var rows) && !root.TryGetProperty("Rows", out rows)) return [];
+        if (rows.ValueKind != System.Text.Json.JsonValueKind.Array) return [];
+        var nums = new List<int>();
+        var verdicts = new List<BatchRowVerdict>();
+        int i = 0;
+        foreach (var r in rows.EnumerateArray())
+        {
+            i++;
+            nums.Add(r.TryGetProperty("num", out var n) && n.ValueKind == System.Text.Json.JsonValueKind.Number ? n.GetInt32()
+                : r.TryGetProperty("Num", out var n2) && n2.ValueKind == System.Text.Json.JsonValueKind.Number ? n2.GetInt32() : i);
+            verdicts.Add(BatchRowVerdictReader.Read(result.TaskKind, r));
+        }
+        if (selection == BatchRowSelection.Failed)
+            return Enumerable.Range(0, nums.Count)
+                .Where(k => verdicts[k].Status is BatchRowStatus.NotPassed or BatchRowStatus.NotConverged)
+                .Select(k => nums[k]).ToList();
+        return BatchVerdictSummary.GoverningIndex(verdicts) is { } g ? [nums[g]] : [];
     }
 
     /// <summary>Ранее созданная одиночная задача по той же строке того же пакета или null.</summary>

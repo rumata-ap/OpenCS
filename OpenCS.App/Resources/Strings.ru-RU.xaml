@@ -1920,6 +1920,13 @@
    <system:String x:Key="CalcResultNotPassed">Задача «{0}»: проверка не пройдена.</system:String>
    <system:String x:Key="CalcResultIncomplete">Задача «{0}»: проверены не все элементы.</system:String>
    <system:String x:Key="BatchVerdictColUtil">Кисп</system:String>
+   <system:String x:Key="BatchRowTasksMenu">Создать задачи ▾</system:String>
+   <system:String x:Key="BatchRowTasksGoverning">Для определяющей строки (наибольший Кисп)</system:String>
+   <system:String x:Key="BatchRowTasksFailed">Для всех не прошедших и не сошедшихся строк</system:String>
+   <system:String x:Key="BatchRowTasksNoGoverning">Кисп нет ни у одной строки — определяющую строку выбрать нельзя.</system:String>
+   <system:String x:Key="BatchRowTasksNoFailed">Все строки проходят — задачи не нужны.</system:String>
+   <system:String x:Key="BatchRowTasksConfirm">Будет создано задач: {0}. Продолжить?</system:String>
+   <system:String x:Key="BatchRowTasksCreated">Пакет «{0}»: создано задач по не прошедшим строкам — {1}, уже были — {2}.</system:String>
    <system:String x:Key="ShellSimplBatchSummary">Всего: {0}, выполнено: {1}, нарушений: {2}</system:String>
    <system:String x:Key="BatchVerdictColReason">Причина</system:String>
    <system:String x:Key="BatchVerdictShow">Показать:</system:String>
