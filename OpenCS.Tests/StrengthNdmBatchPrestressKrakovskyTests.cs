@@ -66,7 +66,7 @@ public sealed class StrengthNdmBatchPrestressKrakovskyTests
     /// знаковую конвенцию y (положительный y — сторона, где формулы пособия дают бОльшее
     /// растяжение/меньшее сжатие).
     /// </summary>
-    static CrossSection Section()
+    internal static CrossSection Section()
     {
         var concrete = ConcreteB30();
         var rebar = RebarA500();
