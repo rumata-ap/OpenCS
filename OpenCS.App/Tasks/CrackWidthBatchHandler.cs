@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using CScore;
+using CScore.Batch;
 using CScore.Sp63;
 using OpenCS.Utilites;
 
@@ -63,6 +64,7 @@ public sealed class CrackWidthBatchHandler : ITaskHandler
             int total = items.Count;
             var rowResults = new object[total];
             var passedArr = new bool[total];
+            var verdicts = new BatchRowVerdict[total];
 
             BatchProgress.ForEachRow(total, settings, ctx, i =>
             {
@@ -143,6 +145,7 @@ public sealed class CrackWidthBatchHandler : ITaskHandler
                 var res = solver.Compute(N: nTotal, mxLong: mxLong, mxTotal: mxTotal, myLong: myLong, myTotal: myTotal);
                 bool passed = res.PassedLong && res.PassedShort && res.PassedSteel;
                 passedArr[i] = passed;
+                verdicts[i] = BatchRowVerdictReader.CrackWidthVerdict(res);
 
                 rowResults[i] = new
                 {
@@ -160,8 +163,9 @@ public sealed class CrackWidthBatchHandler : ITaskHandler
                     passed_short = res.PassedShort,
                     util_steel = Math.Round(res.UtilSteel, 4),
                     passed_steel = res.PassedSteel,
-                    status = passed ? "ok" : "not_passed",
-                    eta = etaRow
+                    status = verdicts[i].Status,
+                    eta = etaRow,
+                    verdict = verdicts[i].ToJson()
                 };
             });
 
@@ -173,6 +177,9 @@ public sealed class CrackWidthBatchHandler : ITaskHandler
                 all_passed = allPassed,
                 passed_count = passedCount,
                 total,
+                acrc_ult_long = p.AcrcUltLong,
+                acrc_ult_short = p.AcrcUltShort,
+                verdict_summary = BatchVerdictSummary.ToJson(verdicts, items.Select(fi => fi.Num).ToList()),
                 rows = rowResults
             };
 
@@ -182,7 +189,7 @@ public sealed class CrackWidthBatchHandler : ITaskHandler
                 TaskKind = task.Kind,
                 TaskTag = task.Tag,
                 Created = created,
-                Status = allPassed ? "ok" : "not_passed",
+                Status = BatchVerdictSummary.PackageStatus(verdicts),
                 DataJson = JsonSerializer.Serialize(data)
             };
         }

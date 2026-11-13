@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CScore;
+using CScore.Batch;
 using OpenCS.Utilites;
 
 namespace OpenCS.Tasks;
@@ -73,6 +74,7 @@ static class LimitForceTaskHelper
          int total = items.Count;
          var rowResults = new object[total];
          var convergedArr = new bool[total];
+         var verdicts = new BatchRowVerdict[total];
          int done = 0;
 
          if (settings.BatchParallel && total > 1)
@@ -88,7 +90,8 @@ static class LimitForceTaskHelper
                   ten: settings.ResolveConcreteTension(task.CalcType));
                var res = Solve(solver, fi, mode);
                convergedArr[i] = res.Converged;
-               rowResults[i] = BuildRow(fi, res, parameters);
+               verdicts[i] = RowVerdict(res);
+               rowResults[i] = BuildRow(fi, res, parameters, verdicts[i]);
                BatchProgress.Report(ctx, ref done, total);
             });
             ctx?.CancellationToken.ThrowIfCancellationRequested();
@@ -104,7 +107,8 @@ static class LimitForceTaskHelper
                var fi = items[i];
                var res = Solve(solver, fi, mode);
                convergedArr[i] = res.Converged;
-               rowResults[i] = BuildRow(fi, res, parameters);
+               verdicts[i] = RowVerdict(res);
+               rowResults[i] = BuildRow(fi, res, parameters, verdicts[i]);
                BatchProgress.Report(ctx, ref done, total);
             }
          }
@@ -118,13 +122,14 @@ static class LimitForceTaskHelper
             TaskKind = task.Kind,
             TaskTag  = task.Tag,
             Created  = created,
-            Status   = allConverged ? "ok" : "partial",
+            Status   = BatchVerdictSummary.PackageStatus(verdicts),
             DataJson = JsonSerializer.Serialize(new
             {
                all_converged   = allConverged,
                converged_count = convergedCount,
                total,
                solver          = parameters.Solver,
+               verdict_summary = BatchVerdictSummary.ToJson(verdicts, items.Select(fi => fi.Num).ToList()),
                rows            = rowResults
             })
          };
@@ -267,7 +272,18 @@ static class LimitForceTaskHelper
       };
    }
 
-   static object BuildRow(LoadItem fi, LimitForceResult res, LimitForceParams parameters)
+   /// <summary>Причина строки пакета предельных усилий: Кисп = 1/k, ∞ — нагрузка сечению не по силам ни при каком k.</summary>
+   internal static BatchRowVerdict RowVerdict(LimitForceResult res)
+   {
+      if (!res.Converged) return BatchRowVerdict.NotConverged("предельное усилие не найдено");
+      double u = double.IsNaN(res.Utilization) ? double.PositiveInfinity : res.Utilization;
+      string gov = string.IsNullOrEmpty(res.Governing) ? "none" : res.Governing;
+      string who = gov switch { "concrete" => " (бетон)", "rebar" => " (арматура)", "both" => " (бетон и арматура)", _ => "" };
+      return BatchRowVerdict.Worst(new BatchCriterion($"limit_{gov}", u, "",
+         $"Кисп = {BatchVerdictText.F3(u)}{who}"));
+   }
+
+   static object BuildRow(LoadItem fi, LimitForceResult res, LimitForceParams parameters, BatchRowVerdict? verdict = null)
    {
       var k = res.StrainPlane ?? new Kurvature();
       return new
@@ -294,6 +310,7 @@ static class LimitForceTaskHelper
          eta               = BuildEtaJson(res.Eta, parameters.EtaIterative,
             parameters.EtaSlendernessThreshold ?? CScore.Sp63.EccentricityAmplifier.SlendernessThreshold,
             res.MxLimit, res.MyLimit),
+         verdict           = verdict?.ToJson(),
       };
    }
 

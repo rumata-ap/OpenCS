@@ -58,8 +58,8 @@ public static class BatchRowVerdictReader
         double ub = Ratio(eb, ebu);
         double us = Ratio(Math.Max(epsS, 0), epsSUlt);
         return BatchRowVerdict.Worst(
-            new BatchCriterion("eps_b", ub, "п. 8.1.30", $"εb = {N(eb)} {Cmp(ub)} εb,ult = {N(ebu)}"),
-            new BatchCriterion("eps_s", us, "п. 8.1.30", $"εs = {N(epsS)} {Cmp(us)} εs,ult = {N(epsSUlt)}"));
+            new BatchCriterion("eps_b", ub, "п. 8.1.24, (8.37)", $"εb = {N(eb)} {Cmp(ub)} εb,ult = {N(ebu)}"),
+            new BatchCriterion("eps_s", us, "п. 8.1.24, (8.38)", $"εs = {N(epsS)} {Cmp(us)} εs,ult = {N(epsSUlt)}"));
     }
 
     static BatchRowVerdict Limit(JsonElement row)
@@ -83,6 +83,28 @@ public static class BatchRowVerdictReader
         var first = crit[0];
         bool failed = Bool(row, "passed_long") == false || Bool(row, "passed_short") == false || Bool(row, "passed_steel") == false;
         return new BatchRowVerdict(failed ? BatchRowStatus.NotPassed : BatchRowStatus.Ok, first.Util, first.Code, first.Ref, first.Text);
+    }
+
+    /// <summary>
+    /// Причина проверки ширины трещин стержня: acrc ≤ acrc,ult (п. 8.2.6, (8.118)) по длительной и полной
+    /// нагрузке и σs ≤ Rs,ser (п. 8.2.16). Не сошлась плоскость полной нагрузки — «не сошлось», а не «не проходит».
+    /// </summary>
+    public static BatchRowVerdict CrackWidthVerdict(CrackWidthResult res)
+    {
+        double ul = Ratio(res.AcrcLong, res.AcrcUltLong);
+        var acrcLong = new BatchCriterion("acrc_long", ul, "п. 8.2.6, (8.118)",
+            $"acrc,1 = {F3(res.AcrcLong)} мм {Cmp(ul)} acrc,ult = {F3(res.AcrcUltLong)} мм");
+        if (!res.TotalConverged)
+            return ul > BatchRowVerdict.Threshold
+                ? BatchRowVerdict.Worst(acrcLong)
+                : BatchRowVerdict.NotConverged("НДС с трещиной от полной нагрузки не найден");
+        double us = Ratio(res.AcrcShort, res.AcrcUltShort);
+        return BatchRowVerdict.Worst(
+            acrcLong,
+            new BatchCriterion("acrc_short", us, "п. 8.2.6, (8.118)",
+                $"acrc = {F3(res.AcrcShort)} мм {Cmp(us)} acrc,ult = {F3(res.AcrcUltShort)} мм"),
+            new BatchCriterion("sigma_s", res.UtilSteel, "п. 8.2.16",
+                $"σs/Rs,ser = {F3(res.UtilSteel)}"));
     }
 
     static BatchRowVerdict ShellSls(JsonElement row, string status)

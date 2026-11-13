@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CScore;
+using CScore.Batch;
 using OpenCS.Utilites;
 
 namespace OpenCS.Tasks;
@@ -44,6 +45,7 @@ public sealed class StrengthNDMBatchHandler : ITaskHandler
             var rowResults = new object[total];
             var convergedArr = new bool[total];
             var passedArr = new bool[total];
+            var verdicts = new BatchRowVerdict[total];
             int done = 0;
 
             void Solve(int i)
@@ -53,7 +55,8 @@ public sealed class StrengthNDMBatchHandler : ITaskHandler
                 var r = Evaluate(clone, fi, task.CalcType, ten, settings);
                 convergedArr[i] = r.Converged;
                 passedArr[i] = r.StrengthOk;
-                rowResults[i] = BuildRow(fi, r);
+                verdicts[i] = RowVerdict(r);
+                rowResults[i] = BuildRow(fi, r, verdicts[i]);
                 BatchProgress.Report(ctx, ref done, total);
             }
 
@@ -81,6 +84,7 @@ public sealed class StrengthNDMBatchHandler : ITaskHandler
                 all_passed = allPassed,
                 passed_count = passedCount,
                 total,
+                verdict_summary = BatchVerdictSummary.ToJson(verdicts, items.Select(fi => fi.Num).ToList()),
                 rows = rowResults
             };
 
@@ -90,7 +94,7 @@ public sealed class StrengthNDMBatchHandler : ITaskHandler
                 TaskKind = task.Kind,
                 TaskTag = task.Tag,
                 Created = created,
-                Status = allPassed ? "ok" : (allConverged ? "not_passed" : "partial"),
+                Status = BatchVerdictSummary.PackageStatus(verdicts),
                 DataJson = JsonSerializer.Serialize(data)
             };
         }
@@ -160,7 +164,13 @@ public sealed class StrengthNDMBatchHandler : ITaskHandler
             epsConcreteMin, epsConcreteUlt, epsRebarMax, epsRebarUlt, concreteOk, rebarOk);
     }
 
-    static object BuildRow(LoadItem fi, StrengthNdmItemResult r) => new
+    /// <summary>Причина строки: определяющий из критериев (8.37) бетона и (8.38) арматуры.</summary>
+    internal static BatchRowVerdict RowVerdict(StrengthNdmItemResult r)
+        => r.Converged
+            ? BatchRowVerdictReader.NdmVerdict(r.EpsConcreteCompression, r.EpsConcreteUlt, r.EpsRebarTension, r.EpsRebarUlt)
+            : BatchRowVerdict.NotConverged($"НДС не найден (невязка {BatchVerdictText.N(r.Residual, 3)})");
+
+    static object BuildRow(LoadItem fi, StrengthNdmItemResult r, BatchRowVerdict verdict) => new
     {
         label = fi.Label,
         num = fi.Num,
@@ -179,7 +189,8 @@ public sealed class StrengthNDMBatchHandler : ITaskHandler
         strength_ok = r.StrengthOk,
         iterations = r.Iterations,
         residual = Math.Round(r.Residual, 6),
-        status = r.Converged ? "ok" : "not_converged"
+        status = r.Converged ? "ok" : "not_converged",
+        verdict = verdict.ToJson()
     };
 
     /// <summary>

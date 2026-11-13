@@ -204,7 +204,10 @@ public sealed class BatchRowTaskFactoryTests : IDisposable
 
         Assert.NotNull(sequential);
         Assert.NotNull(parallel);
-        Assert.DoesNotContain("\"error\"", sequential!.DataJson);
+        // Ошибка расчёта — корневое поле error; счётчик verdict_summary.error ошибкой не является.
+        using (var seqDoc = System.Text.Json.JsonDocument.Parse(sequential!.DataJson))
+            Assert.False(seqDoc.RootElement.TryGetProperty("error", out _), sequential.DataJson);
+        Assert.DoesNotContain("\"status\":\"error\"", sequential.DataJson);
         Assert.Equal(sequential.Status, parallel!.Status);
         Assert.Equal(sequential.DataJson, parallel.DataJson);
     }
