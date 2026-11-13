@@ -93,14 +93,14 @@ public sealed class FemCsfeaParamsTests
         Assert.DoesNotContain(ok, d => d.Code == "fragment_pdelta_local_sway");
         Assert.Contains(ok, d => d.Code == "fragment_pdelta_local");
 
-        // Стена-трапеция: низ 0…1 м, верх 0,25…0,75 м — у краевых узлов нижних рядов нет точки верхней линии уровня.
+        // Стена-трапеция: низ 0…1 м, верх 0,4…0,6 м — у краевых узлов нижних рядов до верхней линии уровня дальше ширины КЭ.
         var m = new RcStructuralModel();
         var sec = new RcShellSection("стена") { Elastic = new Laminate([new Ply(new OrthotropicMaterial(30e9, 30e9, 0.2, 12.5e9), 0, 0.2)]) };
         const int nx = 4, nz = 4;
         for (int k = 0; k <= nz; k++)
             for (int i = 0; i <= nx; i++)
             {
-                double x0 = 0.25 * k / nz, x1 = 1 - 0.25 * k / nz;
+                double x0 = 0.4 * k / nz, x1 = 1 - 0.4 * k / nz;
                 m.Nodes.Add(new RcNode(k * (nx + 1) + i, x0 + (x1 - x0) * i / nx, 0, 3.0 * k / nz));
             }
         for (int k = 0; k < nz; k++)

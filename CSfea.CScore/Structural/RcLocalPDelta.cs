@@ -7,12 +7,17 @@ namespace CSfea.CScoreBridge.Structural;
 /// Хорды режима «только P-δ» (<see cref="RcLocalPDelta.Analyze"/>) в единой нумерации КЭ сетки
 /// (<see cref="StructuralMesh.SetLocalSecondOrder"/>; оболочки модели, затем стержни — порядок списков модели) и сводка:
 /// вертикальных стержней и оболочек с хордой, участков стержней, уровней стен; <see cref="NoLineShells"/> — номера
-/// оболочек, у узла которых нет линии уровня по плановой координате (ошибка).
+/// оболочек, у узла которых нет линии уровня по плановой координате (ошибка); <see cref="SkippedLevelShells"/> — номера
+/// оболочек, хорда которых проходит через отметку плиты у стены, не ставшей её уровнем (предупреждение: плита не связана
+/// со стеной ни общими узлами, ни АЖТ — P-δ стены через несколько этажей).
 /// </summary>
 public sealed record RcLocalPDeltaResult(ElementChord?[] Chords, int Bars, int Shells, int BarSegments, int WallLevels,
     IReadOnlyList<int> NoLineShells)
 {
     public bool HasErrors => NoLineShells.Count > 0;
+
+    /// <summary>Оболочки с хордой через отметку плиты у стены (≤ 1 м от плоскости), не ставшей уровнем.</summary>
+    public IReadOnlyList<int> SkippedLevelShells { get; init; } = [];
 
     /// <summary>Сводка для журнала и отчёта.</summary>
     public string Summary => string.Format(CultureInfo.CurrentCulture,
@@ -26,15 +31,18 @@ public sealed record RcLocalPDeltaResult(ElementChord?[] Chords, int Bars, int S
 /// (остальные — без K_σ). Стержни: участок — цепочка вертикальных стержней между узлами-уровнями; уровень — узел с
 /// невертикальным КЭ, с опорой, заданным перемещением или пружиной по ux/uy, узел жёсткого тела, конец цепочки (не два
 /// вертикальных стержня в узле) или излом цепочки. Стены — компоненты компланарных вертикальных оболочек, связанных
-/// рёбрами: уровни — отметки рядов узлов, общих с невертикальными оболочками (плиты), и низ/верх стены; хорда узла —
-/// по плановой координате вдоль стены интерполяцией по соседним узлам линии уровня.
+/// рёбрами: уровни — отметки рядов узлов, общих с невертикальными оболочками (плиты) или связанных с узлом плиты на той
+/// же отметке жёстким телом (импорт: плита в стороне от плоскости стены на АЖТ), и низ/верх стены; хорда узла —
+/// по плановой координате вдоль стены интерполяцией по соседним узлам линии уровня; узел ступенчатой стены за концом линии
+/// не дальше ширины своего КЭ вдоль стены (выступ парапета, полоса у угла) — по ближайшему концу линии.
 /// </summary>
 public static class RcLocalPDelta
 {
     private static readonly double VerticalCos = Math.Cos(10 * Math.PI / 180);
     private static readonly double ShellNz = Math.Sin(10 * Math.PI / 180);
     private static readonly double KinkCos = Math.Cos(0.5 * Math.PI / 180);
-    private static readonly double ParallelCos = Math.Cos(1.0 * Math.PI / 180);
+    // Компланарность соседних оболочек стены — 2°: у импортных сеток бывают КЭ с перекосом ≈ 1,2° («Музей», 124384).
+    private static readonly double ParallelCos = Math.Cos(2.0 * Math.PI / 180);
 
     public static RcLocalPDeltaResult Analyze(RcStructuralModel model)
     {
@@ -117,6 +125,19 @@ public static class RcLocalPDelta
         }
 
         // ---- стены
+        // Узлы стены, связанные АЖТ с узлом плиты на той же отметке, — тоже узлы уровня.
+        double lineTol = 1e3 * tol;
+        var slabLevel = (bool[])nonVerticalShell.Clone();
+        foreach (var rb in model.RigidBodies)
+        {
+            var ids = rb.Slaves.Prepend(rb.Master).Where(index.ContainsKey).Select(id => index[id]).ToList();
+            var slabZ = ids.Where(n => nonVerticalShell[n]).Select(n => p[n][2]).ToList();
+            if (slabZ.Count == 0) continue;
+            foreach (int n in ids)
+                if (!nonVerticalShell[n] && slabZ.Any(z => Math.Abs(p[n][2] - z) <= lineTol)) slabLevel[n] = true;
+        }
+        var slabNodes = Enumerable.Range(0, nn).Where(n => nonVerticalShell[n]).ToArray();
+        var skipped = new List<int>();
         var parent = Enumerable.Range(0, ns).ToArray();
         int Find(int x) { while (parent[x] != x) x = parent[x] = parent[parent[x]]; return x; }
         var edgeOwner = new Dictionary<(int, int), int>();
@@ -143,11 +164,15 @@ public static class RcLocalPDelta
             var h = Unit([n0[1], -n0[0], 0.0]);   // n × ẑ — горизонталь вдоль стены
             var nodes = members.SelectMany(s => shellNodes[s]).Distinct().ToList();
             var zs = new List<double> { nodes.Min(n => p[n][2]), nodes.Max(n => p[n][2]) };
-            zs.AddRange(nodes.Where(n => nonVerticalShell[n]).Select(n => p[n][2]));
+            zs.AddRange(nodes.Where(n => slabLevel[n]).Select(n => p[n][2]));
             var levels = new List<double>();
             foreach (double z in zs.OrderBy(z => z))
                 if (levels.Count == 0 || z - levels[^1] > 1e3 * tol) levels.Add(z);
             wallLevels += levels.Count;
+            // Отметки плит у стены (≤ 1 м от плоскости, в пределах её длины ± 1 м) — для предупреждения о пропущенном уровне.
+            double d0 = Dot(p[nodes[0]], n0), sLo = nodes.Min(n => Dot(p[n], h)) - 1, sHi = nodes.Max(n => Dot(p[n], h)) + 1;
+            var nearSlabZ = slabNodes.Where(n => Math.Abs(Dot(p[n], n0) - d0) <= 1.0 && Dot(p[n], h) is var sc && sc >= sLo && sc <= sHi)
+                .Select(n => p[n][2]).Distinct().ToList();
             var lines = levels.Select(z => nodes.Where(n => Math.Abs(p[n][2] - z) <= 1e3 * tol)
                 .Select(n => (S: Dot(p[n], h), Node: n)).OrderBy(x => x.S).ToArray()).ToArray();
             foreach (int s in members)
@@ -158,6 +183,7 @@ public static class RcLocalPDelta
                 int kt = levels.FindIndex(z => z >= zhi - 1e3 * tol);
                 if (kb < 0 || kt < 0 || kt <= kb) { noLine.Add(model.Shells[s].Id); continue; }
                 double hz = levels[kt] - levels[kb];
+                double reach = sn.Max(n => Dot(p[n], h)) - sn.Min(n => Dot(p[n], h)) + lineTol;
                 var bottom = new ChordPoint[sn.Length];
                 var topPts = new ChordPoint[sn.Length];
                 var zeta = new double[sn.Length];
@@ -165,21 +191,24 @@ public static class RcLocalPDelta
                 for (int k = 0; k < sn.Length && ok; k++)
                 {
                     double sc = Dot(p[sn[k]], h);
-                    var bp = Interpolate(lines[kb], sc, 1e3 * tol);
-                    var tp = Interpolate(lines[kt], sc, 1e3 * tol);
+                    var bp = Interpolate(lines[kb], sc, lineTol, reach);
+                    var tp = Interpolate(lines[kt], sc, lineTol, reach);
                     if (bp == null || tp == null) { ok = false; break; }
                     (bottom[k], topPts[k], zeta[k]) = (bp, tp, (p[sn[k]][2] - levels[kb]) / hz);
                 }
                 if (!ok) { noLine.Add(model.Shells[s].Id); continue; }
                 chords[s] = new ElementChord(bottom, topPts, zeta, [0.0, 0.0, 1.0], hz, Rotations: false);
                 shellsDone++;
+                double z0 = levels[kb], z1 = levels[kt];
+                if (nearSlabZ.Any(z => z > z0 + lineTol && z < z1 - lineTol)) skipped.Add(model.Shells[s].Id);
             }
         }
-        return new RcLocalPDeltaResult(chords, bars, shellsDone, segments.Count, wallLevels, noLine);
+        return new RcLocalPDeltaResult(chords, bars, shellsDone, segments.Count, wallLevels, noLine) { SkippedLevelShells = skipped };
     }
 
-    // Точка линии уровня с плановой координатой s: узел линии (|Δs| ≤ tol) или интерполяция по соседним; вне охвата — null.
-    private static ChordPoint? Interpolate((double S, int Node)[] line, double s, double tol)
+    // Точка линии уровня с плановой координатой s: узел линии (|Δs| ≤ tol) или интерполяция по соседним; за концом линии
+    // не дальше reach — конец линии; дальше — null.
+    private static ChordPoint? Interpolate((double S, int Node)[] line, double s, double tol, double reach)
     {
         if (line.Length == 0) return null;
         for (int j = 0; j < line.Length; j++)
@@ -190,6 +219,8 @@ public static class RcLocalPDelta
                 double w = (s - line[j].S) / (line[j + 1].S - line[j].S);
                 return new ChordPoint([line[j].Node, line[j + 1].Node], [1 - w, w]);
             }
+        if (s < line[0].S && line[0].S - s <= reach) return ChordPoint.At(line[0].Node);
+        if (s > line[^1].S && s - line[^1].S <= reach) return ChordPoint.At(line[^1].Node);
         return null;
     }
 

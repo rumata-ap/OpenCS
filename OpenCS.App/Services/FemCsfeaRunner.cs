@@ -656,7 +656,8 @@ public static class FemCsfeaRunner
     /// фрагмента): без геомнелина — предупреждение <c>fragment_pdelta_local_first_order</c>; с «Большими перемещениями» —
     /// ошибка <c>fragment_pdelta_local_cr</c>; по модели (<paramref name="model"/>, null — не проверяется) — уровни и хорды
     /// (<see cref="RcLocalPDelta"/>): узлы без линии уровня — ошибка <c>fragment_pdelta_local_no_level_line</c>, иначе
-    /// сведения <c>fragment_pdelta_local</c>; λ_cr каркаса (<paramref name="lambda"/> — наименьшее λ₁ и постановка; у
+    /// сведения <c>fragment_pdelta_local</c>; хорда стены через отметку несвязанной плиты — предупреждение
+    /// <c>fragment_pdelta_local_skipped_level</c>; λ_cr каркаса (<paramref name="lambda"/> — наименьшее λ₁ и постановка; у
     /// фрагмента — родителя) меньше <see cref="LocalPDeltaLambdaMin"/> или не посчитан — предупреждение
     /// <c>fragment_pdelta_local_sway</c>.
     /// </summary>
@@ -687,6 +688,14 @@ public static class FemCsfeaRunner
                     "торца стены) над или под узлом по его плановому положению — уровень не совпал с сеткой.", true, tags));
             }
             else diag.Add(new("fragment_pdelta_local", r.Summary, false));
+            if (r.SkippedLevelShells.Count > 0)
+            {
+                var tags = r.SkippedLevelShells.Select(id => id.ToString(CultureInfo.InvariantCulture)).ToList();
+                diag.Add(new("fragment_pdelta_local_skipped_level",
+                    $"Режим «только P-δ»: у пластин стен {CScore.Fem.Loads.FemLoadTargets.Sample(tags)} хорда проходит через отметку " +
+                    "плиты у стены — плита не связана со стеной ни общими узлами, ни АЖТ, уровнем не стала; P-δ этих стен — через " +
+                    "несколько этажей (ближе к P-Δ). Свяжите плиту со стеной или проверьте сетку.", false, tags));
+            }
         }
         string frame = fragment ? "родителя" : "схемы";
         if (lambda is not { } l)

@@ -210,6 +210,9 @@ public static class RcSecantAnalysis
                     (local.NoLineShells.Count > 10 ? " …" : "") + " нет линии уровня (перекрытия или торца) над или под узлом.");
             build.Mesh.SetLocalSecondOrder(local.Chords);
             solverOptions.Log?.Invoke(local.Summary);
+            if (local.SkippedLevelShells.Count > 0)
+                solverOptions.Log?.Invoke($"Режим «только P-δ»: у оболочек {string.Join(", ", local.SkippedLevelShells.Take(10))}" +
+                    (local.SkippedLevelShells.Count > 10 ? " …" : "") + " хорда проходит через отметку плиты у стены, не ставшей уровнем.");
         }
         var extractor = new RcSecantFieldExtractor(model, build, shells,
             options.Solver.Geometric && !options.Solver.GeometricSecondOrder, options.ShellForceAngles,

@@ -42,6 +42,8 @@ public class LocalPDeltaTests
         TestHarness.Section("Уровни: ригель, стена-трапеция, стена с заданными торцами");
         RunLevels();
         RunWallNoLevelLine();
+        RunWallSlabByRigidBodies();
+        RunWallSkewedShell();
         RunWallBothEndsPrescribed();
 
         TestHarness.Section("Поблочные силы хорд: Σ ElementChordForces = ChordForce + ChordImperfectionForce");
@@ -263,13 +265,19 @@ public class LocalPDeltaTests
     };
 
     /// <summary>
-    /// Стена-трапеция (низ 0…1 м, верх 0,25…0,75 м): у узлов нижних рядов у края нет точки верхней линии уровня — отказ
-    /// (<see cref="RcLocalPDeltaResult.NoLineShells"/>, <see cref="InvalidOperationException"/> расчёта).
+    /// Стена-трапеция (низ 0…1 м, верх 0,4…0,6 м): у узлов нижних рядов у края до верхней линии уровня дальше ширины КЭ —
+    /// отказ (<see cref="RcLocalPDeltaResult.NoLineShells"/>, <see cref="InvalidOperationException"/> расчёта). Пологая
+    /// трапеция (верх 0,1…0,9 м — выступ меньше ширины КЭ, как парапет «Музея») — без отказа, угловой узел низа берёт конец
+    /// верхней линии.
     /// </summary>
     private static void RunWallNoLevelLine()
     {
         const int nx = 4, nz = 6;
-        var m = Wall(nx, nz, 3.0, k => (0.25 * k / nz, 1 - 0.25 * k / nz), WallSection);
+        var mild = RcLocalPDelta.Analyze(Wall(nx, nz, 3.0, k => (0.1 * k / nz, 1 - 0.1 * k / nz), WallSection));
+        TestHarness.Check("пологая трапеция: без отказа", !mild.HasErrors, $"{mild.NoLineShells.Count}");
+        TestHarness.Check("пологая трапеция: узел 0 → конец верхней линии", mild.Chords[0]!.Top[0].Nodes is [var t0] && t0 == nz * (nx + 1),
+            string.Join(",", mild.Chords[0]!.Top[0].Nodes));
+        var m = Wall(nx, nz, 3.0, k => (0.4 * k / nz, 1 - 0.4 * k / nz), WallSection);
         var r = RcLocalPDelta.Analyze(m);
         TestHarness.Check("трапеция: есть оболочки без линии уровня", r.HasErrors, "нет");
         for (int i = 0; i <= nx; i++) m.Supports.Add(new RcSupport(i, Fixed));
@@ -281,6 +289,67 @@ public class LocalPDeltaTests
         try { RcSecantAnalysis.Run(m, Options(local: true)); }
         catch (InvalidOperationException ex) { thrown = ex.Message.Contains("линии уровня", StringComparison.Ordinal); }
         TestHarness.Check("трапеция: расчёт отказан «нет линии уровня»", thrown, "без отказа");
+    }
+
+    /// <summary>
+    /// Стена 1 × 6 м (Q4 4 × 6) и плита на отметке 3 м в 50 мм от плоскости стены (импорт: «Музей», стена x = 18,35): плита
+    /// связана с узлами стены на отметке 3 м АЖТ, общих узлов нет. С АЖТ — уровень 3 м есть (три уровня, хорда нижнего КЭ
+    /// 0 → 3 м, предупреждений нет); без АЖТ — хорда через всю высоту 0 → 6 м и предупреждение о пропущенном перекрытии
+    /// (<see cref="RcLocalPDeltaResult.SkippedLevelShells"/>) у всех КЭ стены.
+    /// </summary>
+    private static void RunWallSlabByRigidBodies()
+    {
+        const int nx = 4, nz = 6;
+        RcStructuralModel Model(bool rigid)
+        {
+            var m = Wall(nx, nz, 6.0, _ => (0, 1), WallSection);
+            int slab0 = 1000;
+            for (int j = 0; j < 3; j++)
+                for (int i = 0; i <= nx; i++) m.Nodes.Add(new RcNode(slab0 + j * (nx + 1) + i, 1.0 * i / nx, 0.05 + 0.5 * j, 3.0));
+            for (int j = 0; j < 2; j++)
+                for (int i = 0; i < nx; i++)
+                {
+                    int a = slab0 + j * (nx + 1) + i;
+                    m.Shells.Add(new RcShell(500 + j * nx + i, [a, a + 1, a + nx + 2, a + nx + 1], WallSection));
+                }
+            if (rigid)
+                for (int i = 0; i <= nx; i++) m.RigidBodies.Add(new RcRigidBody(i + 1, slab0 + i, [3 * (nx + 1) + i]));
+            return m;
+        }
+        var with = RcLocalPDelta.Analyze(Model(rigid: true));
+        TestHarness.Check("плита через АЖТ: уровней стены 3", with.WallLevels == 3, $"{with.WallLevels}");
+        TestHarness.CheckRel("плита через АЖТ: хорда нижнего КЭ 3 м", with.Chords[0]!.Length, 3.0, 1e-12);
+        TestHarness.Check("плита через АЖТ: без предупреждений", with.SkippedLevelShells.Count == 0, $"{with.SkippedLevelShells.Count}");
+        var without = RcLocalPDelta.Analyze(Model(rigid: false));
+        TestHarness.CheckRel("плита без связи: хорда 6 м", without.Chords[0]!.Length, 6.0, 1e-12);
+        TestHarness.Check("плита без связи: предупреждение у всех КЭ стены", without.SkippedLevelShells.Count == nx * nz,
+            $"{without.SkippedLevelShells.Count}");
+    }
+
+    /// <summary>
+    /// Стена 1 × 3 м (Q4 4 × 6), у углового КЭ верхний угловой узел смещён из плоскости так, что нормаль КЭ отклонена на
+    /// 1…2° («Музей», 124384: 1,2°): КЭ остаётся в стене (допуск компланарности 2°) — без отказа, хорда на высоту стены.
+    /// </summary>
+    private static void RunWallSkewedShell()
+    {
+        const int nx = 4, nz = 6;
+        var m = Wall(nx, nz, 3.0, _ => (0, 1), WallSection);
+        int corner = nz * (nx + 1) + nx;
+        var c = m.Nodes[corner];
+        m.Nodes[corner] = c with { Y = 0.012 };
+        double[] P(int id) => [m.Nodes[id].X, m.Nodes[id].Y, m.Nodes[id].Z];
+        var ids = m.Shells[^1].NodeIds;
+        var nrm = new double[3];
+        for (int k = 0; k < 4; k++)
+        {
+            var a = P(ids[k]); var b = P(ids[(k + 1) % 4]);
+            nrm[0] += (a[1] - b[1]) * (a[2] + b[2]); nrm[1] += (a[2] - b[2]) * (a[0] + b[0]); nrm[2] += (a[0] - b[0]) * (a[1] + b[1]);
+        }
+        double tilt = Math.Acos(Math.Abs(nrm[1]) / Math.Sqrt(nrm[0] * nrm[0] + nrm[1] * nrm[1] + nrm[2] * nrm[2])) * 180 / Math.PI;
+        TestHarness.Check("перекошенный КЭ: отклонение 1…2°", tilt is > 1 and < 2, $"{tilt:0.###}°");
+        var r = RcLocalPDelta.Analyze(m);
+        TestHarness.Check("перекошенный КЭ: без отказа", !r.HasErrors, $"{r.NoLineShells.Count}");
+        TestHarness.CheckRel("перекошенный КЭ: хорда 3 м", r.Chords[m.Shells.Count - 1]!.Length, 3.0, 1e-12);
     }
 
     /// <summary>
