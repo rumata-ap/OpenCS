@@ -233,7 +233,7 @@ public sealed class BatchRowTaskFactoryTests : IDisposable
 
         using var doc = JsonDocument.Parse(result!.DataJson);
         var row1 = BatchRow(doc.RootElement, 1);   // Mx = 30 кН·м/м растягивает верх
-        Assert.True(row1.GetProperty("status").GetString() == "fail", result.DataJson);
+        Assert.True(row1.GetProperty("status").GetString() == "not_passed", result.DataJson);
     }
 
     [Fact]

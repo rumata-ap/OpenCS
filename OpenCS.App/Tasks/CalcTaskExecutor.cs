@@ -1,4 +1,4 @@
-using CScore;
+﻿using CScore;
 using OpenCS.Services;
 using OpenCS.Utilites;
 
@@ -50,15 +50,7 @@ public static class CalcTaskExecutor
             busy.ReportBusyProgress(1.0, Loc.S("CalcTaskSavingResult"));
             app.Db.SaveCalcResult(result);
 
-            var statusKey = result.Status switch
-            {
-                "ok" => "CalcResultOk",
-                "not_converged" => "CalcResultNotConverged",
-                "partial" => "CalcResultPartial",
-                "not_passed" => "CalcResultNotPassed",
-                "not_applicable" => "CalcResultNotApplicable",
-                _ => "CalcResultError"
-            };
+            var statusKey = CalcResultLogHelper.ResolveKey(result.Status);
             string done = string.Format(Loc.S(statusKey), task.Tag);
             LogLevel level = CalcResultLogHelper.ResolveLevel(result);
             if (level == LogLevel.Error)

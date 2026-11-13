@@ -96,7 +96,7 @@ public sealed class TotalCurvatureBatchHandler : ITaskHandler
                 TaskKind = task.Kind,
                 TaskTag = task.Tag,
                 Created = created,
-                Status = allConverged ? "ok" : "error",
+                Status = allConverged ? "ok" : "partial",
                 DataJson = JsonSerializer.Serialize(data)
             };
         }

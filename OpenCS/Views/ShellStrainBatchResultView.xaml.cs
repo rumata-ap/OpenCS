@@ -55,7 +55,7 @@ public partial class ShellStrainBatchResultView : UserControl
                     verdict = s switch
                     {
                         "ok"            => Loc.S("ShellStrainCheckVerdictOk"),
-                        "fail"          => Loc.S("ShellStrainCheckVerdictFail"),
+                        "fail" or "not_passed" => Loc.S("ShellStrainCheckVerdictFail"),
                         "not_converged" => Loc.S("ShellStrainCheckNotConverged"),
                         _               => s,
                     };

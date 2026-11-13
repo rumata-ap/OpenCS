@@ -159,7 +159,7 @@ public abstract class ShellSimplBatchHandlerBase : ITaskHandler
                 {
                     num = si.Num,
                     label = si.Label,
-                    status = ok ? "ok" : "fail",
+                    status = ok ? "ok" : "not_passed",
                     eta_max = etaMax,
                     eta_q = result.Shear?.Eta,
                 };

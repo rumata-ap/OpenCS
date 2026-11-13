@@ -1917,10 +1917,11 @@
    <system:String x:Key="CalcTaskForceN">N, kN</system:String>
    <system:String x:Key="CalcTaskForceMx">Mx, kN·m</system:String>
    <system:String x:Key="CalcTaskForceMy">My, kN·m</system:String>
-   <system:String x:Key="CalcResultNotPassed">Task "{0}": fire R-check not passed.</system:String>
+   <system:String x:Key="CalcResultNotPassed">Task "{0}": check not passed.</system:String>
+   <system:String x:Key="CalcResultIncomplete">Task "{0}": not all elements were checked.</system:String>
    <system:String x:Key="CalcResultOk">Task "{0}" completed successfully.</system:String>
    <system:String x:Key="CalcResultNotConverged">Task "{0}" did not converge.</system:String>
-   <system:String x:Key="CalcResultPartial">Task "{0}": partial convergence.</system:String>
+   <system:String x:Key="CalcResultPartial">Task "{0}": part of the calculation did not converge or failed.</system:String>
     <system:String x:Key="CalcResultError">Error running task "{0}".</system:String>
     <system:String x:Key="CalcResultErrorWithDetail">Error running task "{0}": {1}</system:String>
    <system:String x:Key="StrainStateBatch_TabRows">All cases</system:String>

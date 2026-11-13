@@ -48,7 +48,7 @@ public sealed class ShellLayeredUlsHandler : ITaskHandler
 
             bool passed = chk.Converged && chk.Passed;
             string status = !chk.Converged ? "not_converged"
-                          : passed ? "ok" : "fail";
+                          : passed ? "ok" : "not_passed";
 
             var data = new
             {
@@ -158,7 +158,7 @@ public sealed class ShellLayeredUlsBatchHandler : ITaskHandler
                 bool passed = chk.Converged && chk.Passed;
                 passedArr[i] = passed;
                 string rowStatus = !chk.Converged ? "not_converged"
-                                 : passed ? "ok" : "fail";
+                                 : passed ? "ok" : "not_passed";
 
                 rows[i] = new
                 {

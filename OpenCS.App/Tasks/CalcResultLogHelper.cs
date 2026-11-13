@@ -14,11 +14,26 @@ public static class CalcResultLogHelper
         return result.Status switch
         {
             "error" => LogLevel.Error,
-            "not_converged" or "partial" => LogLevel.Warning,
+            "not_converged" or "partial" or "incomplete" => LogLevel.Warning,
             "not_applicable" => LogLevel.Info,
             _ => LogLevel.Info
         };
     }
+
+    /// <summary>
+    /// Ключ ресурса строки журнала по статусу результата. «fail» — статус слоистых пластин до 13.11.2026,
+    /// означает непрохождение проверки, а не ошибку; неизвестный статус — ошибка.
+    /// </summary>
+    public static string ResolveKey(string status) => status switch
+    {
+        "ok" => "CalcResultOk",
+        "not_passed" or "fail" => "CalcResultNotPassed",
+        "partial" => "CalcResultPartial",
+        "incomplete" => "CalcResultIncomplete",
+        "not_converged" => "CalcResultNotConverged",
+        "not_applicable" => "CalcResultNotApplicable",
+        _ => "CalcResultError",
+    };
 
     /// <summary>Извлекает поля error, message, errors или diagnostics из DataJson.</summary>
     public static string ExtractDetail(CalcResult result)

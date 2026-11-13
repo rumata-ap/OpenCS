@@ -82,13 +82,13 @@ public sealed class ShellStrainSummaryVM
         {
             "ok"            => "Сошлось ✓",
             "not_converged" => "НЕ СОШЛОСЬ ✗",
-            "fail"          => Loc.S("ShellStrainCheckVerdictFail"),
+            "fail" or "not_passed" => Loc.S("ShellStrainCheckVerdictFail"),
             "error"         => "Ошибка ✗",
             _               => r.Status,
         };
         StatusBrush = r.Status == "ok" ? Brushes.Green
                     : r.Status == "not_converged" ? Brushes.DarkOrange
-                    : r.Status == "fail" ? Brushes.Red
+                    : r.Status is "fail" or "not_passed" ? Brushes.Red
                     : Brushes.Red;
 
         string Dash = "—";

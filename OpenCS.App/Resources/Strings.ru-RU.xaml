@@ -1917,10 +1917,11 @@
    <system:String x:Key="CalcTaskForceN">N, кН</system:String>
    <system:String x:Key="CalcTaskForceMx">Mx, кН·м</system:String>
    <system:String x:Key="CalcTaskForceMy">My, кН·м</system:String>
-   <system:String x:Key="CalcResultNotPassed">Задача «{0}»: R-проверка не пройдена.</system:String>
+   <system:String x:Key="CalcResultNotPassed">Задача «{0}»: проверка не пройдена.</system:String>
+   <system:String x:Key="CalcResultIncomplete">Задача «{0}»: проверены не все элементы.</system:String>
    <system:String x:Key="CalcResultOk">Задача «{0}» выполнена успешно.</system:String>
    <system:String x:Key="CalcResultNotConverged">Задача «{0}» завершена без сходимости.</system:String>
-   <system:String x:Key="CalcResultPartial">Задача «{0}»: частичная сходимость.</system:String>
+   <system:String x:Key="CalcResultPartial">Задача «{0}»: часть расчёта не сошлась или завершилась ошибкой.</system:String>
     <system:String x:Key="CalcResultError">Ошибка при выполнении задачи «{0}».</system:String>
     <system:String x:Key="CalcResultErrorWithDetail">Ошибка при выполнении задачи «{0}»: {1}</system:String>
    <system:String x:Key="StrainStateBatch_TabRows">Все случаи</system:String>
