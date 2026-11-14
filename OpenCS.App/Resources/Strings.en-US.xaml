@@ -6442,4 +6442,29 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingErr_concrete_no_chars">The concrete has no properties for the selected calculation type.</system:String>
    <system:String x:Key="PunchingErr_rebar_missing">Shear reinforcement material is not selected (or set Rsw manually).</system:String>
    <system:String x:Key="PunchingErr_rebar_no_chars">The shear reinforcement has no properties for the selected calculation type.</system:String>
+   <system:String x:Key="PunchingVariant_Closed">Closed perimeter (fig. 8.11a)</system:String>
+   <system:String x:Key="PunchingVariant_OpenEdge">Open perimeter at edge (fig. 8.11b)</system:String>
+   <system:String x:Key="PunchingVariant_OpenCorner">Open perimeter at corner (fig. 8.11c)</system:String>
+   <system:String x:Key="PunchingVariant_PylonBroken">Broken perimeter at pylon ends (SP 430)</system:String>
+   <system:String x:Key="PunchingVariant_PylonReduced">Reduced pylon perimeter — for reference</system:String>
+   <system:String x:Key="PunchingVariant_Custom">User perimeter</system:String>
+   <system:String x:Key="PunchingVariantOuterSuffix"> — beyond reinforcement zone</system:String>
+   <system:String x:Key="PunchingKisp">Util.</system:String>
+   <system:String x:Key="PunchingCanvasLegend">h0 = {0:0} mm; + — perimeter centroid; click a perimeter to select it</system:String>
+   <system:String x:Key="PunchingSwCounted">counted</system:String>
+   <system:String x:Key="PunchingVerdictPassed">Utilization = {0} — punching resistance is ensured</system:String>
+   <system:String x:Key="PunchingVerdictFailed">Utilization = {0} — punching resistance is NOT ensured</system:String>
+   <system:String x:Key="PunchingVerdictError">Analysis failed</system:String>
+   <system:String x:Key="PunchingStatus_concrete_sufficient">Resistance is provided by concrete.</system:String>
+   <system:String x:Key="PunchingStatus_reinforcement_required">Shear reinforcement is required (resistance is ensured with maximum reinforcement).</system:String>
+   <system:String x:Key="PunchingStatus_not_ensured">Resistance is not ensured even with maximum reinforcement — increase thickness, concrete class or add a column capital.</system:String>
+   <system:String x:Key="PunchingRatiosLine">Utilization without shear reinforcement: {0}; with maximum reinforcement (2Fb, 2Mb): {1}</system:String>
+   <system:String x:Key="PunchingShape_polygon">polygon</system:String>
+   <system:String x:Key="PunchingSummarySw">shear reinforcement {0}×Ø{1:0} step {2:0} mm, Rsw = {3:0.#} MPa</system:String>
+   <system:String x:Key="PunchingSummaryNoSw">no shear reinforcement</system:String>
+   <system:String x:Key="PunchingSummary">Area {0} mm; h = {1:0} mm, h0 = {2:0.#} mm; concrete {3}, Rbt = {4:0.###} MPa; {5}; F = {6:0.#} kN, Mx = {7:0.#} kN·m, My = {8:0.#} kN·m</system:String>
+   <system:String x:Key="PunchingColVariant">Perimeter variant</system:String>
+   <system:String x:Key="PunchingColSw">Reinforcement</system:String>
+   <system:String x:Key="PunchingParamsButton">Parameters…</system:String>
+   <system:String x:Key="PunchingReportButton">Report…</system:String>
 </ResourceDictionary>

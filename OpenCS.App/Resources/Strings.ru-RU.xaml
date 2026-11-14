@@ -6442,4 +6442,29 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingErr_concrete_no_chars">У бетона нет характеристик для выбранного типа расчёта.</system:String>
    <system:String x:Key="PunchingErr_rebar_missing">Не выбрана поперечная арматура (или задайте Rsw вручную).</system:String>
    <system:String x:Key="PunchingErr_rebar_no_chars">У поперечной арматуры нет характеристик для выбранного типа расчёта.</system:String>
+   <system:String x:Key="PunchingVariant_Closed">Замкнутый контур (рис. 8.11а)</system:String>
+   <system:String x:Key="PunchingVariant_OpenEdge">Незамкнутый у края (рис. 8.11б)</system:String>
+   <system:String x:Key="PunchingVariant_OpenCorner">Незамкнутый у угла (рис. 8.11в)</system:String>
+   <system:String x:Key="PunchingVariant_PylonBroken">Разорванный у торцов пилона (СП 430)</system:String>
+   <system:String x:Key="PunchingVariant_PylonReduced">Приведённый периметр пилона — справочно</system:String>
+   <system:String x:Key="PunchingVariant_Custom">Контур пользователя</system:String>
+   <system:String x:Key="PunchingVariantOuterSuffix"> — за зоной арматуры</system:String>
+   <system:String x:Key="PunchingKisp">Кисп</system:String>
+   <system:String x:Key="PunchingCanvasLegend">h0 = {0:0} мм; + — центр тяжести контура; щелчок по контуру выделяет вариант</system:String>
+   <system:String x:Key="PunchingSwCounted">учтена</system:String>
+   <system:String x:Key="PunchingVerdictPassed">Кисп = {0} — прочность на продавливание обеспечена</system:String>
+   <system:String x:Key="PunchingVerdictFailed">Кисп = {0} — прочность на продавливание НЕ обеспечена</system:String>
+   <system:String x:Key="PunchingVerdictError">Расчёт не выполнен</system:String>
+   <system:String x:Key="PunchingStatus_concrete_sufficient">Прочность обеспечена бетоном.</system:String>
+   <system:String x:Key="PunchingStatus_reinforcement_required">Требуется поперечное армирование (с предельной арматурой прочность обеспечена).</system:String>
+   <system:String x:Key="PunchingStatus_not_ensured">Прочность не обеспечена даже с предельным армированием — увеличьте толщину, класс бетона или устройте капитель.</system:String>
+   <system:String x:Key="PunchingRatiosLine">Кисп без поперечной арматуры: {0}; с предельной арматурой (2Fb, 2Mb): {1}</system:String>
+   <system:String x:Key="PunchingShape_polygon">многоугольник</system:String>
+   <system:String x:Key="PunchingSummarySw">поперечная арматура {0}×Ø{1:0} шаг {2:0} мм, Rsw = {3:0.#} МПа</system:String>
+   <system:String x:Key="PunchingSummaryNoSw">без поперечной арматуры</system:String>
+   <system:String x:Key="PunchingSummary">Площадь {0} мм; h = {1:0} мм, h0 = {2:0.#} мм; бетон {3}, Rbt = {4:0.###} МПа; {5}; F = {6:0.#} кН, Mx = {7:0.#} кН·м, My = {8:0.#} кН·м</system:String>
+   <system:String x:Key="PunchingColVariant">Вариант контура</system:String>
+   <system:String x:Key="PunchingColSw">Арматура</system:String>
+   <system:String x:Key="PunchingParamsButton">Параметры…</system:String>
+   <system:String x:Key="PunchingReportButton">Отчёт…</system:String>
 </ResourceDictionary>
