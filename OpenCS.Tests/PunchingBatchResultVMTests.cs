@@ -85,26 +85,51 @@ public sealed class PunchingBatchResultVMTests
         Assert.False(vm.ShowEnvelope);
         Assert.Equal(vm.Envelope.Single(e => e.Id == "closed").Num, vm.SelectedRow!.Num);
         Assert.Equal("closed", vm.SelectedVariantId);
-        Assert.Same(vm.Envelope.Single(e => e.Id == "closed"), vm.SelectedEnvelope);
+        Assert.True(vm.Envelope.Single(e => e.Id == "closed").IsCurrent);
     }
 
     [Fact]
-    public void CanvasClick_SelectsEnvelopeRow_WithoutSwitchingRow()
+    public void CanvasClick_MarksEnvelopeRow_WithoutSwitchingRow()
     {
         var (result, task) = Run();
         var vm = new PunchingBatchResultVM(result, task);
-        Assert.Same(vm.Envelope.Single(e => e.Id == "pylon_broken"), vm.SelectedEnvelope);
+        Assert.True(vm.Envelope.Single(e => e.Id == "pylon_broken").IsCurrent);   // определяющий контур при открытии
+        Assert.Null(vm.SelectedEnvelope);
         var row = vm.Rows.Single(r => r.Num == 1);
         vm.SelectedRow = row;
-        var changed = new List<string?>();
-        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
 
         vm.SelectedVariantId = "closed";   // щелчок по контуру на рисунке
 
-        Assert.Same(vm.Envelope.Single(e => e.Id == "closed"), vm.SelectedEnvelope);
-        Assert.Contains(nameof(PunchingBatchResultVM.SelectedEnvelope), changed);
+        Assert.Equal(["closed"], vm.Envelope.Where(e => e.IsCurrent).Select(e => e.Id).ToArray());
+        Assert.Null(vm.SelectedEnvelope);   // выделение таблицы — только щелчком по ней
         Assert.Same(row, vm.SelectedRow);
         Assert.False(vm.ShowEnvelope);
+    }
+
+    [Fact]
+    public void EnvelopeRow_ClickedAgain_AfterLeavingIt_SwitchesBack()
+    {
+        var (result, task) = Run();
+        var vm = new PunchingBatchResultVM(result, task);
+        var closed = vm.Envelope.Single(e => e.Id == "closed");
+
+        vm.SelectedEnvelope = closed;
+        Assert.Same(closed, vm.SelectedEnvelope);
+        Assert.False(vm.ShowEnvelope);
+
+        // Ушли в огибающую — выделение таблицы снимается, и повторный щелчок по той же строке снова срабатывает.
+        vm.ShowEnvelope = true;
+        Assert.Null(vm.SelectedEnvelope);
+        vm.SelectedEnvelope = closed;
+        Assert.False(vm.ShowEnvelope);
+        Assert.Equal(closed.Num, vm.SelectedRow!.Num);
+
+        // Выбрали другую строку набора — то же самое.
+        vm.SelectedRow = vm.Rows.First(r => r.Num != closed.Num);
+        Assert.Null(vm.SelectedEnvelope);
+        vm.SelectedEnvelope = closed;
+        Assert.Equal(closed.Num, vm.SelectedRow!.Num);
+        Assert.Equal("closed", vm.SelectedVariantId);
     }
 
     [Fact]

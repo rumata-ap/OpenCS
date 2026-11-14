@@ -67,9 +67,20 @@
          <DockPanel Grid.Column="2">
             <TextBlock DockPanel.Dock="Top" Text="{DynamicResource PunchingBatchEnvelopeHeader}" FontWeight="SemiBold" Margin="0,2,0,6"/>
             <DataGrid ItemsSource="{Binding Envelope}" SelectedItem="{Binding SelectedEnvelope, Mode=TwoWay}"
-                      RowStyle="{StaticResource BatchVerdictRowStyle}"
                       AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
                       SelectionMode="Single" SelectionUnit="FullRow" CanUserAddRows="False">
+               <!-- Рамка — контур, выделенный на рисунке; видна и без фокуса таблицы, поверх фона вердикта. -->
+               <DataGrid.RowStyle>
+                  <Style TargetType="DataGridRow" BasedOn="{StaticResource BatchVerdictRowStyle}">
+                     <Setter Property="BorderThickness" Value="2"/>
+                     <Setter Property="BorderBrush" Value="Transparent"/>
+                     <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                           <Setter Property="BorderBrush" Value="#2563EB"/>
+                        </DataTrigger>
+                     </Style.Triggers>
+                  </Style>
+               </DataGrid.RowStyle>
                <DataGrid.Columns>
                   <DataGridTextColumn Header="{DynamicResource PunchingColVariant}" Binding="{Binding Title}" Width="*">
                      <DataGridTextColumn.ElementStyle>

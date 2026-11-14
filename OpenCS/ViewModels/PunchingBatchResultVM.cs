@@ -44,8 +44,17 @@ public sealed class PunchingBatchRowVM : IBatchVerdictRow
 }
 
 /// <summary>Строка огибающей по контурам.</summary>
-public sealed class PunchingEnvelopeRowVM
+public sealed class PunchingEnvelopeRowVM : ViewModelBase
 {
+    bool _isCurrent;
+
+    /// <summary>
+    /// Контур выделен на рисунке (щелчком по нему, строкой набора или строкой огибающей). Своя рамка строки,
+    /// а не выделение таблицы: выделение без фокуса не видно под фоном вердикта, а щелчок по уже выделенной
+    /// строке таблица не передаёт.
+    /// </summary>
+    public bool IsCurrent { get => _isCurrent; set { if (_isCurrent == value) return; _isCurrent = value; OnPropertyChanged(); } }
+
     public string Id { get; init; } = "";
     public string Title { get; init; } = "";
     public string K { get; init; } = "";
@@ -124,7 +133,7 @@ public sealed class PunchingBatchResultVM : ViewModelBase
         InputsSummary = BuildInputsSummary(Data, c);
         _selectedRow = Rows.FirstOrDefault(r => r.Num == Data.GoverningNum) ?? Rows.FirstOrDefault();
         _selectedVariantId = _selectedRow?.Source.Governing;
-        _selectedEnvelope = Envelope.FirstOrDefault(e => e.Id == _selectedVariantId);
+        MarkCurrentEnvelope();
     }
 
     /// <summary>Результат.</summary>
@@ -161,7 +170,21 @@ public sealed class PunchingBatchResultVM : ViewModelBase
             OnPropertyChanged(nameof(ShowRow));
             OnPropertyChanged(nameof(Scene));
             OnPropertyChanged(nameof(SceneCaption));
+            if (value) ClearEnvelopeSelection();
         }
+    }
+
+    bool _applyingEnvelope;
+
+    /// <summary>
+    /// Снять выделение таблицы огибающей, когда показ ушёл от её строки (другая строка набора, режим огибающей):
+    /// иначе повторный щелчок по той же строке огибающей таблица не передаёт и он ничего не делает.
+    /// </summary>
+    void ClearEnvelopeSelection()
+    {
+        if (_applyingEnvelope || _selectedEnvelope is null) return;
+        _selectedEnvelope = null;
+        OnPropertyChanged(nameof(SelectedEnvelope));
     }
 
     /// <summary>Рисунок — выбранная строка.</summary>
@@ -176,6 +199,7 @@ public sealed class PunchingBatchResultVM : ViewModelBase
             if (ReferenceEquals(_selectedRow, value) || value is null) return;
             _selectedRow = value;
             OnPropertyChanged();
+            ClearEnvelopeSelection();
             SelectedVariantId = value.Source.Governing;
             OnPropertyChanged(nameof(Scene));
             OnPropertyChanged(nameof(SceneCaption));
@@ -192,15 +216,20 @@ public sealed class PunchingBatchResultVM : ViewModelBase
             _selectedEnvelope = value;
             OnPropertyChanged();
             if (value is null) return;
-            if (Rows.FirstOrDefault(r => r.Num == value.Num) is { } row) SelectedRow = row;
-            ShowEnvelope = false;
-            SelectedVariantId = value.Id;
+            _applyingEnvelope = true;
+            try
+            {
+                if (Rows.FirstOrDefault(r => r.Num == value.Num) is { } row) SelectedRow = row;
+                ShowEnvelope = false;
+                SelectedVariantId = value.Id;
+            }
+            finally { _applyingEnvelope = false; }
         }
     }
 
     /// <summary>
-    /// Выделенный на рисунке контур. Строка огибающей этого контура выделяется вслед за ним без перехода
-    /// к её строке набора: щелчок по рисунку не меняет показанную строку.
+    /// Выделенный на рисунке контур. Строка огибающей этого контура отмечается (<see cref="PunchingEnvelopeRowVM.IsCurrent"/>)
+    /// без перехода к её строке набора: щелчок по рисунку не меняет показанную строку.
     /// </summary>
     public string? SelectedVariantId
     {
@@ -210,13 +239,13 @@ public sealed class PunchingBatchResultVM : ViewModelBase
             if (_selectedVariantId == value) return;
             _selectedVariantId = value;
             OnPropertyChanged();
-            var envelope = value is null ? null : Envelope.FirstOrDefault(e => e.Id == value);
-            if (envelope is not null && !ReferenceEquals(_selectedEnvelope, envelope))
-            {
-                _selectedEnvelope = envelope;
-                OnPropertyChanged(nameof(SelectedEnvelope));
-            }
+            MarkCurrentEnvelope();
         }
+    }
+
+    void MarkCurrentEnvelope()
+    {
+        foreach (var e in Envelope) e.IsCurrent = e.Id == _selectedVariantId;
     }
 
     /// <summary>Сцена рисунка: Кисп контуров выбранной строки или огибающей.</summary>
