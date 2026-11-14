@@ -47,7 +47,7 @@ public static class CalcTaskGroups
             or "steel_central_compression" or "steel_central_tension"
             or "steel_bending" or "steel_compression_bending"
             or "steel_tension_bending" or "steel_shear"
-            or "shear_inclined" or "shear_inclined_batch" or "punching"
+            or "shear_inclined" or "shear_inclined_batch" or "punching" or "punching_batch"
             or "sp63_normal" or "limit_surface"                       => Uls,
 
         "shell_simpl_wa_sls"    or "shell_simpl_wa_sls_batch"

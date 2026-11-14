@@ -6533,7 +6533,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingWb_minimum">minimum</system:String>
    <system:String x:Key="PunchingWb_stress_side">at the most stressed side</system:String>
    <system:String x:Key="PunchingPylon">Pylon (SP 430)</system:String>
-   <system:String x:Key="PunchingPylon_auto">automatic (b/a &gt; 2)</system:String>
+   <system:String x:Key="PunchingPylon_auto">automatic (Lmax &gt; 2Lmin + h0)</system:String>
    <system:String x:Key="PunchingPylon_off">do not consider</system:String>
    <system:String x:Key="PunchingHoleInfluence">Openings influence up to</system:String>
    <system:String x:Key="PunchingPylonReduced">For reference: reduced pylon perimeter (Galyautdinov, 2022)</system:String>
@@ -6562,5 +6562,24 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingWarn_pylon_cmin_h0_out_of_range">Cmin/h0 = {0} &gt; 2: according to Galyautdinov (2022, p. 162) the SP 430 perimeter overestimates the capacity at Cmin/h0 ≥ 3 — compare with the reference variant.</system:String>
    <system:String x:Key="PunchingWarn_closed_not_fit">The closed perimeter extends beyond the slab edge — only the open perimeter is checked (cl. 8.1.46).</system:String>
    <system:String x:Key="PunchingWarn_hole_excluded">Opening {0} is closer than {1}h0: the part of perimeter "{2}" between the tangents is ignored (cl. 8.1.46).</system:String>
+   <system:String x:Key="CalcTaskKind_punching_batch">Slab punching shear for a force set (SP 63)</system:String>
+   <system:String x:Key="PunchingErr_force_set_missing">No force set is selected for the batch (or it was deleted).</system:String>
+   <system:String x:Key="PunchingErr_force_set_empty">The batch force set has no rows.</system:String>
+   <system:String x:Key="PunchingWarn_reversed_rows">Rows with N of the opposite sign ({0}): No. {1} — the force acts in the opposite direction, |N| is used; check the loaded face.</system:String>
+   <system:String x:Key="PunchingBatchForcesLine">Forces — all {0} rows of the set "{1}": F = |N|, row Mx and My (column axes coincide with slab axes).</system:String>
+   <system:String x:Key="PunchingBatchNoForceSet">No force set is selected or it is empty — choose it in the task dialog.</system:String>
+   <system:String x:Key="PunchingBatchPreviewLine">Governing row No. {0} "{1}" of {2}; the drawing and the table show this row.</system:String>
+   <system:String x:Key="PunchingBatchVerdictPassed">Max utilization = {0} — row No. {1} "{2}", {3}: punching resistance is sufficient in all rows</system:String>
+   <system:String x:Key="PunchingBatchVerdictFailed">Max utilization = {0} — row No. {1} "{2}", {3}: punching resistance is NOT sufficient</system:String>
+   <system:String x:Key="PunchingBatchCounts">Rows: {0}; pass: {1}; fail: {2}</system:String>
+   <system:String x:Key="PunchingBatchSceneRow">Selected row</system:String>
+   <system:String x:Key="PunchingBatchSceneEnvelope">Envelope over the set</system:String>
+   <system:String x:Key="PunchingBatchSceneCaptionRow">Drawing — row No. {0} "{1}": perimeter colour shows its utilization in this row</system:String>
+   <system:String x:Key="PunchingBatchSceneCaptionEnvelope">Drawing — envelope: perimeter colour shows its maximum utilization over all rows</system:String>
+   <system:String x:Key="PunchingBatchEnvelopeHeader">Envelope by perimeter</system:String>
+   <system:String x:Key="PunchingBatchColMax">Max util.</system:String>
+   <system:String x:Key="PunchingBatchColRow">Row</system:String>
+   <system:String x:Key="PunchingBatchColGoverning">Governing perimeter</system:String>
+   <system:String x:Key="PunchingBatchSummary">Set "{0}", rows: {1}. Loaded area {2} mm; h = {3:0} mm, h0 = {4:0.#} mm; concrete {5}, Rbt = {6:0.###} MPa; {7}</system:String>
    <system:String x:Key="PunchingInvalidNumber">A field contains an unrecognized number. Correct the value outlined in red.</system:String>
 </ResourceDictionary>

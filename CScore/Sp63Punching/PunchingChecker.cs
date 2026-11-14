@@ -66,7 +66,9 @@ public sealed record PunchingResult(
 public static class PunchingChecker
 {
     /// <summary>Выполняет расчёт всех вариантов контура.</summary>
-    public static PunchingResult Check(PunchingInput input)
+    /// <param name="input">Исходные данные.</param>
+    /// <param name="includeTrace">false — без пошаговой трассировки (пакет по тысячам строк); числа те же.</param>
+    public static PunchingResult Check(PunchingInput input, bool includeTrace = true)
     {
         ArgumentNullException.ThrowIfNull(input);
         if (!(input.H0 > 0)) throw new ArgumentException("Рабочая высота h0 должна быть больше нуля.", nameof(input));
@@ -90,7 +92,7 @@ public static class PunchingChecker
             warnings.Add(new("sw_detailing_not_checked",
                 "Конструктивные требования п. 10.3 к поперечной арматуре не проверяются."));
 
-        var ctx = new Context(input, options, fred, baseArea, warnings);
+        var ctx = new Context(input, options, fred, baseArea, warnings, includeTrace);
         var results = build.Variants.Select(v => Evaluate(ctx, v)).ToList();
 
         int gov = -1;
@@ -120,7 +122,7 @@ public static class PunchingChecker
         => v.Kind != PunchingVariantKind.PylonReduced || o.PylonReducedGoverns;
 
     sealed record Context(PunchingInput Input, PunchingOptions Options, double Fred, double BaseArea,
-        List<PunchingWarning> Warnings);
+        List<PunchingWarning> Warnings, bool IncludeTrace);
 
     static PunchingVariantResult Evaluate(Context ctx, PunchingVariant v)
         => v.Kind == PunchingVariantKind.PylonReduced ? EvaluateReduced(ctx, v) : EvaluateContour(ctx, v);
@@ -188,7 +190,7 @@ public static class PunchingChecker
             ctx.Warnings.Add(new("m_limited_half_kf",
                 $"Контур «{v.Id}»: вклад моментов ограничен половиной вклада силы (п. 8.1.46).", [v.Id]));
 
-        var trace = PunchingTrace.Build(new PunchingTraceData(v, g, wbx, wby, h0, rbt, input.Reinforcement,
+        IReadOnlyList<CalculationTraceStep> trace = !ctx.IncludeTrace ? [] : PunchingTrace.Build(new PunchingTraceData(v, g, wbx, wby, h0, rbt, input.Reinforcement,
             qsw, fswRaw, fsw, counted, fb, mbx, mby, mswx, mswy, fult, mxult, myult, F, ctx.Fred, mx0, my0,
             o, ex, ey, s, ctx.Options.EccentricityX, ctx.Options.EccentricityY, mxStar, myStar, kF, kMRaw, kM, k));
 
@@ -212,7 +214,7 @@ public static class PunchingChecker
         double kb = ctx.Fred > 0 ? ctx.Fred / fb : 0;
         double kmax = ctx.Fred > 0 ? ctx.Fred / (2 * fb) : 0;
         var g = new ContourProperties(gp.URed, 0, 0, 0, 0, 0, 0, 0, 0);
-        var trace = PunchingTrace.BuildReduced(v, gp, Math.Min(rect.Bx, rect.By), factor, input.H0, input.Rbt, fb, fsw, fult, ctx.Fred, kF);
+        IReadOnlyList<CalculationTraceStep> trace = !ctx.IncludeTrace ? [] : PunchingTrace.BuildReduced(v, gp, Math.Min(rect.Bx, rect.By), factor, input.H0, input.Rbt, fb, fsw, fult, ctx.Fred, kF);
         return new PunchingVariantResult(v, g, 0, 0, fb, fsw, counted, 0, 0, 0, 0, fult, 0, 0,
             ctx.Fred, 0, 0, kF, 0, 0, kF, kb, kmax, false, trace);
     }

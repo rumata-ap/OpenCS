@@ -6533,7 +6533,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingWb_minimum">наименьший</system:String>
    <system:String x:Key="PunchingWb_stress_side">по стороне наибольших напряжений</system:String>
    <system:String x:Key="PunchingPylon">Пилон (СП 430)</system:String>
-   <system:String x:Key="PunchingPylon_auto">автоматически (b/a &gt; 2)</system:String>
+   <system:String x:Key="PunchingPylon_auto">автоматически (Lmax &gt; 2Lmin + h0)</system:String>
    <system:String x:Key="PunchingPylon_off">не рассматривать</system:String>
    <system:String x:Key="PunchingHoleInfluence">Влияние отверстий до</system:String>
    <system:String x:Key="PunchingPylonReduced">Справочно: приведённый периметр пилона (Галяутдинов, 2022)</system:String>
@@ -6562,5 +6562,24 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingWarn_pylon_cmin_h0_out_of_range">Cmin/h0 = {0} &gt; 2: по Галяутдинову (2022, с. 162) контур СП 430 при Cmin/h0 ≥ 3 переоценивает прочность — сравните со справочным вариантом.</system:String>
    <system:String x:Key="PunchingWarn_closed_not_fit">Замкнутый контур выходит за край плиты — проверяется только незамкнутый (п. 8.1.46).</system:String>
    <system:String x:Key="PunchingWarn_hole_excluded">Отверстие {0} ближе {1}h0: часть контура «{2}» между касательными не учитывается (п. 8.1.46).</system:String>
+   <system:String x:Key="CalcTaskKind_punching_batch">Продавливание плиты по набору усилий (СП 63)</system:String>
+   <system:String x:Key="PunchingErr_force_set_missing">Не выбран набор усилий пакета (или он удалён).</system:String>
+   <system:String x:Key="PunchingErr_force_set_empty">В наборе усилий пакета нет строк.</system:String>
+   <system:String x:Key="PunchingWarn_reversed_rows">Строки с N другого знака ({0}): № {1} — сила направлена в обратную сторону, расчёт выполнен по |N|; проверьте сторону приложения нагрузки.</system:String>
+   <system:String x:Key="PunchingBatchForcesLine">Усилия — все {0} строк набора «{1}»: F = |N|, Mx и My строки (оси колонны совпадают с осями плиты).</system:String>
+   <system:String x:Key="PunchingBatchNoForceSet">Набор усилий не выбран или пуст — выберите его в общем диалоге задачи.</system:String>
+   <system:String x:Key="PunchingBatchPreviewLine">Определяющая строка № {0} «{1}» из {2}; рисунок и таблица — по этой строке.</system:String>
+   <system:String x:Key="PunchingBatchVerdictPassed">Кисп,max = {0} — строка № {1} «{2}», {3}: прочность на продавливание обеспечена во всех строках</system:String>
+   <system:String x:Key="PunchingBatchVerdictFailed">Кисп,max = {0} — строка № {1} «{2}», {3}: прочность на продавливание НЕ обеспечена</system:String>
+   <system:String x:Key="PunchingBatchCounts">Строк: {0}; проходят: {1}; не проходят: {2}</system:String>
+   <system:String x:Key="PunchingBatchSceneRow">Выбранная строка</system:String>
+   <system:String x:Key="PunchingBatchSceneEnvelope">Огибающая по набору</system:String>
+   <system:String x:Key="PunchingBatchSceneCaptionRow">Рисунок — строка № {0} «{1}»: цвет контура — его Кисп в этой строке</system:String>
+   <system:String x:Key="PunchingBatchSceneCaptionEnvelope">Рисунок — огибающая: цвет контура — его наибольший Кисп по всем строкам</system:String>
+   <system:String x:Key="PunchingBatchEnvelopeHeader">Огибающая по контурам</system:String>
+   <system:String x:Key="PunchingBatchColMax">Кисп,max</system:String>
+   <system:String x:Key="PunchingBatchColRow">Строка</system:String>
+   <system:String x:Key="PunchingBatchColGoverning">Определяющий контур</system:String>
+   <system:String x:Key="PunchingBatchSummary">Набор «{0}», строк: {1}. Площадь {2} мм; h = {3:0} мм, h0 = {4:0.#} мм; бетон {5}, Rbt = {6:0.###} МПа; {7}</system:String>
    <system:String x:Key="PunchingInvalidNumber">Поле содержит нераспознанное число. Исправьте значение, выделенное красной рамкой.</system:String>
 </ResourceDictionary>

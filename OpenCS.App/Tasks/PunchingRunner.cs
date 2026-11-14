@@ -213,7 +213,7 @@ public static class PunchingRunner
         };
     }
 
-    static CalcResult Error(CalcTask task, string created, IReadOnlyList<string> codes) => new()
+    internal static CalcResult Error(CalcTask task, string created, IReadOnlyList<string> codes) => new()
     {
         TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag, Created = created, Status = "error",
         DataJson = JsonSerializer.Serialize(new

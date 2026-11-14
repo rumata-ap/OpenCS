@@ -113,7 +113,7 @@ public static class CalcTaskExecutor
         if (ct.Kind == "steel_torsion") return true;
 
         // Продавливание не ссылается на сечение: плита, бетон и усилия — в параметрах задачи.
-        if (ct.Kind == PunchingRunner.Kind)
+        if (PunchingBatchRunner.IsPunchingKind(ct.Kind))
         {
             fi = CalcTaskForceHelper.ResolveOptionalForceItem(ct, app.BarForceSets);
             return true;

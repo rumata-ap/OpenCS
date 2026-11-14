@@ -40,7 +40,7 @@ public static class CalcTaskForceHelper
           or "torsion_bem" or "torsion_fem"
          or "cracking_batch" or "crack_width_batch" or "total_curvature_batch"
          or "fire_r_check_batch" or "fire_thermal_curvature"
-         or "shear_inclined_batch" or "punching" => true,
+         or "shear_inclined_batch" or "punching" or "punching_batch" => true,
       "opensees_section_interaction_n_mx_my" or "limit_surface" or "crack_surface" or "acrc_surface"
          or "load_history" => true,
       _ => false

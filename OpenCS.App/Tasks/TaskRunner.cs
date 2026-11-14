@@ -70,6 +70,7 @@ namespace OpenCS.Tasks
          ["shear_inclined"]       = new ShearInclinedHandler(),
          ["shear_inclined_batch"] = new ShearInclinedBatchHandler(),
          ["punching"]             = new PunchingHandler(),
+         ["punching_batch"]       = new PunchingBatchHandler(),
          ["sp63_normal"]           = new Sp63NormalHandler(),
          ["sp63_crack_width"]      = new Sp63CrackWidthHandler(),
          ["sp63_deflection"]       = new Sp63DeflectionHandler(),
