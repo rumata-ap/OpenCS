@@ -43,7 +43,7 @@ public static class CalcTaskGroups
             or "shell_simpl_capri_uls" or "shell_simpl_capri_uls_batch"
             or "shell_simpl_capri_design_uls" or "shell_simpl_capri_design_uls_batch"
             or "shell_layered_uls"     or "shell_layered_uls_batch"
-            or "steel_check"
+            or "steel_check" or "steel_check_batch"
             or "steel_central_compression" or "steel_central_tension"
             or "steel_bending" or "steel_compression_bending"
             or "steel_tension_bending" or "steel_shear"

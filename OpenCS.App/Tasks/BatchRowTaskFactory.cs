@@ -31,6 +31,7 @@ public static class BatchRowTaskFactory
         "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch"
         or "strain_state_batch" or "strength_ndm_batch" or "total_curvature_batch"
         or "cracking_batch" or "crack_width_batch" or "fire_r_check_batch" or "shear_inclined_batch"
+        or "steel_check_batch"
         or "shell_simpl_wa_sls_batch" or "shell_simpl_wa_uls_batch"
         or "shell_simpl_capri_sls_batch" or "shell_simpl_capri_uls_batch"
         or "shell_simpl_capri_design_uls_batch" or "shell_simpl_capri_design_sls_batch"
@@ -141,8 +142,8 @@ public static class BatchRowTaskFactory
     {
         switch (batch.Kind)
         {
-            // Огнестойкость и наклонные сечения берут строку набора по ForceItemId — параметры пакета как есть.
-            case "fire_r_check_batch" or "shear_inclined_batch":
+            // Огнестойкость, наклонные сечения и сталь берут строку набора по ForceItemId — параметры пакета как есть.
+            case "fire_r_check_batch" or "shear_inclined_batch" or "steel_check_batch":
                 return string.IsNullOrWhiteSpace(batch.ParamsJson) ? "{}" : batch.ParamsJson;
             case "cracking_batch":
                 return WithForces(batch.ParamsJson, item);

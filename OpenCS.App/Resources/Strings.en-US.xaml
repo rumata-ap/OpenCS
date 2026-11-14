@@ -2433,6 +2433,14 @@
 
     <!-- Steel check per СП 16.13330.2017 -->
     <system:String x:Key="CalcTaskKind_steel_check">Steel check per SP 16</system:String>
+    <system:String x:Key="CalcTaskKind_steel_check_batch">SP 16 check (steel, force set)</system:String>
+    <system:String x:Key="SteelBatch_HeaderFormat">{0}, {1}; lef,x = {2} m, lef,y = {3} m, lef,b = {4} m, γc = {5}</system:String>
+    <system:String x:Key="SteelBatch_SummaryFormat">Rows: {0}; passed: {1}; failed: {2}; errors and not applicable: {3}</system:String>
+    <system:String x:Key="SteelBatch_ColKind">Check kind</system:String>
+    <system:String x:Key="SteelBatch_ColStrength">Strength</system:String>
+    <system:String x:Key="SteelBatch_ColStability">Overall stab.</system:String>
+    <system:String x:Key="SteelBatch_ColLocal">Local stab.</system:String>
+    <system:String x:Key="SteelBatch_ColSlenderness">Slenderness</system:String>
     <system:String x:Key="SteelCheckParamsHeader">SP 16 calculation parameters</system:String>
     <system:String x:Key="SteelCheckDesignLengthX">Design length l₀x, m</system:String>
     <system:String x:Key="SteelCheckDesignLengthY">Design length l₀y, m</system:String>

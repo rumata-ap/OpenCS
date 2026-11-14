@@ -75,6 +75,12 @@ namespace OpenCS.Views
             return;
         }
 
+        if (task?.Kind == "steel_check_batch")
+        {
+            Content = new SteelCheckBatchResultView(result, app, task);
+            return;
+        }
+
         if (task?.Kind == "shear_inclined_batch")
         {
             Content = new ShearInclinedBatchResultView(result, app, task);

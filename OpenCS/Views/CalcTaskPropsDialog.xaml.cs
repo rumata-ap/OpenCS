@@ -732,6 +732,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          OnPropertyChanged(nameof(IsPunching));
          OnPropertyChanged(nameof(ShowRegularSection));
          OnPropertyChanged(nameof(IsSteelCheck));
+         OnPropertyChanged(nameof(IsSteelBatch));
+         OnPropertyChanged(nameof(ShowSteelManualToggle));
          OnPropertyChanged(nameof(ShowSteelManualForces));
          OnPropertyChanged(nameof(IsCracking));
          OnPropertyChanged(nameof(IsCrackingBatch));
@@ -851,6 +853,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             OnPropertyChanged(nameof(IsPunching));
             OnPropertyChanged(nameof(ShowRegularSection));
             OnPropertyChanged(nameof(IsSteelCheck));
+            OnPropertyChanged(nameof(IsSteelBatch));
+            OnPropertyChanged(nameof(ShowSteelManualToggle));
             OnPropertyChanged(nameof(ShowSteelManualForces));
             OnPropertyChanged(nameof(IsCracking));
             OnPropertyChanged(nameof(IsCrackingBatch));
@@ -955,7 +959,11 @@ public class CalcTaskPropsDlgVM : ViewModelBase
         "steel_central_compression" or "steel_central_tension" or
         "steel_bending" or "steel_compression_bending" or
         "steel_tension_bending" or "steel_shear" or
-        "steel_constructive";
+        "steel_constructive" or "steel_check_batch";
+   /// <summary>Пакет проверок СП 16 по всем строкам набора: без выбора строки и без ручных усилий.</summary>
+   public bool IsSteelBatch => Kind == "steel_check_batch";
+   /// <summary>Флажок «ручные усилия» — только у одиночных стальных задач.</summary>
+   public bool ShowSteelManualToggle => IsSteelCheck && !IsSteelBatch;
    public bool IsTorsion => Kind is "torsion_bem" or "torsion_fem";
 
    /// <summary>Задача расчёта наклонных сечений по СП 63 (одиночная или пакетная).</summary>
@@ -1093,7 +1101,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireBatchKind && !IsFireNoForceKind && !IsPlatePanel && !IsPrestressLoss && !IsLoadHistory
       && !IsOpenSeesSpatialInteraction && !IsLimitSurface
       && !IsCrackingBatch && !IsCrackWidthBatch && !IsTotalCurvatureBatch
-      && !IsShearInclinedBatch
+      && !IsShearInclinedBatch && !IsSteelBatch
       && (!IsSp63Normal || !Sp63NormalUseManualForces)
       && (!IsSp63CrackWidth || !Sp63CrackWidthUseManualForces)
       && (!IsSp63Deflection || !Sp63DeflectionUseManualForces)
@@ -1730,7 +1738,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     }
 
     /// <summary>Показывать ручные поперечные силы и крутящий момент стальной задачи.</summary>
-    public bool ShowSteelManualForces => IsSteelCheck && SteelUseManualForces;
+    public bool ShowSteelManualForces => IsSteelCheck && !IsSteelBatch && SteelUseManualForces;
     /// <summary>Ручная поперечная сила Vx (сопутствует My), кН.</summary>
     public string SteelManualVx { get => steelManualVx; set { steelManualVx = value; OnPropertyChanged(); } }
     /// <summary>Ручная поперечная сила Vy (сопутствует Mx), кН.</summary>
@@ -1925,6 +1933,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
        new() { Id = "steel_tension_bending",    Label = Loc.S("CalcTaskKind_steel_tension_bending"),    GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
        new() { Id = "steel_shear",              Label = Loc.S("CalcTaskKind_steel_shear"),              GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
        new() { Id = "steel_constructive",       Label = Loc.S("CalcTaskKind_steel_constructive"),       GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
+       new() { Id = "steel_check_batch",        Label = Loc.S("CalcTaskKind_steel_check_batch"),        GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "shear_inclined",           Label = Loc.S("CalcTaskKind_shear_inclined"),           GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "shear_inclined_batch",     Label = Loc.S("CalcTaskKind_shear_inclined_batch"),     GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "sp63_normal",              Label = Loc.S("CalcTaskKind_sp63_normal"),              GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
@@ -2189,7 +2198,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
               var inv = System.Globalization.CultureInfo.InvariantCulture;
               SteelEditor.Load(sp);
 
-              if (sp.ManualForces != null)
+              if (sp.ManualForces != null && !IsSteelBatch)
               {
                   // Сначала режим (он подставляет значения из строки набора), затем сохранённые значения.
                   SteelUseManualForces = true;
@@ -3492,7 +3501,16 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           }
 
           CScore.Sp16.SteelManualForces? mf = null;
-          if (SteelUseManualForces)
+          bool steelManual = SteelUseManualForces && !IsSteelBatch;
+          if (IsSteelBatch)
+          {
+              if (SelectedForceSet == null)
+              {
+                  MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                  return;
+              }
+          }
+          else if (steelManual)
           {
               double?[] values = [SteelDesignParamsEditorVM.ParseNumber(ManualN), SteelDesignParamsEditorVM.ParseNumber(ManualMx),
                   SteelDesignParamsEditorVM.ParseNumber(ManualMy), SteelDesignParamsEditorVM.ParseNumber(SteelManualVx),
@@ -3521,8 +3539,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
               Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
               Kind = Kind,
               SectionId = SelectedSection.Id,
-              ForceSetId = SteelUseManualForces ? 0 : (SelectedForceSet?.Id ?? 0),
-              ForceItemId = SteelUseManualForces ? 0 : (SelectedForceItem?.Id ?? 0),
+              ForceSetId = steelManual ? 0 : (SelectedForceSet?.Id ?? 0),
+              ForceItemId = steelManual || IsSteelBatch ? 0 : (SelectedForceItem?.Id ?? 0),
               CalcType = SelectedCalcType,
               ParamsJson = (steelParams with { ManualForces = mf }).ToJson()
           };

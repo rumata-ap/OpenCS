@@ -11,7 +11,7 @@ public sealed record BatchReportRow(int Num, string Label, IReadOnlyDictionary<s
 public sealed class BatchReportData
 {
     /// <summary>Усилия, которые пакеты пишут в строки результата, в порядке столбцов отчёта.</summary>
-    static readonly string[] KnownForces = ["N", "Mx", "My", "Mx_long", "Mx_total", "My_long", "My_total", "vy", "vx"];
+    static readonly string[] KnownForces = ["N", "Mx", "My", "Mx_long", "Mx_total", "My_long", "My_total", "vy", "vx", "t"];
 
     /// <summary>Сообщение об ошибке расчёта пакета; пусто — ошибки нет.</summary>
     public string Error { get; private init; } = "";

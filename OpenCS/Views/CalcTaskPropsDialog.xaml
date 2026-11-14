@@ -1057,7 +1057,7 @@
                   Visibility="{Binding IsSteelCheck, Converter={StaticResource BoolToVisibility}}">
          <GroupBox Header="{DynamicResource SteelCheckParamsHeader}" Margin="0,8,0,0">
             <StackPanel Margin="4">
-               <CheckBox Content="{DynamicResource Sp16UseManualForces}"
+               <CheckBox Content="{DynamicResource Sp16UseManualForces}" Visibility="{Binding ShowSteelManualToggle, Converter={StaticResource BoolToVisibility}}"
                          IsChecked="{Binding SteelUseManualForces}" Margin="0,0,0,4"/>
                <!-- N, Mx, My — общие поля ручных усилий выше; здесь поперечные силы и крутящий момент -->
                <Grid Visibility="{Binding ShowSteelManualForces, Converter={StaticResource BoolToVisibility}}"

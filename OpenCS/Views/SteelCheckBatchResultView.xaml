@@ -1,0 +1,80 @@
+<UserControl x:Class="OpenCS.Views.SteelCheckBatchResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="clr-namespace:OpenCS.Views">
+
+   <Grid Margin="12">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+         <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <Border Grid.Row="0" Padding="8,6" CornerRadius="4" Background="{Binding StatusBrush}" Margin="0,0,0,6">
+         <TextBlock Text="{Binding SummaryText}" FontWeight="Bold" HorizontalAlignment="Center" TextWrapping="Wrap"/>
+      </Border>
+
+      <StackPanel Grid.Row="1" Margin="0,0,0,6">
+         <TextBlock Text="{Binding HeaderText}" TextWrapping="Wrap"/>
+         <TextBlock Text="{Binding NotesText}" TextWrapping="Wrap" Foreground="Gray" FontSize="11" Margin="0,2,0,0"
+                    Visibility="{Binding HasNotes, Converter={StaticResource BoolToVisibility}}"/>
+      </StackPanel>
+
+      <DockPanel Grid.Row="2">
+         <v:BatchVerdictFilterBar DockPanel.Dock="Top" Target="{Binding ElementName=RowsGrid}"/>
+         <DataGrid x:Name="RowsGrid" RowStyle="{StaticResource BatchVerdictRowStyle}" ItemsSource="{Binding Rows}" AutoGenerateColumns="False"
+                   IsReadOnly="True" CanUserAddRows="False" GridLinesVisibility="Horizontal"
+                   CanUserSortColumns="True" SelectionMode="Single" SelectionUnit="FullRow"
+                   MouseDoubleClick="RowsGrid_MouseDoubleClick">
+            <DataGrid.ContextMenu>
+               <ContextMenu>
+                  <MenuItem Header="{DynamicResource CalcTaskNew}" Click="CreateTask_Click"/>
+               </ContextMenu>
+            </DataGrid.ContextMenu>
+            <DataGrid.Columns>
+               <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}" Binding="{Binding Num}" Width="40"/>
+               <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColLabel}" Binding="{Binding Label}" Width="*"/>
+               <DataGridTextColumn Header="N, кН" Binding="{Binding NText}" Width="65"/>
+               <DataGridTextColumn Header="Mx, кН·м" Binding="{Binding MxText}" Width="70"/>
+               <DataGridTextColumn Header="My, кН·м" Binding="{Binding MyText}" Width="70"/>
+               <DataGridTextColumn Header="Vy, кН" Binding="{Binding VyText}" Width="60"/>
+               <DataGridTextColumn Header="Vx, кН" Binding="{Binding VxText}" Width="60"/>
+               <DataGridTextColumn Header="{DynamicResource SteelBatch_ColKind}" Binding="{Binding KindText}" Width="1.2*"/>
+               <DataGridTemplateColumn Header="{DynamicResource SteelBatch_ColStrength}" SortMemberPath="StrengthText" Width="80">
+                  <DataGridTemplateColumn.CellTemplate>
+                     <DataTemplate><TextBlock Text="{Binding StrengthText}" ToolTip="{Binding StrengthClause}"/></DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+               </DataGridTemplateColumn>
+               <DataGridTemplateColumn Header="{DynamicResource SteelBatch_ColStability}" SortMemberPath="StabilityText" Width="90">
+                  <DataGridTemplateColumn.CellTemplate>
+                     <DataTemplate><TextBlock Text="{Binding StabilityText}" ToolTip="{Binding StabilityClause}"/></DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+               </DataGridTemplateColumn>
+               <DataGridTemplateColumn Header="{DynamicResource SteelBatch_ColLocal}" SortMemberPath="LocalText" Width="90">
+                  <DataGridTemplateColumn.CellTemplate>
+                     <DataTemplate><TextBlock Text="{Binding LocalText}" ToolTip="{Binding LocalClause}"/></DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+               </DataGridTemplateColumn>
+               <DataGridTemplateColumn Header="{DynamicResource SteelBatch_ColSlenderness}" SortMemberPath="SlendernessText" Width="75">
+                  <DataGridTemplateColumn.CellTemplate>
+                     <DataTemplate><TextBlock Text="{Binding SlendernessText}" ToolTip="{Binding SlendernessClause}"/></DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+               </DataGridTemplateColumn>
+               <DataGridTextColumn Header="{DynamicResource BatchVerdictColUtil}" Binding="{Binding Reason.UtilText}"
+                                   SortMemberPath="Reason.SortUtil" Width="60"/>
+               <DataGridTemplateColumn Header="{DynamicResource BatchVerdictColReason}" Width="2*">
+                  <DataGridTemplateColumn.CellTemplate>
+                     <DataTemplate><TextBlock Text="{Binding Reason.ReasonText}" ToolTip="{Binding Reason.RefText}"/></DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+               </DataGridTemplateColumn>
+            </DataGrid.Columns>
+         </DataGrid>
+      </DockPanel>
+
+      <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,8,0,0">
+         <Button Content="{DynamicResource CalcTaskNew}" Click="CreateTask_Click"
+                 Padding="12,4" x:Name="CreateTaskBtn" IsEnabled="False"/>
+      </StackPanel>
+   </Grid>
+</UserControl>

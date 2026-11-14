@@ -28,6 +28,7 @@ public sealed class BatchReportProvider : IReportProvider
         ["crack_width_batch"] = "Ширина раскрытия трещин",
         ["fire_r_check_batch"] = "Огнестойкость, R-проверка",
         ["shear_inclined_batch"] = "Наклонные сечения",
+        ["steel_check_batch"] = "Проверка стального элемента по СП 16",
         ["shell_simpl_wa_sls_batch"] = "Пластина, Вуд–Армер, ПС2",
         ["shell_simpl_wa_uls_batch"] = "Пластина, Вуд–Армер, ПС1",
         ["shell_simpl_capri_sls_batch"] = "Пластина, Капра–Мори, ПС2",
@@ -52,7 +53,7 @@ public sealed class BatchReportProvider : IReportProvider
     {
         ["N"] = "N, кН", ["Mx"] = "Mx, кН·м", ["My"] = "My, кН·м",
         ["Mx_long"] = "Mx,l, кН·м", ["Mx_total"] = "Mx, кН·м", ["My_long"] = "My,l, кН·м", ["My_total"] = "My, кН·м",
-        ["vy"] = "Vy, кН", ["vx"] = "Vx, кН",
+        ["vy"] = "Vy, кН", ["vx"] = "Vx, кН", ["t"] = "T, кН·м",
     };
 
     /// <inheritdoc/>

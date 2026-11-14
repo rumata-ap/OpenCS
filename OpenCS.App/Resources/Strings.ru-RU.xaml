@@ -2433,6 +2433,14 @@
 
     <!-- Steel check per СП 16.13330.2017 -->
     <system:String x:Key="CalcTaskKind_steel_check">Проверка по СП 16 (сталь)</system:String>
+    <system:String x:Key="CalcTaskKind_steel_check_batch">Проверка по СП 16 (сталь, набор)</system:String>
+    <system:String x:Key="SteelBatch_HeaderFormat">{0}, {1}; lef,x = {2} м, lef,y = {3} м, lef,b = {4} м, γc = {5}</system:String>
+    <system:String x:Key="SteelBatch_SummaryFormat">Строк: {0}; проходят: {1}; не проходят: {2}; ошибки и неприменимые: {3}</system:String>
+    <system:String x:Key="SteelBatch_ColKind">Вид проверки</system:String>
+    <system:String x:Key="SteelBatch_ColStrength">Прочность</system:String>
+    <system:String x:Key="SteelBatch_ColStability">Общая устойч.</system:String>
+    <system:String x:Key="SteelBatch_ColLocal">Местная устойч.</system:String>
+    <system:String x:Key="SteelBatch_ColSlenderness">Гибкость</system:String>
     <system:String x:Key="SteelCheckParamsHeader">Параметры расчёта по СП 16</system:String>
     <system:String x:Key="SteelCheckDesignLengthX">Расчётная длина l₀x, м</system:String>
     <system:String x:Key="SteelCheckDesignLengthY">Расчётная длина l₀y, м</system:String>

@@ -54,6 +54,7 @@ namespace OpenCS.Tasks
           ["steel_tension_bending"]       = new SteelTensionBendingHandler(),
           ["steel_shear"]                 = new SteelShearHandler(),
           ["steel_constructive"]          = new SteelConstructiveHandler(),
+          [SteelCheckBatchHandler.KindCode] = new SteelCheckBatchHandler(),
           ["torsion_bem"]                 = new TorsionBemHandler(),
           ["torsion_fem"]                 = new TorsionFemHandler(),
           ["cracking"]             = new CrackingHandler(),
