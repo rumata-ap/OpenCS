@@ -6581,5 +6581,12 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingBatchColRow">Row</system:String>
    <system:String x:Key="PunchingBatchColGoverning">Governing perimeter</system:String>
    <system:String x:Key="PunchingBatchSummary">Set "{0}", rows: {1}. Loaded area {2} mm; h = {3:0} mm, h0 = {4:0.#} mm; concrete {5}, Rbt = {6:0.###} MPa; {7}</system:String>
+   <system:String x:Key="PunchingVariantShort_Closed">closed</system:String>
+   <system:String x:Key="PunchingVariantShort_OpenEdge">edge</system:String>
+   <system:String x:Key="PunchingVariantShort_OpenCorner">corner</system:String>
+   <system:String x:Key="PunchingVariantShort_PylonBroken">pylon</system:String>
+   <system:String x:Key="PunchingVariantShort_PylonReduced">pylon, reference</system:String>
+   <system:String x:Key="PunchingVariantShort_Custom">custom</system:String>
+   <system:String x:Key="PunchingVariantShortOuterSuffix">, beyond reinforcement</system:String>
    <system:String x:Key="PunchingInvalidNumber">A field contains an unrecognized number. Correct the value outlined in red.</system:String>
 </ResourceDictionary>

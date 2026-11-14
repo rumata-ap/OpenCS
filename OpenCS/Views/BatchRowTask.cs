@@ -20,9 +20,7 @@ static class BatchRowTask
     {
         if (app.IsBusy) return;
 
-        string? sectionTag = batch.Kind.StartsWith("shell_", StringComparison.Ordinal)
-            ? app.PlateSections.FirstOrDefault(s => s.Id == batch.SectionId)?.Tag
-            : app.CrossSections.FirstOrDefault(s => s.Id == batch.SectionId)?.Tag;
+        string? sectionTag = SourceTag(app, batch);
         if (sectionTag == null)
         {
             MessageBox.Show(Loc.S("CalcTaskSectionNotFound"), Loc.S("Error"),
@@ -71,9 +69,7 @@ static class BatchRowTask
                 Loc.S("CalcTaskNew"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
 
-        string? sectionTag = batch.Kind.StartsWith("shell_", StringComparison.Ordinal)
-            ? app.PlateSections.FirstOrDefault(s => s.Id == batch.SectionId)?.Tag
-            : app.CrossSections.FirstOrDefault(s => s.Id == batch.SectionId)?.Tag;
+        string? sectionTag = SourceTag(app, batch);
         if (sectionTag == null)
         {
             MessageBox.Show(Loc.S("CalcTaskSectionNotFound"), Loc.S("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
@@ -97,6 +93,19 @@ static class BatchRowTask
             }
         }
         app.LogService.Info(string.Format(Loc.S("BatchRowTasksCreated"), batch.Tag, created, nums.Count - fresh.Count));
+    }
+
+    /// <summary>
+    /// Начало имени задачи по строке: сечение пакета (стержневое или плитное); у продавливания сечения нет —
+    /// имя самого пакета. null — сечение пакета не найдено.
+    /// </summary>
+    static string? SourceTag(AppViewModel app, CalcTask batch)
+    {
+        if (batch.Kind == PunchingBatchRunner.Kind)
+            return string.IsNullOrWhiteSpace(batch.Tag) ? Loc.S("CalcTaskKind_punching") : batch.Tag;
+        return batch.Kind.StartsWith("shell_", StringComparison.Ordinal)
+            ? app.PlateSections.FirstOrDefault(s => s.Id == batch.SectionId)?.Tag
+            : app.CrossSections.FirstOrDefault(s => s.Id == batch.SectionId)?.Tag;
     }
 
     /// <summary>По точке окна поверхности: одиночная задача предельного усилия в режиме луча Кисп.</summary>

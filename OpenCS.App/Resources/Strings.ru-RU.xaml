@@ -6581,5 +6581,12 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingBatchColRow">Строка</system:String>
    <system:String x:Key="PunchingBatchColGoverning">Определяющий контур</system:String>
    <system:String x:Key="PunchingBatchSummary">Набор «{0}», строк: {1}. Площадь {2} мм; h = {3:0} мм, h0 = {4:0.#} мм; бетон {5}, Rbt = {6:0.###} МПа; {7}</system:String>
+   <system:String x:Key="PunchingVariantShort_Closed">замкнутый</system:String>
+   <system:String x:Key="PunchingVariantShort_OpenEdge">у края</system:String>
+   <system:String x:Key="PunchingVariantShort_OpenCorner">у угла</system:String>
+   <system:String x:Key="PunchingVariantShort_PylonBroken">пилон</system:String>
+   <system:String x:Key="PunchingVariantShort_PylonReduced">пилон, справочно</system:String>
+   <system:String x:Key="PunchingVariantShort_Custom">пользователя</system:String>
+   <system:String x:Key="PunchingVariantShortOuterSuffix">, за арматурой</system:String>
    <system:String x:Key="PunchingInvalidNumber">Поле содержит нераспознанное число. Исправьте значение, выделенное красной рамкой.</system:String>
 </ResourceDictionary>

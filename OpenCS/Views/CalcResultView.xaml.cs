@@ -45,6 +45,12 @@ namespace OpenCS.Views
             return;
         }
 
+        if (task?.Kind == "punching_batch")
+        {
+            Content = new PunchingBatchResultView(result, app, task);
+            return;
+        }
+
         if (task?.Kind == "prestress_loss")
         {
             Content = new PrestressLossResultView(result, app);

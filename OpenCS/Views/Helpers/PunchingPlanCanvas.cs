@@ -268,6 +268,16 @@ public static class Variants
         return zone == PunchingZone.BeyondReinforcement ? name + Utilites.Loc.S("PunchingVariantOuterSuffix", " — за зоной арматуры") : name;
     }
 
+    /// <summary>Краткое название варианта — заголовок столбца таблицы строк пакета.</summary>
+    public static string Short(PunchingVariantKind kind, PunchingZone zone, string id, int edgeCount)
+    {
+        string name = Utilites.Loc.S("PunchingVariantShort_" + kind, kind.ToString());
+        int i = id.LastIndexOf('_');
+        bool numbered = (kind == PunchingVariantKind.OpenEdge && edgeCount > 1) || kind == PunchingVariantKind.Custom;
+        if (numbered && i >= 0 && int.TryParse(id[(i + 1)..], out int n)) name += $" {n + 1}";
+        return zone == PunchingZone.BeyondReinforcement ? name + Utilites.Loc.S("PunchingVariantShortOuterSuffix", ", за арматурой") : name;
+    }
+
     /// <summary>
     /// Кисп для подписи — то же консервативное округление вверх, что в отчёте
     /// (<see cref="OpenCS.Reporting.ReportNumberFormatter.FormatUtilization"/>), разделитель — по культуре; «∞».

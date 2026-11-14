@@ -1,0 +1,152 @@
+<UserControl x:Class="OpenCS.Views.PunchingBatchResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="clr-namespace:OpenCS.Views"
+             xmlns:h="clr-namespace:OpenCS.Views.Helpers">
+   <!-- Окно результата пакета продавливания: вердикт пакета, рисунок строки или огибающей,
+        огибающая по контурам, строки набора с Кисп по каждому контуру. DataContext — PunchingBatchResultVM. -->
+   <Grid Margin="16">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="2*" MinHeight="180"/>
+         <RowDefinition Height="5"/>
+         <RowDefinition Height="3*" MinHeight="140"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <DockPanel Grid.Row="0" Margin="0,0,0,6" LastChildFill="True">
+         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+            <Button x:Name="ParamsButton" Content="{DynamicResource PunchingParamsButton}" Padding="12,4" Margin="8,0,0,0"
+                    Click="Params_Click"/>
+            <Button x:Name="ReportButton" Content="{DynamicResource PunchingReportButton}" Padding="12,4" Margin="8,0,0,0"
+                    Click="Report_Click"/>
+         </StackPanel>
+         <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="Bold" TextTrimming="CharacterEllipsis"/>
+      </DockPanel>
+
+      <TextBlock Grid.Row="1" Text="{Binding InputsSummary}" TextWrapping="Wrap" Foreground="#555" Margin="0,0,0,8"/>
+
+      <!-- Вердикт пакета -->
+      <Border Grid.Row="2" Padding="12,8" Margin="0,0,0,6" CornerRadius="4" BorderThickness="1"
+              BorderBrush="{Binding VerdictBrush}" Background="{Binding VerdictBackground}">
+         <StackPanel>
+            <TextBlock Text="{Binding VerdictText}" FontWeight="Bold" FontSize="14"
+                       Foreground="{Binding VerdictBrush}" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding ErrorText}" TextWrapping="Wrap" Margin="0,2,0,0" Foreground="#8B0000"
+                       Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}"/>
+            <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+            <TextBlock Text="{Binding RatiosText}" TextWrapping="Wrap" Margin="0,2,0,0" Foreground="#555"/>
+            <TextBlock Text="{Binding CountsText}" TextWrapping="Wrap" Margin="0,2,0,0" Foreground="#555"/>
+         </StackPanel>
+      </Border>
+
+      <!-- Рисунок и огибающая -->
+      <Grid Grid.Row="3">
+         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="3*" MinWidth="240"/>
+            <ColumnDefinition Width="5"/>
+            <ColumnDefinition Width="2*" MinWidth="220"/>
+         </Grid.ColumnDefinitions>
+         <DockPanel Grid.Column="0">
+            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,4">
+               <RadioButton Content="{DynamicResource PunchingBatchSceneRow}" IsChecked="{Binding ShowRow, Mode=TwoWay}"
+                            GroupName="PunchingBatchScene" Margin="0,0,12,0"/>
+               <RadioButton Content="{DynamicResource PunchingBatchSceneEnvelope}" IsChecked="{Binding ShowEnvelope, Mode=TwoWay}"
+                            GroupName="PunchingBatchScene"/>
+            </StackPanel>
+            <TextBlock DockPanel.Dock="Bottom" Text="{Binding SceneCaption}" FontSize="11" Foreground="#555"
+                       TextWrapping="Wrap" Margin="0,4,0,0"/>
+            <Border BorderBrush="#D5DDE5" BorderThickness="1">
+               <h:PunchingPlanCanvas Scene="{Binding Scene}" SelectedVariantId="{Binding SelectedVariantId, Mode=TwoWay}"/>
+            </Border>
+         </DockPanel>
+         <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent"/>
+         <DockPanel Grid.Column="2">
+            <TextBlock DockPanel.Dock="Top" Text="{DynamicResource PunchingBatchEnvelopeHeader}" FontWeight="SemiBold" Margin="0,2,0,6"/>
+            <DataGrid ItemsSource="{Binding Envelope}" SelectedItem="{Binding SelectedEnvelope, Mode=TwoWay}"
+                      RowStyle="{StaticResource BatchVerdictRowStyle}"
+                      AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
+                      SelectionMode="Single" SelectionUnit="FullRow" CanUserAddRows="False">
+               <DataGrid.Columns>
+                  <DataGridTextColumn Header="{DynamicResource PunchingColVariant}" Binding="{Binding Title}" Width="*">
+                     <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                           <Setter Property="TextWrapping" Value="Wrap"/>
+                           <Style.Triggers>
+                              <DataTrigger Binding="{Binding Governs}" Value="True">
+                                 <Setter Property="FontWeight" Value="Bold"/>
+                              </DataTrigger>
+                           </Style.Triggers>
+                        </Style>
+                     </DataGridTextColumn.ElementStyle>
+                  </DataGridTextColumn>
+                  <DataGridTextColumn Header="{DynamicResource PunchingBatchColMax}" Binding="{Binding K}" SortMemberPath="KValue"/>
+                  <DataGridTextColumn Header="{DynamicResource PunchingBatchColRow}" Binding="{Binding RowText}" Width="Auto"/>
+               </DataGrid.Columns>
+            </DataGrid>
+         </DockPanel>
+      </Grid>
+
+      <GridSplitter Grid.Row="4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent"/>
+
+      <!-- Строки набора -->
+      <DockPanel Grid.Row="5">
+         <v:BatchVerdictFilterBar DockPanel.Dock="Top" Target="{Binding ElementName=RowsGrid}"/>
+         <DataGrid x:Name="RowsGrid" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
+                   RowStyle="{StaticResource BatchVerdictRowStyle}" AutoGenerateColumns="False"
+                   IsReadOnly="True" CanUserAddRows="False" GridLinesVisibility="Horizontal"
+                   CanUserSortColumns="True" SelectionMode="Single" SelectionUnit="FullRow"
+                   MouseDoubleClick="RowsGrid_MouseDoubleClick">
+            <DataGrid.ContextMenu>
+               <ContextMenu>
+                  <MenuItem Header="{DynamicResource CalcTaskNew}" Click="CreateTask_Click"/>
+               </ContextMenu>
+            </DataGrid.ContextMenu>
+            <DataGrid.Columns>
+               <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}" Binding="{Binding Num}" Width="40"/>
+               <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColLabel}" Binding="{Binding Label}" Width="*" MinWidth="80"/>
+               <DataGridTextColumn Header="N, кН" Binding="{Binding NText}" SortMemberPath="Source.N" Width="65"/>
+               <DataGridTextColumn Header="Mx, кН·м" Binding="{Binding MxText}" SortMemberPath="Source.Mx" Width="70"/>
+               <DataGridTextColumn Header="My, кН·м" Binding="{Binding MyText}" SortMemberPath="Source.My" Width="70"/>
+               <DataGridTextColumn Header="F, кН" Binding="{Binding FText}" SortMemberPath="Source.F" Width="65"/>
+               <!-- Столбцы Кисп по вариантам контура вставляются здесь из кода (их число зависит от узла). -->
+               <DataGridTextColumn x:Name="GoverningColumn" Header="{DynamicResource PunchingBatchColGoverning}"
+                                   Binding="{Binding GoverningTitle}" Width="1.5*"/>
+               <DataGridTextColumn Header="{DynamicResource BatchVerdictColUtil}" Binding="{Binding Reason.UtilText}"
+                                   SortMemberPath="Reason.SortUtil" Width="60">
+                  <DataGridTextColumn.ElementStyle>
+                     <Style TargetType="TextBlock">
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                     </Style>
+                  </DataGridTextColumn.ElementStyle>
+               </DataGridTextColumn>
+               <DataGridTemplateColumn Header="{DynamicResource BatchVerdictColReason}" Width="2*">
+                  <DataGridTemplateColumn.CellTemplate>
+                     <DataTemplate><TextBlock Text="{Binding Reason.ReasonText}" ToolTip="{Binding Reason.RefText}"/></DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+               </DataGridTemplateColumn>
+            </DataGrid.Columns>
+         </DataGrid>
+      </DockPanel>
+
+      <StackPanel Grid.Row="6" Orientation="Horizontal" Margin="0,8,0,0">
+         <Button x:Name="CreateTaskBtn" Content="{DynamicResource CalcTaskNew}" Click="CreateTask_Click" Padding="12,4"/>
+      </StackPanel>
+
+      <!-- Предупреждения -->
+      <Border Grid.Row="7" Padding="8,6" Margin="0,6,0,0" CornerRadius="4"
+              Background="#FFF8F0" BorderBrush="#E8D5C0" BorderThickness="1"
+              Visibility="{Binding HasWarnings, Converter={StaticResource BoolToVisibility}}">
+         <ItemsControl ItemsSource="{Binding Warnings}">
+            <ItemsControl.ItemTemplate>
+               <DataTemplate>
+                  <TextBlock Text="{Binding StringFormat='• {0}'}" FontSize="11" TextWrapping="Wrap" Margin="0,1"/>
+               </DataTemplate>
+            </ItemsControl.ItemTemplate>
+         </ItemsControl>
+      </Border>
+   </Grid>
+</UserControl>
