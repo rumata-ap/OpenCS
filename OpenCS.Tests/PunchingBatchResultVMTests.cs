@@ -157,6 +157,65 @@ public sealed class PunchingBatchResultVMTests
     }
 
     [Fact]
+    public void View_EnvelopeRowFromEnvelopeMode_SwitchesRadioToRow()
+    {
+        var (result, task) = Run();
+        Exception? error = null;
+        var log = new List<string>();
+        var thread = new System.Threading.Thread(() =>
+        {
+            try
+            {
+                var resources = new System.Windows.ResourceDictionary
+                {
+                    ["BoolToVisibility"] = new System.Windows.Controls.BooleanToVisibilityConverter(),
+                    ["BatchVerdictRowStyle"] = new System.Windows.Style(typeof(System.Windows.Controls.DataGridRow))
+                };
+                var vm = new PunchingBatchResultVM(result, task);
+                var view = new OpenCS.Views.PunchingBatchResultView(vm, resources);
+                var window = new System.Windows.Window { Content = view, Width = 1200, Height = 900, ShowInTaskbar = false, WindowStyle = System.Windows.WindowStyle.None, Left = -3000 };
+                window.Show();
+                void Flush() => window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+                Flush();
+                var radios = FindAll<System.Windows.Controls.RadioButton>(view);
+                var rowRadio = radios[0];
+                var envRadio = radios[1];
+                var closed = vm.Envelope.Single(e => e.Id == "closed");
+                for (int i = 0; i < 3; i++)
+                {
+                    ((System.Windows.Automation.Provider.ISelectionItemProvider)
+                        new System.Windows.Automation.Peers.RadioButtonAutomationPeer(envRadio)).Select();
+                    Flush();
+                    log.Add($"после «Огибающая»: vm.ShowEnvelope={vm.ShowEnvelope} row={rowRadio.IsChecked} env={envRadio.IsChecked}");
+                    vm.ActivateEnvelope(closed);
+                    Flush();
+                    log.Add($"после строки огибающей: vm.ShowEnvelope={vm.ShowEnvelope} row={rowRadio.IsChecked} env={envRadio.IsChecked}");
+                }
+                window.Close();
+            }
+            catch (Exception ex) { error = ex; }
+        });
+        thread.SetApartmentState(System.Threading.ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        Assert.Null(error);
+        Assert.All(log.Where(l => l.StartsWith("после строки")), l => Assert.EndsWith("vm.ShowEnvelope=False row=True env=False", l));
+        Assert.All(log.Where(l => l.StartsWith("после «")), l => Assert.EndsWith("vm.ShowEnvelope=True row=False env=True", l));
+    }
+
+    static List<T> FindAll<T>(System.Windows.DependencyObject root) where T : System.Windows.DependencyObject
+    {
+        var found = new List<T>();
+        for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is T t) found.Add(t);
+            found.AddRange(FindAll<T>(child));
+        }
+        return found;
+    }
+
+    [Fact]
     public void ParamsVM_BatchMode_PreviewByGoverningRow()
     {
         var rows = new List<LoadItem>
