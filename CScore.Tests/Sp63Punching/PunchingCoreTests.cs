@@ -325,6 +325,28 @@ public class PunchingCoreTests
         Assert.Equal(share / 2, r.UtilizationMaxReinforcement, 12);
     }
 
+    /// <summary>
+    /// Пособие по расчёту и конструированию зон продавливания (ППКЗД 2025-03-31-1, Кочнев, Куковякин),
+    /// пример № 1 до установки арматуры: пилон 250×800 на фундаментной плите, h0 = 541 мм, B25,
+    /// N = 286 тс, Mloc = 2,34 и 1,56 тс·м. В Пособии большая сторона a = 800 — вдоль X,
+    /// его «Mx» и «Wbx» отвечают нашим My и Wby (момент относительно оси Y).
+    /// </summary>
+    [Fact]
+    public void Posobie2025_Example1_ConcreteOnly()
+    {
+        const double tf = 9.80665;
+        var input = new PunchingInput(new PunchingLoadArea.Rectangle(0.8, 0.25), 0.541, Rbt,
+            new PunchingForces(286 * tf, 1.56 * tf, 2.34 * tf, MomentsAreMloc: true),
+            Options: new PunchingOptions(Pylon: PylonMode.Off));
+        var v = V(PunchingChecker.Check(input), "closed");
+        Assert.Equal(4.264, v.Geometry.U, 12);
+        Assert.Equal(1.113135939, v.Geometry.Iby, 9);       // их Ibx = 1 113 135 939 мм³
+        Assert.Equal(1.660158, v.Wby, 6);                    // их Wbx = 1 660 158 мм²
+        Assert.Equal(0.502, v.Geometry.Ibx, 3);               // их Iby ≈ 0,50 м³ (у них 65,92 округлено)
+        Assert.Equal(1.17 * tf, v.MyStar, 9);                // 0,5·Mloc
+        Assert.Equal(1.18, v.Utilization, 2);                // 1,16 + 0,01 + 0,01
+    }
+
     [Fact]
     public void Galyautdinov_ReducedPerimeter()
     {
