@@ -34,6 +34,7 @@ public sealed class ReportProviderRegistry
             new Sp63NormalReportProvider(),
             new ShearInclinedReportProvider(),
             new PunchingReportProvider(),
+            new PunchingBatchReportProvider(),
             new Sp63CrackWidthReportProvider(),
             new Sp63DeflectionReportProvider(),
             new ShellLayeredCrackWidthReportProvider(),

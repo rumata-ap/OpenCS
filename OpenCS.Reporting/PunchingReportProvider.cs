@@ -106,7 +106,6 @@ public sealed class PunchingReportProvider : IReportProvider
         var data = PunchingReportData.Parse(context.Result.DataJson);
         string tag = string.IsNullOrWhiteSpace(context.Task.Tag) ? $"№ {context.Task.Num}" : context.Task.Tag;
         var doc = new ReportDocument($"Расчёт плиты на продавливание — {tag}");
-        int edgeCount = data.Scene?.Edges.Count ?? 2;
         bool pylon = data.Variants.Any(v => v.Kind is PunchingVariantKind.PylonBroken or PunchingVariantKind.PylonReduced);
 
         doc.Add(new ReportHeading(1, "Идентификация и единицы"))
@@ -125,8 +124,18 @@ public sealed class PunchingReportProvider : IReportProvider
             doc.Add(new ReportWarning("Расчёт не выполнен: " + data.Error));
             return doc;
         }
+        AppendBody(doc, data);
+        return doc;
+    }
 
-        AddInputs(doc, data);
+    /// <summary>
+    /// Тело отчёта после идентификации: исходные данные, общие величины, схема, разделы контуров, сводка,
+    /// вывод и примечания. Общее для одиночной задачи и хода определяющей строки пакета.
+    /// </summary>
+    public static void AppendBody(ReportDocument doc, PunchingReportData data)
+    {
+        int edgeCount = data.Scene?.Edges.Count ?? 2;
+        AddInputs(doc, data.Inputs);
         if (data.CommonTrace.Count > 0)
         {
             doc.Add(new ReportHeading(1, "Общие величины"));
@@ -166,10 +175,9 @@ public sealed class PunchingReportProvider : IReportProvider
                 readable = readable.Replace($"«{v.Id}»", $"«{PunchingReportText.VariantTitle(v.Kind, v.Zone, v.Id, edgeCount)}»", StringComparison.Ordinal);
             doc.Add(new ReportWarning("Примечание: " + readable));
         }
-        return doc;
     }
 
-    static string Verdict(double? ratio)
+    internal static string Verdict(double? ratio)
     {
         if (ratio is not double k || !double.IsFinite(k))
             return "Несущая способность контура не определена — прочность не обеспечена.";
@@ -180,10 +188,10 @@ public sealed class PunchingReportProvider : IReportProvider
             : $"K = {ks} > 1 — прочность НЕ обеспечена; перегрузка (K − 1)·100 % = {((k - 1) * 100).ToString("0.0", CultureInfo.GetCultureInfo("ru-RU"))} %.";
     }
 
-    static void AddInputs(ReportDocument doc, PunchingReportData data)
+    internal static void AddInputs(ReportDocument doc, JsonElement? inputs)
     {
         doc.Add(new ReportHeading(1, "Исходные данные"));
-        if (data.Inputs is not { } i)
+        if (inputs is not { } i)
         {
             doc.Add(new ReportWarning("Исходные данные в результате не сохранены."));
             return;
@@ -220,10 +228,15 @@ public sealed class PunchingReportProvider : IReportProvider
             if (N(i, "swZone") is double zone) Row("—", zone, "м", "от грани площади до внешнего ряда арматуры");
         }
         else Text("—", "нет", "поперечная арматура");
-        Row("F", N(i, "F"), "кН", "продавливающая сила");
         bool mloc = i.TryGetProperty("momentsAreMloc", out var ml) && ml.ValueKind == JsonValueKind.True;
-        Row(mloc ? "M_loc,x" : "M_x", N(i, "Mx"), "кН·м", mloc ? "полный момент узла (в расчёт — половина)" : "момент относительно оси X");
-        Row(mloc ? "M_loc,y" : "M_y", N(i, "My"), "кН·м", mloc ? "полный момент узла (в расчёт — половина)" : "момент относительно оси Y");
+        if (i.TryGetProperty("F", out _))
+        {
+            Row("F", N(i, "F"), "кН", "продавливающая сила");
+            Row(mloc ? "M_loc,x" : "M_x", N(i, "Mx"), "кН·м", mloc ? "полный момент узла (в расчёт — половина)" : "момент относительно оси X");
+            Row(mloc ? "M_loc,y" : "M_y", N(i, "My"), "кН·м", mloc ? "полный момент узла (в расчёт — половина)" : "момент относительно оси Y");
+        }
+        else
+            Text("F, M_x, M_y", "строки набора", "усилия: F = |N|, Mx и My строки" + (mloc ? " (моменты — полные Mloc узла, в расчёт — половина)" : ""));
         Text("—", S(i, "loadSide") == "from_above" ? "сверху (на плиту)" : "снизу (колонна под плитой)", "сторона приложения нагрузки");
         if (N(i, "counterPressure") is double q && q != 0) Row("q", q, "кПа", "нагрузка в основании пирамиды против F");
         Text("—", $"{Mode(S(i, "eccentricityX"))} / {Mode(S(i, "eccentricityY"))}", "учёт эксцентриситета F для Mx / My");
@@ -403,7 +416,7 @@ public sealed class PunchingReportProvider : IReportProvider
         return s.Replace('.', ',');
     }
 
-    static string Ku(double k) => ReportNumberFormatter.FormatUtilization(k).Replace('.', ',');
+    internal static string Ku(double k) => ReportNumberFormatter.FormatUtilization(k).Replace('.', ',');
 
     static double? N(JsonElement e, string n) => e.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : null;
     static string S(JsonElement e, string n) => e.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";

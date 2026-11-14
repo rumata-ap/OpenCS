@@ -125,6 +125,32 @@ public sealed class PunchingBatchTests
     }
 
     [Fact]
+    public void Report_EnvelopeRowsAndGoverningDetail()
+    {
+        var (result, path) = RunBatch(Gosha(), Set());
+        try
+        {
+            var task = Batch(Gosha());
+            var provider = ReportProviderRegistry.CreateDefault().Resolve(task);
+            Assert.IsType<PunchingBatchReportProvider>(provider);
+            var doc = provider.Build(new ReportContext(task, result));
+            var headings = doc.Blocks.OfType<ReportHeading>().Select(h => h.Text).ToList();
+            Assert.Contains("Огибающая по контурам", headings);
+            Assert.Contains("Строки набора", headings);
+            Assert.Contains("Вывод", headings);
+            Assert.Contains(headings, h => h.StartsWith("Определяющая строка № 2", StringComparison.Ordinal));
+            // Ход определяющей строки — тело одиночного отчёта, на уровень ниже.
+            Assert.Contains(doc.Blocks.OfType<ReportHeading>(), h => h.Level == 2 && h.Text.StartsWith("Разорванный контур", StringComparison.Ordinal));
+            var rowsTable = doc.Blocks.OfType<ReportTable>().First(t => t.Headers.Contains("K: пилон"));
+            Assert.Equal(4, rowsTable.Rows.Count);
+            Assert.Contains(rowsTable.Rows, r => r[0] == "★ 2");
+            Assert.Contains(doc.Blocks.OfType<ReportParagraph>(), p => p.Text.Contains("Kmax = 1,019", StringComparison.Ordinal));
+            Assert.Contains(doc.Blocks.OfType<ReportImage>(), i => i.Svg.Contains("<svg", StringComparison.Ordinal));
+        }
+        finally { Delete(path); }
+    }
+
+    [Fact]
     public void Errors_NoSet_EmptySet_InvalidInput()
     {
         var (noSet, p1) = RunBatch(Gosha());

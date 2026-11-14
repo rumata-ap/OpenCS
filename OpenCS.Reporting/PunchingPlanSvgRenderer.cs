@@ -29,6 +29,27 @@ public static class PunchingReportText
             : name;
     }
 
+    /// <summary>Краткое название варианта — заголовок столбца таблиц пакета.</summary>
+    public static string ShortTitle(PunchingVariantKind kind, PunchingZone zone, string id, int edgeCount = 2)
+    {
+        string name = kind switch
+        {
+            PunchingVariantKind.Closed => "замкнутый",
+            PunchingVariantKind.OpenEdge => "у края" + (edgeCount > 1 ? EdgeNumber(id) : ""),
+            PunchingVariantKind.OpenCorner => "у угла",
+            PunchingVariantKind.PylonBroken => "пилон",
+            PunchingVariantKind.PylonReduced => "пилон, справочно",
+            _ => "пользователя " + CustomNumber(id)
+        };
+        return zone == PunchingZone.BeyondReinforcement ? name + ", за арматурой" : name;
+    }
+
+    static string CustomNumber(string id)
+    {
+        int i = id.LastIndexOf('_');
+        return i >= 0 && int.TryParse(id[(i + 1)..], out int n) ? (n + 1).ToString(CultureInfo.InvariantCulture) : "";
+    }
+
     static string EdgeNumber(string id)
     {
         int i = id.LastIndexOf('_');

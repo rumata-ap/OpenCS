@@ -26,7 +26,7 @@ static class CalcReportExporter
             ? app.PlateSections.FirstOrDefault(candidate => candidate.Id == task.SectionId)
             : null;
         // Продавливание не ссылается на сечение: всё нужное отчёту — в DataJson.
-        if (section == null && plateSection == null && task.Kind != "punching") return;
+        if (section == null && plateSection == null && !PunchingBatchRunner.IsPunchingKind(task.Kind)) return;
 
         CScore.ParametricRc.ParametricRcSectionDefinition? parametricSection = null;
         string? parametricSectionWarning = null;
