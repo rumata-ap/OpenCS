@@ -185,8 +185,9 @@ public static class PunchingChecker
             ctx.Warnings.Add(new("m_limited_half_kf",
                 $"Контур «{v.Id}»: вклад моментов ограничен половиной вклада силы (п. 8.1.46)."));
 
-        var trace = PunchingTrace.Build(v, g, wbx, wby, h0, rbt, qsw, fsw, counted, fb, mbx, mby, mswx, mswy,
-            fult, mxult, myult, F, ctx.Fred, mx0, my0, ex, ey, mxStar, myStar, kF, kMRaw, kM, k);
+        var trace = PunchingTrace.Build(new PunchingTraceData(v, g, wbx, wby, h0, rbt, input.Reinforcement,
+            qsw, fswRaw, fsw, counted, fb, mbx, mby, mswx, mswy, fult, mxult, myult, F, ctx.Fred, mx0, my0,
+            o, ex, ey, s, ctx.Options.EccentricityX, ctx.Options.EccentricityY, mxStar, myStar, kF, kMRaw, kM, k));
 
         return new PunchingVariantResult(v, g, wbx, wby, fb, fsw, counted, mbx, mby, mswx, mswy,
             fult, mxult, myult, ctx.Fred, mxStar, myStar, kF, kMRaw, kM, k, kb, kmax, false, trace);
@@ -208,7 +209,7 @@ public static class PunchingChecker
         double kb = ctx.Fred > 0 ? ctx.Fred / fb : 0;
         double kmax = ctx.Fred > 0 ? ctx.Fred / (2 * fb) : 0;
         var g = new ContourProperties(gp.URed, 0, 0, 0, 0, 0, 0, 0, 0);
-        var trace = PunchingTrace.BuildReduced(v, gp, factor, input.H0, input.Rbt, fb, fsw, fult, ctx.Fred, kF);
+        var trace = PunchingTrace.BuildReduced(v, gp, Math.Min(rect.Bx, rect.By), factor, input.H0, input.Rbt, fb, fsw, fult, ctx.Fred, kF);
         return new PunchingVariantResult(v, g, 0, 0, fb, fsw, counted, 0, 0, 0, 0, fult, 0, 0,
             ctx.Fred, 0, 0, kF, 0, 0, kF, kb, kmax, false, trace);
     }
