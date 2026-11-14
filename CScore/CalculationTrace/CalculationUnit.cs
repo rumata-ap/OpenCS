@@ -40,5 +40,11 @@ public enum CalculationUnit
     Strain,
 
     /// <summary>Целое количество.</summary>
-    Count
+    Count,
+
+    /// <summary>Кубический метр (момент инерции контура единичной ширины).</summary>
+    CubicMeter,
+
+    /// <summary>Килоньютон на метр (погонное усилие).</summary>
+    KilonewtonPerMeter
 }

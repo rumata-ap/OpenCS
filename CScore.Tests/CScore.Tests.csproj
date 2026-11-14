@@ -36,6 +36,7 @@
           Link="DataSource\%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" />
     <None Include="Submodel\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Sp63Punching\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Import\Fixtures\*.RBT" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Import\Fixtures\*.asp" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Import\Fixtures\*.txt" CopyToOutputDirectory="PreserveNewest" />
