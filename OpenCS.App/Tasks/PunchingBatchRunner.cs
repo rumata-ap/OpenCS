@@ -165,7 +165,7 @@ public static class PunchingBatchRunner
             .Select(v =>
             {
                 string title = PunchingReportText.VariantTitle(v.Variant.Kind, v.Variant.Zone, v.Variant.Id, edgeCount);
-                string text = $"{title}: Кисп = {BatchVerdictText.F3(v.Utilization)}" + (reversed ? "; N другого знака" : "");
+                string text = $"{title}: Кисп = {K(v.Utilization)}" + (reversed ? "; N другого знака" : "");
                 return new BatchCriterion(v.Variant.Id, v.Utilization, Reference(v.Variant.Kind, v.Variant.Zone), text);
             })
             .ToArray();
@@ -173,6 +173,9 @@ public static class PunchingBatchRunner
             ? BatchRowVerdict.Error("Не построено ни одного расчётного контура.")
             : BatchRowVerdict.Worst(criteria);
     }
+
+    /// <summary>Кисп для текста причины — округление вверх, как в окне и отчёте продавливания.</summary>
+    static string K(double k) => double.IsFinite(k) ? ReportNumberFormatter.FormatUtilization(k).Replace('.', ',') : "∞";
 
     /// <summary>Пункт и рисунок нормы для варианта контура.</summary>
     public static string Reference(PunchingVariantKind kind, PunchingZone zone)

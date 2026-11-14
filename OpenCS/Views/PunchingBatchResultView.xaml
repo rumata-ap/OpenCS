@@ -115,7 +115,7 @@
                <!-- Столбцы Кисп по вариантам контура вставляются здесь из кода (их число зависит от узла). -->
                <DataGridTextColumn x:Name="GoverningColumn" Header="{DynamicResource PunchingBatchColGoverning}"
                                    Binding="{Binding GoverningTitle}" Width="1.5*"/>
-               <DataGridTextColumn Header="{DynamicResource BatchVerdictColUtil}" Binding="{Binding Reason.UtilText}"
+               <DataGridTextColumn Header="{DynamicResource BatchVerdictColUtil}" Binding="{Binding KText}"
                                    SortMemberPath="Reason.SortUtil" Width="60">
                   <DataGridTextColumn.ElementStyle>
                      <Style TargetType="TextBlock">

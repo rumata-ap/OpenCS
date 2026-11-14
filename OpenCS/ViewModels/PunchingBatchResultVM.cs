@@ -37,6 +37,8 @@ public sealed class PunchingBatchRowVM : IBatchVerdictRow
     public string GoverningTitle { get; init; } = "";
     /// <summary>N другого знака, чем преобладающий в наборе.</summary>
     public bool Reversed => Source.Reversed;
+    /// <summary>Кисп строки — с тем же округлением вверх, что в столбцах контуров, окне и отчёте.</summary>
+    public string KText => Source.Verdict.Util is double k ? Variants.K(k) : "—";
     /// <inheritdoc/>
     public BatchVerdictView Reason { get; init; } = BatchVerdictView.Empty;
 }

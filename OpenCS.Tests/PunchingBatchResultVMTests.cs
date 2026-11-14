@@ -56,6 +56,7 @@ public sealed class PunchingBatchResultVMTests
         Assert.Equal(["closed", "pylon_broken"], vm.VariantColumns.Select(c => c.Id).ToArray());
         Assert.All(vm.Rows, r => Assert.Equal(2, r.Ratios.Count));
         Assert.Equal(2, vm.SelectedRow!.Num);
+        Assert.Equal(vm.SelectedRow.Ratios[1], vm.SelectedRow.KText);   // 1,019 — округление вверх, как у столбца контура
         Assert.Equal("pylon_broken", vm.SelectedVariantId);
         Assert.Equal(BatchVerdictTone.Fail, vm.Tone);
         Assert.Contains("1,019", vm.VerdictText);
