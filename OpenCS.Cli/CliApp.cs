@@ -113,6 +113,7 @@ sealed partial class CliApp
         DescribeAuthoringOptions();
         DescribeSteelOptions();
         DescribeForceOptions();
+        DescribeTaskOptions();
         var listSections = new Command("sections", Loc.S("CliCmdListSections")) { _project };
         listSections.SetAction((p, ct) => Handle(p, ct, ListSectionsAsync));
         var listForceSets = new Command("forcesets", Loc.S("CliCmdListForceSets")) { _project };
@@ -124,7 +125,7 @@ sealed partial class CliApp
             listTasks, listChecks, listAnalyses, listResults, listSections, listForceSets, listMaterials,
             ListProfilesCommand()
         };
-        var add = new Command("add", Loc.S("CliCmdAdd")) { AddSteelSectionCommand() };
+        var add = new Command("add", Loc.S("CliCmdAdd")) { AddSteelSectionCommand(), AddTasksCommand() };
         var import = new Command("import", Loc.S("CliCmdImport")) { ImportForcesCommand() };
         var split = new Command("split", Loc.S("CliCmdSplit")) { SplitForcesCommand() };
 

@@ -6208,6 +6208,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliErrUnknownKind">Unknown task kind «{0}»; allowed: {1}</system:String>
    <system:String x:Key="CliErrShellKind">Kind «{0}» (plates) is not supported by the console yet</system:String>
    <system:String x:Key="CliErrBatchNeedsSet">A batch task needs --set</system:String>
+   <system:String x:Key="CliErrBatchElements">A batch uses the whole force set: extract rows of given elements with split forces</system:String>
    <system:String x:Key="CliErrParam">Invalid parameter «{0}»: Name=Value expected</system:String>
    <system:String x:Key="CliErrParamsJson">Parameters not parsed: {0}</system:String>
    <system:String x:Key="CliErrUnknownParam">Kind «{0}»: no parameter «{1}»; available: {2}</system:String>

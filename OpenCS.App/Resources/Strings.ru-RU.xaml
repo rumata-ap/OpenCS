@@ -6208,6 +6208,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliErrUnknownKind">Неизвестный вид задачи «{0}»; допустимо: {1}</system:String>
    <system:String x:Key="CliErrShellKind">Вид «{0}» (пластины) консоль пока не собирает</system:String>
    <system:String x:Key="CliErrBatchNeedsSet">Пакетной задаче нужен --set</system:String>
+   <system:String x:Key="CliErrBatchElements">Пакет считает весь набор: строки отдельных КЭ выделите командой split forces</system:String>
    <system:String x:Key="CliErrParam">Неверный параметр «{0}»: ожидается Имя=Значение</system:String>
    <system:String x:Key="CliErrParamsJson">Параметры не разобраны: {0}</system:String>
    <system:String x:Key="CliErrUnknownParam">Вид «{0}»: нет параметра «{1}»; есть: {2}</system:String>

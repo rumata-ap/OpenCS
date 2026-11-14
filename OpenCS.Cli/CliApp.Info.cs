@@ -62,7 +62,8 @@ sealed partial class CliApp
             {
                 t.Id, t.Num, t.Tag, t.Kind,
                 Section = SectionTag(ctx, t),
-                Result = last == null ? null : new { last.Id, last.Status, last.Created }
+                Result = last == null ? null : new { last.Id, last.Status, last.Created },
+                Utilization = last == null ? null : CliUtilization.Read(last.DataJson)
             };
         }).ToList();
 
@@ -70,11 +71,12 @@ sealed partial class CliApp
         else
             CliOutput.WriteTable(call.Out,
                 [Loc.S("CliColId"), Loc.S("CliColNum"), Loc.S("CliColTag"), Loc.S("CliColKind"),
-                 Loc.S("CliColSection"), Loc.S("CliColResult")],
+                 Loc.S("CliColSection"), Loc.S("CliColResult"), Loc.S("CliColUtilization")],
                 rows.Select(r => new[]
                 {
                     r.Id.ToString(), r.Num.ToString(), r.Tag, r.Kind, r.Section ?? Loc.S("CliNone"),
-                    r.Result == null ? Loc.S("CliNone") : $"#{r.Result.Id} {r.Result.Status} {r.Result.Created}"
+                    r.Result == null ? Loc.S("CliNone") : $"#{r.Result.Id} {r.Result.Status} {r.Result.Created}",
+                    CliUtilization.Format(r.Utilization)
                 }));
         return Task.FromResult(CliExitCode.Ok);
     }

@@ -65,6 +65,7 @@ sealed partial class CliApp
                 {
                     ["kind"] = item.Kind, ["id"] = item.Id, ["tag"] = item.Tag,
                     ["status"] = status, ["resultId"] = result?.Id,
+                    ["utilization"] = CliUtilization.Read(result?.DataJson),
                     ["messages"] = call.Log.Since(mark).Select(e => new
                     {
                         Level = e.Level.ToString().ToLowerInvariant(), Text = e.Message
@@ -75,6 +76,9 @@ sealed partial class CliApp
             }
             else if (result == null)
                 call.Out.WriteLine(string.Format(Loc.S("CliRunNotDone"), Loc.S(item.KindKey), item.Id, item.Tag));
+            else if (CliUtilization.Read(result.DataJson) is { } utilization)
+                call.Out.WriteLine(string.Format(Loc.S("CliRunDoneUtil"), Loc.S(item.KindKey), item.Id, item.Tag,
+                    status, result.Id, CliUtilization.Format(utilization)));
             else
                 call.Out.WriteLine(string.Format(Loc.S("CliRunDone"), Loc.S(item.KindKey), item.Id, item.Tag,
                     status, result.Id));

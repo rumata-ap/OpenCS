@@ -231,6 +231,89 @@ public sealed class CliAuthoringTests : IDisposable
         Assert.Equal(before, File.ReadAllBytes(project));
     }
 
+    /// <summary>Рама Гоши, собранная командами: те же сечения, наборы и пакеты, что в проекте 14.11.2026.</summary>
+    async Task<string> BuildGoshaFrame()
+    {
+        string project = PathOf("рама.db");
+        async Task Ok(params string[] args)
+        {
+            var r = await Run(args);
+            Assert.True(r.Code == CliExitCode.Ok, $"{string.Join(' ', args)}: {r.Err}");
+        }
+        await Ok("new", project);
+        await Ok("add", "steel-section", project, "--profile", "30К1", "--standard", "57837", "--steel", "С255", "--tag", "Колонна 30К1");
+        await Ok("add", "steel-section", project, "--profile", "35Ш1", "--standard", "19", "--steel", "С255", "--tag", "Ригель 35Ш1");
+        await Ok("import", "forces", project, GoshaCsv(), "--tag", "A: РСУ");
+        await Ok("split", "forces", project, "--set", "A: РСУ", "--elements", "1,2", "--tag", "колонны");
+        await Ok("split", "forces", project, "--set", "A: РСУ", "--elements", "3", "--tag", "ригель");
+        await Ok("add", "tasks", project, "--kind", "steel_check_batch", "--section", "Колонна 30К1", "--set", "колонны",
+            "--param", "LefX=12", "--param", "LefY=6", "--param", "LefB=6", "--param", "SlendernessGovernsSection=true",
+            "--param", "compressioncategory=MainColumn", "--tag", "Пакет: колонны");
+        await Ok("add", "tasks", project, "--kind", "steel_check_batch", "--section", "Ригель 35Ш1", "--set", "ригель",
+            "--params", """{"LefX":6,"LefY":6,"LefB":6}""", "--param", "LtbLoad=Uniform",
+            "--param", "CompressionCategory=SecondaryColumn", "--tag", "Пакет: ригель");
+        return project;
+    }
+
+    [Fact]
+    public async Task GoshaFrame_BuiltByCommands_BatchUtilizationsMatchProject()
+    {
+        string project = await BuildGoshaFrame();
+
+        var (code, output, err) = await Run("run", "task", project, "--all", "--in-place", "--json", "-q");
+
+        Assert.True(code == CliExitCode.Ok, err);
+        using var json = JsonDocument.Parse(output);
+        var util = json.RootElement.EnumerateArray()
+            .ToDictionary(e => e.GetProperty("tag").GetString()!, e => e.GetProperty("utilization").GetDouble());
+        Assert.Equal(0.613, util["Пакет: колонны"], 3);
+        Assert.Equal(0.571, util["Пакет: ригель"], 3);
+
+        var list = await Run("list", "tasks", project);
+        Assert.Contains("0,613", list.Out);
+    }
+
+    [Fact]
+    public async Task AddTasks_PerRow_ElementsFilter_AndErrors()
+    {
+        string project = await BuildGoshaFrame();
+
+        var rows = await Run("add", "tasks", project, "--kind", "steel_check", "--section", "1", "--set", "A: РСУ",
+            "--elements", "3", "--param", "LefX=6", "--tag", "Ригель", "--json");
+        Assert.True(rows.Code == CliExitCode.Ok, rows.Err);
+        using (var json = JsonDocument.Parse(rows.Out))
+            Assert.Equal(5, json.RootElement.GetArrayLength());
+
+        Assert.Equal(CliExitCode.Usage, (await Run("add", "tasks", project, "--kind", "steel_chek", "--section", "1")).Code);
+        var badParam = await Run("add", "tasks", project, "--kind", "steel_check", "--section", "1", "--param", "Lef=6");
+        Assert.Equal(CliExitCode.Usage, badParam.Code);
+        Assert.Contains("LefX", badParam.Err);
+        Assert.Equal(CliExitCode.Usage, (await Run("add", "tasks", project, "--kind", "steel_check", "--section", "1", "--param", "LefX")).Code);
+        Assert.Equal(CliExitCode.Usage, (await Run("add", "tasks", project, "--kind", "steel_check", "--section", "1", "--params", "[1]")).Code);
+        Assert.Equal(CliExitCode.Usage, (await Run("add", "tasks", project, "--kind", "steel_check_batch", "--section", "1")).Code);
+        Assert.Equal(CliExitCode.Usage, (await Run("add", "tasks", project, "--kind", "steel_check_batch", "--section", "1",
+            "--set", "1", "--elements", "1")).Code);
+        Assert.Equal(CliExitCode.Usage, (await Run("add", "tasks", project, "--kind", "shell_layered_uls", "--section", "1")).Code);
+        Assert.Equal(CliExitCode.Usage, (await Run("add", "tasks", project, "--kind", "steel_check", "--section", "нет")).Code);
+
+        using var db = Load(project);
+        var perRow = db.CalcTasks.Where(t => t.Tag.StartsWith("Ригель — ")).ToList();
+        Assert.Equal(5, perRow.Count);
+        Assert.All(perRow, t => Assert.True(t.ForceItemId > 0));
+        Assert.Equal(12, CScore.Sp16.SteelDesignParams.Parse(perRow[0].ParamsJson).LefX * 2);
+    }
+
+    [Theory]
+    [InlineData("""{"utilization":0.5,"rows":[{"num":1,"utilization":0.9}]}""", 0.5)]
+    [InlineData("""{"governing_num":2,"rows":[{"num":1,"utilization":0.9},{"num":2,"utilization":0.4}]}""", 0.4)]
+    [InlineData("""{"verdict_summary":{"governing_num":1},"rows":[{"num":1,"utilization":0.7}]}""", 0.7)]
+    [InlineData("""{"rows":[{"num":1,"utilization":0.2},{"num":2,"utilization":0.3}]}""", 0.3)]
+    public void Utilization_FromResultJson(string json, double expected) =>
+        Assert.Equal(expected, CliUtilization.Read(json));
+
+    [Fact]
+    public void Utilization_None() => Assert.Null(CliUtilization.Read("""{"status":"ok"}"""));
+
     [Theory]
     [InlineData("1,2,5-8", "1, 2, 5-8")]
     [InlineData("3", "3")]
