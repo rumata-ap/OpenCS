@@ -66,6 +66,21 @@ public partial class PunchingBatchResultView : UserControl
         }
     }
 
+    void EnvelopeRow_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (sender is DataGridRow { DataContext: PunchingEnvelopeRowVM envelope }) _vm.ActivateEnvelope(envelope);
+    }
+
+    void EnvelopeRow_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key is System.Windows.Input.Key.Enter or System.Windows.Input.Key.Space
+            && sender is DataGridRow { DataContext: PunchingEnvelopeRowVM envelope })
+        {
+            _vm.ActivateEnvelope(envelope);
+            e.Handled = true;
+        }
+    }
+
     void Report_Click(object sender, RoutedEventArgs e)
     {
         if (_app is not null && _app.ExportCalcResultReportCommand.CanExecute(_result))

@@ -66,12 +66,15 @@
          <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent"/>
          <DockPanel Grid.Column="2">
             <TextBlock DockPanel.Dock="Top" Text="{DynamicResource PunchingBatchEnvelopeHeader}" FontWeight="SemiBold" Margin="0,2,0,6"/>
-            <DataGrid ItemsSource="{Binding Envelope}" SelectedItem="{Binding SelectedEnvelope, Mode=TwoWay}"
+            <DataGrid ItemsSource="{Binding Envelope}"
                       AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
                       SelectionMode="Single" SelectionUnit="FullRow" CanUserAddRows="False">
-               <!-- Рамка — контур, выделенный на рисунке; видна и без фокуса таблицы, поверх фона вердикта. -->
+               <!-- Рамка — контур, выделенный на рисунке; видна и без фокуса таблицы, поверх фона вердикта.
+                    Щелчок по строке обрабатывается каждый раз (EnvelopeRow_Click), а не по смене выделения таблицы. -->
                <DataGrid.RowStyle>
                   <Style TargetType="DataGridRow" BasedOn="{StaticResource BatchVerdictRowStyle}">
+                     <EventSetter Event="PreviewMouseLeftButtonUp" Handler="EnvelopeRow_Click"/>
+                     <EventSetter Event="KeyDown" Handler="EnvelopeRow_KeyDown"/>
                      <Setter Property="BorderThickness" Value="2"/>
                      <Setter Property="BorderBrush" Value="Transparent"/>
                      <Style.Triggers>

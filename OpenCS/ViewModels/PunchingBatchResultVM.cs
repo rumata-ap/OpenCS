@@ -75,7 +75,6 @@ public sealed class PunchingEnvelopeRowVM : ViewModelBase
 public sealed class PunchingBatchResultVM : ViewModelBase
 {
     PunchingBatchRowVM? _selectedRow;
-    PunchingEnvelopeRowVM? _selectedEnvelope;
     string? _selectedVariantId;
     bool _showEnvelope;
 
@@ -170,21 +169,7 @@ public sealed class PunchingBatchResultVM : ViewModelBase
             OnPropertyChanged(nameof(ShowRow));
             OnPropertyChanged(nameof(Scene));
             OnPropertyChanged(nameof(SceneCaption));
-            if (value) ClearEnvelopeSelection();
         }
-    }
-
-    bool _applyingEnvelope;
-
-    /// <summary>
-    /// Снять выделение таблицы огибающей, когда показ ушёл от её строки (другая строка набора, режим огибающей):
-    /// иначе повторный щелчок по той же строке огибающей таблица не передаёт и он ничего не делает.
-    /// </summary>
-    void ClearEnvelopeSelection()
-    {
-        if (_applyingEnvelope || _selectedEnvelope is null) return;
-        _selectedEnvelope = null;
-        OnPropertyChanged(nameof(SelectedEnvelope));
     }
 
     /// <summary>Рисунок — выбранная строка.</summary>
@@ -199,32 +184,23 @@ public sealed class PunchingBatchResultVM : ViewModelBase
             if (ReferenceEquals(_selectedRow, value) || value is null) return;
             _selectedRow = value;
             OnPropertyChanged();
-            ClearEnvelopeSelection();
             SelectedVariantId = value.Source.Governing;
             OnPropertyChanged(nameof(Scene));
             OnPropertyChanged(nameof(SceneCaption));
         }
     }
 
-    /// <summary>Выбранная строка огибающей: выбирает строку набора с наибольшим Кисп этого контура.</summary>
-    public PunchingEnvelopeRowVM? SelectedEnvelope
+    /// <summary>
+    /// Щелчок по строке огибающей: показать строку набора с наибольшим Кисп этого контура и выделить контур.
+    /// Вызывается на каждый щелчок, а не по смене выделения таблицы: повторный щелчок по той же строке
+    /// после смены режима или строки набора тоже должен срабатывать, а выделение DataGrid его не передаёт.
+    /// </summary>
+    public void ActivateEnvelope(PunchingEnvelopeRowVM envelope)
     {
-        get => _selectedEnvelope;
-        set
-        {
-            if (ReferenceEquals(_selectedEnvelope, value)) return;
-            _selectedEnvelope = value;
-            OnPropertyChanged();
-            if (value is null) return;
-            _applyingEnvelope = true;
-            try
-            {
-                if (Rows.FirstOrDefault(r => r.Num == value.Num) is { } row) SelectedRow = row;
-                ShowEnvelope = false;
-                SelectedVariantId = value.Id;
-            }
-            finally { _applyingEnvelope = false; }
-        }
+        ArgumentNullException.ThrowIfNull(envelope);
+        if (Rows.FirstOrDefault(r => r.Num == envelope.Num) is { } row) SelectedRow = row;
+        ShowEnvelope = false;
+        SelectedVariantId = envelope.Id;
     }
 
     /// <summary>
