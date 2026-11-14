@@ -95,12 +95,26 @@ public class Sp16Section9OutOfPlaneTests
     }
 
     [Fact]
-    public void MinimumC_Is03()
+    public void SmallC_NotLimited_WhenWidthToHeightAtLeast03()
     {
-        // mx ≥ 10 при большом φy/φb даёт c < 0,3.
+        // 9.2.5: c = 0,3 принимается только при b/h < 0,3; у двутавра 300×150 b/h = 0,5 — c по формуле.
         var r = Check(Beam(new SteelDesignParams { LefX = 6, LefY = 2.5 }), new SteelForces(-10, 60, 0, 0, 0));
         Assert.True(Var(r, "c (113)") < 0.3);
+        Assert.Equal(Var(r, "c (113)"), Var(r, "c"), 12);
+        Assert.Equal(0.5, Var(r, "b/h"), 12);
+        Assert.Contains(r.Notes, n => n.Contains("не применяется"));
+    }
+
+    [Fact]
+    public void SmallC_Is03_ForNarrowSection()
+    {
+        // Сварной двутавр 600×150 (b/h = 0,25 < 0,3): c < 0,3 по (113) заменяется на 0,3.
+        var narrow = Sp16Member.Create(new PolygonSection(TemplatePoints.IBeamPoints(0.600, 0.150, 0.008, 0.012)), C245,
+            new SteelDesignParams { LefX = 6, LefY = 2.5 });
+        var r = Check(narrow, new SteelForces(-10, 120, 0, 0, 0));
+        Assert.True(Var(r, "c (113)") < 0.3);
         Assert.Equal(0.3, Var(r, "c"), 12);
+        Assert.Equal(0.25, Var(r, "b/h"), 12);
     }
 
     // ── 9.2.6: расчётный момент ──
