@@ -64,7 +64,7 @@ public static class PunchingRunner
         var warnings = new List<string>();
         var list = materials as IReadOnlyCollection<Material> ?? materials.ToList();
         double rbt = 0;
-        string concreteTag = Loc.S("PunchingManualValue");
+        string concreteTag = "";   // пусто — Rbt задано вручную
         if (p.Slab.RbtOverride is double manualRbt) rbt = manualRbt;
         else
         {
@@ -82,7 +82,6 @@ public static class PunchingRunner
             if (p.Reinforcement.RswOverride is double manualRsw)
             {
                 rsw = StirrupResolver.LimitRsw(manualRsw);
-                rebarTag = Loc.S("PunchingManualValue");
                 if (manualRsw > StirrupResolver.MaxRsw)
                     warnings.Add(string.Format(Loc.S("PunchingWarnRswLimited"), StirrupResolver.MaxRsw / 1000));
             }
@@ -112,7 +111,7 @@ public static class PunchingRunner
                 ("h", p.Slab.H, CalculationUnit.Meter), ("ax", p.Slab.Ax, CalculationUnit.Meter), ("h0x", p.H0x, CalculationUnit.Meter)),
             Step("sp63.punching.h0y", "п. 8.1.46", "Punching_Trace_H0y", @"h_{0y} = h - a_y", @"{h} - {ay}", "{h0y}",
                 ("h", p.Slab.H, CalculationUnit.Meter), ("ay", p.Slab.Ay, CalculationUnit.Meter), ("h0y", p.H0y, CalculationUnit.Meter)),
-            Step("sp63.punching.h0", "п. 8.1.46", "Punching_Trace_H0", @"h_0 = 0{,}5\,(h_{0x} + h_{0y})", @"0.5 \cdot ({h0x} + {h0y})", "{h0}",
+            Step("sp63.punching.h0", "п. 8.1.46", "Punching_Trace_H0", @"h_0 = 0{,}5\,(h_{0x} + h_{0y})", @"0{,}5 \cdot ({h0x} + {h0y})", "{h0}",
                 ("h0x", p.H0x, CalculationUnit.Meter), ("h0y", p.H0y, CalculationUnit.Meter), ("h0", p.H0, CalculationUnit.Meter)),
             Step("sp63.punching.rbt", "пп. 6.1.11, 6.1.12", "Punching_Trace_Rbt", @"R_{bt}", "", "{Rbt}",
                 ("Rbt", s.Rbt, CalculationUnit.Kilopascal))
@@ -120,7 +119,7 @@ public static class PunchingRunner
         if (p.Reinforcement.Enabled)
         {
             steps.Add(Step("sp63.punching.asw", "п. 8.1.48", "Punching_Trace_Asw", @"A_{sw} = n\,\frac{\pi d_{sw}^2}{4}",
-                @"{n} \cdot \frac{3.1416 \cdot {d}^2}{4}", "{Asw}",
+                @"{n} \cdot \pi \cdot {d}^2 / 4", "{Asw}",
                 ("n", p.Reinforcement.Count, CalculationUnit.Count), ("d", p.Reinforcement.Diameter, CalculationUnit.Meter),
                 ("Asw", p.Reinforcement.Asw, CalculationUnit.SquareMeter)));
             steps.Add(Step("sp63.punching.rsw", "табл. 6.15", "Punching_Trace_Rsw", @"R_{sw}", "", "{Rsw}",
@@ -128,9 +127,9 @@ public static class PunchingRunner
         }
         if (p.Forces.MomentsAreMloc)
         {
-            steps.Add(Step("sp63.punching.mloc_x", "п. 8.1.46", "Punching_Trace_MlocX", @"M_x = 0{,}5\,M_{loc,x}", @"0.5 \cdot {Mloc}", "{M}",
+            steps.Add(Step("sp63.punching.mloc_x", "п. 8.1.46", "Punching_Trace_MlocX", @"M_x = 0{,}5\,M_{loc,x}", @"0{,}5 \cdot {Mloc}", "{M}",
                 ("Mloc", p.Forces.Mx, CalculationUnit.KilonewtonMeter), ("M", 0.5 * p.Forces.Mx, CalculationUnit.KilonewtonMeter)));
-            steps.Add(Step("sp63.punching.mloc_y", "п. 8.1.46", "Punching_Trace_MlocY", @"M_y = 0{,}5\,M_{loc,y}", @"0.5 \cdot {Mloc}", "{M}",
+            steps.Add(Step("sp63.punching.mloc_y", "п. 8.1.46", "Punching_Trace_MlocY", @"M_y = 0{,}5\,M_{loc,y}", @"0{,}5 \cdot {Mloc}", "{M}",
                 ("Mloc", p.Forces.My, CalculationUnit.KilonewtonMeter), ("M", 0.5 * p.Forces.My, CalculationUnit.KilonewtonMeter)));
         }
         if (p.Forces.CounterPressure != 0)

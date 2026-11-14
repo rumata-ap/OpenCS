@@ -96,18 +96,18 @@ internal static class PunchingTrace
                 ("Rsw", r.Rsw, CalculationUnit.Kilopascal), ("Asw", r.Asw, CalculationUnit.SquareMeter),
                 ("sw", r.Sw, CalculationUnit.Meter), ("qsw", d.Qsw, CalculationUnit.KilonewtonPerMeter)));
             steps.Add(Step($"{p}.fsw", "(8.91), п. 8.1.48", "Punching_Trace_Fsw",
-                @"F_{sw,ult} = 0{,}8\,q_{sw}\,u", @"0.8 \cdot {qsw} \cdot {u}", "{FswRaw}",
+                @"F_{sw,ult} = 0{,}8\,q_{sw}\,u", @"0{,}8 \cdot {qsw} \cdot {u}", "{FswRaw}",
                 d.SwCounted ? CalculationTraceStatus.Passed : CalculationTraceStatus.NotApplicable,
                 ("qsw", d.Qsw, CalculationUnit.KilonewtonPerMeter), ("u", g.U, CalculationUnit.Meter),
                 ("FswRaw", d.FswRaw, CalculationUnit.Kilonewton), ("Fb025", 0.25 * d.Fb, CalculationUnit.Kilonewton)));
             if (d.SwCounted)
             {
                 steps.Add(Step($"{p}.mswx", "(8.97), п. 8.1.52", "Punching_Trace_Mswx",
-                    @"M_{swx,ult} = 0{,}8\,q_{sw}\,W_{bx}", @"0.8 \cdot {qsw} \cdot {Wbx}", "{Mswx}",
+                    @"M_{swx,ult} = 0{,}8\,q_{sw}\,W_{bx}", @"0{,}8 \cdot {qsw} \cdot {Wbx}", "{Mswx}",
                     ("qsw", d.Qsw, CalculationUnit.KilonewtonPerMeter), ("Wbx", d.Wbx, CalculationUnit.SquareMeter),
                     ("Mswx", d.Mswx, CalculationUnit.KilonewtonMeter)));
                 steps.Add(Step($"{p}.mswy", "(8.97), п. 8.1.52", "Punching_Trace_Mswy",
-                    @"M_{swy,ult} = 0{,}8\,q_{sw}\,W_{by}", @"0.8 \cdot {qsw} \cdot {Wby}", "{Mswy}",
+                    @"M_{swy,ult} = 0{,}8\,q_{sw}\,W_{by}", @"0{,}8 \cdot {qsw} \cdot {Wby}", "{Mswy}",
                     ("qsw", d.Qsw, CalculationUnit.KilonewtonPerMeter), ("Wby", d.Wby, CalculationUnit.SquareMeter),
                     ("Mswy", d.Mswy, CalculationUnit.KilonewtonMeter)));
             }
@@ -141,7 +141,7 @@ internal static class PunchingTrace
         string formula = hasM ? (d.SwCounted ? "(8.96)" : "(8.95)") : (d.SwCounted ? "(8.90)" : "(8.87)");
         steps.Add(Step($"{p}.check", formula, "Punching_Trace_Check",
             hasM ? @"K = k_F + \min(k_M;\ 0{,}5\,k_F)" : @"K = k_F",
-            hasM ? @"{kF} + \min({kMRaw};\ 0.5 \cdot {kF})" : "", "{K}",
+            hasM ? @"{kF} + \min({kMRaw};\ 0{,}5 \cdot {kF})" : "", "{K}",
             d.K <= 1.0 ? CalculationTraceStatus.Passed : CalculationTraceStatus.Failed,
             ("F", d.Fred, CalculationUnit.Kilonewton), ("Fapplied", d.F, CalculationUnit.Kilonewton),
             ("Fult", d.Fult, CalculationUnit.Kilonewton), ("kF", d.KF, CalculationUnit.Unitless),

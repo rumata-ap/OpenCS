@@ -281,6 +281,23 @@ public static class PunchingContourBuilder
         return result;
     }
 
+    /// <summary>
+    /// Направления касательных из центра тяжести площади к отверстию, если оно ближе HoleInfluence·h0
+    /// (п. 8.1.46); null — отверстие на контур не влияет. Для рисунка.
+    /// </summary>
+    public static (PlanPoint Lo, PlanPoint Hi)? HoleTangents(PunchingInput input, IReadOnlyList<PlanPoint> hole)
+    {
+        var options = input.Options ?? new PunchingOptions();
+        if (hole.Count < 3 || DistanceAreaToPolygon(input.LoadArea, hole) >= options.HoleInfluence * input.H0) return null;
+        var o = AreaCentroid(input.LoadArea);
+        var hc = new PlanPoint(hole.Average(p => p.X), hole.Average(p => p.Y));
+        double refAng = Math.Atan2(hc.Y - o.Y, hc.X - o.X);
+        var angs = hole.Select(p => Wrap(Math.Atan2(p.Y - o.Y, p.X - o.X) - refAng)).ToList();
+        double lo = angs.Min(), hi = angs.Max();
+        if (hi - lo >= Math.PI - 1e-9) return null;
+        return (PlanPoint.FromAngle(refAng + lo), PlanPoint.FromAngle(refAng + hi));
+    }
+
     static PunchingVariant ApplyHoles(PunchingInput input, PunchingVariant v, List<PunchingWarning> warnings)
     {
         var holes = input.Holes ?? Array.Empty<PunchingHole>();

@@ -26,4 +26,17 @@ public sealed class LatexMathParserTests
         Assert.Contains(@"\unknown", html);
         Assert.DoesNotContain("<script", html, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void Spacing_text_min_and_int_render_without_raw_commands()
+    {
+        var node = LatexMathParser.Parse(@"F_{ult} = \min(a;\ 2b) = 5\ \text{кН};\quad I = \int_u y^2\,dl \pm 1");
+        string html = MathHtmlRenderer.Render(node);
+
+        Assert.DoesNotContain(@"\", html);
+        Assert.Contains("min", html);
+        Assert.Contains("кН", html);
+        Assert.Contains("∫", html);
+        Assert.Contains("&#177;", html);   // ±
+    }
 }

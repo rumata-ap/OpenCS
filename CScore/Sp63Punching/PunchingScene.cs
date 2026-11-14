@@ -5,6 +5,9 @@ namespace CScore.Sp63Punching;
 /// <summary>Край плиты на рисунке: точка на краю и внутренняя нормаль (плита — со стороны нормали).</summary>
 public sealed record PunchingSceneEdge(PlanPoint Point, PlanPoint InwardNormal);
 
+/// <summary>Касательные из центра тяжести площади к влияющему отверстию (п. 8.1.46): единичные направления.</summary>
+public sealed record PunchingSceneHoleRays(int HoleIndex, PlanPoint Lo, PlanPoint Hi);
+
 /// <summary>Вариант контура на рисунке.</summary>
 /// <param name="Id">Идентификатор варианта ядра (closed, open_edge_0, pylon…).</param>
 /// <param name="Kind">Вид.</param>
@@ -32,10 +35,11 @@ public sealed record PunchingSceneVariant(
 /// <param name="Holes">Отверстия многоугольниками.</param>
 /// <param name="H0">Рабочая высота, м (для подписи h0/2).</param>
 /// <param name="Variants">Варианты контура.</param>
+/// <param name="HoleRays">Касательные к отверстиям, вырезающим часть контура.</param>
 public sealed record PunchingScene(
     IReadOnlyList<PlanPoint> AreaPolygon, double? AreaDiameter, double? AreaInnerDiameter, PlanPoint AreaCentroid,
     IReadOnlyList<PunchingSceneEdge> Edges, IReadOnlyList<IReadOnlyList<PlanPoint>> Holes, double H0,
-    IReadOnlyList<PunchingSceneVariant> Variants)
+    IReadOnlyList<PunchingSceneVariant> Variants, IReadOnlyList<PunchingSceneHoleRays>? HoleRays = null)
 {
     /// <summary>Сцена без вариантов — только исходные данные (для рисунка до расчёта).</summary>
     public static PunchingScene FromInput(PunchingInput input) => From(input, null);
@@ -68,8 +72,35 @@ public sealed record PunchingScene(
                 v.Variant.Contour.Pieces.Select(p => p.Elements).ToList(),
                 v.Variant.Excluded.ToList(),
                 new PlanPoint(v.Geometry.Xc, v.Geometry.Yc), v.Utilization, v.Governs)).ToList();
+        var rays = new List<PunchingSceneHoleRays>();
+        for (int i = 0; i < holes.Count; i++)
+            if (PunchingContourBuilder.HoleTangents(input, holes[i]) is { } tg)
+                rays.Add(new PunchingSceneHoleRays(i, tg.Lo, tg.Hi));
         return new PunchingScene(polygon, d, di, PunchingContourBuilder.AreaCentroid(input.LoadArea),
-            edges, holes, input.H0, variants);
+            edges, holes, input.H0, variants, rays);
+    }
+
+    /// <summary>Точки элемента контура для рисования: отрезок — концы, дуга — ломаная с шагом не больше 3°.</summary>
+    public static IReadOnlyList<PlanPoint> Tessellate(ContourElement e)
+    {
+        if (e is not ArcElement a) return [e.Start, e.End];
+        int n = Math.Max(2, (int)Math.Ceiling(a.Theta / (Math.PI / 60)));
+        return Enumerable.Range(0, n + 1)
+            .Select(i => a.Center + a.R * PlanPoint.FromAngle(a.Phi1 + a.Theta * i / n)).ToList();
+    }
+
+    /// <summary>Площадь для рисования многоугольником (круг — 72-угольник).</summary>
+    public IReadOnlyList<PlanPoint> AreaOutline()
+    {
+        if (AreaDiameter is not double d) return AreaPolygon;
+        return Enumerable.Range(0, 72).Select(i => AreaCentroid + d / 2 * PlanPoint.FromAngle(2 * Math.PI * i / 72)).ToList();
+    }
+
+    /// <summary>Внутренний контур кольца (пусто — нет).</summary>
+    public IReadOnlyList<PlanPoint> AreaInnerOutline()
+    {
+        if (AreaInnerDiameter is not double d || d <= 0) return [];
+        return Enumerable.Range(0, 72).Select(i => AreaCentroid + d / 2 * PlanPoint.FromAngle(2 * Math.PI * i / 72)).ToList();
     }
 
     /// <summary>Габарит площади, отверстий и контуров: (xmin, xmax, ymin, ymax), м.</summary>
@@ -130,6 +161,16 @@ public static class PunchingSceneJson
             w.WriteStartArray();
             foreach (var p in h) { w.WriteStartArray(); w.WriteNumberValue(p.X); w.WriteNumberValue(p.Y); w.WriteEndArray(); }
             w.WriteEndArray();
+        }
+        w.WriteEndArray();
+        w.WriteStartArray("hole_rays");
+        foreach (var r in s.HoleRays ?? [])
+        {
+            w.WriteStartObject();
+            w.WriteNumber("hole", r.HoleIndex);
+            w.WriteNumber("lox", r.Lo.X); w.WriteNumber("loy", r.Lo.Y);
+            w.WriteNumber("hix", r.Hi.X); w.WriteNumber("hiy", r.Hi.Y);
+            w.WriteEndObject();
         }
         w.WriteEndArray();
         w.WriteStartArray("variants");
@@ -198,7 +239,11 @@ public static class PunchingSceneJson
                     pieces, excluded, new PlanPoint(Num(v, "xc"), Num(v, "yc")), ratio,
                     v.TryGetProperty("governs", out var g) && g.ValueKind == JsonValueKind.True));
             }
-        return new PunchingScene(polygon, d, di, centroid, edges, holes, Num(e, "h0"), variants);
+        var rays = new List<PunchingSceneHoleRays>();
+        if (e.TryGetProperty("hole_rays", out var ra) && ra.ValueKind == JsonValueKind.Array)
+            foreach (var r in ra.EnumerateArray())
+                rays.Add(new PunchingSceneHoleRays((int)Num(r, "hole"), new PlanPoint(Num(r, "lox"), Num(r, "loy")), new PlanPoint(Num(r, "hix"), Num(r, "hiy"))));
+        return new PunchingScene(polygon, d, di, centroid, edges, holes, Num(e, "h0"), variants, rays);
     }
 
     static void WritePoints(Utf8JsonWriter w, string name, IReadOnlyList<PlanPoint> pts)

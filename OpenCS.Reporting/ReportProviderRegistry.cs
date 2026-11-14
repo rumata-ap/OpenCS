@@ -33,6 +33,7 @@ public sealed class ReportProviderRegistry
             new TotalCurvatureReportProvider(),
             new Sp63NormalReportProvider(),
             new ShearInclinedReportProvider(),
+            new PunchingReportProvider(),
             new Sp63CrackWidthReportProvider(),
             new Sp63DeflectionReportProvider(),
             new ShellLayeredCrackWidthReportProvider(),

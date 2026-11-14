@@ -77,7 +77,23 @@ public static class LatexMathParser
                 position++;
             string command = source[start..position];
             if (command.Length == 0)
+            {
+                // Пробелы \, \; \: \! и «\ » — тонкий пробел; экранированные скобки — как есть.
+                if (position < source.Length && source[position] is ',' or ';' or ':' or '!' or ' ')
+                {
+                    position++;
+                    return new MathNode.Text(" ");
+                }
+                if (position < source.Length && source[position] is '{' or '}' or '|' or '%')
+                    return new MathNode.Text(source[position++].ToString());
                 return new MathNode.Text("\\");
+            }
+
+            if (command is "text" or "mathrm")
+            {
+                MathNode content = ParseRequiredGroupOrAtom();
+                return new MathNode.Text(RenderFlat(content));
+            }
 
             if (command is "frac" or "sqrt")
             {
@@ -107,6 +123,14 @@ public static class LatexMathParser
                 "rho" => new MathNode.Operator("ρ"),
                 "phi" => new MathNode.Operator("φ"),
                 "pi" => new MathNode.Operator("π"),
+                "chi" => new MathNode.Operator("χ"),
+                "mu" => new MathNode.Operator("μ"),
+                "min" => new MathNode.Text("min"),
+                "max" => new MathNode.Text("max"),
+                "int" => new MathNode.Operator("∫"),
+                "pm" => new MathNode.Operator("±"),
+                "quad" => new MathNode.Text("  "),
+                "big" or "Big" or "left" or "right" => new MathNode.Text(string.Empty),
                 _ => new MathNode.Text("\\" + command)
             };
         }
@@ -129,6 +153,12 @@ public static class LatexMathParser
                 ? new MathNode.Script(baseNode, script, null)
                 : new MathNode.Script(baseNode, null, script);
         }
+
+        static string RenderFlat(MathNode node) => node switch
+        {
+            MathNode.Sequence sequence => string.Concat(sequence.Items.Select(RenderFlat)),
+            _ => RenderPlain(node)
+        };
 
         static string RenderPlain(MathNode node) => node switch
         {
