@@ -43,7 +43,10 @@ public sealed class SteelCheckBatchHandler : ITaskHandler
             var verdicts = new BatchRowVerdict[items.Count];
             string sectionTag = section.Tag, steelTag = "";
             object? context = null;
-            var notes = new HashSet<string>(StringComparer.Ordinal);
+            // Примечания пакета — общие для всех посчитанных строк (профиль, вид проверки); построчные (φe и т. п.)
+            // остаются в одиночной задаче по строке.
+            HashSet<string>? notes = null;
+            var noteOrder = new List<string>();
             var gate = new object();
 
             BatchProgress.ForEachRow(items.Count, settings, ctx, i =>
@@ -61,7 +64,15 @@ public sealed class SteelCheckBatchHandler : ITaskHandler
                 {
                     context ??= rowContext;
                     if (steelTag.Length == 0 && rowSteel != null) steelTag = rowSteel;
-                    foreach (var n in rowNotes) notes.Add(n);
+                    if (verdicts[i].Status != BatchRowStatus.Error)
+                    {
+                        if (notes == null)
+                        {
+                            notes = new HashSet<string>(rowNotes, StringComparer.Ordinal);
+                            noteOrder.AddRange(rowNotes);
+                        }
+                        else notes.IntersectWith(rowNotes);
+                    }
                 }
             });
 
@@ -71,7 +82,7 @@ public sealed class SteelCheckBatchHandler : ITaskHandler
             {
                 schemaVersion = 1,
                 sectionTag, steelTag, context,
-                notes = notes.ToArray(),
+                notes = noteOrder.Where(n => notes?.Contains(n) == true).ToArray(),
                 total = items.Count,
                 governing_num = g is { } gi ? nums[gi] : (int?)null,
                 verdict_summary = BatchVerdictSummary.ToJson(verdicts, nums),

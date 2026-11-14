@@ -39,6 +39,9 @@ public sealed class HeadlessProjectContext : IProjectContext, IDisposable
         try
         {
             db.LoadAll();
+            // Как AppViewModel.RefreshSectionLiveCollections: явный профиль СП 16 параметрических МК-сечений,
+            // иначе проверки стали распознают профиль по контуру (радиусы, оси) и расходятся с окном OpenCS.
+            new ParametricSteelSectionProjectService(db).ApplyBindings(db.CrossSections);
             return new HeadlessProjectContext(db, log, notifier, busy);
         }
         catch

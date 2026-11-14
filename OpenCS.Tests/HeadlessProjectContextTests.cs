@@ -1,4 +1,5 @@
 using System.IO;
+using CScore.ParametricSteel;
 using OpenCS.Services;
 using OpenCS.Tasks;
 using OpenCS.Utilites;
@@ -37,6 +38,22 @@ public sealed class HeadlessProjectContextTests : IDisposable
         Assert.False(ProjectFile.IsSqliteDatabase(_path));
         Assert.False(ProjectFile.IsSqliteDatabase(_path + ".missing"));
         Assert.Null(ProjectFile.ReadSchemaVersion(_path + ".missing"));
+    }
+
+    [Fact]
+    public void Open_AppliesParametricSteelBindings()
+    {
+        using (var db = new DatabaseService(_path))
+            new ParametricSteelSectionProjectService(db).GenerateAndSave(new CScore.CrossSection(),
+                CScore.ParametricSteel.ParametricSteelSectionDefinition.RolledIBeam(0.298, 0.299, 0.009, 0.014, 0.018));
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
+        using var ctx = Open();
+
+        // Без привязки проверки СП 16 в консоли распознавали бы профиль по контуру, а не брали его из параметрики.
+        var profile = Assert.Single(ctx.CrossSections).TryGetParametricSteelProfile();
+        Assert.NotNull(profile);
+        Assert.Equal(0.018, profile.R, 12);
     }
 
     [Fact]

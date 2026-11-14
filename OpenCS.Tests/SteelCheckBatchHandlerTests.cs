@@ -71,6 +71,10 @@ public sealed class SteelCheckBatchHandlerTests
             Assert.Equal(3, root.GetProperty("governing_num").GetInt32());
             Assert.Equal("30К1", root.GetProperty("sectionTag").GetString());
             Assert.Equal(6, root.GetProperty("context").GetProperty("lefX").GetDouble());
+            // Примечания пакета — только общие для всех строк: профиль из параметрики, без построчных φe.
+            var notes = root.GetProperty("notes").EnumerateArray().Select(n => n.GetString()!).ToList();
+            Assert.Contains(string.Format(Loc.S("Sp16ProfileFromParametric"), section.TryGetParametricSteelProfile()!.Describe()), notes);
+            Assert.DoesNotContain(notes, n => n.Contains("φe"));
 
             for (int i = 0; i < rows.Count; i++)
             {
