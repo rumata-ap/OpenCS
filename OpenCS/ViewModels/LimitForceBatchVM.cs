@@ -21,6 +21,10 @@ public sealed class LimitForceBatchVM : ViewModelBase
     public bool   ShowRebarAreaNote { get; }
     public string RebarAreaNote    { get; } = "";
 
+    /// <summary>Предупреждения о постановке пакета (поле <c>warnings</c>).</summary>
+    public string WarningsText { get; } = "";
+    public bool   HasWarnings  => WarningsText.Length > 0;
+
     public ObservableCollection<BatchRow> Rows { get; } = [];
 
     /// <summary>
@@ -99,6 +103,7 @@ public sealed class LimitForceBatchVM : ViewModelBase
             int  converged = root.TryGetProperty("converged_count", out var c) ? c.GetInt32() : 0;
             bool allOk     = root.TryGetProperty("all_converged", out var ac) && ac.GetBoolean();
             string solver  = root.TryGetProperty("solver", out var sv) ? sv.GetString() ?? "" : "";
+            WarningsText   = LimitForceSummaryVM.ReadWarnings(root);
 
             SolverText  = solver == "fast" ? Loc.S("LimitForceSolver_Fast") : Loc.S("LimitForceSolver_Bisection");
 

@@ -105,6 +105,10 @@ public sealed class LimitForceReportProvider : IReportProvider
                 ("Сходимость", data.Converged ? "достигнута" : "не достигнута")
             ], "Параметр", "Значение"));
 
+        // Сразу под итогом: предупреждение о постановке обесценивает найденное предельное усилие.
+        foreach (var warning in data.Warnings)
+            document.Add(new ReportWarning(warning));
+
         SectionReportSections.Eta(document, data.Eta);
         AddImages(document, context.Images);
         var plane = new Kurvature { e0 = data.E0, ky = data.Ky, kz = data.Kz };

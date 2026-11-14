@@ -14,6 +14,12 @@
          </StackPanel>
          <TextBlock Text="{Binding CreatedText}" Foreground="Gray" Margin="0,0,0,10"/>
 
+         <Border Padding="8,6" Margin="0,0,0,8" CornerRadius="4"
+                 Background="#33F1C40F" BorderBrush="#C9A400" BorderThickness="1"
+                 Visibility="{Binding HasWarnings, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{Binding WarningsText}" TextWrapping="Wrap" Foreground="#7A4F00"/>
+         </Border>
+
          <GroupBox Header="{DynamicResource LimitForce_BlockTitle}" Margin="0,0,0,6" Padding="8,4">
             <Grid>
                <Grid.ColumnDefinitions>

@@ -116,6 +116,16 @@ static class LimitForceTaskHelper
          int convergedCount = convergedArr.Count(c => c);
          bool allConverged = convergedCount == total;
 
+         bool ten = settings.ResolveConcreteTension(task.CalcType);
+         var noTensionRows = items
+            .Where(fi => LimitForceDiagnostics.NoTensionResistance(section, ten, fi.N))
+            .Select(fi => fi.Num)
+            .ToList();
+         var warnings = noTensionRows.Count == 0
+            ? Array.Empty<string>()
+            : new[] { $"{LimitForceDiagnostics.NoTensionResistanceWarning} Затронуто строк без сжимающей силы: " +
+                      $"{noTensionRows.Count} из {total}." };
+
          return new CalcResult
          {
             TaskId   = task.Id,
@@ -130,6 +140,7 @@ static class LimitForceTaskHelper
                total,
                solver          = parameters.Solver,
                verdict_summary = BatchVerdictSummary.ToJson(verdicts, items.Select(fi => fi.Num).ToList()),
+               warnings,
                rows            = rowResults
             })
          };
@@ -170,7 +181,12 @@ static class LimitForceTaskHelper
       var prestress = section.PrestressActions(null, task.CalcType,
          settings.ResolveConcreteTension(task.CalcType));
 
-      var data = BuildData(res, item, parameters, k, nRes, mxRes, myRes, prestress);
+      var warnings = LimitForceDiagnostics.NoTensionResistance(section,
+            settings.ResolveConcreteTension(task.CalcType), item.N)
+         ? new[] { LimitForceDiagnostics.NoTensionResistanceWarning }
+         : Array.Empty<string>();
+
+      var data = BuildData(res, item, parameters, k, nRes, mxRes, myRes, prestress, warnings);
 
       return new CalcResult
       {
@@ -185,7 +201,7 @@ static class LimitForceTaskHelper
 
    static object BuildData(
       LimitForceResult res, LoadItem item, LimitForceParams parameters, Kurvature k,
-      double nRes, double mxRes, double myRes, PrestressActionsResult prestress)
+      double nRes, double mxRes, double myRes, PrestressActionsResult prestress, string[] warnings)
    {
       return new
       {
@@ -218,6 +234,7 @@ static class LimitForceTaskHelper
          eta               = BuildEtaJson(res.Eta, parameters.EtaIterative,
             parameters.EtaSlendernessThreshold ?? CScore.Sp63.EccentricityAmplifier.SlendernessThreshold,
             res.MxLimit, res.MyLimit),
+         warnings,
       };
    }
 

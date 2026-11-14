@@ -31,7 +31,21 @@ public sealed class LimitForceSummaryVM : ViewModelBase
     public string IterationsText { get; }
     public string NewtonIterText { get; }
 
+    /// <summary>Предупреждения о постановке (поле <c>warnings</c> результата), по одному на абзац.</summary>
+    public string WarningsText { get; }
+    public bool   HasWarnings  => WarningsText.Length > 0;
+
     public StrainSummaryVM StrainPart { get; }
+
+    /// <summary>Читает массив строк <c>warnings</c> результата limit_* (старые результаты его не имеют).</summary>
+    internal static string ReadWarnings(JsonElement root)
+    {
+        if (!root.TryGetProperty("warnings", out var w) || w.ValueKind != JsonValueKind.Array) return "";
+        return string.Join(Environment.NewLine + Environment.NewLine,
+            w.EnumerateArray()
+             .Where(e => e.ValueKind == JsonValueKind.String)
+             .Select(e => "⚠ " + e.GetString()));
+    }
 
     public LimitForceSummaryVM(CalcResult result, CrossSection section, CalcType calcType, CalcSettings? settings = null)
     {
@@ -45,6 +59,7 @@ public sealed class LimitForceSummaryVM : ViewModelBase
         bool converged = root.TryGetProperty("converged", out var cv) && cv.GetBoolean();
         StatusText  = converged ? Loc.S("ResultConvergedYes") : Loc.S("ResultConvergedNo");
         StatusBrush = converged ? Brushes.Green : Brushes.Red;
+        WarningsText = ReadWarnings(root);
 
         string solver = root.TryGetProperty("solver_method", out var sm) ? sm.GetString() ?? "" : "";
         SolverText = solver == "fast" ? Loc.S("LimitForceSolver_Fast") : Loc.S("LimitForceSolver_Bisection");

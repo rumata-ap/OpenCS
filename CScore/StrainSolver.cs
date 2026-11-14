@@ -132,7 +132,9 @@ namespace CScore
 
             // Решение 3×3 системы J·Δk = r методом Гаусса
             double[] rhs = [r0, r1, r2];
-            if (!GaussSolve(J, rhs, out double[] dk))
+            // Нулевые строка и столбец (ось без жёсткости, например бетонный прямоугольник
+            // сеткой nx = 1) — Ньютон по остальным осям, см. ReducedJacobianSolve.
+            if (!GaussSolve(J, rhs, out double[] dk) && !ReducedJacobianSolve.TrySolve(J, rhs, out dk))
             {
                // Вырожденный якобиан: вне диаграмм отклик не зависит от плоскости —
                // либо целая строка/столбец нулевые (например, при растяжении с

@@ -87,6 +87,18 @@ public sealed class LimitForceReportProviderTests
     }
 
     [Fact]
+    public void Provider_AddsSetupWarningsFromResult()
+    {
+        string json = LimitJson.Replace("\"eta\":null}", "\"eta\":null,\"warnings\":[\"Сечению нечем воспринимать растяжение\"]}");
+        var task = new CalcTask { Id = 1, Kind = "limit_force", Tag = "Бетон", CalcType = CalcType.C };
+        var document = new LimitForceReportProvider().Build(
+            new ReportContext(task, new CalcResult { TaskId = 1, TaskKind = task.Kind, DataJson = json }));
+
+        Assert.Contains(document.Blocks.OfType<ReportWarning>(),
+            w => w.Text.Contains("нечем воспринимать растяжение"));
+    }
+
+    [Fact]
     public void CanHandle_UsesThreeLimitAliases()
     {
         var provider = new LimitForceReportProvider();

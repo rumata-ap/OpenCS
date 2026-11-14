@@ -59,6 +59,8 @@ public sealed class LimitForceReportData
     [JsonPropertyName("eta")] public EtaReportData? Eta { get; set; }
     /// <summary>Действия преднапряжения из результата.</summary>
     [JsonPropertyName("prestress")] public PrestressActionsJsonModel? Prestress { get; set; }
+    /// <summary>Предупреждения о постановке расчёта (у старых результатов нет).</summary>
+    [JsonPropertyName("warnings")] public List<string> Warnings { get; set; } = [];
 
     /// <summary>Разбирает фактический JSON результата limit_*.</summary>
     /// <exception cref="JsonException">JSON пуст или имеет недопустимый формат.</exception>

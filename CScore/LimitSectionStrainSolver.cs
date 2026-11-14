@@ -77,7 +77,7 @@ public sealed class LimitSectionStrainSolver
          }
 
          double[] rhs = [r0, r1, r2];
-         if (!GaussSolve(j, rhs, out double[] dk))
+         if (!GaussSolve(j, rhs, out double[] dk) && !ReducedJacobianSolve.TrySolve(j, rhs, out dk))
          {
             // Вырожденный якобиан: как правило, целая строка/столбец нулевые
             // (например, при растяжении без ten и арматуре без разноса по
