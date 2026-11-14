@@ -20,6 +20,8 @@ public sealed class PhiEResult
     public List<string?> Notes { get; init; } = [];
     /// <summary>Причина, по которой расчёт по (109) не выполняется (другой пункт нормы).</summary>
     public string? NotApplicable { get; init; }
+    /// <summary>mef (mef,1) &gt; 20 — по 9.2.2 элемент рассчитывается как изгибаемый (раздел 8).</summary>
+    public bool AsBending { get; init; }
     /// <summary>Причина, по которой φe не может быть определён (вне таблиц нормы).</summary>
     public string? Failure { get; init; }
 }
@@ -63,7 +65,36 @@ public static partial class Sp16Section9
         if (Sp16Tables.TableE1(s) == null) return "сечение не приведено в табл. Е.1";
         double tau = MaxTau(s, f);
         if (tau >= 0.5 * s.Mat.Rs) return $"τ = {tau:0} кПа ≥ 0,5Rs = {0.5 * s.Mat.Rs:0} кПа";
-        return null;
+        return LowAxialReason(m, f);
+    }
+
+    /// <summary>
+    /// 9.1.1, последний абзац: при σ = N/An ≤ 0,1Ry (105) применяется только при выполнении 8.5.8 и 8.5.18;
+    /// null — σ &gt; 0,1Ry или требования выполнены.
+    /// </summary>
+    static string? LowAxialReason(Sp16Member m, SteelForces f)
+    {
+        var s = m.S;
+        double sigma = Math.Abs(f.N) / (s.A * m.P.NetAreaRatio);
+        if (sigma > 0.1 * s.Mat.Ry) return null;
+        string head = $"σ = N/An = {sigma:0} кПа ≤ 0,1Ry = {0.1 * s.Mat.Ry:0} кПа";
+        if (s.Kind is not (SteelProfileKind.IBeam or SteelProfileKind.Box))
+            return $"{head}: требования 8.5.8 и 8.5.18 установлены только для двутавровых и коробчатых сечений";
+        var failed = Sp16Section8Local.Prerequisites105(m, f).Where(r => r.Status != CheckStatus.Ok).ToList();
+        if (failed.Count == 0) return null;
+        return $"{head}: не выполнены требования " + string.Join("; ", failed.Select(r =>
+            $"{r.Clause} {r.Formula}" + (double.IsFinite(r.Utilization) ? $" (Кисп = {r.Utilization:0.###})" : r.Notes.Count > 0 ? $" ({r.Notes[^1]})" : "")));
+    }
+
+    /// <summary>Примечание к (105) о выполненных требованиях 8.5.8 и 8.5.18 при σ ≤ 0,1Ry; null — σ &gt; 0,1Ry.</summary>
+    static string? LowAxialNote(Sp16Member m, SteelForces f)
+    {
+        var s = m.S;
+        double sigma = Math.Abs(f.N) / (s.A * m.P.NetAreaRatio);
+        if (sigma > 0.1 * s.Mat.Ry) return null;
+        var checks = Sp16Section8Local.Prerequisites105(m, f);
+        return $"σ = N/An ≤ 0,1Ry: требования 8.5.8 и 8.5.18 выполнены"
+            + (checks.Count > 0 ? " (" + string.Join("; ", checks.Select(r => $"{r.Clause} {r.Formula}: Кисп = {r.Utilization:0.###}")) + ")" : "");
     }
 
     /// <summary>Наибольшее касательное напряжение τ = QS/(It) на центральных осях от Qx и Qy, кПа.</summary>
@@ -97,7 +128,7 @@ public static partial class Sp16Section9
             [
                 $"табл. Е.1: {e1.Note}",
                 cx < e1.Cx || cy < e1.Cy ? $"прим. 2 табл. Е.1: c ≤ 1,15γf = {1.15 * m.P.GammaFEq:0.###}" : null,
-                sigma <= 0.1 * s.Mat.Ry ? "σ = N/An ≤ 0,1Ry: формула (105) применяется при выполнении требований 8.5.8 и 8.5.18" : null,
+                LowAxialNote(m, f),
                 "бимомент B не учитывается (вне объёма); ослабление сечения в Wn,min не учитывается",
             ]);
     }
@@ -181,7 +212,12 @@ public static partial class Sp16Section9
         string desc = $"{title} (изгиб относительно оси {m.Axis(aboutX)})";
         double nAbs = -f.N;
         var pe = PhiE(m, nAbs, aboutX ? f.Mx : f.My, aboutX);
-        if (pe.NotApplicable != null) { res.Add(Sp16CheckResult.NotApplicableFor("9.2.2", "(109)", desc, pe.NotApplicable)); return res; }
+        if (pe.NotApplicable != null)
+        {
+            res.Add(Sp16CheckResult.NotApplicableFor("9.2.2", "(109)", desc, pe.NotApplicable));
+            if (pe.AsBending && aboutX) res.AddRange(BendingStability(m, f, pe));
+            return res;
+        }
         if (pe.Failure != null)
         {
             res.Add(new Sp16CheckResult
@@ -198,6 +234,19 @@ public static partial class Sp16Section9
         if (!aboutX && s.Iy < s.Ix) notes.Add("9.2.8: изгиб в плоскости наименьшей жёсткости — расчёт по (109)");
         res.Add(Sp16CheckResult.Of("9.2.2", "(109)", desc, nAbs / cap,
             [.. pe.Vars, ("A", s.A), ("Ry", s.Mat.Ry), ("γc", m.P.GammaC)], nAbs, cap, notes));
+        return res;
+    }
+
+    /// <summary>
+    /// 9.2.2, последний абзац: при mef &gt; 20 элемент рассчитывается как изгибаемый (раздел 8) — общая
+    /// устойчивость плоской формы изгиба по 8.4 (8.4.1 / 8.4.4 / 8.4.6) от момента Mx; N в (69) не входит.
+    /// Проверка из плоскости по 9.2.4 (111) выполняется отдельно.
+    /// </summary>
+    static List<Sp16CheckResult> BendingStability(Sp16Member m, SteelForces f, PhiEResult pe)
+    {
+        var res = Sp16Section8Stability.Check(m, f);
+        string note = $"9.2.2: {pe.NotApplicable} — устойчивость плоской формы изгиба проверена по 8.4; продольная сила N = {f.N:0.###} кН в (69) не входит";
+        foreach (var r in res) r.Notes.Insert(0, note);
         return res;
     }
 
@@ -244,7 +293,7 @@ public static partial class Sp16Section9
             var d5 = Sp16Tables.MefD5(p.EndMomentRatio, lb, mef1, out var d5Note);
             vars.AddRange([("δ", p.EndMomentRatio), ("m", mRel), ("η", eta.Eta.Value), ("mef,1", mef1)]);
             if (d5 == null)
-                return new() { Vars = vars, NotApplicable = $"mef,1 = {mef1:0.##} > 20 — расчёт как изгибаемого элемента (раздел 8)" };
+                return new() { Vars = vars, AsBending = true, NotApplicable = $"mef,1 = {mef1:0.##} > 20 — расчёт как изгибаемого элемента (раздел 8)" };
             mef = d5.Value;
             notes.Add("шарнирно опёртый стержень двоякосимметричного сечения: mef по табл. Д.5, mef,1 = η·M1·A/(N·Wc)");
             notes.Add(d5Note);
@@ -273,7 +322,7 @@ public static partial class Sp16Section9
         if (eta.Type is { } type) notes.Add($"η — тип сечения {type} табл. Д.2" + (eta.AfAw is { } r ? $", Af/Aw = {r:0.###}" : ""));
         notes.Add(eta.Note);
         if (mef > 20)
-            return new() { Vars = vars, M = mRel, Eta = eta.Eta.Value, Mef = mef, NotApplicable = $"mef = {mef:0.##} > 20 — расчёт как изгибаемого элемента (раздел 8)" };
+            return new() { Vars = vars, M = mRel, Eta = eta.Eta.Value, Mef = mef, AsBending = true, NotApplicable = $"mef = {mef:0.##} > 20 — расчёт как изгибаемого элемента (раздел 8)" };
 
         var phiE = Sp16Tables.PhiE(lb, mef);
         if (phiE == null)

@@ -209,6 +209,49 @@ public class Sp16Section9Tests
     }
 
     [Fact]
+    public void Formula105_LowAxial_PrerequisitesMet_Applies()
+    {
+        // σ = N/A = 10/0,005808 = 1,7 МПа ≤ 0,1Ry: стенка (86) и пояс (97) выполняются — (105) применяется.
+        var res = Sp16Section9.Strength(Beam(new SteelDesignParams { AllowPlastic = true }), new SteelForces(-10, 40, 0, 0, 0));
+        var r = res.Single(x => x.Formula == "(105)");
+        Assert.Equal(CheckStatus.Ok, r.Status);
+        Assert.Contains(r.Notes, n => n.Contains("8.5.8") && n.Contains("выполнены"));
+        Assert.DoesNotContain(res, x => x.Formula == "(106)");
+    }
+
+    [Fact]
+    public void Formula105_LowAxial_SlenderFlange_FallsBackTo106()
+    {
+        // Свес 0,196/0,006·√(Ry/E) = 1,11 > 0,5√(Ry/σc) — 8.5.18 не выполнено, (105) неприменима.
+        var m = Sp16Member.Create(new PolygonSection(TemplatePoints.IBeamPoints(0.300, 0.400, 0.008, 0.006)), C245,
+            new SteelDesignParams { AllowPlastic = true });
+        var res = Sp16Section9.Strength(m, new SteelForces(-5, 60, 0, 0, 0));
+        var na = res.Single(x => x.Formula == "(105)");
+        Assert.Equal(CheckStatus.NotApplicable, na.Status);
+        Assert.Contains(na.Notes, n => n.Contains("8.5.18"));
+        Assert.Contains(res, x => x.Formula == "(106)");
+        // При σ > 0,1Ry условия 8.5.8/8.5.18 для (105) не требуются.
+        Assert.Contains(Sp16Section9.Strength(m, new SteelForces(-300, 60, 0, 0, 0)), x => x.Formula == "(105)" && x.Status != CheckStatus.NotApplicable);
+    }
+
+    [Fact]
+    public void Formula109_MefOver20_AddsBendingStability84()
+    {
+        // m = Mx·A/(N·Wx) ≈ 98 > 20: вместо (109) — устойчивость плоской формы изгиба по 8.4.1 (69).
+        var m = Beam(new SteelDesignParams { LefX = 9, LefY = 9, LefB = 9 });
+        var res = Sp16Section9.InPlaneStability(m, new SteelForces(-10, 100, 0, 0, 0));
+        Assert.Equal(CheckStatus.NotApplicable, res[0].Status);
+        Assert.Equal("9.2.2", res[0].Clause);
+        var b = res.Single(x => x.Clause == "8.4.1");
+        Assert.Contains(b.Notes, n => n.StartsWith("9.2.2: mef"));
+        double phiB = Var(b, "φb");
+        Assert.Equal(100 / (phiB * Wx * 240000), b.Utilization, 6);
+        // Малый момент: 8.4.4 б) освобождает от проверки по (69) — результат 8.4.4 с тем же примечанием.
+        var small = Sp16Section9.InPlaneStability(Beam(new SteelDesignParams { LefX = 6, LefY = 6 }), new SteelForces(-10, 50, 0, 0, 0));
+        Assert.Contains(small, x => x.Clause == "8.4.4" && x.Notes.Any(n => n.StartsWith("9.2.2: mef")));
+    }
+
+    [Fact]
     public void Formula105_HighShear_FallsBackTo106()
     {
         var res = Sp16Section9.Strength(Beam(new SteelDesignParams { AllowPlastic = true }), new SteelForces(-300, 40, 0, 0, 400));
