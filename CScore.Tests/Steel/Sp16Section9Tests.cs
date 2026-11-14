@@ -246,9 +246,12 @@ public class Sp16Section9Tests
         Assert.Contains(b.Notes, n => n.StartsWith("9.2.2: mef"));
         double phiB = Var(b, "φb");
         Assert.Equal(100 / (phiB * Wx * 240000), b.Utilization, 6);
-        // Малый момент: 8.4.4 б) освобождает от проверки по (69) — результат 8.4.4 с тем же примечанием.
+        // Малый момент: 8.4.4 б) выполнено — Кисп по (69), если он меньше λ̄b/λ̄ub; примечание 9.2.2 сохраняется.
         var small = Sp16Section9.InPlaneStability(Beam(new SteelDesignParams { LefX = 6, LefY = 6 }), new SteelForces(-10, 50, 0, 0, 0));
-        Assert.Contains(small, x => x.Clause == "8.4.4" && x.Notes.Any(n => n.StartsWith("9.2.2: mef")));
+        var s84 = small.Single(x => x.Clause.StartsWith("8.4"));
+        Assert.Equal(CheckStatus.Ok, s84.Status);
+        Assert.Equal("9.2.2", s84.Notes[0][..5]);
+        Assert.Contains(s84.Notes, n => n.StartsWith("8.4.4 б) выполнено") || n.StartsWith("справочно: φb"));
     }
 
     [Fact]

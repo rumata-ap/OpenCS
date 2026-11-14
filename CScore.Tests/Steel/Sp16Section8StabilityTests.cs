@@ -232,6 +232,20 @@ public class Sp16Section8StabilityTests
     }
 
     [Fact]
+    public void Table11_Exempt_UtilizationBy69WhenSmaller()
+    {
+        // lef = 3 м: 8.4.4 б) выполнено, но λ̄b/λ̄ub больше Кисп по (69) — Кисп принимается по (69).
+        var m = Rolled(new SteelDesignParams { LefB = 3.0 });
+        var r = Assert.Single(Sp16Section8Stability.Check(m, new SteelForces(0, -60, 0, 0, 0)));
+        double phiB = Sp16PhiB.Compute(m, true).PhiB, u69 = 60 / (phiB * m.S.Wx(true) * Ry);
+        Assert.Equal("8.4.1", r.Clause);
+        Assert.Equal("(69)", r.Formula);
+        Assert.Equal(CheckStatus.Ok, r.Status);
+        Assert.Equal(u69, r.Utilization, 9);
+        Assert.StartsWith("8.4.4 б) выполнено", r.Notes[0]);
+    }
+
+    [Fact]
     public void ItReference_UsedInPhiB_InsteadOfAppendixD()
     {
         var formula = Rolled(new SteelDesignParams { LefB = 6 });

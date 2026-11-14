@@ -139,6 +139,21 @@ public static class Sp16Section8Stability
                 names.Contains(v.Name) ? v.Name + " (прил. Ж)" : v.Name, v.Value)));
             vars.Add(new("φb", phi.PhiB));
             vars.Add(new("Wcx", wcx));
+            // λ̄b/λ̄ub — условие освобождения от проверки, а не запас по устойчивости: Кисп — по (69),
+            // если (69) даёт меньшее значение (оба условия достаточны для обеспечения устойчивости).
+            if (u69 < ok.Utilization)
+            {
+                notes.Insert(0, $"8.4.4 б) выполнено: λ̄b = {ok.Applied:0.###} ≤ λ̄ub = {ok.Allowable:0.###} — проверка по (69) не требуется; Кисп принят по (69) (λ̄b/λ̄ub = {ok.Utilization:0.###} — условие освобождения, а не запас)");
+                notes.AddRange(phi.Notes);
+                vars.Add(new("Ry", s.Mat.Ry));
+                vars.Add(new("γc", m.P.GammaC));
+                return new Sp16CheckResult
+                {
+                    Clause = "8.4.1", Formula = "(69)", Description = "Общая устойчивость балки",
+                    Utilization = u69, Applied = Math.Abs(f.Mx), Allowable = phi.PhiB * wcx * s.Mat.Ry * m.P.GammaC,
+                    Status = CheckStatus.Ok, Variables = vars, Notes = notes,
+                };
+            }
             notes.Add($"справочно: φb = {phi.PhiB:0.###} по прил. Ж; по (69) Mx/(φb·Wcx·Ry·γc) = {u69:0.###} — проверка по 8.4.4 б) не требуется");
             notes.AddRange(phi.Notes);
         }
