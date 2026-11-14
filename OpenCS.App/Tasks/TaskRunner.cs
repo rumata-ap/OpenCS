@@ -68,6 +68,7 @@ namespace OpenCS.Tasks
          ["opensees_section_interaction_n_mx_my"] = new OpenSeesSpatialInteractionHandler(),
          ["shear_inclined"]       = new ShearInclinedHandler(),
          ["shear_inclined_batch"] = new ShearInclinedBatchHandler(),
+         ["punching"]             = new PunchingHandler(),
          ["sp63_normal"]           = new Sp63NormalHandler(),
          ["sp63_crack_width"]      = new Sp63CrackWidthHandler(),
          ["sp63_deflection"]       = new Sp63DeflectionHandler(),

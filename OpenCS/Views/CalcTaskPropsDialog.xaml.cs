@@ -729,6 +729,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(FilteredCalcTypes));
            OnPropertyChanged(nameof(ShowStandardForce));
          OnPropertyChanged(nameof(IsPrestressLoss));
+         OnPropertyChanged(nameof(IsPunching));
+         OnPropertyChanged(nameof(ShowRegularSection));
          OnPropertyChanged(nameof(IsSteelCheck));
          OnPropertyChanged(nameof(ShowSteelManualForces));
          OnPropertyChanged(nameof(IsCracking));
@@ -846,6 +848,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(FilteredCalcTypes));
            OnPropertyChanged(nameof(ShowStandardForce));
             OnPropertyChanged(nameof(IsPrestressLoss));
+            OnPropertyChanged(nameof(IsPunching));
+            OnPropertyChanged(nameof(ShowRegularSection));
             OnPropertyChanged(nameof(IsSteelCheck));
             OnPropertyChanged(nameof(ShowSteelManualForces));
             OnPropertyChanged(nameof(IsCracking));
@@ -897,7 +901,13 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
     public bool IsFireKind         => FireTaskParamsBuilder.IsFireKind(Kind);
     /// <summary>Обычное сечение выбирают вручную только вне огневых и плитных задач.</summary>
-    public bool ShowRegularSection => !IsFireKind && !IsPlatePanel;
+    public bool ShowRegularSection => !IsFireKind && !IsPlatePanel && !IsPunching;
+
+   /// <summary>Продавливание: без сечения, параметры — в отдельном окне.</summary>
+   public bool IsPunching => Kind == "punching";
+
+   /// <summary>Параметры продавливания редактируемой задачи — сохраняются при смене имени и типа расчёта.</summary>
+   string _punchingParamsJson = "{}";
     public bool IsFireBatchKind    => Kind == "fire_r_check_batch";
    public bool IsFireNoForceKind  => Kind == "fire_thermal_curvature";
    /// <summary>Показывать параметры задачи температурной кривизны.</summary>
@@ -1918,6 +1928,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "shear_inclined",           Label = Loc.S("CalcTaskKind_shear_inclined"),           GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "shear_inclined_batch",     Label = Loc.S("CalcTaskKind_shear_inclined_batch"),     GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "sp63_normal",              Label = Loc.S("CalcTaskKind_sp63_normal"),              GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "punching",                 Label = Loc.S("CalcTaskKind_punching"),                 GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       // Прочее
       new() { Id = "moment_curvature_biaxial", Label = Loc.S("CalcTaskKind_moment_curvature_biaxial"), GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
       new() { Id = "torsion_bem",              Label = Loc.S("CalcTaskKind_torsion_bem"),              GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
@@ -2024,6 +2035,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          SelectedForceSet = ForceSets.FirstOrDefault(fs => fs.Id == existing.ForceSetId);
          SelectedForceItem = ForceItems.FirstOrDefault(fi => fi.Id == existing.ForceItemId);
          SelectedCalcType = existing.CalcType;
+         if (existing.Kind == "punching") _punchingParamsJson = existing.ParamsJson;
 
          if (existing.Kind == "opensees_section_interaction_n_mx_my")
          {
@@ -2520,6 +2532,23 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
    void Commit()
    {
+      if (IsPunching)
+      {
+         // Сечение не нужно; строка набора — необязательный источник усилий для окна параметров.
+         Result = new CalcTask
+         {
+            Tag = string.IsNullOrWhiteSpace(Tag) ? $"Продавливание {_app.CalcTasks.Count + 1}" : Tag,
+            Kind = Kind,
+            SectionId = 0,
+            ForceSetId = SelectedForceSet?.Id ?? 0,
+            ForceItemId = SelectedForceSet != null ? SelectedForceItem?.Id ?? 0 : 0,
+            CalcType = SelectedCalcType,
+            ParamsJson = _punchingParamsJson
+         };
+         _window.DialogResult = true;
+         return;
+      }
+
       if (IsLimitSurface)
       {
          if (SelectedSection == null)

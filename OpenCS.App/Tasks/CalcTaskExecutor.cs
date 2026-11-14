@@ -1,4 +1,4 @@
-﻿using CScore;
+using CScore;
 using OpenCS.Services;
 using OpenCS.Utilites;
 
@@ -111,6 +111,13 @@ public static class CalcTaskExecutor
         fi = null;
         // Удалённая задача должна дать пояснение даже без сохранившегося сечения/нагрузки.
         if (ct.Kind == "steel_torsion") return true;
+
+        // Продавливание не ссылается на сечение: плита, бетон и усилия — в параметрах задачи.
+        if (ct.Kind == PunchingRunner.Kind)
+        {
+            fi = CalcTaskForceHelper.ResolveOptionalForceItem(ct, app.BarForceSets);
+            return true;
+        }
 
         // Оболочечные задачи используют PlateSection и не должны проходить
         // через реестр стержневых CrossSection.
