@@ -83,6 +83,74 @@ public sealed class CliAuthoringTests : IDisposable
         Assert.Contains("1-3, 7", sets.Out);
     }
 
+    [Fact]
+    public async Task ListProfiles_FindsAllStandardsOfName()
+    {
+        var (code, output, err) = await Run("list", "profiles", "30k1", "--json");
+
+        Assert.True(code == CliExitCode.Ok, err);
+        using var json = JsonDocument.Parse(output);
+        var rows = json.RootElement.EnumerateArray().ToList();
+        Assert.Contains(rows, r => r.GetProperty("standard").GetString()!.Contains("57837")
+                                   && r.GetProperty("profile").GetString() == "30К1");
+        Assert.All(rows, r => Assert.Equal("ibeam", r.GetProperty("kind").GetString()));
+    }
+
+    [Fact]
+    public async Task AddSteelSection_SteelByThickness_SameSteelReused()
+    {
+        string project = PathOf("рама.db");
+        await Run("new", project);
+
+        var col = await Run("add", "steel-section", project, "--profile", "30К1", "--standard", "57837",
+            "--steel", "С255", "--tag", "Колонна 30К1", "--json");
+        Assert.True(col.Code == CliExitCode.Ok, col.Err);
+        using (var json = JsonDocument.Parse(col.Out))
+        {
+            Assert.Equal("Колонна 30К1", json.RootElement.GetProperty("tag").GetString());
+            var material = json.RootElement.GetProperty("material");
+            Assert.Equal("С255 (10-20 мм), фасонный прокат", material.GetProperty("tag").GetString());
+            Assert.True(material.GetProperty("created").GetBoolean());
+        }
+        // 35Ш1 есть в двух подтипах ГОСТ Р 57837 (исходный 19 и «изменение № 1» 79) — по номеру стандарта неоднозначно.
+        var ambiguous = await Run("add", "steel-section", project, "--profile", "35Ш1", "--standard", "57837", "--steel", "С255");
+        Assert.Equal(CliExitCode.Usage, ambiguous.Code);
+        Assert.Contains("79", ambiguous.Err);
+        var beam = await Run("add", "steel-section", project, "--profile", "35Ш1", "--standard", "19", "--steel", "C255");
+        Assert.True(beam.Code == CliExitCode.Ok, beam.Err);
+        Assert.Contains(Loc.S("CliMaterialExisting"), beam.Out);
+
+        using var db = Load(project);
+        Assert.Equal(2, db.CrossSections.Count);
+        Assert.Single(db.Materials);
+        Assert.Equal(["Колонна 30К1", "35Ш1"], db.CrossSections.OrderBy(s => s.Num).Select(s => s.Tag));
+        new OpenCS.Services.ParametricSteelSectionProjectService(db).ApplyBindings(db.CrossSections);
+        Assert.All(db.CrossSections, s => Assert.NotNull(s.ParametricSteel));
+    }
+
+    [Fact]
+    public async Task AddSteelSection_AmbiguousOrMissing_Usage_OutLeavesSource()
+    {
+        string project = PathOf("п.db");
+        await Run("new", project);
+        byte[] before = File.ReadAllBytes(project);
+
+        var ambiguous = await Run("add", "steel-section", project, "--profile", "30Б1", "--steel", "С255");
+        Assert.Equal(CliExitCode.Usage, ambiguous.Code);
+        Assert.Contains("--standard", ambiguous.Err);
+        Assert.Equal(CliExitCode.Usage, (await Run("add", "steel-section", project, "--profile", "99Ъ9", "--steel", "С255")).Code);
+        Assert.Equal(CliExitCode.Usage, (await Run("add", "steel-section", project, "--profile", "30К1",
+            "--standard", "57837", "--steel", "С999")).Code);
+
+        string outPath = PathOf("п2.db");
+        var ok = await Run("add", "steel-section", project, "--profile", "30К1", "--standard", "57837", "--steel", "С255",
+            "--out", outPath);
+        Assert.True(ok.Code == CliExitCode.Ok, ok.Err);
+        Assert.Equal(before, File.ReadAllBytes(project));
+        using var db = Load(outPath);
+        Assert.Single(db.CrossSections);
+    }
+
     [Theory]
     [InlineData("1,2,5-8", "1, 2, 5-8")]
     [InlineData("3", "3")]
