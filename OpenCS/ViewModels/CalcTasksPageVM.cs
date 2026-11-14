@@ -41,7 +41,7 @@ namespace OpenCS.ViewModels
       public bool IsPrestressLossSelected => SelectedTask?.Model.Kind == "prestress_loss";
 
       /// <summary>Выбрана задача продавливания — показать кнопку окна параметров.</summary>
-      public bool IsPunchingSelected => SelectedTask?.Model.Kind == PunchingRunner.Kind;
+      public bool IsPunchingSelected => PunchingBatchRunner.IsPunchingKind(SelectedTask?.Model.Kind);
 
       public CalcResult? SelectedResult
       {
@@ -123,7 +123,7 @@ namespace OpenCS.ViewModels
             var pdlg = new PrestressLossDialog(_app, ct) { Owner = Window.GetWindow(_page) };
             pdlg.ShowDialog();
          }
-         else if (ct.Kind == PunchingRunner.Kind)
+         else if (PunchingBatchRunner.IsPunchingKind(ct.Kind))
             PunchingParamsDialog.Edit(_app, ct, Window.GetWindow(_page));
       }
 
@@ -150,7 +150,7 @@ namespace OpenCS.ViewModels
             var pdlg = new PrestressLossDialog(_app, ct) { Owner = Window.GetWindow(_page) };
             pdlg.ShowDialog();
          }
-         else if (ct.Kind == PunchingRunner.Kind)
+         else if (PunchingBatchRunner.IsPunchingKind(ct.Kind))
             PunchingParamsDialog.Edit(_app, ct, Window.GetWindow(_page));
       }
 

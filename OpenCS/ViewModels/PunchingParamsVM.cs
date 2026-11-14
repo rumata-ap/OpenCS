@@ -65,15 +65,26 @@ public sealed class PunchingParamsVM : ViewModelBase
     readonly CalcTask _task;
     readonly IReadOnlyList<Material> _materials;
     readonly LoadItem? _forceRow;
+    readonly IReadOnlyList<LoadItem>? _batchRows;
+    readonly string _batchSetTag;
     readonly List<PunchingCustomContourParams> _customContours;
     bool _loading;
 
     /// <summary>Создаёт VM по задаче и данным проекта.</summary>
-    public PunchingParamsVM(CalcTask task, IEnumerable<Material> materials, IEnumerable<PlateSection> plateSections, LoadItem? forceRow)
+    /// <param name="task">Задача «punching» или пакет «punching_batch».</param>
+    /// <param name="materials">Материалы проекта.</param>
+    /// <param name="plateSections">Плитные сечения проекта.</param>
+    /// <param name="forceRow">Строка набора одиночной задачи (источник усилий) или null.</param>
+    /// <param name="batchRows">Строки набора пакета; живой рисунок — по определяющей строке.</param>
+    /// <param name="batchSetTag">Имя набора пакета.</param>
+    public PunchingParamsVM(CalcTask task, IEnumerable<Material> materials, IEnumerable<PlateSection> plateSections, LoadItem? forceRow,
+        IReadOnlyList<LoadItem>? batchRows = null, string batchSetTag = "")
     {
         _task = task;
         _materials = materials.ToList();
-        _forceRow = forceRow;
+        _forceRow = task.Kind == PunchingBatchRunner.Kind ? null : forceRow;
+        _batchRows = batchRows?.OrderBy(i => i.Num).ToList();
+        _batchSetTag = batchSetTag;
         Concretes = [.. _materials.Where(m => m.Type == MatType.Concrete)];
         Rebars = [.. _materials.Where(m => m.Type is MatType.ReSteelF or MatType.ReSteelU)];
         PlateSections = [.. plateSections];
@@ -89,8 +100,8 @@ public sealed class PunchingParamsVM : ViewModelBase
                 Slab = p.Slab with { ConcreteMaterialId = Concretes.FirstOrDefault()?.Id ?? 0 },
                 Reinforcement = p.Reinforcement with { MaterialId = Rebars.FirstOrDefault()?.Id ?? 0 }
             };
-            if (forceRow is not null)
-                p = p with { Forces = p.Forces with { F = Math.Abs(forceRow.N), Mx = forceRow.Mx, My = forceRow.My } };
+            if (_forceRow is not null)
+                p = p with { Forces = p.Forces with { F = Math.Abs(_forceRow.N), Mx = _forceRow.Mx, My = _forceRow.My } };
         }
 
         Holes.CollectionChanged += RowsChanged;
@@ -148,7 +159,7 @@ public sealed class PunchingParamsVM : ViewModelBase
         [new("minimum", Loc.S("PunchingWb_minimum", "наименьший")), new("stress_side", Loc.S("PunchingWb_stress_side", "по стороне напряжений"))];
     /// <summary>Режим пилона.</summary>
     public IReadOnlyList<PunchingChoice> PylonModes { get; } =
-        [new("auto", Loc.S("PunchingPylon_auto", "автоматически (b/a > 2)")), new("off", Loc.S("PunchingPylon_off", "не рассматривать"))];
+        [new("auto", Loc.S("PunchingPylon_auto", "автоматически (Lmax > 2Lmin + h0)")), new("off", Loc.S("PunchingPylon_off", "не рассматривать"))];
 
     // ── Поля формы ─────────────────────────────────────────────────────────
 
@@ -239,6 +250,20 @@ public sealed class PunchingParamsVM : ViewModelBase
     public double CounterPressure { get => _q; set => SetField(ref _q, value); }
     /// <summary>Есть строка набора — источник усилий.</summary>
     public bool HasForceRow => _forceRow is not null;
+    /// <summary>Показывать строку набора и кнопку «Взять из строки» (только одиночная задача).</summary>
+    public bool ShowForceRow => HasForceRow && !IsBatch;
+    /// <summary>Пакет по набору усилий: F, Mx, My — из строк набора.</summary>
+    public bool IsBatch => _task.Kind == PunchingBatchRunner.Kind;
+    /// <summary>Одиночная задача: усилия вводятся в окне.</summary>
+    public bool IsSingle => !IsBatch;
+    /// <summary>Подпись источника усилий пакета.</summary>
+    public string BatchForcesText => !IsBatch ? ""
+        : _batchRows is { Count: > 0 } rows
+            ? string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingBatchForcesLine",
+                "Усилия — все {0} строк набора «{1}»: F = |N|, Mx и My строки (оси колонны совпадают с осями плиты)."), rows.Count, _batchSetTag)
+            : Loc.S("PunchingBatchNoForceSet", "Набор усилий не выбран или пуст — выберите его в общем диалоге задачи.");
+    /// <summary>Определяющая строка пакета — по ней рисунок и таблица.</summary>
+    public string PreviewNote { get; private set; } = "";
     /// <summary>Подпись строки набора.</summary>
     public string ForceRowText => _forceRow is null ? "" : string.Format(CultureInfo.CurrentCulture,
         Loc.S("PunchingForceRowLine", "Строка «{0}»: N = {1:0.#} кН, Mx = {2:0.#} кН·м, My = {3:0.#} кН·м"),
@@ -408,6 +433,7 @@ public sealed class PunchingParamsVM : ViewModelBase
                 asw * 1e6, strengths.Rsw / 1000, strengths.Rsw * asw / p.Reinforcement.Step)
             : "";
 
+        if (IsBatch && _batchRows is not { Count: > 0 }) errors.Add("force_set_missing");
         if (errors.Count > 0)
             ErrorText = string.Join("\n", errors.Distinct().Select(code => Loc.S("PunchingErr_" + code, code)));
         else
@@ -415,13 +441,24 @@ public sealed class PunchingParamsVM : ViewModelBase
             ErrorText = "";
             try
             {
-                var input = p.ToInput(strengths.Rbt, strengths.Rsw);
+                var single = p;
+                if (IsBatch)
+                {
+                    // Пакет: весь набор без трассировки, рисунок и таблица — по определяющей строке.
+                    var outcome = PunchingBatchRunner.Evaluate(p, strengths, _batchRows!);
+                    var gov = outcome.Governing ?? outcome.Rows[0];
+                    single = PunchingBatchRunner.RowParams(p, gov.Item);
+                    PreviewNote = string.Format(c, Loc.S("PunchingBatchPreviewLine",
+                        "Определяющая строка № {0} «{1}» из {2}; рисунок и таблица — по этой строке."), gov.Item.Num, gov.Item.Label, _batchRows!.Count);
+                    OnPropertyChanged(nameof(PreviewNote));
+                }
+                var input = single.ToInput(strengths.Rbt, strengths.Rsw);
                 var result = PunchingChecker.Check(input);
                 var calc = new CalcResult
                 {
                     TaskId = _task.Id, TaskKind = _task.Kind, TaskTag = _task.Tag,
                     Status = result.Passed ? "ok" : "not_passed",
-                    DataJson = PunchingRunner.Serialize(_task, p, strengths, input, result)
+                    DataJson = PunchingRunner.Serialize(_task, single, strengths, input, result)
                 };
                 string? keep = Preview?.SelectedVariantId;
                 var preview = new PunchingResultVM(calc, _task);

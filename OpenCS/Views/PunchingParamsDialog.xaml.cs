@@ -20,8 +20,7 @@ public partial class PunchingParamsDialog : Window
 
     /// <summary>Создаёт окно для задачи проекта.</summary>
     public PunchingParamsDialog(AppViewModel app, CalcTask task)
-        : this(task, new PunchingParamsVM(task, app.Materials ?? [], app.PlateSections ?? [],
-            app.BarForceSets?.FirstOrDefault(f => f.Id == task.ForceSetId)?.Items.FirstOrDefault(i => i.Id == task.ForceItemId)))
+        : this(task, CreateVM(app, task))
     {
         _app = app;
     }
@@ -34,6 +33,15 @@ public partial class PunchingParamsDialog : Window
         _vm = vm;
         DataContext = vm;
         Title = $"{Title} — {task.Tag}";
+    }
+
+    /// <summary>VM по задаче: одиночной — строка набора как источник усилий, пакету — все строки набора.</summary>
+    static PunchingParamsVM CreateVM(AppViewModel app, CalcTask task)
+    {
+        var set = app.BarForceSets?.FirstOrDefault(f => f.Id == task.ForceSetId);
+        return task.Kind == PunchingBatchRunner.Kind
+            ? new PunchingParamsVM(task, app.Materials ?? [], app.PlateSections ?? [], null, set?.Items ?? [], set?.Tag ?? "")
+            : new PunchingParamsVM(task, app.Materials ?? [], app.PlateSections ?? [], set?.Items.FirstOrDefault(i => i.Id == task.ForceItemId));
     }
 
     void Save()

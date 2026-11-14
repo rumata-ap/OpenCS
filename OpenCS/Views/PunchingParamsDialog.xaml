@@ -247,7 +247,10 @@
             <!-- Усилия -->
             <Expander Header="{DynamicResource PunchingGroupForces}">
                <StackPanel>
-                  <WrapPanel>
+                  <!-- Пакет: усилия — из всех строк набора -->
+                  <TextBlock Text="{Binding BatchForcesText}" Style="{StaticResource Hint}"
+                             Visibility="{Binding IsBatch, Converter={StaticResource BoolToVisibility}}"/>
+                  <WrapPanel Visibility="{Binding IsSingle, Converter={StaticResource BoolToVisibility}}">
                      <TextBlock Text="F" Style="{StaticResource Lbl}"/>
                      <TextBox Style="{StaticResource Num}" Text="{Binding F, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
                      <TextBlock Text="кН" Style="{StaticResource Unit}"/>
@@ -268,7 +271,7 @@
                      <TextBox Style="{StaticResource Num}" Text="{Binding CounterPressure, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
                      <TextBlock Text="кПа" Style="{StaticResource Unit}"/>
                   </StackPanel>
-                  <StackPanel Visibility="{Binding HasForceRow, Converter={StaticResource BoolToVisibility}}">
+                  <StackPanel Visibility="{Binding ShowForceRow, Converter={StaticResource BoolToVisibility}}">
                      <TextBlock Text="{Binding ForceRowText}" Style="{StaticResource Hint}"/>
                      <Button Content="{DynamicResource PunchingTakeFromRow}" Command="{Binding TakeForcesFromRowCommand}"
                              HorizontalAlignment="Left" Padding="10,2" ToolTip="{DynamicResource PunchingTakeFromRowHint}"/>
@@ -322,6 +325,8 @@
                <TextBlock Text="{DynamicResource PunchingPreviewStale}" Foreground="#666" FontSize="11" Margin="0,2,0,0"/>
             </StackPanel>
          </Border>
+         <TextBlock DockPanel.Dock="Top" Text="{Binding PreviewNote}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,6"
+                    Visibility="{Binding IsBatch, Converter={StaticResource BoolToVisibility}}"/>
          <v:PunchingResultPanel DataContext="{Binding Preview}"/>
       </DockPanel>
 

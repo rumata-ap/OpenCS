@@ -908,7 +908,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     public bool ShowRegularSection => !IsFireKind && !IsPlatePanel && !IsPunching;
 
    /// <summary>Продавливание: без сечения, параметры — в отдельном окне.</summary>
-   public bool IsPunching => Kind == "punching";
+   public bool IsPunching => Kind is "punching" or "punching_batch";
+
+   /// <summary>Продавливание по набору усилий: набор обязателен, строка не выбирается.</summary>
+   public bool IsPunchingBatch => Kind == "punching_batch";
 
    /// <summary>Параметры продавливания редактируемой задачи — сохраняются при смене имени и типа расчёта.</summary>
    string _punchingParamsJson = "{}";
@@ -1101,7 +1104,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireBatchKind && !IsFireNoForceKind && !IsPlatePanel && !IsPrestressLoss && !IsLoadHistory
       && !IsOpenSeesSpatialInteraction && !IsLimitSurface
       && !IsCrackingBatch && !IsCrackWidthBatch && !IsTotalCurvatureBatch
-      && !IsShearInclinedBatch && !IsSteelBatch
+      && !IsShearInclinedBatch && !IsSteelBatch && !IsPunchingBatch
       && (!IsSp63Normal || !Sp63NormalUseManualForces)
       && (!IsSp63CrackWidth || !Sp63CrackWidthUseManualForces)
       && (!IsSp63Deflection || !Sp63DeflectionUseManualForces)
@@ -1938,6 +1941,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "shear_inclined_batch",     Label = Loc.S("CalcTaskKind_shear_inclined_batch"),     GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "sp63_normal",              Label = Loc.S("CalcTaskKind_sp63_normal"),              GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "punching",                 Label = Loc.S("CalcTaskKind_punching"),                 GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "punching_batch",           Label = Loc.S("CalcTaskKind_punching_batch"),           GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       // Прочее
       new() { Id = "moment_curvature_biaxial", Label = Loc.S("CalcTaskKind_moment_curvature_biaxial"), GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
       new() { Id = "torsion_bem",              Label = Loc.S("CalcTaskKind_torsion_bem"),              GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
@@ -2044,7 +2048,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          SelectedForceSet = ForceSets.FirstOrDefault(fs => fs.Id == existing.ForceSetId);
          SelectedForceItem = ForceItems.FirstOrDefault(fi => fi.Id == existing.ForceItemId);
          SelectedCalcType = existing.CalcType;
-         if (existing.Kind == "punching") _punchingParamsJson = existing.ParamsJson;
+         if (existing.Kind is "punching" or "punching_batch") _punchingParamsJson = existing.ParamsJson;
 
          if (existing.Kind == "opensees_section_interaction_n_mx_my")
          {
@@ -2543,6 +2547,12 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    {
       if (IsPunching)
       {
+         // Пакету нужен набор усилий целиком.
+         if (IsPunchingBatch && SelectedForceSet == null)
+         {
+            MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
          // Сечение не нужно; строка набора — необязательный источник усилий для окна параметров.
          Result = new CalcTask
          {
@@ -2550,7 +2560,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             Kind = Kind,
             SectionId = 0,
             ForceSetId = SelectedForceSet?.Id ?? 0,
-            ForceItemId = SelectedForceSet != null ? SelectedForceItem?.Id ?? 0 : 0,
+            ForceItemId = SelectedForceSet != null && !IsPunchingBatch ? SelectedForceItem?.Id ?? 0 : 0,
             CalcType = SelectedCalcType,
             ParamsJson = _punchingParamsJson
          };

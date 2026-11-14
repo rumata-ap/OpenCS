@@ -114,6 +114,33 @@ public sealed class PunchingBatchResultVMTests
     }
 
     [Fact]
+    public void ParamsVM_BatchMode_PreviewByGoverningRow()
+    {
+        var rows = new List<LoadItem>
+        {
+            new() { Id = 1, Num = 1, Label = "А", N = -300, Mx = 10, My = 5 },
+            new() { Id = 2, Num = 2, Label = "Б", N = -600, Mx = 30, My = 20 },
+        };
+        var task = new CalcTask { Id = 8, Tag = "Узел", Kind = PunchingBatchRunner.Kind, CalcType = CalcType.C, ForceSetId = 4, ParamsJson = P.ToJson() };
+        var vm = new PunchingParamsVM(task, [], [], null, rows, "РСУ");
+        Assert.True(vm.IsBatch);
+        Assert.False(vm.IsSingle);
+        Assert.False(vm.ShowForceRow);
+        Assert.False(vm.HasErrors);
+        Assert.Contains("№ 2", vm.PreviewNote);
+        Assert.Contains("2", vm.BatchForcesText);
+        Assert.Equal(1.0181060000790736, vm.Preview!.Utilization, 9);
+
+        // Квадратная колонна — пилона нет, рисунок и таблица по-прежнему по определяющей строке.
+        vm.By = 250;
+        Assert.DoesNotContain(vm.Preview!.Rows, r => r.Id == "pylon_broken");
+        Assert.Contains("№ 2", vm.PreviewNote);
+
+        var empty = new PunchingParamsVM(task, [], [], null, [], "РСУ");
+        Assert.True(empty.HasErrors);
+    }
+
+    [Fact]
     public void ErrorResult_ShowsError()
     {
         var vm = new PunchingBatchResultVM(new CalcResult { Status = "error", DataJson = """{"error":"нет набора"}""" }, null);

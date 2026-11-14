@@ -67,6 +67,10 @@ public sealed class PunchingBatchTests
         Assert.Equal(full.Variants.Count, fast.Variants.Count);
         Assert.All(fast.Variants, v => Assert.Empty(v.Trace));
         Assert.All(full.Variants, v => Assert.NotEmpty(v.Trace));
+        // Готовая геометрия узла (пакет) — те же числа и предупреждения.
+        var cached = PunchingChecker.Check(input, includeTrace: false, PunchingGeometryCache.Prepare(input));
+        Assert.Equal(full.Variants.Select(v => v.Utilization), cached.Variants.Select(v => v.Utilization));
+        Assert.Equal(full.Warnings.Select(w => w.Code), cached.Warnings.Select(w => w.Code));
     }
 
     [Fact]

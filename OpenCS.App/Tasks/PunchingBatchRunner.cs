@@ -103,8 +103,15 @@ public static class PunchingBatchRunner
     {
         int sign = DominantSign(items);
         var results = new PunchingResult[items.Count];
-        void Body(int i) => results[i] = PunchingChecker.Check(RowParams(p, items[i]).ToInput(s.Rbt, s.Rsw), includeTrace: false);
+        // Вход и геометрия контуров от строки не зависят — одни на все строки, меняются только F, Mx, My.
+        var baseInput = p.ToInput(s.Rbt, s.Rsw);
+        var geometry = items.Count > 0 ? PunchingGeometryCache.Prepare(baseInput) : null;
+        void Body(int i) => results[i] = PunchingChecker.Check(baseInput with
+        {
+            Forces = baseInput.Forces with { F = Math.Abs(items[i].N), Mx = items[i].Mx, My = items[i].My }
+        }, includeTrace: false, geometry);
         if (settings is not null) BatchProgress.ForEachRow(items.Count, settings, ctx, Body);
+        else if (items.Count > 256) Parallel.For(0, items.Count, Body);
         else for (int i = 0; i < items.Count; i++) Body(i);
 
         int edgeCount = p.Edges.Count;

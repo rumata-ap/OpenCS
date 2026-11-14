@@ -62,13 +62,44 @@ public sealed record PunchingResult(
     public PunchingVariantResult? Governing => GoverningIndex >= 0 ? Variants[GoverningIndex] : null;
 }
 
+/// <summary>
+/// Геометрия узла, не зависящая от усилий: варианты контура, их характеристики и площадь основания пирамиды.
+/// Строится один раз для всех строк набора усилий (пакет) — усилия на неё не влияют.
+/// </summary>
+public sealed class PunchingGeometryCache
+{
+    PunchingGeometryCache(PunchingContourBuilder.BuildResult build, double baseArea, IReadOnlyDictionary<string, ContourProperties> props)
+    {
+        Build = build; BaseArea = baseArea; Properties = props;
+    }
+
+    /// <summary>Варианты контура и предупреждения построения.</summary>
+    public PunchingContourBuilder.BuildResult Build { get; }
+    /// <summary>Площадь основания пирамиды продавливания, м².</summary>
+    public double BaseArea { get; }
+    /// <summary>Характеристики контура по id варианта.</summary>
+    public IReadOnlyDictionary<string, ContourProperties> Properties { get; }
+
+    /// <summary>Строит геометрию по исходным данным (усилия не используются).</summary>
+    public static PunchingGeometryCache Prepare(PunchingInput input)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        var build = PunchingContourBuilder.Build(input);
+        var props = build.Variants.Where(v => v.Kind != PunchingVariantKind.PylonReduced)
+            .ToDictionary(v => v.Id, v => ContourProperties.Compute(v.Contour), StringComparer.Ordinal);
+        double baseArea = PunchingContourBuilder.PyramidBaseArea(input.LoadArea, input.H0, input.Edges ?? Array.Empty<PunchingSlabEdge>());
+        return new PunchingGeometryCache(build, baseArea, props);
+    }
+}
+
 /// <summary>Расчёт плит на продавливание по СП 63.13330.2018, пп. 8.1.46–8.1.52.</summary>
 public static class PunchingChecker
 {
     /// <summary>Выполняет расчёт всех вариантов контура.</summary>
     /// <param name="input">Исходные данные.</param>
     /// <param name="includeTrace">false — без пошаговой трассировки (пакет по тысячам строк); числа те же.</param>
-    public static PunchingResult Check(PunchingInput input, bool includeTrace = true)
+    /// <param name="geometry">Готовая геометрия того же узла (пакет); null — строится здесь.</param>
+    public static PunchingResult Check(PunchingInput input, bool includeTrace = true, PunchingGeometryCache? geometry = null)
     {
         ArgumentNullException.ThrowIfNull(input);
         if (!(input.H0 > 0)) throw new ArgumentException("Рабочая высота h0 должна быть больше нуля.", nameof(input));
@@ -79,11 +110,11 @@ public static class PunchingChecker
 
         var options = input.Options ?? new PunchingOptions();
         var edges = input.Edges ?? Array.Empty<PunchingSlabEdge>();
-        var build = PunchingContourBuilder.Build(input);
+        var build = geometry?.Build ?? PunchingContourBuilder.Build(input);
         var warnings = new List<PunchingWarning>(build.Warnings);
 
         var f = input.Forces;
-        double baseArea = PunchingContourBuilder.PyramidBaseArea(input.LoadArea, input.H0, edges);
+        double baseArea = geometry?.BaseArea ?? PunchingContourBuilder.PyramidBaseArea(input.LoadArea, input.H0, edges);
         double fred = f.F - f.CounterPressure * baseArea;
         if (f.CounterPressure != 0 && fred <= 0)
             warnings.Add(new("fred_nonpositive",
@@ -92,7 +123,7 @@ public static class PunchingChecker
             warnings.Add(new("sw_detailing_not_checked",
                 "Конструктивные требования п. 10.3 к поперечной арматуре не проверяются."));
 
-        var ctx = new Context(input, options, fred, baseArea, warnings, includeTrace);
+        var ctx = new Context(input, options, fred, baseArea, warnings, includeTrace, geometry);
         var results = build.Variants.Select(v => Evaluate(ctx, v)).ToList();
 
         int gov = -1;
@@ -122,7 +153,7 @@ public static class PunchingChecker
         => v.Kind != PunchingVariantKind.PylonReduced || o.PylonReducedGoverns;
 
     sealed record Context(PunchingInput Input, PunchingOptions Options, double Fred, double BaseArea,
-        List<PunchingWarning> Warnings, bool IncludeTrace);
+        List<PunchingWarning> Warnings, bool IncludeTrace, PunchingGeometryCache? Geometry);
 
     static PunchingVariantResult Evaluate(Context ctx, PunchingVariant v)
         => v.Kind == PunchingVariantKind.PylonReduced ? EvaluateReduced(ctx, v) : EvaluateContour(ctx, v);
@@ -132,7 +163,7 @@ public static class PunchingChecker
         var input = ctx.Input;
         var f = input.Forces;
         double h0 = input.H0, rbt = input.Rbt, F = f.F;
-        var g = ContourProperties.Compute(v.Contour);
+        var g = ctx.Geometry?.Properties.GetValueOrDefault(v.Id) ?? ContourProperties.Compute(v.Contour);
         var o = PunchingContourBuilder.AreaCentroid(input.LoadArea);
         double ex = g.Xc - o.X, ey = g.Yc - o.Y;
         double share = f.MomentsAreMloc ? 0.5 : 1.0;
