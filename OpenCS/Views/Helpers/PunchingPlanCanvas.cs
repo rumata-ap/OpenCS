@@ -268,6 +268,37 @@ public static class Variants
         return zone == PunchingZone.BeyondReinforcement ? name + Utilites.Loc.S("PunchingVariantOuterSuffix", " — за зоной арматуры") : name;
     }
 
-    /// <summary>Кисп для подписи: три знака, «∞».</summary>
-    public static string K(double k) => double.IsFinite(k) ? k.ToString("0.000", CultureInfo.CurrentCulture) : "∞";
+    /// <summary>
+    /// Кисп для подписи — то же консервативное округление вверх, что в отчёте
+    /// (<see cref="OpenCS.Reporting.ReportNumberFormatter.FormatUtilization"/>), разделитель — по культуре; «∞».
+    /// </summary>
+    public static string K(double k) => double.IsFinite(k)
+        ? OpenCS.Reporting.ReportNumberFormatter.FormatUtilization(k).Replace(".", CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator)
+        : "∞";
+
+    /// <summary>
+    /// Локализованный текст предупреждения: шаблон <c>PunchingWarn_{code}</c> с аргументами
+    /// (id контуров заменяются названиями, числа — по культуре); без шаблона или аргументов — русский текст ядра.
+    /// </summary>
+    public static string Warning(OpenCS.Reporting.PunchingReportWarning w, IReadOnlyList<OpenCS.Reporting.PunchingReportVariant> variants, int edgeCount)
+    {
+        // Шаблон с подстановками требует аргументов: у результатов до их появления — русский текст ядра.
+        if (w.Code.Length > 0 && Utilites.Loc.TryGet("PunchingWarn_" + w.Code, out string template)
+            && (w.Args.Count > 0 || !template.Contains("{0}", StringComparison.Ordinal)))
+        {
+            var args = w.Args.Select(a =>
+            {
+                var v = variants.FirstOrDefault(x => x.Id == a);
+                if (v is not null) return Title(v.Kind, v.Zone, v.Id, edgeCount);
+                return double.TryParse(a, NumberStyles.Float, CultureInfo.InvariantCulture, out double d)
+                    ? d.ToString("0.##", CultureInfo.CurrentCulture) : a;
+            }).ToArray<object>();
+            try { return string.Format(CultureInfo.CurrentCulture, template, args); }
+            catch (FormatException) { }
+        }
+        string text = w.Text;
+        foreach (var v in variants)
+            text = text.Replace($"«{v.Id}»", $"«{Title(v.Kind, v.Zone, v.Id, edgeCount)}»", StringComparison.Ordinal);
+        return text;
+    }
 }

@@ -76,13 +76,8 @@ public sealed class PunchingResultVM : ViewModelBase
         _selectedRow = Rows.FirstOrDefault(r => r.Governs);
         _selectedVariantId = _selectedRow?.Id;
 
-        foreach (var (_, text) in data.Warnings.Where(w => !string.IsNullOrWhiteSpace(w.Text)))
-        {
-            string readable = text;
-            foreach (var v in data.Variants)
-                readable = readable.Replace($"«{v.Id}»", $"«{Variants.Title(v.Kind, v.Zone, v.Id, edgeCount)}»", StringComparison.Ordinal);
-            Warnings.Add(readable);
-        }
+        foreach (var w in data.Warnings.Where(w => !string.IsNullOrWhiteSpace(w.Text)))
+            Warnings.Add(Variants.Warning(w, data.Variants, edgeCount));
         InputsSummary = BuildInputsSummary(data.Inputs);
     }
 

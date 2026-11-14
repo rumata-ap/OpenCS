@@ -7,8 +7,11 @@
         Width="1320" Height="880" MinWidth="980" MinHeight="620"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
    <Window.Resources>
-      <u:AnyDoubleConverter x:Key="AnyDoubleConv"/>
+      <!-- Строгий разбор: «1.05.05» — красная рамка и запрет сохранения, а не молчаливое прежнее значение -->
+      <u:StrictDoubleConverter x:Key="AnyDoubleConv"/>
       <Style x:Key="Num" TargetType="TextBox">
+         <EventSetter Event="GotKeyboardFocus" Handler="NumBox_GotKeyboardFocus"/>
+         <EventSetter Event="PreviewMouseLeftButtonDown" Handler="NumBox_PreviewMouseLeftButtonDown"/>
          <Setter Property="Width" Value="80"/>
          <Setter Property="Margin" Value="0,2,4,2"/>
          <Setter Property="HorizontalContentAlignment" Value="Right"/>
@@ -178,7 +181,7 @@
                   <DataGrid ItemsSource="{Binding Holes}" SelectedItem="{Binding SelectedHole}" AutoGenerateColumns="False"
                             CanUserAddRows="False" HeadersVisibility="Column" MaxHeight="180" Margin="0,2">
                      <DataGrid.Columns>
-                        <DataGridTemplateColumn Header="{DynamicResource PunchingHoleShape}" Width="110">
+                        <DataGridTemplateColumn Header="{DynamicResource PunchingHoleShape}" Width="Auto" MinWidth="130">
                            <DataGridTemplateColumn.CellTemplate>
                               <DataTemplate>
                                  <ComboBox Margin="0" BorderThickness="0"

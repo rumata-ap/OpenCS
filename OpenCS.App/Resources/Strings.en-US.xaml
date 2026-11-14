@@ -6540,4 +6540,27 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingMu">Account for longitudinal reinforcement ratio μ</system:String>
    <system:String x:Key="PunchingPreviewStale">Drawing and table show the last valid input.</system:String>
    <system:String x:Key="PunchingSaveAndRun">Save and run</system:String>
+   <!-- Calc result statuses -->
+   <system:String x:Key="CalcResultStatus_ok">completed</system:String>
+   <system:String x:Key="CalcResultStatus_partial">partially completed</system:String>
+   <system:String x:Key="CalcResultStatus_not_converged">no solution found</system:String>
+   <system:String x:Key="CalcResultStatus_not_passed">check not passed</system:String>
+   <system:String x:Key="CalcResultStatus_incomplete">incomplete</system:String>
+   <system:String x:Key="CalcResultStatus_not_applicable">not applicable</system:String>
+   <system:String x:Key="CalcResultStatus_error">error</system:String>
+   <system:String x:Key="CalcResultStatus_cancelled">cancelled</system:String>
+   <system:String x:Key="CalcResultStatus_running">running</system:String>
+   <!-- Punching shear warnings by core code -->
+   <system:String x:Key="PunchingWarn_fred_nonpositive">The load within the pyramid base is not less than the punching force — no punching (utilization = 0).</system:String>
+   <system:String x:Key="PunchingWarn_sw_detailing_not_checked">Detailing requirements of cl. 10.3 for shear reinforcement are not checked.</system:String>
+   <system:String x:Key="PunchingWarn_no_variants">No design perimeter could be built.</system:String>
+   <system:String x:Key="PunchingWarn_wb_stress_side_needs_auto">The refined section modulus requires sign-based eccentricity — the minimum W is used.</system:String>
+   <system:String x:Key="PunchingWarn_sw_not_counted">Perimeter "{0}": Fsw,ult &lt; 0.25·Fb,ult — shear reinforcement is not taken into account (cl. 8.1.48).</system:String>
+   <system:String x:Key="PunchingWarn_m_limited_half_kf">Perimeter "{0}": the moment contribution is limited to half of the force contribution (cl. 8.1.46).</system:String>
+   <system:String x:Key="PunchingWarn_concave_area_hull">The loaded area is concave — the perimeter is built on its convex hull.</system:String>
+   <system:String x:Key="PunchingWarn_pylon_at_edge_not_checked">Pylon at a slab edge: the broken perimeter is not checked, only SP 63 perimeters.</system:String>
+   <system:String x:Key="PunchingWarn_pylon_cmin_h0_out_of_range">Cmin/h0 = {0} &gt; 2: according to Galyautdinov (2022, p. 162) the SP 430 perimeter overestimates the capacity at Cmin/h0 ≥ 3 — compare with the reference variant.</system:String>
+   <system:String x:Key="PunchingWarn_closed_not_fit">The closed perimeter extends beyond the slab edge — only the open perimeter is checked (cl. 8.1.46).</system:String>
+   <system:String x:Key="PunchingWarn_hole_excluded">Opening {0} is closer than {1}h0: the part of perimeter "{2}" between the tangents is ignored (cl. 8.1.46).</system:String>
+   <system:String x:Key="PunchingInvalidNumber">A field contains an unrecognized number. Correct the value outlined in red.</system:String>
 </ResourceDictionary>

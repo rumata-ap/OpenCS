@@ -1,4 +1,4 @@
-using CScore;
+﻿using CScore;
 using OpenCS.Tasks;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
@@ -46,12 +46,46 @@ public sealed class PunchingResultVMTests
             Assert.Equal(BatchVerdictTone.Fail, vm.Tone);
             Assert.Equal(BatchVerdictTone.Fail, gov.Reason.Tone);
             Assert.Equal(BatchVerdictTone.Ok, vm.Rows.Single(r => r.Id == "closed").Reason.Tone);
-            Assert.Contains("1,018", vm.VerdictText);
+            // Кисп округляется вверх, как в отчёте: 1,01811 → 1,019; 0,92726 → 0,928 (ручная проверка 14.11).
+            Assert.Contains("1,019", vm.VerdictText);
+            Assert.Equal("1,019", gov.K);
+            Assert.Equal("0,928", vm.Rows.Single(r => r.Id == "closed").K);
             Assert.Contains("НЕ обеспечена", vm.VerdictText);
             Assert.StartsWith("Замкнутый контур", vm.Rows.Single(r => r.Id == "closed").Title);
             Assert.Equal("учтена", gov.Sw);
             Assert.Contains("250×800", vm.InputsSummary);
             Assert.Contains("h0 = 165", vm.InputsSummary);
+        }
+        finally { Loc.SetLanguage(null); }
+    }
+
+    [Fact]
+    public void Warnings_LocalizedByCode_WithVariantTitles()
+    {
+        // Большие моменты — вклад kM ограничивается 0,5·kF (предупреждение с id контура в аргументах).
+        var (result, task) = Run(Gosha() with { Forces = new PunchingForceParams { F = 600, Mx = 300, My = 200 } });
+        Loc.SetLanguage(Loc.English);
+        try
+        {
+            var vm = new PunchingResultVM(result, task);
+            Assert.Contains(vm.Warnings, w => w.StartsWith("Detailing requirements of cl. 10.3", StringComparison.Ordinal));
+            Assert.Contains(vm.Warnings, w => w == "Perimeter \"Broken perimeter at pylon ends (SP 430)\": the moment contribution "
+                + "is limited to half of the force contribution (cl. 8.1.46).");
+            Assert.DoesNotContain(vm.Warnings, w => w.Any(c => c is >= 'А' and <= 'я'));
+        }
+        finally { Loc.SetLanguage(null); }
+    }
+
+    [Fact]
+    public void Warnings_OldResultWithoutArgs_FallsBackToCoreText()
+    {
+        var data = OpenCS.Reporting.PunchingReportData.Parse(
+            """{"passed":true,"ratio":0.5,"details":[],"warnings":[{"code":"m_limited_half_kf","text":"Контур «closed»: вклад моментов ограничен."}]}""");
+        Loc.SetLanguage(Loc.English);
+        try
+        {
+            Assert.Equal("Контур «closed»: вклад моментов ограничен.",
+                OpenCS.Views.Helpers.Variants.Warning(data.Warnings[0], data.Variants, 0));
         }
         finally { Loc.SetLanguage(null); }
     }

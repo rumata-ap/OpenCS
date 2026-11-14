@@ -64,6 +64,12 @@ public static class PunchingResultJson
                 w.WriteStartObject();
                 w.WriteString("code", x.Code);
                 w.WriteString("text", x.Text);
+                if (x.Args is { Count: > 0 } args)
+                {
+                    w.WriteStartArray("args");
+                    foreach (var a in args) w.WriteStringValue(a);
+                    w.WriteEndArray();
+                }
                 w.WriteEndObject();
             }
             w.WriteEndArray();

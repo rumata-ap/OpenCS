@@ -177,7 +177,11 @@ public sealed class PunchingParamsVM : ViewModelBase
     public double T { get => _t; set => SetField(ref _t, value); }
     /// <summary>Вершины многоугольника, мм.</summary>
     public ObservableCollection<PunchingPointRowVM> Points { get; } = [];
-    public PunchingPointRowVM? SelectedPoint { get => _selectedPoint; set { _selectedPoint = value; OnPropertyChanged(); } }
+    public PunchingPointRowVM? SelectedPoint
+    {
+        get => _selectedPoint;
+        set { _selectedPoint = value; OnPropertyChanged(); System.Windows.Input.CommandManager.InvalidateRequerySuggested(); }
+    }
 
     /// <summary>Толщина плиты и привязки, мм.</summary>
     public double H { get => _h; set => SetField(ref _h, value); }
@@ -205,7 +209,11 @@ public sealed class PunchingParamsVM : ViewModelBase
 
     /// <summary>Отверстия, мм.</summary>
     public ObservableCollection<PunchingHoleRowVM> Holes { get; } = [];
-    public PunchingHoleRowVM? SelectedHole { get => _selectedHole; set { _selectedHole = value; OnPropertyChanged(); } }
+    public PunchingHoleRowVM? SelectedHole
+    {
+        get => _selectedHole;
+        set { _selectedHole = value; OnPropertyChanged(); System.Windows.Input.CommandManager.InvalidateRequerySuggested(); }
+    }
 
     /// <summary>Поперечная арматура.</summary>
     public bool SwEnabled { get => _swEnabled; set => SetField(ref _swEnabled, value); }
@@ -466,7 +474,8 @@ public sealed class PunchingParamsVM : ViewModelBase
             H = Mm(s.H);
             if (Cover(l => l.Asx, l => l.Zsx) is double ax && ax > 0) Ax = Mm(ax);
             if (Cover(l => l.Asy, l => l.Zsy) is double ay && ay > 0) Ay = Mm(ay);
-            if (Concretes.FirstOrDefault(m => m.Id == s.ConcreteMaterialId) is { } concrete) { Concrete = concrete; RbtManual = false; }
+            // Ручное Rbt — осознанный выбор пользователя: бетон берём из сечения, но флаг не сбрасываем.
+            if (Concretes.FirstOrDefault(m => m.Id == s.ConcreteMaterialId) is { } concrete) Concrete = concrete;
         }
         finally { _loading = false; }
         Recalculate();

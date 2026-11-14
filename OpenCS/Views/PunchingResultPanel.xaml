@@ -39,9 +39,12 @@
                 AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
                 SelectionMode="Single" SelectionUnit="FullRow" CanUserAddRows="False">
          <DataGrid.Columns>
-            <DataGridTextColumn Header="{DynamicResource PunchingColVariant}" Binding="{Binding Title}" Width="2*">
+            <DataGridTextColumn Header="{DynamicResource PunchingColVariant}" Binding="{Binding Title}" Width="2*" MinWidth="200">
                <DataGridTextColumn.ElementStyle>
+                  <!-- Длинные названия (контур пилона по СП 430) переносятся, а не обрезаются -->
                   <Style TargetType="TextBlock">
+                     <Setter Property="TextWrapping" Value="Wrap"/>
+                     <Setter Property="ToolTip" Value="{Binding Title}"/>
                      <Style.Triggers>
                         <DataTrigger Binding="{Binding Governs}" Value="True">
                            <Setter Property="FontWeight" Value="Bold"/>

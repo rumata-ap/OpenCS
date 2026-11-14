@@ -3,7 +3,10 @@ using CScore.CalculationTrace;
 namespace CScore.Sp63Punching;
 
 /// <summary>Предупреждение расчёта: стабильный код и русский текст.</summary>
-public sealed record PunchingWarning(string Code, string Text);
+/// <param name="Code">Код для локализации в окнах (ключ <c>PunchingWarn_{Code}</c>).</param>
+/// <param name="Text">Русский текст (отчёт, CLI, старые результаты).</param>
+/// <param name="Args">Аргументы локализованного шаблона: id контуров и числа в инвариантной культуре.</param>
+public sealed record PunchingWarning(string Code, string Text, IReadOnlyList<string>? Args = null);
 
 /// <summary>Итоговая оценка узла.</summary>
 public enum PunchingStatus
@@ -171,7 +174,7 @@ public static class PunchingChecker
         bool counted = qsw > 0 && fswRaw >= 0.25 * fb * (1 - 1e-12);
         if (qsw > 0 && !counted)
             ctx.Warnings.Add(new("sw_not_counted",
-                $"Контур «{v.Id}»: Fsw,ult < 0,25·Fb,ult — поперечная арматура не учитывается (п. 8.1.48)."));
+                $"Контур «{v.Id}»: Fsw,ult < 0,25·Fb,ult — поперечная арматура не учитывается (п. 8.1.48).", [v.Id]));
         double fsw = counted ? fswRaw : 0;
         double mswx = counted ? 0.8 * qsw * wbx : 0, mswy = counted ? 0.8 * qsw * wby : 0; // (8.97), Wsw = Wb (8.1.52)
 
@@ -183,7 +186,7 @@ public static class PunchingChecker
         var (_, _, _, kmax) = Utilization(ctx.Fred, mxStar, myStar, 2 * fb, 2 * mbx, 2 * mby);
         if (kMRaw > kM + 1e-15)
             ctx.Warnings.Add(new("m_limited_half_kf",
-                $"Контур «{v.Id}»: вклад моментов ограничен половиной вклада силы (п. 8.1.46)."));
+                $"Контур «{v.Id}»: вклад моментов ограничен половиной вклада силы (п. 8.1.46).", [v.Id]));
 
         var trace = PunchingTrace.Build(new PunchingTraceData(v, g, wbx, wby, h0, rbt, input.Reinforcement,
             qsw, fswRaw, fsw, counted, fb, mbx, mby, mswx, mswy, fult, mxult, myult, F, ctx.Fred, mx0, my0,

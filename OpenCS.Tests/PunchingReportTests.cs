@@ -52,6 +52,12 @@ public sealed class PunchingReportTests
         Assert.Contains(texts, t => t.Contains("K = 1,019 > 1 — прочность НЕ обеспечена", StringComparison.Ordinal));
         Assert.Contains(texts, t => t.Contains("Kmax = 1,019 > 1", StringComparison.Ordinal));
 
+        // Итог условия прочности — тем же округлением вверх, что вердикт, сводка и окно (не 1,018 по Sig).
+        var check = doc.Blocks.OfType<ReportCalculationStep>().First(s => s.StepId == "sp63.punching.pylon_broken.check");
+        Assert.EndsWith("= 1{,}019", check.Formula.Source, StringComparison.Ordinal);
+        var closedCheck = doc.Blocks.OfType<ReportCalculationStep>().First(s => s.StepId == "sp63.punching.closed.check");
+        Assert.EndsWith("= 0{,}928", closedCheck.Formula.Source, StringComparison.Ordinal);
+
         var fb = doc.Blocks.OfType<ReportCalculationStep>().First(s => s.StepId == "sp63.punching.closed.fb");
         // F_b,ult = Rbt·u·h0 = 1050 · 2,76 · 0,165 = 478,2 кН
         Assert.Equal(@"F_{b,ult} = R_{bt}\,u\,h_0 = 1050 \cdot 2{,}76 \cdot 0{,}165 = 478{,}2\ \text{кН}", fb.Formula.Source);

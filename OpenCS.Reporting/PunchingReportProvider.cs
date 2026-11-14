@@ -15,10 +15,13 @@ public sealed record PunchingReportVariant(
     string Id, PunchingVariantKind Kind, PunchingZone Zone, double? Ratio, bool Governs, bool SwCounted,
     IReadOnlyDictionary<string, double?> Numbers, IReadOnlyList<PunchingReportStep> Trace);
 
+/// <summary>Предупреждение расчёта: код, русский текст и аргументы локализованного шаблона.</summary>
+public sealed record PunchingReportWarning(string Code, string Text, IReadOnlyList<string> Args);
+
 /// <summary>Разбор <c>DataJson</c> задачи продавливания для отчёта и окна результата.</summary>
 public sealed record PunchingReportData(
     bool Passed, double? Ratio, string Status, double? RatioConcrete, double? RatioMaxSw, string Governing,
-    IReadOnlyList<PunchingReportVariant> Variants, IReadOnlyList<(string Code, string Text)> Warnings,
+    IReadOnlyList<PunchingReportVariant> Variants, IReadOnlyList<PunchingReportWarning> Warnings,
     IReadOnlyList<PunchingReportStep> CommonTrace, PunchingScene? Scene, JsonElement? Inputs, string? Error)
 {
     /// <summary>Разбирает JSON; при ошибке задачи заполняет только <see cref="Error"/>.</summary>
@@ -44,10 +47,15 @@ public sealed record PunchingReportData(
                     Num(d, "ratio"), Bool(d, "governs"), Bool(d, "sw_counted"), numbers,
                     d.TryGetProperty("trace", out var t) ? Steps(t) : []));
             }
-        var warnings = new List<(string, string)>();
+        var warnings = new List<PunchingReportWarning>();
         if (r.TryGetProperty("warnings", out var w) && w.ValueKind == JsonValueKind.Array)
             foreach (var x in w.EnumerateArray())
-                warnings.Add(x.ValueKind == JsonValueKind.String ? ("", x.GetString() ?? "") : (Str(x, "code"), Str(x, "text")));
+                warnings.Add(x.ValueKind == JsonValueKind.String
+                    ? new("", x.GetString() ?? "", [])
+                    : new(Str(x, "code"), Str(x, "text"),
+                        x.TryGetProperty("args", out var a) && a.ValueKind == JsonValueKind.Array
+                            ? a.EnumerateArray().Select(e => e.ValueKind == JsonValueKind.String ? e.GetString() ?? "" : e.ToString()).ToList()
+                            : []));
         PunchingScene? scene = r.TryGetProperty("scene", out var s) && s.ValueKind == JsonValueKind.Object ? PunchingSceneJson.Read(s) : null;
         JsonElement? inputs = r.TryGetProperty("inputs", out var inp) && inp.ValueKind == JsonValueKind.Object ? inp.Clone() : null;
         return new(Bool(r, "passed"), Num(r, "ratio"), Str(r, "status"), Num(r, "ratio_concrete"), Num(r, "ratio_max_sw"),
@@ -151,9 +159,9 @@ public sealed class PunchingReportProvider : IReportProvider
         }
 
         AddSummary(doc, data, edgeCount);
-        foreach (var (_, text) in data.Warnings.Where(w => !string.IsNullOrWhiteSpace(w.Text)))
+        foreach (var w in data.Warnings.Where(w => !string.IsNullOrWhiteSpace(w.Text)))
         {
-            string readable = text;
+            string readable = w.Text;
             foreach (var v in data.Variants)
                 readable = readable.Replace($"«{v.Id}»", $"«{PunchingReportText.VariantTitle(v.Kind, v.Zone, v.Id, edgeCount)}»", StringComparison.Ordinal);
             doc.Add(new ReportWarning("Примечание: " + readable));
@@ -259,7 +267,8 @@ public sealed class PunchingReportProvider : IReportProvider
                     v.Ratio is double k ? Ku(k) : "∞",
                     v.SwCounted ? "учтена" : "—"
                 ]).ToList()))
-            .Add(new ReportParagraph("* — определяющий контур (наибольший K, п. 8.1.46)."));
+            .Add(new ReportParagraph("* — определяющий контур (наибольший K, п. 8.1.46). "
+                + "K округлён в бо́льшую сторону, поэтому может на единицу последнего знака превышать сумму округлённых kF и kM."));
 
         doc.Add(new ReportHeading(1, "Вывод"));
         if (data.Ratio is double kmax)
@@ -285,7 +294,9 @@ public sealed class PunchingReportProvider : IReportProvider
         var parts = new List<string> { s.Formula };
         string subst = Substitute(s.Substitution, s.Values, parenthesizeNegative: true);
         if (subst.Length > 0) parts.Add(subst);
-        string result = Substitute(s.Result, s.Values, parenthesizeNegative: false);
+        // Итоговый K условия прочности — тем же консервативным округлением, что в сводке, вердикте и окне.
+        bool utilization = s.StepId.EndsWith(".check", StringComparison.Ordinal);
+        string result = Substitute(s.Result, s.Values, parenthesizeNegative: false, utilizationKey: utilization ? "K" : null);
         if (result.Length > 0 && result != subst) parts.Add(result);
         string unit = "";
         var m = Token.Match(s.Result);
@@ -314,11 +325,13 @@ public sealed class PunchingReportProvider : IReportProvider
         };
     }
 
-    static string Substitute(string template, IReadOnlyDictionary<string, (double? Value, string Unit)> values, bool parenthesizeNegative)
+    static string Substitute(string template, IReadOnlyDictionary<string, (double? Value, string Unit)> values, bool parenthesizeNegative,
+        string? utilizationKey = null)
         => Token.Replace(template ?? "", match =>
         {
-            if (!values.TryGetValue(match.Groups["name"].Value, out var v) || v.Value is not double x) return "—";
-            string text = Sig(x).Replace(",", "{,}");
+            string name = match.Groups["name"].Value;
+            if (!values.TryGetValue(name, out var v) || v.Value is not double x) return "—";
+            string text = (name == utilizationKey ? Ku(x) : Sig(x)).Replace(",", "{,}");
             return x < 0 && parenthesizeNegative ? $"({text})" : text;
         });
 

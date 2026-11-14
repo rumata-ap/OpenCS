@@ -35,6 +35,39 @@ namespace OpenCS.Utilites
       }
    }
 
+   /// <summary>
+   /// Как <see cref="AnyDoubleConverter"/>, но нераспознанный текст (например, «1.05.05») — ошибка проверки
+   /// привязки (красная рамка, <c>Validation.HasError</c>), а не молчаливое сохранение прежнего значения.
+   /// </summary>
+   public class StrictDoubleConverter : IValueConverter
+   {
+      readonly AnyDoubleConverter _inner = new();
+
+      public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+         => _inner.Convert(value, targetType, parameter, culture);
+
+      public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+         => value is string str && Pars.ParseAny(str.Trim(), out double res) && double.IsFinite(res)
+            ? res
+            : DependencyProperty.UnsetValue;
+   }
+
+   /// <summary>
+   /// Код (тип задачи, статус) → локализованная подпись по ключу «префикс + код»
+   /// (префикс — <c>ConverterParameter</c>); нет ключа — сам код.
+   /// </summary>
+   public class LocKeyConverter : IValueConverter
+   {
+      public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+      {
+         string code = value?.ToString() ?? "";
+         return code.Length > 0 && Loc.TryGet((parameter as string ?? "") + code, out string text) ? text : code;
+      }
+
+      public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+         => Binding.DoNothing;
+   }
+
    public class Round2Convert : IValueConverter
    {
       public object Convert(object value, Type targetType, object parameter, CultureInfo culture)

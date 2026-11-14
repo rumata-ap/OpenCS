@@ -84,7 +84,8 @@ public static class PunchingContourBuilder
                     if (cmin / h0 > 2 + Tol)
                         warnings.Add(new("pylon_cmin_h0_out_of_range",
                             $"Cmin/h0 = {cmin / h0:0.##} > 2: по Галяутдинову (2022, с. 162) контур СП 430 " +
-                            "при Cmin/h0 ≥ 3 переоценивает прочность — сравните со справочным вариантом."));
+                            "при Cmin/h0 ≥ 3 переоценивает прочность — сравните со справочным вариантом.",
+                            [(cmin / h0).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)]));
                 }
             }
         }
@@ -337,7 +338,9 @@ public static class PunchingContourBuilder
             kept = next;
             if (cut)
                 warnings.Add(new("hole_excluded",
-                    $"Отверстие {h + 1} ближе {options.HoleInfluence:0.#}h0: часть контура «{v.Id}» между касательными не учитывается (п. 8.1.46)."));
+                    $"Отверстие {h + 1} ближе {options.HoleInfluence:0.#}h0: часть контура «{v.Id}» между касательными не учитывается (п. 8.1.46).",
+                    [(h + 1).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                     options.HoleInfluence.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture), v.Id]));
         }
         return v with { Contour = PunchingContour.FromElements(kept), Excluded = excluded };
     }
