@@ -70,10 +70,11 @@
                       AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
                       SelectionMode="Single" SelectionUnit="FullRow" CanUserAddRows="False">
                <!-- Рамка — контур, выделенный на рисунке; видна и без фокуса таблицы, поверх фона вердикта.
-                    Щелчок по строке обрабатывается каждый раз (EnvelopeRow_Click), а не по смене выделения таблицы. -->
+                    Щелчок по строке обрабатывается каждый раз (EnvelopeRow_Click), а не по смене выделения таблицы.
+                    Именно нажатие, не отпускание: DataGrid захватывает мышь на нажатии, и отпускание до строки не доходит. -->
                <DataGrid.RowStyle>
                   <Style TargetType="DataGridRow" BasedOn="{StaticResource BatchVerdictRowStyle}">
-                     <EventSetter Event="PreviewMouseLeftButtonUp" Handler="EnvelopeRow_Click"/>
+                     <EventSetter Event="PreviewMouseLeftButtonDown" Handler="EnvelopeRow_Click"/>
                      <EventSetter Event="KeyDown" Handler="EnvelopeRow_KeyDown"/>
                      <Setter Property="BorderThickness" Value="2"/>
                      <Setter Property="BorderBrush" Value="Transparent"/>
