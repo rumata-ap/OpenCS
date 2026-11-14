@@ -209,16 +209,7 @@ public static partial class Sp16Section9
         }
         if (lbY > 3.14) vars.Add(("φc", phiC));
         vars.Add(($"c {formula}", c));
-        // 9.2.5, последний абзац: c = 0,3 — только при отношении ширины сечения к высоте менее 0,3;
-        // у широких сечений (колонные двутавры, b/h ≈ 1) c по (112)–(114) не ограничивается снизу.
-        double width = Math.Max(s.BfTop, s.BfBottom), height = s.Profile.H;
-        if (c < 0.3 && height > 0)
-        {
-            double bh = width / height;
-            vars.Add(("b/h", bh));
-            if (bh < 0.3) { c = 0.3; notes.Add($"b/h = {bh:0.###} < 0,3 — принято c = 0,3 (9.2.5)"); }
-            else notes.Add($"c < 0,3 при b/h = {bh:0.###} ≥ 0,3 — принято по формуле, ограничение c = 0,3 не применяется (9.2.5)");
-        }
+        if (c < 0.3) { c = 0.3; notes.Add("c < 0,3 — принято c = 0,3 (9.2.5)"); }
 
         if (lbY > 3.14)
         {
