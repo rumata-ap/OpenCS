@@ -1,0 +1,333 @@
+<Window x:Class="OpenCS.Views.PunchingParamsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="clr-namespace:OpenCS.Views"
+        xmlns:u="clr-namespace:OpenCS.Utilites"
+        Title="{DynamicResource PunchingParamsTitle}"
+        Width="1320" Height="880" MinWidth="980" MinHeight="620"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+   <Window.Resources>
+      <u:AnyDoubleConverter x:Key="AnyDoubleConv"/>
+      <Style x:Key="Num" TargetType="TextBox">
+         <Setter Property="Width" Value="80"/>
+         <Setter Property="Margin" Value="0,2,4,2"/>
+         <Setter Property="HorizontalContentAlignment" Value="Right"/>
+         <Setter Property="VerticalContentAlignment" Value="Center"/>
+      </Style>
+      <Style x:Key="Lbl" TargetType="TextBlock">
+         <Setter Property="VerticalAlignment" Value="Center"/>
+         <Setter Property="Margin" Value="0,2,8,2"/>
+      </Style>
+      <Style x:Key="Unit" TargetType="TextBlock">
+         <Setter Property="VerticalAlignment" Value="Center"/>
+         <Setter Property="Foreground" Value="#666"/>
+         <Setter Property="Margin" Value="0,2,10,2"/>
+      </Style>
+      <Style x:Key="Hint" TargetType="TextBlock">
+         <Setter Property="Foreground" Value="#555"/>
+         <Setter Property="TextWrapping" Value="Wrap"/>
+         <Setter Property="Margin" Value="0,3,0,2"/>
+      </Style>
+      <Style TargetType="Expander">
+         <Setter Property="Margin" Value="0,0,0,6"/>
+         <Setter Property="IsExpanded" Value="True"/>
+         <Setter Property="Padding" Value="6,4,4,4"/>
+      </Style>
+      <Style TargetType="ComboBox">
+         <Setter Property="Margin" Value="0,2,4,2"/>
+         <Setter Property="VerticalContentAlignment" Value="Center"/>
+      </Style>
+      <Style TargetType="CheckBox">
+         <Setter Property="Margin" Value="0,4,0,2"/>
+         <Setter Property="VerticalContentAlignment" Value="Center"/>
+      </Style>
+   </Window.Resources>
+
+   <Grid Margin="10">
+      <Grid.ColumnDefinitions>
+         <ColumnDefinition Width="460" MinWidth="380"/>
+         <ColumnDefinition Width="6"/>
+         <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+      <Grid.RowDefinitions>
+         <RowDefinition Height="*"/>
+         <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <!-- ── Форма ─────────────────────────────────────────────── -->
+      <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,6,0">
+         <StackPanel>
+
+            <!-- Площадь -->
+            <Expander Header="{DynamicResource PunchingGroupArea}">
+               <StackPanel>
+                  <StackPanel Orientation="Horizontal">
+                     <TextBlock Text="{DynamicResource PunchingAreaShape}" Style="{StaticResource Lbl}"/>
+                     <ComboBox Width="180" ItemsSource="{Binding AreaShapes}" DisplayMemberPath="Label"
+                               SelectedValuePath="Id" SelectedValue="{Binding AreaShape}"/>
+                  </StackPanel>
+                  <WrapPanel Visibility="{Binding IsRectangle, Converter={StaticResource BoolToVisibility}}">
+                     <TextBlock Text="bx" Style="{StaticResource Lbl}"/>
+                     <TextBox Style="{StaticResource Num}" Text="{Binding Bx, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                     <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     <TextBlock Text="by" Style="{StaticResource Lbl}"/>
+                     <TextBox Style="{StaticResource Num}" Text="{Binding By, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                     <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                  </WrapPanel>
+                  <WrapPanel Visibility="{Binding IsRound, Converter={StaticResource BoolToVisibility}}">
+                     <TextBlock Text="D" Style="{StaticResource Lbl}"/>
+                     <TextBox Style="{StaticResource Num}" Text="{Binding D, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                     <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     <TextBlock Text="t" Style="{StaticResource Lbl}" Visibility="{Binding IsRing, Converter={StaticResource BoolToVisibility}}"/>
+                     <TextBox Style="{StaticResource Num}" Visibility="{Binding IsRing, Converter={StaticResource BoolToVisibility}}"
+                              Text="{Binding T, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                     <TextBlock Text="мм" Style="{StaticResource Unit}" Visibility="{Binding IsRing, Converter={StaticResource BoolToVisibility}}"/>
+                  </WrapPanel>
+                  <StackPanel Visibility="{Binding IsPolygon, Converter={StaticResource BoolToVisibility}}">
+                     <TextBlock Text="{DynamicResource PunchingPolygonHint}" Style="{StaticResource Hint}"/>
+                     <DataGrid ItemsSource="{Binding Points}" SelectedItem="{Binding SelectedPoint}" AutoGenerateColumns="False"
+                               CanUserAddRows="False" HeadersVisibility="Column" MaxHeight="160" Margin="0,2">
+                        <DataGrid.Columns>
+                           <DataGridTextColumn Header="x, мм" Width="*" Binding="{Binding X, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=LostFocus}"/>
+                           <DataGridTextColumn Header="y, мм" Width="*" Binding="{Binding Y, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=LostFocus}"/>
+                        </DataGrid.Columns>
+                     </DataGrid>
+                     <StackPanel Orientation="Horizontal">
+                        <Button Content="{DynamicResource PunchingAdd}" Command="{Binding AddPointCommand}" Padding="10,2" Margin="0,2,6,2"/>
+                        <Button Content="{DynamicResource PunchingRemove}" Command="{Binding RemovePointCommand}" Padding="10,2" Margin="0,2"/>
+                     </StackPanel>
+                  </StackPanel>
+               </StackPanel>
+            </Expander>
+
+            <!-- Плита -->
+            <Expander Header="{DynamicResource PunchingGroupSlab}">
+               <StackPanel>
+                  <WrapPanel>
+                     <TextBlock Text="h" Style="{StaticResource Lbl}"/>
+                     <TextBox Style="{StaticResource Num}" Text="{Binding H, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                     <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     <TextBlock Text="ax" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingAxHint}"/>
+                     <TextBox Style="{StaticResource Num}" Width="60" ToolTip="{DynamicResource PunchingAxHint}"
+                              Text="{Binding Ax, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                     <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     <TextBlock Text="ay" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingAyHint}"/>
+                     <TextBox Style="{StaticResource Num}" Width="60" ToolTip="{DynamicResource PunchingAyHint}"
+                              Text="{Binding Ay, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                     <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                  </WrapPanel>
+                  <TextBlock Text="{Binding H0Text}" Style="{StaticResource Hint}"/>
+                  <StackPanel Orientation="Horizontal">
+                     <TextBlock Text="{DynamicResource PunchingConcrete}" Style="{StaticResource Lbl}"/>
+                     <ComboBox Width="200" ItemsSource="{Binding Concretes}" DisplayMemberPath="Tag" SelectedItem="{Binding Concrete}"
+                               IsEnabled="{Binding RbtManual, Converter={StaticResource InverseBool}}"/>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal">
+                     <CheckBox Content="{DynamicResource PunchingRbtManual}" IsChecked="{Binding RbtManual}" Margin="0,4,8,2"/>
+                     <TextBox Style="{StaticResource Num}" IsEnabled="{Binding RbtManual}"
+                              Text="{Binding RbtManualValue, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                     <TextBlock Text="МПа" Style="{StaticResource Unit}"/>
+                  </StackPanel>
+                  <TextBlock Text="{Binding RbtText}" Style="{StaticResource Hint}"/>
+                  <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                     <TextBlock Text="{DynamicResource PunchingFromPlateSection}" Style="{StaticResource Lbl}"/>
+                     <ComboBox Width="160" ItemsSource="{Binding PlateSections}" DisplayMemberPath="Tag" SelectedItem="{Binding SelectedPlateSection}"/>
+                     <Button Content="{DynamicResource PunchingTake}" Command="{Binding TakeFromPlateSectionCommand}" Padding="10,2"
+                             ToolTip="{DynamicResource PunchingFromPlateSectionHint}"/>
+                  </StackPanel>
+               </StackPanel>
+            </Expander>
+
+            <!-- Положение -->
+            <Expander Header="{DynamicResource PunchingGroupPosition}">
+               <StackPanel>
+                  <StackPanel Orientation="Horizontal">
+                     <TextBlock Text="{DynamicResource PunchingPosition}" Style="{StaticResource Lbl}"/>
+                     <ComboBox Width="160" ItemsSource="{Binding Positions}" DisplayMemberPath="Label"
+                               SelectedValuePath="Id" SelectedValue="{Binding Position}"/>
+                  </StackPanel>
+                  <WrapPanel Visibility="{Binding HasEdge1, Converter={StaticResource BoolToVisibility}}">
+                     <TextBlock Text="{DynamicResource PunchingEdge1}" Style="{StaticResource Lbl}" Width="54"/>
+                     <ComboBox Width="56" ItemsSource="{Binding Sides}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding Edge1Side}"/>
+                     <TextBlock Text="c" Style="{StaticResource Lbl}" Margin="6,2,4,2"/>
+                     <TextBox Style="{StaticResource Num}" Width="60" Text="{Binding Edge1C, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                     <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     <TextBlock Text="α" Style="{StaticResource Lbl}" Margin="0,2,4,2"/>
+                     <TextBox Style="{StaticResource Num}" Width="44" Text="{Binding Edge1Angle, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                     <TextBlock Text="°" Style="{StaticResource Unit}"/>
+                  </WrapPanel>
+                  <WrapPanel Visibility="{Binding HasEdge2, Converter={StaticResource BoolToVisibility}}">
+                     <TextBlock Text="{DynamicResource PunchingEdge2}" Style="{StaticResource Lbl}" Width="54"/>
+                     <ComboBox Width="56" ItemsSource="{Binding Sides}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding Edge2Side}"/>
+                     <TextBlock Text="c" Style="{StaticResource Lbl}" Margin="6,2,4,2"/>
+                     <TextBox Style="{StaticResource Num}" Width="60" Text="{Binding Edge2C, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                     <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     <TextBlock Text="α" Style="{StaticResource Lbl}" Margin="0,2,4,2"/>
+                     <TextBox Style="{StaticResource Num}" Width="44" Text="{Binding Edge2Angle, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                     <TextBlock Text="°" Style="{StaticResource Unit}"/>
+                  </WrapPanel>
+                  <TextBlock Text="{DynamicResource PunchingEdgeHint}" Style="{StaticResource Hint}"
+                             Visibility="{Binding HasEdge1, Converter={StaticResource BoolToVisibility}}"/>
+               </StackPanel>
+            </Expander>
+
+            <!-- Отверстия -->
+            <Expander Header="{DynamicResource PunchingGroupHoles}" IsExpanded="False">
+               <StackPanel>
+                  <TextBlock Text="{DynamicResource PunchingHolesHint}" Style="{StaticResource Hint}"/>
+                  <DataGrid ItemsSource="{Binding Holes}" SelectedItem="{Binding SelectedHole}" AutoGenerateColumns="False"
+                            CanUserAddRows="False" HeadersVisibility="Column" MaxHeight="180" Margin="0,2">
+                     <DataGrid.Columns>
+                        <DataGridTemplateColumn Header="{DynamicResource PunchingHoleShape}" Width="110">
+                           <DataGridTemplateColumn.CellTemplate>
+                              <DataTemplate>
+                                 <ComboBox Margin="0" BorderThickness="0"
+                                           ItemsSource="{Binding DataContext.HoleShapes, RelativeSource={RelativeSource AncestorType=Window}}"
+                                           DisplayMemberPath="Label" SelectedValuePath="Id"
+                                           SelectedValue="{Binding Shape, UpdateSourceTrigger=PropertyChanged}"/>
+                              </DataTemplate>
+                           </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="xc, мм" Width="*" Binding="{Binding Cx, Converter={StaticResource AnyDoubleConv}}"/>
+                        <DataGridTextColumn Header="yc, мм" Width="*" Binding="{Binding Cy, Converter={StaticResource AnyDoubleConv}}"/>
+                        <DataGridTextColumn Header="bx, мм" Width="*" Binding="{Binding Bx, Converter={StaticResource AnyDoubleConv}}"/>
+                        <DataGridTextColumn Header="by, мм" Width="*" Binding="{Binding By, Converter={StaticResource AnyDoubleConv}}"/>
+                        <DataGridTextColumn Header="D, мм" Width="*" Binding="{Binding D, Converter={StaticResource AnyDoubleConv}}"/>
+                     </DataGrid.Columns>
+                  </DataGrid>
+                  <StackPanel Orientation="Horizontal">
+                     <Button Content="{DynamicResource PunchingAdd}" Command="{Binding AddHoleCommand}" Padding="10,2" Margin="0,2,6,2"/>
+                     <Button Content="{DynamicResource PunchingRemove}" Command="{Binding RemoveHoleCommand}" Padding="10,2" Margin="0,2"/>
+                  </StackPanel>
+               </StackPanel>
+            </Expander>
+
+            <!-- Поперечная арматура -->
+            <Expander Header="{DynamicResource PunchingGroupSw}">
+               <StackPanel>
+                  <CheckBox Content="{DynamicResource PunchingSwEnabled}" IsChecked="{Binding SwEnabled}"/>
+                  <StackPanel IsEnabled="{Binding SwEnabled}">
+                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource PunchingRebar}" Style="{StaticResource Lbl}"/>
+                        <ComboBox Width="200" ItemsSource="{Binding Rebars}" DisplayMemberPath="Tag" SelectedItem="{Binding Rebar}"
+                                  IsEnabled="{Binding RswManual, Converter={StaticResource InverseBool}}"/>
+                     </StackPanel>
+                     <WrapPanel>
+                        <TextBlock Text="d" Style="{StaticResource Lbl}"/>
+                        <TextBox Style="{StaticResource Num}" Width="50" Text="{Binding Diameter, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="n" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingSwCountHint}"/>
+                        <TextBox Style="{StaticResource Num}" Width="40" ToolTip="{DynamicResource PunchingSwCountHint}"
+                                 Text="{Binding Count, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                        <TextBlock Text="sw" Style="{StaticResource Lbl}" Margin="6,2,8,2"/>
+                        <TextBox Style="{StaticResource Num}" Width="50" Text="{Binding Step, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     </WrapPanel>
+                     <StackPanel Orientation="Horizontal">
+                        <CheckBox Content="{DynamicResource PunchingSwZone}" IsChecked="{Binding ZoneEnabled}" Margin="0,4,8,2"
+                                  ToolTip="{DynamicResource PunchingSwZoneHint}"/>
+                        <TextBox Style="{StaticResource Num}" IsEnabled="{Binding ZoneEnabled}"
+                                 Text="{Binding Zone, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     </StackPanel>
+                     <StackPanel Orientation="Horizontal">
+                        <CheckBox Content="{DynamicResource PunchingRswManual}" IsChecked="{Binding RswManual}" Margin="0,4,8,2"/>
+                        <TextBox Style="{StaticResource Num}" IsEnabled="{Binding RswManual}"
+                                 Text="{Binding RswManualValue, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                        <TextBlock Text="МПа" Style="{StaticResource Unit}"/>
+                     </StackPanel>
+                     <TextBlock Text="{Binding SwText}" Style="{StaticResource Hint}"/>
+                  </StackPanel>
+               </StackPanel>
+            </Expander>
+
+            <!-- Усилия -->
+            <Expander Header="{DynamicResource PunchingGroupForces}">
+               <StackPanel>
+                  <WrapPanel>
+                     <TextBlock Text="F" Style="{StaticResource Lbl}"/>
+                     <TextBox Style="{StaticResource Num}" Text="{Binding F, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                     <TextBlock Text="кН" Style="{StaticResource Unit}"/>
+                     <TextBlock Text="Mx" Style="{StaticResource Lbl}"/>
+                     <TextBox Style="{StaticResource Num}" Width="64" Text="{Binding Mx, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                     <TextBlock Text="кН·м" Style="{StaticResource Unit}"/>
+                     <TextBlock Text="My" Style="{StaticResource Lbl}"/>
+                     <TextBox Style="{StaticResource Num}" Width="64" Text="{Binding My, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                     <TextBlock Text="кН·м" Style="{StaticResource Unit}"/>
+                  </WrapPanel>
+                  <CheckBox Content="{DynamicResource PunchingMloc}" IsChecked="{Binding MomentsAreMloc}"/>
+                  <StackPanel Orientation="Horizontal">
+                     <TextBlock Text="{DynamicResource PunchingLoadSide}" Style="{StaticResource Lbl}"/>
+                     <ComboBox Width="290" ItemsSource="{Binding LoadSides}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding LoadSide}"/>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal">
+                     <TextBlock Text="{DynamicResource PunchingCounterPressure}" Style="{StaticResource Lbl}"/>
+                     <TextBox Style="{StaticResource Num}" Text="{Binding CounterPressure, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                     <TextBlock Text="кПа" Style="{StaticResource Unit}"/>
+                  </StackPanel>
+                  <StackPanel Visibility="{Binding HasForceRow, Converter={StaticResource BoolToVisibility}}">
+                     <TextBlock Text="{Binding ForceRowText}" Style="{StaticResource Hint}"/>
+                     <Button Content="{DynamicResource PunchingTakeFromRow}" Command="{Binding TakeForcesFromRowCommand}"
+                             HorizontalAlignment="Left" Padding="10,2" ToolTip="{DynamicResource PunchingTakeFromRowHint}"/>
+                  </StackPanel>
+               </StackPanel>
+            </Expander>
+
+            <!-- Настройки -->
+            <Expander Header="{DynamicResource PunchingGroupOptions}" IsExpanded="False">
+               <Grid>
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="Auto"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                     <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                  </Grid.RowDefinitions>
+                  <TextBlock Grid.Row="0" Text="{DynamicResource PunchingEccX}" Style="{StaticResource Lbl}"/>
+                  <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding EccentricityModes}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding EccentricityX}"/>
+                  <TextBlock Grid.Row="1" Text="{DynamicResource PunchingEccY}" Style="{StaticResource Lbl}"/>
+                  <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding EccentricityModes}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding EccentricityY}"/>
+                  <TextBlock Grid.Row="2" Text="{DynamicResource PunchingWb}" Style="{StaticResource Lbl}"/>
+                  <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding WbModes}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding Wb}"/>
+                  <TextBlock Grid.Row="3" Text="{DynamicResource PunchingPylon}" Style="{StaticResource Lbl}"/>
+                  <ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{Binding PylonModes}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding Pylon}"/>
+                  <TextBlock Grid.Row="4" Text="{DynamicResource PunchingHoleInfluence}" Style="{StaticResource Lbl}"/>
+                  <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal">
+                     <TextBox Style="{StaticResource Num}" Width="50" Text="{Binding HoleInfluence, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                     <TextBlock Text="h0" Style="{StaticResource Unit}"/>
+                  </StackPanel>
+                  <CheckBox Grid.Row="5" Grid.ColumnSpan="2" Content="{DynamicResource PunchingPylonReduced}" IsChecked="{Binding PylonReduced}"/>
+                  <StackPanel Grid.Row="6" Grid.ColumnSpan="2" Orientation="Horizontal">
+                     <CheckBox Content="{DynamicResource PunchingMu}" IsChecked="{Binding MuEnabled}" Margin="0,4,8,2"/>
+                     <TextBox Style="{StaticResource Num}" Width="50" IsEnabled="{Binding MuEnabled}"
+                              Text="{Binding MuPercent, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                     <TextBlock Text="%" Style="{StaticResource Unit}"/>
+                  </StackPanel>
+               </Grid>
+            </Expander>
+         </StackPanel>
+      </ScrollViewer>
+
+      <GridSplitter Grid.Column="1" Grid.RowSpan="2" HorizontalAlignment="Stretch" Background="Transparent"/>
+
+      <!-- ── Живой результат ───────────────────────────────────── -->
+      <DockPanel Grid.Column="2">
+         <Border DockPanel.Dock="Top" Padding="8,6" Margin="0,0,0,6" CornerRadius="4" Background="#FDECEA" BorderBrush="#C0392B" BorderThickness="1"
+                 Visibility="{Binding HasErrors, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel>
+               <TextBlock Text="{Binding ErrorText}" Foreground="#8B0000" TextWrapping="Wrap"/>
+               <TextBlock Text="{DynamicResource PunchingPreviewStale}" Foreground="#666" FontSize="11" Margin="0,2,0,0"/>
+            </StackPanel>
+         </Border>
+         <v:PunchingResultPanel DataContext="{Binding Preview}"/>
+      </DockPanel>
+
+      <!-- ── Кнопки ────────────────────────────────────────────── -->
+      <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+         <Button Content="{DynamicResource PunchingSaveAndRun}" Click="SaveAndRun_Click" Padding="14,4" Margin="0,0,8,0"
+                 IsEnabled="{Binding HasErrors, Converter={StaticResource InverseBool}}"/>
+         <Button Content="{DynamicResource Save}" Click="Save_Click" Padding="14,4" Margin="0,0,8,0"/>
+         <Button Content="{DynamicResource Cancel}" IsCancel="True" Padding="14,4"/>
+      </StackPanel>
+   </Grid>
+</Window>

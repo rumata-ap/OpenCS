@@ -34,10 +34,14 @@ namespace OpenCS.ViewModels
             RefreshResults();
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsPrestressLossSelected));
+            OnPropertyChanged(nameof(IsPunchingSelected));
          }
       }
 
       public bool IsPrestressLossSelected => SelectedTask?.Model.Kind == "prestress_loss";
+
+      /// <summary>Выбрана задача продавливания — показать кнопку окна параметров.</summary>
+      public bool IsPunchingSelected => SelectedTask?.Model.Kind == PunchingRunner.Kind;
 
       public CalcResult? SelectedResult
       {
@@ -53,6 +57,7 @@ namespace OpenCS.ViewModels
       public ICommand DeleteResultCommand        { get; }
       public ICommand DeleteAllResultsCommand    { get; }
       public ICommand EditPrestressParamsCommand { get; }
+      public ICommand EditPunchingParamsCommand  { get; }
 
       public CalcTasksPageVM(AppViewModel app, CalcTasksPage page)
       {
@@ -73,6 +78,8 @@ namespace OpenCS.ViewModels
          DeleteAllResultsCommand = new RelayCommand(_ => DeleteAllResults(), _ => SelectedTask != null);
          EditPrestressParamsCommand = new RelayCommand(
              _ => EditPrestressParams(), _ => IsPrestressLossSelected);
+         EditPunchingParamsCommand = new RelayCommand(
+             _ => PunchingParamsDialog.Edit(_app, SelectedTask!.Model, Window.GetWindow(_page)), _ => IsPunchingSelected);
       }
 
       void RebuildTaskVMs()
@@ -116,6 +123,8 @@ namespace OpenCS.ViewModels
             var pdlg = new PrestressLossDialog(_app, ct) { Owner = Window.GetWindow(_page) };
             pdlg.ShowDialog();
          }
+         else if (ct.Kind == PunchingRunner.Kind)
+            PunchingParamsDialog.Edit(_app, ct, Window.GetWindow(_page));
       }
 
       void EditTask()
@@ -141,6 +150,8 @@ namespace OpenCS.ViewModels
             var pdlg = new PrestressLossDialog(_app, ct) { Owner = Window.GetWindow(_page) };
             pdlg.ShowDialog();
          }
+         else if (ct.Kind == PunchingRunner.Kind)
+            PunchingParamsDialog.Edit(_app, ct, Window.GetWindow(_page));
       }
 
       void EditPrestressParams()

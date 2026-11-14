@@ -3473,6 +3473,8 @@ namespace OpenCS
          ct.Num = CalcTasks.Count > 0 ? CalcTasks.Max(t => t.Num) + 1 : 1;
          db.SaveCalcTask(ct);
          LogService.Info(string.Format(Loc.S("CalcTaskCreated"), ct.Tag));
+         if (ct.Kind == PunchingRunner.Kind)
+            PunchingParamsDialog.Edit(this, ct, Application.Current.MainWindow);
       }
 
       async Task RunCalcTaskAsync(CalcTask? ct)
@@ -3499,6 +3501,8 @@ namespace OpenCS
          ct.ParamsJson  = src.ParamsJson;
          db.SaveCalcTask(ct);
          CalcTaskModified?.Invoke();
+         if (ct.Kind == PunchingRunner.Kind)
+            PunchingParamsDialog.Edit(this, ct, Application.Current.MainWindow);
       }
 
       void DeleteCalcTask(CalcTask? ct)

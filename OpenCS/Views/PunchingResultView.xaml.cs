@@ -20,7 +20,7 @@ public partial class PunchingResultView : UserControl
         _result = result;
         _task = task;
         DataContext = new PunchingResultVM(result, task);
-        ParamsButton.Visibility = Visibility.Collapsed;
+        ParamsButton.IsEnabled = task is not null;
         ReportButton.IsEnabled = app.ExportCalcResultReportCommand.CanExecute(result);
     }
 
@@ -30,7 +30,9 @@ public partial class PunchingResultView : UserControl
             _app.ExportCalcResultReportCommand.Execute(_result);
     }
 
+    /// <summary>Окно параметров; «Сохранить и рассчитать» откроет новый результат.</summary>
     void Params_Click(object sender, RoutedEventArgs e)
     {
+        if (_task is not null) PunchingParamsDialog.Edit(_app, _task, Window.GetWindow(this));
     }
 }

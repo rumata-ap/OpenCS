@@ -31,6 +31,10 @@
                     Command="{Binding EditPrestressParamsCommand}"
                     Visibility="{Binding IsPrestressLossSelected, Converter={StaticResource BoolToVisibility}}"
                     Padding="10,3" Margin="6,0,0,0"/>
+            <Button Content="{DynamicResource PunchingParamsTaskButton}"
+                    Command="{Binding EditPunchingParamsCommand}"
+                    Visibility="{Binding IsPunchingSelected, Converter={StaticResource BoolToVisibility}}"
+                    Padding="10,3" Margin="6,0,0,0"/>
          </StackPanel>
       </Border>
 
