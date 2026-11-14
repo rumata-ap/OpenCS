@@ -23,6 +23,7 @@ sealed class ProjectSession : IDisposable
     readonly string? _outPath;
     readonly FileStream? _lock;
     bool _closed;
+    bool _discarded;
 
     public HeadlessProjectContext Context { get; }
 
@@ -177,7 +178,7 @@ sealed class ProjectSession : IDisposable
             Context.Dispose();
             SqliteConnection.ClearAllPools();
             if (_inPlace) return SourcePath;
-            if (_outPath == null) return null;
+            if (_outPath == null || _discarded) return null;
             File.Copy(Context.Db.DataSource, _outPath, overwrite: true);
             return _outPath;
         }
@@ -187,6 +188,9 @@ sealed class ProjectSession : IDisposable
             DeleteDirectory(_tempDir);
         }
     }
+
+    /// <summary>Не сохранять копию в --out при закрытии (правка прервана ошибкой).</summary>
+    public void Discard() => _discarded = true;
 
     public void Dispose() => Close();
 

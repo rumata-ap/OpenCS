@@ -52,7 +52,8 @@ public static class ForceTableParser
 
     sealed record Column(int Index, Role Role, string Key, string Display, double Scale);
 
-    static readonly HashSet<string> ElementKeys = Keys("ЭЛ", "ЭЛЕМ", "ЭЛЕМЕНТ", "КЭ", "НОМЕРКЭ", "ELEM", "ELEMENT", "EL");
+    static readonly HashSet<string> ElementKeys = Keys("ЭЛ", "ЭЛЕМ", "ЭЛЕМЕНТ", "КЭ", "НОМЕР", "НОМЕРКЭ", "НОМЕРЭЛ",
+        "НОМЕРЭЛЕМЕНТА", "ELEM", "ELEMENT", "EL");
     static readonly HashSet<string> SectionKeys = Keys("НС", "СЕЧ", "СЕЧЕНИЕ", "НОМЕРСЕЧЕНИЯ", "SEC", "SECT", "SECTION");
     static readonly HashSet<string> LabelKeys = Keys("МЕТКА", "LABEL", "ИМЯ", "NAME");
     static readonly HashSet<string> ForceKeys = Keys("N", "MX", "MY", "MZ", "MK", "QX", "QY", "QZ", "VX", "VY", "T");

@@ -13,10 +13,10 @@ public class ForceTableParserTests
     static ForceTableResult Parse(ForceTable table, ForceTableOptions? options = null) =>
         ForceTableParser.Parse([table], options ?? new ForceTableOptions());
 
-    /// <summary>Как «РСУ в стержнях.docx» ЛИРА-САПР 10: «НC» с латинской C, Qz пустая ячейка.</summary>
+    /// <summary>Как «РСУ в стержнях.docx» ЛИРА-САПР 10: «Номер», «НC» и «Cт.» с латинской C, Qz пустая ячейка.</summary>
     static ForceTable LiraRsu() => Table(
         ["Таблица 1"],
-        ["Элем", "НC", "Ст.", "Гр.", "Крит.", "N (кН)", "My (кН*м)", "Qz (кН)"],
+        ["Номер", "НC", "Cт.", "Гр.", "Крит.", "N (кН)", "My (кН*м)", "Qz (кН)"],
         ["1", "1", "1", "А", "2", "-176", "-48.313", "24.202"],
         ["", "3", "1", "А", "6", "-176", "24,294", "24.202"],
         ["3", "3", "1", "А", "1", "-24.202", "114.6", ""]);
@@ -35,7 +35,7 @@ public class ForceTableParserTests
         Assert.Equal(24.202, items[0].Vy, 9);   // Vy ← Qz
         Assert.Equal(0, items[0].My);
         Assert.Equal((1, 1), (items[0].SourceElementNum, items[0].SourceSectionNum));
-        Assert.Equal("Эл. 1, сеч. 1, Ст. 1, Гр. А, Крит. 2", items[0].Label);
+        Assert.Equal("Эл. 1, сеч. 1, Cт. 1, Гр. А, Крит. 2", items[0].Label);
         Assert.Equal(-24.294, items[1].Mx, 9);   // десятичная запятая
         Assert.Equal((1, 3), (items[1].SourceElementNum, items[1].SourceSectionNum));   // элемент сверху
         Assert.Equal(0, items[2].Vy);   // пустая ячейка — 0

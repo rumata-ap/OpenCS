@@ -112,6 +112,7 @@ sealed partial class CliApp
         listResults.SetAction((p, ct) => Handle(p, ct, ListResultsAsync));
         DescribeAuthoringOptions();
         DescribeSteelOptions();
+        DescribeForceOptions();
         var listSections = new Command("sections", Loc.S("CliCmdListSections")) { _project };
         listSections.SetAction((p, ct) => Handle(p, ct, ListSectionsAsync));
         var listForceSets = new Command("forcesets", Loc.S("CliCmdListForceSets")) { _project };
@@ -124,6 +125,8 @@ sealed partial class CliApp
             ListProfilesCommand()
         };
         var add = new Command("add", Loc.S("CliCmdAdd")) { AddSteelSectionCommand() };
+        var import = new Command("import", Loc.S("CliCmdImport")) { ImportForcesCommand() };
+        var split = new Command("split", Loc.S("CliCmdSplit")) { SplitForcesCommand() };
 
         var run = new Command("run", Loc.S("CliCmdRun"))
         {
@@ -144,7 +147,7 @@ sealed partial class CliApp
 
         return new RootCommand(Loc.S("CliRootDescription"))
         {
-            _lang, _json, _quiet, NewCommand(), add, info, list, run, export, tools
+            _lang, _json, _quiet, NewCommand(), add, import, split, info, list, run, export, tools
         };
     }
 

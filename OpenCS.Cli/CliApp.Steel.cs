@@ -138,8 +138,12 @@ sealed partial class CliApp
             ?? throw new CliException(CliExitCode.Usage, string.Format(Loc.S("CliErrSteelNotFound"), mark,
                 (thickness * 1000).ToString("0.#", CultureInfo.CurrentCulture)));
 
-        using var session = OpenForEdit(call);
-        var db = session.Context.Db;
+        return Edit(call, session => SaveSteelSection(call, session.Context.Db, entry, steel));
+    }
+
+    void SaveSteelSection(CliCall call, DatabaseService db, SteelCatalogEntry entry, Material steel)
+    {
+        var p = call.Parse;
         var material = MaterialCatalog.FindSameSteel(db.Materials, steel);
         bool created = material == null;
         if (material == null)
@@ -164,7 +168,5 @@ sealed partial class CliApp
         else
             call.Out.WriteLine(string.Format(Loc.S("CliSteelSectionAdded"), section.Id, section.Tag, entry.Name,
                 entry.Standard, material.Id, material.Tag, Loc.S(created ? "CliMaterialNew" : "CliMaterialExisting")));
-        FinishEdit(call, session);
-        return Task.FromResult(CliExitCode.Ok);
     }
 }

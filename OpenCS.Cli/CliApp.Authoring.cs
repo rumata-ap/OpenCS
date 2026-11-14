@@ -74,20 +74,28 @@ sealed partial class CliApp
         return Task.FromResult(CliExitCode.Ok);
     }
 
-    /// <summary>Открывает проект для правки: сам файл или копия с сохранением в --out.</summary>
-    ProjectSession OpenForEdit(CliCall call)
+    /// <summary>
+    /// Правка проекта: сам файл или копия с сохранением в --out. Ошибка в <paramref name="body"/> — копия в --out
+    /// не сохраняется (проверки ввода идут до записи в БД, поэтому сам файл при ошибке не меняется).
+    /// </summary>
+    Task<int> Edit(CliCall call, Action<ProjectSession> body)
     {
         string? outPath = call.Parse.GetValue(_editOut);
-        return call.OpenProject(new ProjectSessionOptions(InPlace: outPath == null, OutPath: outPath,
+        using var session = call.OpenProject(new ProjectSessionOptions(InPlace: outPath == null, OutPath: outPath,
             Force: call.Parse.GetValue(_editForce)));
-    }
-
-    /// <summary>Закрывает правку; при --out сообщает, куда сохранён проект.</summary>
-    void FinishEdit(CliCall call, ProjectSession session)
-    {
+        try
+        {
+            body(session);
+        }
+        catch
+        {
+            session.Discard();
+            throw;
+        }
         string? saved = session.Close();
-        if (call.Parse.GetValue(_editOut) != null && saved != null)
+        if (outPath != null && saved != null)
             call.Err.WriteLine(string.Format(Loc.S("CliSavedTo"), saved));
+        return Task.FromResult(CliExitCode.Ok);
     }
 
     static int NextNum<T>(IEnumerable<T> items, Func<T, int> num) => items.Select(num).DefaultIfEmpty(0).Max() + 1;

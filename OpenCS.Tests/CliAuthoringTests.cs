@@ -151,6 +151,86 @@ public sealed class CliAuthoringTests : IDisposable
         Assert.Single(db.CrossSections);
     }
 
+    /// <summary>Таблица «РСУ в стержнях» ЛИРА-САПР 10 рамы Гоши (14.11.2026), как в docx: оси ЛИРЫ, «НC» с латинской C.</summary>
+    const string GoshaRsuCsv = """
+        Номер;НC;Cт.;Гр.;Крит.;N (кН);My (кН*м);Qz (кН)
+        1;1;1;А;2;-176;-48.313;24.202
+        1;2;1;А;2;-176;-12.01;24.202
+        1;3;1;А;1;-78;13.439;13.389
+        1;3;1;А;6;-176;24.294;24.202
+        1;4;1;А;1;-176;60.597;24.202
+        1;5;1;А;1;-176;96.901;24.202
+        2;1;1;А;1;-176;48.313;-24.202
+        2;2;1;А;2;-176;12.01;-24.202
+        2;3;1;А;2;-176;-24.294;-24.202
+        2;3;1;А;5;-78;-13.439;-13.389
+        2;4;1;А;2;-176;-60.597;-24.202
+        2;5;1;А;2;-176;-96.901;-24.202
+        3;1;1;А;2;-24.202;-96.902;141
+        3;2;1;А;1;-24.202;61.723;70.5
+        3;3;1;А;1;-24.202;114.6;
+        3;4;1;А;1;-24.202;61.723;-70.5
+        3;5;1;А;2;-24.202;-96.902;-141
+        """;
+
+    string GoshaCsv()
+    {
+        string path = PathOf("РСУ в стержнях.csv");
+        File.WriteAllText(path, GoshaRsuCsv);
+        return path;
+    }
+
+    [Fact]
+    public async Task ImportForces_LiraTable_AndSplitByElements()
+    {
+        string project = PathOf("рама.db");
+        await Run("new", project);
+
+        var imported = await Run("import", "forces", project, GoshaCsv(), "--tag", "A: РСУ");
+        Assert.True(imported.Code == CliExitCode.Ok, imported.Err);
+        Assert.Contains("My (кН*м) → Mx (−)", imported.Out);
+
+        var columns = await Run("split", "forces", project, "--set", "A: РСУ", "--elements", "1,2", "--tag", "колонны", "--json");
+        Assert.True(columns.Code == CliExitCode.Ok, columns.Err);
+        using (var json = JsonDocument.Parse(columns.Out))
+            Assert.Equal(12, json.RootElement.GetProperty("rows").GetInt32());
+        Assert.Equal(CliExitCode.Ok, (await Run("split", "forces", project, "--set", "1", "--elements", "3")).Code);
+        var onlyBeam = await Run("import", "forces", project, GoshaCsv(), "--elements", "3", "--axes", "lira");
+        Assert.Equal(CliExitCode.Ok, onlyBeam.Code);
+
+        using var db = Load(project);
+        Assert.Equal(["A: РСУ", "колонны", "A: РСУ — КЭ 3", "РСУ в стержнях"], db.ForceSets.OrderBy(f => f.Num).Select(f => f.Tag));
+        var all = db.ForceSets.Single(f => f.Tag == "A: РСУ");
+        Assert.Equal(17, all.Items.Count);
+        var first = all.Items.OrderBy(i => i.Num).First();
+        Assert.Equal((-176.0, 48.313, 24.202), (first.N, first.Mx, first.Vy));
+        Assert.Equal((1, 1), (first.SourceElementNum, first.SourceSectionNum));
+        Assert.Equal(5, db.ForceSets.Single(f => f.Tag == "A: РСУ — КЭ 3").Items.Count);
+        Assert.Equal(5, db.ForceSets.Single(f => f.Tag == "РСУ в стержнях").Items.Count);
+    }
+
+    [Fact]
+    public async Task ImportAndSplit_Errors_Usage_ProjectUnchanged()
+    {
+        string project = PathOf("п.db");
+        await Run("new", project);
+        await Run("import", "forces", project, GoshaCsv());
+        byte[] before = File.ReadAllBytes(project);
+        string other = PathOf("усилия.pdf");
+        File.WriteAllText(other, "");
+
+        Assert.Equal(CliExitCode.Usage, (await Run("import", "forces", project, other)).Code);
+        Assert.Equal(CliExitCode.Usage, (await Run("import", "forces", project, PathOf("нет.csv"))).Code);
+        Assert.Equal(CliExitCode.Usage, (await Run("import", "forces", project, GoshaCsv(), "--axes", "opencs")).Code);
+        Assert.Equal(CliExitCode.Usage, (await Run("split", "forces", project, "--set", "нет", "--elements", "1")).Code);
+        Assert.Equal(CliExitCode.Usage, (await Run("split", "forces", project, "--set", "1", "--elements", "9")).Code);
+        Assert.Equal(CliExitCode.Usage, (await Run("split", "forces", project, "--set", "1")).Code);
+        string outPath = PathOf("п2.db");
+        Assert.Equal(CliExitCode.Usage, (await Run("split", "forces", project, "--set", "1", "--elements", "9", "--out", outPath)).Code);
+        Assert.False(File.Exists(outPath));
+        Assert.Equal(before, File.ReadAllBytes(project));
+    }
+
     [Theory]
     [InlineData("1,2,5-8", "1, 2, 5-8")]
     [InlineData("3", "3")]
