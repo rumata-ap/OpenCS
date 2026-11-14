@@ -124,6 +124,7 @@ public sealed class PunchingBatchResultVM : ViewModelBase
         InputsSummary = BuildInputsSummary(Data, c);
         _selectedRow = Rows.FirstOrDefault(r => r.Num == Data.GoverningNum) ?? Rows.FirstOrDefault();
         _selectedVariantId = _selectedRow?.Source.Governing;
+        _selectedEnvelope = Envelope.FirstOrDefault(e => e.Id == _selectedVariantId);
     }
 
     /// <summary>Результат.</summary>
@@ -197,11 +198,25 @@ public sealed class PunchingBatchResultVM : ViewModelBase
         }
     }
 
-    /// <summary>Выделенный на рисунке контур.</summary>
+    /// <summary>
+    /// Выделенный на рисунке контур. Строка огибающей этого контура выделяется вслед за ним без перехода
+    /// к её строке набора: щелчок по рисунку не меняет показанную строку.
+    /// </summary>
     public string? SelectedVariantId
     {
         get => _selectedVariantId;
-        set { if (_selectedVariantId == value) return; _selectedVariantId = value; OnPropertyChanged(); }
+        set
+        {
+            if (_selectedVariantId == value) return;
+            _selectedVariantId = value;
+            OnPropertyChanged();
+            var envelope = value is null ? null : Envelope.FirstOrDefault(e => e.Id == value);
+            if (envelope is not null && !ReferenceEquals(_selectedEnvelope, envelope))
+            {
+                _selectedEnvelope = envelope;
+                OnPropertyChanged(nameof(SelectedEnvelope));
+            }
+        }
     }
 
     /// <summary>Сцена рисунка: Кисп контуров выбранной строки или огибающей.</summary>

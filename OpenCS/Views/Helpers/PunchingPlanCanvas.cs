@@ -194,15 +194,33 @@ public sealed class PunchingPlanCanvas : FrameworkElement
         return g;
     }
 
+    /// <summary>
+    /// Ближайший к точке контур в пределах 8 px. Куски разных контуров совпадают (концы контура пилона
+    /// лежат на сторонах замкнутого), поэтому при равном расстоянии берётся контур меньшей длины на
+    /// рисунке: длинный остаётся доступен по своим собственным участкам, а короткий — по общим.
+    /// </summary>
     string? HitTest(Point p)
     {
+        var length = new Dictionary<string, double>();
+        foreach (var (id, pts) in _hit)
+        {
+            double l = 0;
+            for (int i = 0; i + 1 < pts.Count; i++) l += (pts[i + 1] - pts[i]).Length;
+            length[id] = length.GetValueOrDefault(id) + l;
+        }
+
+        const double tie = 0.75;
         string? best = null;
         double bestD = 8;
         foreach (var (id, pts) in _hit)
             for (int i = 0; i + 1 < pts.Count; i++)
             {
                 double d = SegmentDistance(p, pts[i], pts[i + 1]);
-                if (d < bestD) { bestD = d; best = id; }
+                if (d < bestD - tie || (best is not null && d <= bestD + tie && id != best && length[id] < length[best]) || (best is null && d < bestD))
+                {
+                    bestD = Math.Min(bestD, d);
+                    best = id;
+                }
             }
         return best;
     }

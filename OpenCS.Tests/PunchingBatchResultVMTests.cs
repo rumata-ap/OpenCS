@@ -85,6 +85,26 @@ public sealed class PunchingBatchResultVMTests
         Assert.False(vm.ShowEnvelope);
         Assert.Equal(vm.Envelope.Single(e => e.Id == "closed").Num, vm.SelectedRow!.Num);
         Assert.Equal("closed", vm.SelectedVariantId);
+        Assert.Same(vm.Envelope.Single(e => e.Id == "closed"), vm.SelectedEnvelope);
+    }
+
+    [Fact]
+    public void CanvasClick_SelectsEnvelopeRow_WithoutSwitchingRow()
+    {
+        var (result, task) = Run();
+        var vm = new PunchingBatchResultVM(result, task);
+        Assert.Same(vm.Envelope.Single(e => e.Id == "pylon_broken"), vm.SelectedEnvelope);
+        var row = vm.Rows.Single(r => r.Num == 1);
+        vm.SelectedRow = row;
+        var changed = new List<string?>();
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        vm.SelectedVariantId = "closed";   // щелчок по контуру на рисунке
+
+        Assert.Same(vm.Envelope.Single(e => e.Id == "closed"), vm.SelectedEnvelope);
+        Assert.Contains(nameof(PunchingBatchResultVM.SelectedEnvelope), changed);
+        Assert.Same(row, vm.SelectedRow);
+        Assert.False(vm.ShowEnvelope);
     }
 
     [Fact]
