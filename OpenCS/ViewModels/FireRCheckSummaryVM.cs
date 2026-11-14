@@ -152,6 +152,7 @@ public sealed class FireRCheckSummaryVM : ViewModelBase
     {
         "concrete" => Loc.S("FireRCheck_GovConcrete"),
         "rebar" => Loc.S("FireRCheck_GovRebar"),
+        "concrete_tension" => Loc.S("FireRCheck_GovConcreteTension"),
         "both" => Loc.S("FireRCheck_GovBoth"),
         _ => "—"
     };

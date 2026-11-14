@@ -63,5 +63,15 @@ public sealed class PlainConcreteDegenerateJacobianTests
 
         Assert.True(res.Converged);
         Assert.InRange(res.MxLimit, 13.1, 20.0);
+        // Исчерпана растянутая зона, а не сжатая: сжатый бетон далёк от εcu.
+        Assert.Equal("concrete_tension", res.Governing);
+        Assert.True(res.EpsContourMin > 0.5 * res.EpsCu);
+    }
+
+    [Fact]
+    public void LimitForceSolver_PlainConcrete_TensionOff_KeepsOldGoverning()
+    {
+        var solver = LimitForceSolver.ForCrossSection(Section(), CalcType.C, solverTol: 0.1, ten: false);
+        Assert.NotEqual("concrete_tension", solver.AllFactor(0.0, 10.0, 0.0).Governing);
     }
 }

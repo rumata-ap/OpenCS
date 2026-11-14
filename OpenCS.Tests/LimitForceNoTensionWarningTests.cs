@@ -42,6 +42,7 @@ public sealed class LimitForceNoTensionWarningTests(Xunit.Abstractions.ITestOutp
         double mxLim = Math.Abs(doc.RootElement.GetProperty("Mx_limit").GetDouble());
         output.WriteLine($"nx = {nx}: Mx_lim = {mxLim:0.###} кН·м");
         Assert.True(mxLim is > 13.0 and < 20.0, result.DataJson);
+        Assert.Equal("concrete_tension", doc.RootElement.GetProperty("governing").GetString());
     }
 
     [Fact]
@@ -56,6 +57,8 @@ public sealed class LimitForceNoTensionWarningTests(Xunit.Abstractions.ITestOutp
     {
         var result = Run(PlainConcrete(withRebar: true), new LoadItem { N = 0.0, Mx = 10.0 }, tension: false);
         Assert.Empty(Warnings(result.DataJson));
+        using var doc = JsonDocument.Parse(result.DataJson);
+        Assert.NotEqual("concrete_tension", doc.RootElement.GetProperty("governing").GetString());
     }
 
     [Fact]

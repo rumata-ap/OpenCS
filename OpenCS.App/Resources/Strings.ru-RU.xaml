@@ -1825,6 +1825,7 @@
    <system:String x:Key="LimitForceSolver_Fast">Ньютон (быстрый)</system:String>
    <system:String x:Key="LimitForceGov_Concrete">бетон</system:String>
    <system:String x:Key="LimitForceGov_Rebar">арматура</system:String>
+   <system:String x:Key="LimitForceGov_ConcreteTension">растянутый бетон</system:String>
    <system:String x:Key="LimitForceGov_Both">бетон + арматура</system:String>
    <system:String x:Key="LimitForceBatch_TabRows">Строки набора</system:String>
    <system:String x:Key="LimitForceBatch_SummaryFormat">Всего: {0}, прошло: {1}, на пределе: {2}, не прошло: {3}; сошлось: {4}, не сошлось: {5}</system:String>
@@ -2121,6 +2122,7 @@
    <system:String x:Key="FireRCheck_NewtonIter">Итераций Ньютона</system:String>
    <system:String x:Key="FireRCheck_GovConcrete">бетон</system:String>
    <system:String x:Key="FireRCheck_GovRebar">арматура</system:String>
+   <system:String x:Key="FireRCheck_GovConcreteTension">растянутый бетон</system:String>
    <system:String x:Key="FireRCheck_GovBoth">бетон + арматура</system:String>
    <system:String x:Key="FireRCheck_TabGamma">Коэффициенты γ</system:String>
    <system:String x:Key="FireRCheckBatch_TabAll">Все случаи</system:String>

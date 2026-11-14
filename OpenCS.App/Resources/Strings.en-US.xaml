@@ -1825,6 +1825,7 @@
    <system:String x:Key="LimitForceSolver_Fast">Newton (fast)</system:String>
    <system:String x:Key="LimitForceGov_Concrete">concrete</system:String>
    <system:String x:Key="LimitForceGov_Rebar">rebar</system:String>
+   <system:String x:Key="LimitForceGov_ConcreteTension">concrete in tension</system:String>
    <system:String x:Key="LimitForceGov_Both">concrete + rebar</system:String>
    <system:String x:Key="LimitForceBatch_TabRows">Set rows</system:String>
    <system:String x:Key="LimitForceBatch_SummaryFormat">Total: {0}, passed: {1}, at limit: {2}, failed: {3}; converged: {4}, not converged: {5}</system:String>
@@ -2121,6 +2122,7 @@
    <system:String x:Key="FireRCheck_NewtonIter">Newton iterations</system:String>
    <system:String x:Key="FireRCheck_GovConcrete">concrete</system:String>
    <system:String x:Key="FireRCheck_GovRebar">rebar</system:String>
+   <system:String x:Key="FireRCheck_GovConcreteTension">concrete in tension</system:String>
    <system:String x:Key="FireRCheck_GovBoth">concrete + rebar</system:String>
    <system:String x:Key="FireRCheck_TabGamma">γ coefficients</system:String>
    <system:String x:Key="FireRCheckBatch_TabAll">All cases</system:String>

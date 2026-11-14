@@ -77,6 +77,7 @@ public sealed class LimitForceSummaryVM : ViewModelBase
         {
             "concrete" => Loc.S("LimitForceGov_Concrete"),
             "rebar"    => Loc.S("LimitForceGov_Rebar"),
+            "concrete_tension" => Loc.S("LimitForceGov_ConcreteTension"),
             "both"     => Loc.S("LimitForceGov_Both"),
             _          => "—"
         };

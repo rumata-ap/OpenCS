@@ -255,8 +255,20 @@ public sealed class LimitForceSolver : ILimitForceSolver
       bool rebarGoverns = epsRebarMax.HasValue && epsSu.HasValue
          && Math.Abs(epsRebarMax.Value - epsSu.Value) < Math.Abs(epsSu.Value) * govTol;
 
+      // Ни сжатый бетон, ни арматура до предела не дошли: предел найден по потере равновесия.
+      // При учтённом растяжении бетона и растянутой грани это исчерпание растянутой зоны
+      // (бетонный элемент, п. 7.1.3 СП 63: за εbt2 волокна трескаются, а растяжение передать
+      // некуда) — не «бетон сжатой зоны», как подписывалось раньше. Сжатый бетон при этом
+      // далёк от εcu (меньше половины): иначе это обычное исчерпание сжатой зоны, которое
+      // бисекция лишь не догнала до допуска 2 %.
+      bool tensionGoverns = !concGoverns && !rebarGoverns && _ten && bestSp.HasValue
+         && epsContourMin > 0.5 * _section.EpsCu
+         && _section.ContourVertices.Any()
+         && _section.ContourVertices.Max(p => Eps(bestSp.Value, p.X, p.Y)) > 0;
+
       string governing = concGoverns && rebarGoverns ? "both"
          : rebarGoverns ? "rebar"
+         : tensionGoverns ? "concrete_tension"
          : "concrete";
 
       return new LimitForceResult

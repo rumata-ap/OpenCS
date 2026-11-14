@@ -295,7 +295,8 @@ static class LimitForceTaskHelper
       if (!res.Converged) return BatchRowVerdict.NotConverged("предельное усилие не найдено");
       double u = double.IsNaN(res.Utilization) ? double.PositiveInfinity : res.Utilization;
       string gov = string.IsNullOrEmpty(res.Governing) ? "none" : res.Governing;
-      string who = gov switch { "concrete" => " (бетон)", "rebar" => " (арматура)", "both" => " (бетон и арматура)", _ => "" };
+      string who = gov switch { "concrete" => " (бетон)", "rebar" => " (арматура)", "both" => " (бетон и арматура)",
+         "concrete_tension" => " (растянутый бетон)", _ => "" };
       return BatchRowVerdict.Worst(new BatchCriterion($"limit_{gov}", u, "",
          $"Кисп = {BatchVerdictText.F3(u)}{who}"));
    }

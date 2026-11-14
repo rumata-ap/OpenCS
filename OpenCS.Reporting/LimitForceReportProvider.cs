@@ -154,6 +154,7 @@ public sealed class LimitForceReportProvider : IReportProvider
         "concrete" => "исчерпание по бетону сжатой зоны",
         "rebar" => "исчерпание по деформации арматуры",
         "both" => "одновременное исчерпание по бетону и арматуре",
+        "concrete_tension" => "исчерпание растянутого бетона: за предельной деформацией растяжения равновесие не находится (бетонный элемент, п. 7.1.3 СП 63)",
         _ => string.IsNullOrWhiteSpace(value) ? "—" : value
     };
 
