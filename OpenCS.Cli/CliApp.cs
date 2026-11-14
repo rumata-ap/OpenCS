@@ -110,7 +110,17 @@ sealed partial class CliApp
         listAnalyses.SetAction((p, ct) => Handle(p, ct, ListAnalysesAsync));
         var listResults = new Command("results", Loc.S("CliCmdListResults")) { _project, _task };
         listResults.SetAction((p, ct) => Handle(p, ct, ListResultsAsync));
-        var list = new Command("list", Loc.S("CliCmdList")) { listTasks, listChecks, listAnalyses, listResults };
+        DescribeAuthoringOptions();
+        var listSections = new Command("sections", Loc.S("CliCmdListSections")) { _project };
+        listSections.SetAction((p, ct) => Handle(p, ct, ListSectionsAsync));
+        var listForceSets = new Command("forcesets", Loc.S("CliCmdListForceSets")) { _project };
+        listForceSets.SetAction((p, ct) => Handle(p, ct, ListForceSetsAsync));
+        var listMaterials = new Command("materials", Loc.S("CliCmdListMaterials")) { _project };
+        listMaterials.SetAction((p, ct) => Handle(p, ct, ListMaterialsAsync));
+        var list = new Command("list", Loc.S("CliCmdList"))
+        {
+            listTasks, listChecks, listAnalyses, listResults, listSections, listForceSets, listMaterials
+        };
 
         var run = new Command("run", Loc.S("CliCmdRun"))
         {
@@ -129,7 +139,10 @@ sealed partial class CliApp
         var tools = new Command("tools", Loc.S("CliCmdTools"));
         tools.SetAction((p, ct) => Handle(p, ct, ToolsAsync));
 
-        return new RootCommand(Loc.S("CliRootDescription")) { _lang, _json, _quiet, info, list, run, export, tools };
+        return new RootCommand(Loc.S("CliRootDescription"))
+        {
+            _lang, _json, _quiet, NewCommand(), info, list, run, export, tools
+        };
     }
 
     Command RunCommand(string name, string descriptionKey, Func<CliCall, Task<int>> body)
