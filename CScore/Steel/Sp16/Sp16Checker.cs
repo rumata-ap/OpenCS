@@ -211,7 +211,7 @@ public static class Sp16Checker
                 var inPlane = Sp16Section9.InPlaneStability(m, f);
                 res.AddRange(inPlane);
                 res.AddRange(Sp16Section9.OutOfPlaneStability(m, f));
-                res.AddRange(Sp16Section9Local.Check(m, f));
+                res.AddRange(Sp16Section9Local.Check(m, f, Sp16Section9Local.PhiM(res)));
                 res.AddRange(Sp16Section8Strength.Shear(m, f));
                 double? phiE = MinPhiE(inPlane);
                 if (phiE != null)

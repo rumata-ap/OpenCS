@@ -4,8 +4,9 @@ namespace CScore.Sp16;
 /// 9.4 СП 16: местная устойчивость стенок (9.4.2, табл. 22 — в редакции письма ФАУ «ФЦС» от 15.12.2023
 /// № Исх-9147; 9.4.3, (131)) и поясов (9.4.7, табл. 23) внецентренно сжатых (сжато-изгибаемых) элементов
 /// сплошного сечения. Усилия — канонические оси, кН, кН·м. При изгибе в двух плоскостях тип сечения
-/// принимается по моменту Mx. Не реализованы: 9.4.5 (продольное ребро), 9.4.8 (отгибы), 9.4.9 (увеличение
-/// пределов при определяющей предельной гибкости). Растянуто-изгибаемые элементы (9.4.10) проверяются как
+/// принимается по моменту Mx. 9.4.9 — увеличение пределов табл. 22 и 23 при определяющей предельной гибкости
+/// (<see cref="SteelDesignParams.SlendernessGovernsSection"/>). Не реализованы: 9.4.5 (продольное ребро),
+/// 9.4.8 (отгибы). Растянуто-изгибаемые элементы (9.4.10) проверяются как
 /// изгибаемые — <see cref="Sp16Section8Local"/>; центрально сжатые — <see cref="Sp16Section7.LocalStability"/>.
 /// </summary>
 public static class Sp16Section9Local
@@ -14,8 +15,42 @@ public static class Sp16Section9Local
     const string WebTitle = "Местная устойчивость стенки внецентренно сжатого элемента";
     const string FlangeTitle = "Местная устойчивость пояса внецентренно сжатого элемента";
 
+    /// <summary>
+    /// φm для 9.4.9 — меньшее из φe, cφy, φexy, использованных в выполненных проверках устойчивости раздела 9.2
+    /// (переменные «φe» — (109), «c» и «φy» — (111), «φexy» — (116)); null — ни один коэффициент не получен.
+    /// </summary>
+    public static double? PhiM(IEnumerable<Sp16CheckResult> stability)
+    {
+        double? min = null;
+        void Take(double v) { if (double.IsFinite(v) && v > 0) min = min is { } x ? Math.Min(x, v) : v; }
+        foreach (var r in stability)
+        {
+            if (!r.Clause.StartsWith("9.2", StringComparison.Ordinal) || r.Status == CheckStatus.NotApplicable) continue;
+            double? Get(string key) => r.Variables.LastOrDefault(v => v.Key == key) is { Key: not null } kv ? kv.Value : null;
+            if (Get("φe") is { } pe) Take(pe);
+            if (Get("φexy") is { } pexy) Take(pexy);
+            if (r.Clause == "9.2.4" && Get("c") is { } c && Get("φy") is { } py) Take(c * py);
+        }
+        return min;
+    }
+
+    /// <summary>
+    /// Множитель 9.4.9: √(φm·A·Ry/N), не более 1,25 (и не менее 1), если проверка по предельной гибкости определяющая
+    /// при назначении сечения; иначе 1. Примечание — почему множитель не применён (флажок задан, φm нет).
+    /// </summary>
+    static (double K, string? Note) Increase949(Sp16Member m, double nAbs, double? phiM)
+    {
+        if (!m.P.SlendernessGovernsSection || nAbs <= 0) return (1, null);
+        if (phiM is not { } pm) return (1, "9.4.9 не применён: φe, cφy, φexy не определены");
+        double raw = Math.Sqrt(pm * m.S.A * m.S.Mat.Ry / nAbs);
+        if (raw <= 1) return (1, $"9.4.9: √(φm·A·Ry/N) = {raw:0.###} ≤ 1 (φm = {pm:0.###}) — предел не увеличен");
+        double k = Math.Min(raw, 1.25);
+        return (k, $"9.4.9: предел увеличен в k = √(φm·A·Ry/N) = {raw:0.###}{(raw > 1.25 ? " → 1,25" : "")} раза, φm = {pm:0.###}");
+    }
+
     /// <summary>Проверки 9.4.2, 9.4.3 (стенки) и 9.4.7 (пояса) при сжатии с изгибом.</summary>
-    public static List<Sp16CheckResult> Check(Sp16Member m, SteelForces f)
+    /// <param name="phiM">φm для 9.4.9 (<see cref="PhiM"/>); используется при определяющей предельной гибкости.</param>
+    public static List<Sp16CheckResult> Check(Sp16Member m, SteelForces f, double? phiM = null)
     {
         var res = new List<Sp16CheckResult>();
         bool mx = Math.Abs(f.Mx) > Eps, my = Math.Abs(f.My) > Eps;
@@ -34,7 +69,8 @@ public static class Sp16Section9Local
             res.Add(Sp16CheckResult.NotApplicableFor("9.4.2", "табл. 22", WebTitle, "тип сечения по табл. 7 не определён"));
             return res;
         }
-        var ctx = new Ctx(m, f, -f.N, mx);
+        var (k, kNote) = Increase949(m, -f.N, phiM);
+        var ctx = new Ctx(m, f, -f.N, mx, k, kNote);
         res.AddRange(Web(ctx));
         res.AddRange(Flanges(ctx));
         if (mx && my)
@@ -43,8 +79,18 @@ public static class Sp16Section9Local
     }
 
     /// <summary>Исходные данные: aboutX — плоскость момента, определяющего тип сечения (Mx, если он есть).</summary>
-    sealed record Ctx(Sp16Member M, SteelForces F, double NAbs, bool AboutX)
+    /// <param name="K">Множитель 9.4.9 к пределам табл. 22 и 23 (1 — без увеличения).</param>
+    /// <param name="KNote">Пояснение к 9.4.9 (null — флажок не задан).</param>
+    sealed record Ctx(Sp16Member M, SteelForces F, double NAbs, bool AboutX, double K = 1, string? KNote = null)
     {
+        /// <summary>Предел табл. 22/23 с увеличением 9.4.9: переменные и примечание дописываются в списки проверки.</summary>
+        public double Raise(double limit, string name, List<(string, double)> vars, List<string?> notes)
+        {
+            if (KNote != null) notes.Add(KNote);
+            if (K <= 1) return limit;
+            vars.AddRange([($"{name} (табл.)", limit), ("k (9.4.9)", K)]);
+            return limit * K;
+        }
         public Sp16Section S => M.S;
         public double Moment => AboutX ? F.Mx : F.My;
         public double Sq => Math.Sqrt(S.Mat.Ry / S.Mat.E);
@@ -249,6 +295,7 @@ public static class Sp16Section9Local
                 }
             }
         }
+        luw = c.Raise(luw, "λ̄uw", vars, notes);
         vars.Add(("λ̄uw", luw));
         notes.Insert(0, $"тип {type} табл. 22");
         if (lw >= 2.3) notes.Add("9.4.4: при λ̄w ≥ 2,3 стенку следует укреплять поперечными рёбрами жёсткости по 7.3.3");
@@ -288,14 +335,16 @@ public static class Sp16Section9Local
                 res.Add(Sp16CheckResult.NotApplicableFor("9.4.7", "табл. 23", FlangeTitle, "тавр при изгибе из плоскости стенки в табл. 23 не приведён"));
                 return res;
             }
-            double luf = 0.36 + 0.10 * lbc;
+            double luf0 = 0.36 + 0.10 * lbc;
             string formula = c.AboutX ? "(134)" : "(135)";
             foreach (var (name, bef, tf) in FlangeList(s))
             {
                 double lf = bef / tf * c.Sq;
-                res.Add(Sp16CheckResult.Limit("9.4.7", "табл. 23 " + formula, FlangeTitle + name, lf, luf,
-                    [("bef", bef), ("tf", tf), ("λ̄f", lf), ($"λ̄{ax}", lb), ("λ̄uf", luf)],
-                    [$"тип {(c.AboutX ? 3 : 4)} табл. 23", clampNote]));
+                var fv = new List<(string, double)> { ("bef", bef), ("tf", tf), ("λ̄f", lf), ($"λ̄{ax}", lb) };
+                var fn = new List<string?> { $"тип {(c.AboutX ? 3 : 4)} табл. 23", clampNote };
+                double luf = c.Raise(luf0, "λ̄uf", fv, fn);
+                fv.Add(("λ̄uf", luf));
+                res.Add(Sp16CheckResult.Limit("9.4.7", "табл. 23 " + formula, FlangeTitle + name, lf, luf, fv, fn));
             }
             return res;
         }
@@ -356,8 +405,10 @@ public static class Sp16Section9Local
         if (mRel <= 5)
         {
             notes.Insert(0, $"тип {(box ? 2 : 1)} табл. 23");
-            vars.AddRange([(box ? "λ̄uf,1c" : "λ̄ufc", lufc), (luName, lu5)]);
-            return Sp16CheckResult.Limit("9.4.7", "табл. 23 " + formula, desc, lf, lu5, vars, notes);
+            vars.Add((box ? "λ̄uf,1c" : "λ̄ufc", lufc));
+            double lu = c.Raise(lu5, luName, vars, notes);
+            vars.Add((luName, lu));
+            return Sp16CheckResult.Limit("9.4.7", "табл. 23 " + formula, desc, lf, lu, vars, notes);
         }
 
         var (plastic, classNote) = Sp16Section8Local.FlangeClass(m, c.F, m.P.AllowPlastic && Sp16Section9.Reason105(m, c.F) == null);
@@ -382,10 +433,12 @@ public static class Sp16Section9Local
         double luI = lu5 + (l20 - lu5) * (mRel - 5) / 15;
         vars.AddRange([(box ? "λ̄uf,1c" : "λ̄ufc", lufc), ($"{luName} (m = 5)", lu5)]);
         vars.AddRange(plastic ? [("λ̄w", lwWeb)] : [("σc (m = 20)", sc20)]);
-        vars.AddRange([($"{luName} ({bClause})", l20), (luName, luI)]);
+        vars.Add(($"{luName} ({bClause})", l20));
         notes.InsertRange(0, [$"тип {(box ? 2 : 1)} табл. 23",
             $"прим. 1 табл. 23: 5 < m ≤ 20 — интерполяция между {formula} (m = 5) и {bClause} {bFormula} (m = 20)", classNote,
             plastic ? plasticNote : "σc — в состоянии m = 20 при том же M: N/A = M/(20Wc), σc = 1,05M/(Wc·γc) ≤ Ry"]);
-        return Sp16CheckResult.Limit("9.4.7", "табл. 23 " + formula, desc, lf, luI, vars, notes);
+        double luR = c.Raise(luI, luName, vars, notes);
+        vars.Add((luName, luR));
+        return Sp16CheckResult.Limit("9.4.7", "табл. 23 " + formula, desc, lf, luR, vars, notes);
     }
 }

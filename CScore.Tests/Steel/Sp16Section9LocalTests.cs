@@ -32,6 +32,75 @@ public class Sp16Section9LocalTests
     [InlineData(2.0, 30.0)]
     public void Table17(double alpha, double ccr) => Assert.Equal(ccr, Sp16Tables.Table17Ccr(alpha), 9);
 
+    // ── 9.4.9: увеличение пределов при определяющей предельной гибкости ──
+
+    static List<Sp16CheckResult> Run949(bool governs, double n, double mx) =>
+        Sp16Checker.Run(Beam(new SteelDesignParams { LefX = 6, LefY = 3, SlendernessGovernsSection = governs }),
+            new SteelForces(-n, mx, 0, 0, 0), Sp16TaskKind.CompressionBending).Results;
+
+    /// <summary>φm = min(φe, cφy) из (109) и (111) того же расчёта.</summary>
+    static double PhiM(List<Sp16CheckResult> res)
+    {
+        var inPlane = res.First(r => r.Clause == "9.2.2");
+        var outPlane = res.First(r => r.Clause == "9.2.4");
+        return Math.Min(Var(inPlane, "φe"), Var(outPlane, "c") * Var(outPlane, "φy"));
+    }
+
+    /// <summary>N, при котором 1 &lt; √(φm·A·Ry/N) &lt; 1,25 (φm зависит от N — подбирается перебором).</summary>
+    static double NWithPartialIncrease()
+    {
+        for (double n = 100; n <= 2000; n += 10)
+            if (Math.Sqrt(PhiM(Run949(true, n, 30)) * A * Ry / n) is > 1.02 and < 1.23) return n;
+        throw new InvalidOperationException("нет N с 1 < k < 1,25");
+    }
+
+    [Theory]
+    [InlineData(true)]     // малое N = 100 кН: √(φmARy/N) > 1,25 — k = 1,25
+    [InlineData(false)]    // N подобрано так, что 1 < k < 1,25
+    public void Sp949_RaisesWebAndFlangeLimits_ByPhiM(bool smallN)
+    {
+        double n = smallN ? 100 : NWithPartialIncrease(), mx = 30;
+        var plain = Run949(false, n, mx);
+        var raised = Run949(true, n, mx);
+        double raw = Math.Sqrt(PhiM(raised) * A * Ry / n), k = Math.Min(raw, 1.25);
+        Assert.True(smallN ? raw > 1.25 : k is > 1 and < 1.25);
+        foreach (var (p, r) in new[] { (WebOf(plain), WebOf(raised)), (FlangesOf(plain)[0], FlangesOf(raised)[0]) })
+        {
+            Assert.Equal(p.Allowable * k, r.Allowable, 9);
+            Assert.Equal(k, Var(r, "k (9.4.9)"), 9);
+            Assert.Contains(r.Notes, x => x.StartsWith("9.4.9"));
+            Assert.Equal(p.Applied, r.Applied, 12);
+        }
+        // Остальные проверки флажок не меняет.
+        Assert.Equal(plain.First(r => r.Clause == "9.2.2").Utilization, raised.First(r => r.Clause == "9.2.2").Utilization, 12);
+    }
+
+    [Fact]
+    public void Sp949_NotAppliedWithoutFlag_OrWhenRootBelowOne()
+    {
+        Assert.DoesNotContain(Run949(false, 100, 30), r => r.Notes.Any(x => x.StartsWith("9.4.9")));
+        // N близко к несущей способности по устойчивости: √(φmARy/N) ≤ 1 — пределы не увеличиваются.
+        var plain = Run949(false, 1150, 30);
+        var raised = Run949(true, 1150, 30);
+        Assert.True(Math.Sqrt(PhiM(raised) * A * Ry / 1150) <= 1);
+        Assert.Equal(WebOf(plain).Allowable, WebOf(raised).Allowable, 12);
+        Assert.Contains(WebOf(raised).Notes, x => x.Contains("не увеличен"));
+    }
+
+    [Fact]
+    public void Sp949_PhiM_IsMinimumOverStabilityChecks()
+    {
+        var res = new List<Sp16CheckResult>
+        {
+            Sp16CheckResult.Of("9.2.2", "(109)", "", 0.5, [("φe", 0.40)]),
+            Sp16CheckResult.Of("9.2.4", "(111)", "", 0.5, [("c", 0.5), ("φy", 0.6)]),
+            Sp16CheckResult.Of("9.2.9", "(116)", "", 0.5, [("φexy", 0.35)]),
+            Sp16CheckResult.Of("7.1.3", "(7)", "", 0.5, [("φe", 0.01)]),   // не раздел 9.2 — не учитывается
+        };
+        Assert.Equal(0.30, Sp16Section9Local.PhiM(res)!.Value, 12);
+        Assert.Null(Sp16Section9Local.PhiM([]));
+    }
+
     // ── Табл. 22 ──
 
     [Fact]
