@@ -15,7 +15,7 @@
          <Border Padding="8,6" CornerRadius="4" Background="{Binding StatusBrush}">
             <StackPanel HorizontalAlignment="Center">
                <TextBlock Text="{Binding SummaryText}" FontWeight="Bold"/>
-               <TextBlock Text="{Binding SolverText}" Foreground="Gray" FontSize="11"
+               <TextBlock Text="{Binding SolverText}" Foreground="#455A64" FontSize="11"
                           Margin="0,2,0,0"/>
             </StackPanel>
          </Border>
@@ -87,7 +87,7 @@
                <!-- Кисп = 1/k — то же значение, что в отчёте пакета и в общей колонке Кисп других пакетов -->
                <DataGridTextColumn Header="{DynamicResource BatchVerdictColUtil}" Binding="{Binding UtilText}" Width="70"/>
                <DataGridTextColumn Header="{DynamicResource LimitForce_Governing}"
-                                   Binding="{Binding GovText}" Width="90"/>
+                                   Binding="{Binding GovText}" Width="125"/>
                <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColIter}"
                                    Binding="{Binding IterText}" Width="52"/>
                <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColStatus}"

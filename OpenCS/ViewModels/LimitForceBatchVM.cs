@@ -173,8 +173,10 @@ public sealed class LimitForceBatchVM : ViewModelBase
             }
             // Шапка как у пакетной проверки прочности: зелёная, только если все строки сошлись
             // и прошли; «на пределе» — жёлтая; хоть одно превышение или несходимость — красная.
+            // Красная — полупрозрачная, как жёлтая и зелёная: на насыщенном OrangeRed строка
+            // метода решения (серым мелким шрифтом) не читалась.
             StatusBrush = !allOk || fail > 0
-                ? Brushes.OrangeRed
+                ? new SolidColorBrush(Color.FromArgb(110, 231, 76, 60))
                 : near > 0
                     ? new SolidColorBrush(Color.FromArgb(110, 241, 196, 15))
                     : new SolidColorBrush(Color.FromArgb(70, 80, 180, 80));

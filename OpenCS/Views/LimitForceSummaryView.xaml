@@ -23,7 +23,8 @@
          <GroupBox Header="{DynamicResource LimitForce_BlockTitle}" Margin="0,0,0,6" Padding="8,4">
             <Grid>
                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="200"/>
+                  <!-- «Коэффициент использования Кисп» в 200 px не помещалась и налезала на значение. -->
+                  <ColumnDefinition Width="Auto" MinWidth="200"/>
                   <ColumnDefinition Width="*"/>
                </Grid.ColumnDefinitions>
                <Grid.RowDefinitions>
@@ -40,7 +41,7 @@
                   <RowDefinition Height="Auto"/>
                   <RowDefinition Height="Auto"/>
                </Grid.RowDefinitions>
-               <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource LimitForce_Factor}" Foreground="Gray"/>
+               <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource LimitForce_Factor}" Foreground="Gray" Margin="0,0,12,0"/>
                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding FactorText}" FontFamily="Consolas" FontWeight="Bold"/>
                <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource LimitForce_Utilization}" Foreground="Gray"/>
                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding UtilizationText}" FontFamily="Consolas"/>
