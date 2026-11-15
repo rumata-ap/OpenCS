@@ -2258,6 +2258,22 @@ namespace OpenCS
       {
          CurrentPage = null!;
          if (CurrentMaterial == null) return;
+         // Материал, на который ссылаются области сечений, не удаляем: в открытом проекте
+         // области держат его в памяти и задачи «считаются», а после перезапуска область
+         // остаётся без материала и без диаграмм.
+         int matId = CurrentMaterial.Id;
+         var users = db.MaterialAreas
+            .Where(a => a.MaterialId == matId || ReferenceEquals(a.Material, CurrentMaterial))
+            .Select(a => string.IsNullOrWhiteSpace(a.Tag) ? $"#{a.Id}" : a.Tag)
+            .Distinct().ToList();
+         if (users.Count > 0)
+         {
+            string list = string.Join(", ", users.Take(10).Select(t => $"«{t}»")) + (users.Count > 10 ? ", …" : "");
+            System.Windows.MessageBox.Show(
+               string.Format(Loc.S("MaterialInUseCannotDelete"), CurrentMaterial.Tag, users.Count, list),
+               Loc.S("Warning"), System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            return;
+         }
          System.Windows.MessageBoxImage ic = System.Windows.MessageBoxImage.Warning;
          System.Windows.MessageBoxButton mbb = System.Windows.MessageBoxButton.YesNo;
           var res = System.Windows.MessageBox.Show(Loc.S("ConfirmDeleteMaterial"), Loc.S("Warning"), mbb, ic);

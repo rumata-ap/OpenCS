@@ -157,6 +157,74 @@ public class SectionCutTests
         Assert.NotEqual(result.Start.Y, result.End.Y, 3);
     }
 
+    /// <summary>
+    /// Ориентация разреза по градиенту не зависит от знака кривизны: вертикальный разрез
+    /// всегда идёт сверху вниз — иначе при смене знака момента эпюра не переворачивалась
+    /// (начало A всегда на сжатой грани).
+    /// </summary>
+    [Theory]
+    [InlineData(0.001)]
+    [InlineData(-0.001)]
+    public void Build_GradientSnapVertical_StartsAtTopRegardlessOfSign(double ky)
+    {
+        var section = SectionCutFixtures.BuildReinforcedRectangle(0.4, 0.6);
+        var k = new Kurvature { e0 = 0.0, ky = ky, kz = 0.0 };
+
+        var result = SectionCutBuilder.Build(
+            section, k, CalcType.C, CutMode.GradientSnap,
+            p1: (0.0, 0.0), p2: null, rebarThresholdM: 0.01);
+
+        Assert.NotNull(result);
+        Assert.Equal(0.3, result!.Start.Y, 6);
+        Assert.Equal(-0.3, result.End.Y, 6);
+        // Сжатая грань сверху при ky < 0 (ε = e0 + ky·y) и снизу при ky > 0.
+        var pts = result.Segments.SelectMany(s => s.Points).ToList();
+        Assert.Equal(Math.Sign(ky) > 0, pts[0].Eps > pts[^1].Eps);
+    }
+
+    [Theory]
+    [InlineData(0.001)]
+    [InlineData(-0.001)]
+    public void Build_GradientSnapHorizontal_StartsAtLeftRegardlessOfSign(double kz)
+    {
+        var section = SectionCutFixtures.BuildReinforcedRectangle(0.4, 0.6);
+        var k = new Kurvature { e0 = 0.0, ky = 0.0, kz = kz };
+
+        var result = SectionCutBuilder.Build(
+            section, k, CalcType.C, CutMode.GradientSnap,
+            p1: (0.0, 0.0), p2: null, rebarThresholdM: 0.01);
+
+        Assert.NotNull(result);
+        Assert.Equal(-0.2, result!.Start.X, 6);
+        Assert.Equal(0.2, result.End.X, 6);
+    }
+
+    /// <summary>
+    /// За εbt2 растянутый бетон σ = 0: на эпюре — ступень у точки εbt2, а не наклонная
+    /// линия от последнего отсчёта с σ = Rbt до грани.
+    /// </summary>
+    [Fact]
+    public void Build_TensionBeyondEpsBt2_ShowsVerticalStepNotSlope()
+    {
+        var section = SectionCutFixtures.BuildReinforcedRectangle(0.4, 0.6);
+        // ε на нижней грани y = −0.3: 0.000153 > εbt2 = 0.00015; εbt2 — у y ≈ −0.2941.
+        var k = new Kurvature { e0 = 0.0, ky = -0.00051, kz = 0.0 };
+
+        var result = SectionCutBuilder.Build(
+            section, k, CalcType.C, CutMode.GradientSnap,
+            p1: (0.0, 0.0), p2: null, rebarThresholdM: 0.001);
+
+        Assert.NotNull(result);
+        var pts = result!.Segments.Single(s => s.AreaIndex == 0).Points;
+        double sBreak = (0.3 + 0.00015 / 0.00051) ; // s от верхней грани до точки εbt2
+        var before = pts.Last(p => p.S < sBreak - 1e-9);
+        var after = pts.First(p => p.S > sBreak + 1e-9);
+        Assert.True(after.S - before.S < 1e-5, $"ступень шириной {after.S - before.S} м");
+        Assert.Equal(1.2, before.Sig!.Value, 6);
+        Assert.Equal(0.0, after.Sig!.Value, 6);
+        Assert.Equal(0.0, pts[^1].Sig!.Value, 6);
+    }
+
     [Fact]
     public void Build_StagedSection_UsesRelativePlanePerPart()
     {

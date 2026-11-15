@@ -134,14 +134,47 @@ namespace OpenCS.ViewModels
 
       /// <summary>
       /// Открывает диалоговое окно загрузки характеристик материала из справочника (CSV).
-      /// Сбрасывает текущее состояние ViewModel перед открытием.
+      /// Новый (не сохранённый) материал перед открытием сбрасывается. Сохранённый материал
+      /// обновляется на месте — тот же объект и тот же id, поэтому области сечений, которые на
+      /// него ссылаются, получают новые характеристики; изменения сразу записываются в проект.
       /// </summary>
       private void DataSource(object? obj)
       {
-         Reset();
-         FromDataSourceWindow window = new(this);
-         window.ShowDialog();
+         bool updateExisting = IsSaved && material.Id > 0;
+         if (!updateExisting)
+         {
+            Reset();
+            new FromDataSourceWindow(this).ShowDialog();
+            return;
+         }
+
+         string before = Snapshot();
+         int tab = material.Type switch
+         {
+            MatType.ReSteelF or MatType.ReSteelU => 1,
+            MatType.Steel => 2,
+            _ => 0
+         };
+         new FromDataSourceWindow(this, tab).ShowDialog();
+         if (Snapshot() == before) return;
+
+         if (material.Type != MatType.Custom)
+         {
+            BaseType = MatType.None;
+            material.CustomDiagramIds = [];
+         }
+         OnPropertyChanged(nameof(Tag));
+         OnPropertyChanged(nameof(Description));
+         OnPropertyChanged(nameof(E));
+         Edit(null);
       }
+
+      /// <summary>Снимок характеристик материала — понять, выбрал ли пользователь что-то в хранилище.</summary>
+      string Snapshot() => System.Text.Json.JsonSerializer.Serialize(new
+      {
+         material.Tag, material.Description, material.Type, material.E,
+         material.C, material.CL, material.N, material.NL
+      });
 
       /// <summary>
       /// Сбрасывает ViewModel в начальное состояние: очищает флаг сохранения,

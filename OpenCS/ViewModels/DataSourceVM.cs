@@ -39,10 +39,10 @@ namespace OpenCS.ViewModels
       /// <summary>Выбранная строка характеристик материала в таблице справочника.</summary>
       MaterialChars? selectedMaterial;
 
-      /// <summary>Коэффициент условий работы бетона gb2 (0.9 для железобетонных, 1.0 для бетонных конструкций).</summary>
+      /// <summary>Коэффициент условий работы бетона γb2 к Rb: 0,9 для бетонных конструкций, 1,0 для железобетонных (п. 6.1.12 б СП 63).</summary>
       double gb2 = 1;
 
-      /// <summary>Коэффициент условий работы бетона gb3 (0.85 при высоте сечения более 1.5 м).</summary>
+      /// <summary>Коэффициент условий работы бетона γb3 к Rb: 0,85 при бетонировании в вертикальном положении слоем более 1,5 м (п. 6.1.12 в СП 63).</summary>
       double gb3 = 1;
 
       /// <summary>Коэффициент условий работы арматуры kE (0.89 при термообработке).</summary>
@@ -96,7 +96,7 @@ namespace OpenCS.ViewModels
       public bool IsH1_5
       {
          get { return isH1_5; }
-         set { isH1_5 = value; gb3 = value ? 0.85 : 1; OnPropertyChanged(); }
+         set { isH1_5 = value; gb3 = value ? 0.85 : 1; OnPropertyChanged(); SelectMaterial(); }
       }
 
       /// <summary>
@@ -105,7 +105,7 @@ namespace OpenCS.ViewModels
       public bool IsTerm
       {
          get { return isTerm; }
-         set { isTerm = value; kE = value ? 0.89 : 1; OnPropertyChanged(); }
+         set { isTerm = value; kE = value ? 0.89 : 1; OnPropertyChanged(); SelectMaterial(); }
       }
 
       /// <summary>
@@ -118,21 +118,37 @@ namespace OpenCS.ViewModels
       }
 
       /// <summary>
-      /// Тип конструкции: 0 — железобетонная, 1 — бетонная.
+      /// Тип конструкции: 0 — железобетонная (γb2 = 1), 1 — бетонная (γb2 = 0,9, п. 6.1.12 б СП 63).
+      /// Смена типа пересчитывает уже выбранный класс бетона: раньше γb2 вводился только
+      /// при следующем щелчке по классу, а повторный щелчок по тому же классу выбор не менял.
       /// </summary>
       public int IsRC
       {
          get { return isRC; }
-         set { isRC = value; gb2 = value == 1 ? 0.9 : 1; OnPropertyChanged(); }
+         set { isRC = value; gb2 = value == 1 ? 0.9 : 1; OnPropertyChanged(); SelectMaterial(); }
       }
 
       /// <summary>
-      /// Индекс типа бетона.
+      /// Индекс типа бетона. Смена типа перечитывает таблицу классов (тяжёлый/мелкозернистый)
+      /// и сбрасывает выбор класса.
       /// </summary>
       public int ConcreteTypeIndex
       {
          get { return concreteTypeIndex; }
-         set { concreteTypeIndex = value; IsTermEnable = value == 1; OnPropertyChanged(); }
+         set
+         {
+            if (concreteTypeIndex == value) return;
+            concreteTypeIndex = value;
+            IsTermEnable = value == 1;
+            if (!IsTermEnable && isTerm) { isTerm = false; kE = 1; OnPropertyChanged(nameof(IsTerm)); }
+            OnPropertyChanged();
+            if (Material != null && concreteTabIsSelected)
+            {
+               selectedMaterial = null;
+               OnPropertyChanged(nameof(SelectedMaterial));
+               Select();
+            }
+         }
       }
 
       /// <summary>
@@ -297,6 +313,15 @@ namespace OpenCS.ViewModels
 
          if (concreteTabIsSelected)
          {
+            // Введённые коэффициенты — в описании: материал хранит уже умноженное Rb,
+            // а флаги окна при следующем открытии не восстанавливаются.
+            var factors = new List<string>();
+            if (isRC == 1) factors.Add("бетонная конструкция, γb2 = 0,9");
+            if (isH1_5) factors.Add("слой бетонирования > 1,5 м, γb3 = 0,85");
+            if (isTerm && isTermEnable) factors.Add("тепловая обработка, E × 0,89");
+            if (factors.Count > 0)
+               Material.Description += "; " + string.Join("; ", factors);
+
             var cc = c[i].Clone();
             cc.E *= kE;
             cc.Fc *= gb2 * gb3;

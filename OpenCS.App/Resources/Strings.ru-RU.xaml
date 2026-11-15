@@ -571,6 +571,8 @@
     <system:String x:Key="Untitled">Без имени</system:String>
     <system:String x:Key="TitleFormat">OpenCS — {0}</system:String>
     <system:String x:Key="ConfirmDeleteMaterial">Удалить безвозвратно выбранный материал?</system:String>
+    <system:String x:Key="MaterialInUseCannotDelete">Материал «{0}» используется в областях сечений ({1}): {2}. Сначала замените в них материал или удалите эти области.</system:String>
+    <system:String x:Key="TaskAreaMaterialMissing">Область «{0}» ссылается на материал id={1}, которого нет в проекте (материал удалён). Назначьте области материал.</system:String>
     <system:String x:Key="MaterialDeleted">Материал '{0}' удален</system:String>
     <system:String x:Key="ConfirmDeleteContour">Удалить безвозвратно выбранный контур и все связанные с ним области материалов?</system:String>
     <system:String x:Key="ContourDeleted">Контур '{0}' удален</system:String>

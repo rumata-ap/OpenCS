@@ -154,7 +154,13 @@ public static class SectionCutBuilder
         double gx = k.kz, gy = k.ky;
         double glen = Math.Sqrt(gx * gx + gy * gy);
         if (glen < 1e-12) return (p1, (1.0, 0.0));
-        return (p1, (gx / glen, gy / glen));
+        // Направление линии — по градиенту, но ориентация — по осям сечения, а не по знаку
+        // деформаций: преимущественно вертикальный разрез идёт сверху вниз (как ось s эпюры),
+        // горизонтальный — слева направо. Иначе начало A всегда попадало на сжатую грань и
+        // при смене знака момента эпюра не переворачивалась.
+        double ux = gx / glen, uy = gy / glen;
+        bool flip = Math.Abs(uy) >= Math.Abs(ux) ? uy > 0 : ux < 0;
+        return flip ? (p1, (-ux, -uy)) : (p1, (ux, uy));
     }
 
     static IEnumerable<(double TStart, double TEnd)> InsideIntervals(
@@ -220,14 +226,25 @@ public static class SectionCutBuilder
         double epsStart = EpsAt(tStart), epsEnd = EpsAt(tEnd);
         var breakTs = new List<double> { tStart, tEnd };
         double slope = epsEnd - epsStart;
+        // Ступень диаграммы (σ = Rbt до εbt2 и 0 за ней) — две точки по обе стороны излома,
+        // иначе линейная интерполяция до соседнего отсчёта рисует наклонную линию вместо ступени.
+        double jump = Math.Max((tEnd - tStart) * 1e-6, 2 * Tol);
         if (Math.Abs(slope) > 1e-12)
         {
-            foreach (double critEps in dgr.GetCriticalStrains())
+            // Внутренние изломы + концы ветвей (εbt2, εb2): за концом σ = 0 — тоже ступень.
+            var crit = new List<double>(dgr.GetCriticalStrains());
+            if (dgr.It?.X is { Length: > 0 } itx) crit.Add(itx[^1]);
+            if (dgr.Ic?.X is { Length: > 0 } icx) crit.Add(icx[0]);
+            foreach (double critEps in crit)
             {
                 double frac = (critEps - epsStart) / slope;
                 double t = tStart + frac * (tEnd - tStart);
                 if (t > tStart + Tol && t < tEnd - Tol)
+                {
                     breakTs.Add(t);
+                    if (t - jump > tStart + Tol) breakTs.Add(t - jump);
+                    if (t + jump < tEnd - Tol) breakTs.Add(t + jump);
+                }
             }
         }
         // Внешний источник (поле температур) меняет σ и вдоль линии постоянной ε — шаг мельче.

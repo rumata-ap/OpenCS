@@ -571,6 +571,8 @@
     <system:String x:Key="Untitled">Untitled</system:String>
     <system:String x:Key="TitleFormat">OpenCS — {0}</system:String>
     <system:String x:Key="ConfirmDeleteMaterial">Delete the selected material permanently?</system:String>
+    <system:String x:Key="MaterialInUseCannotDelete">Material "{0}" is used by section areas ({1}): {2}. Replace the material in them or delete those areas first.</system:String>
+    <system:String x:Key="TaskAreaMaterialMissing">Area "{0}" refers to material id={1}, which is not in the project (the material was deleted). Assign a material to the area.</system:String>
     <system:String x:Key="MaterialDeleted">Material '{0}' deleted</system:String>
     <system:String x:Key="ConfirmDeleteContour">Delete the selected contour and all related material regions permanently?</system:String>
     <system:String x:Key="ContourDeleted">Contour '{0}' deleted</system:String>

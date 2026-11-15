@@ -104,6 +104,23 @@ namespace OpenCS.Tasks
                Status = "not_applicable", DataJson = $"{{\"reason_code\":\"{parametricRebarError}\"}}"
             };
          }
+         // Область ссылается на удалённый материал: без диаграмм она молча выпадает из
+         // интегралов, и задача «успешно» считает сечение без неё (Кисп сотни и тысячи).
+         var orphan = section?.Areas.FirstOrDefault(a =>
+            CScore.MaterialArea.IsCalcActive(a) && a.Material == null && a.MaterialId > 0);
+         if (orphan is not null)
+         {
+            return new CalcResult
+            {
+               TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag,
+               Created = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), Status = "error",
+               DataJson = System.Text.Json.JsonSerializer.Serialize(new
+               {
+                  error = string.Format(OpenCS.Utilites.Loc.S("TaskAreaMaterialMissing"),
+                     string.IsNullOrWhiteSpace(orphan.Tag) ? $"#{orphan.Id}" : orphan.Tag, orphan.MaterialId)
+               })
+            };
+         }
          if (!Handlers.TryGetValue(task.Kind, out var handler))
          {
             return new CalcResult
