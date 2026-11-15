@@ -139,6 +139,7 @@
                         </DataTemplate>
                      </DataGridTemplateColumn.CellTemplate>
                   </DataGridTemplateColumn>
+                  <DataGridTextColumn Header="{DynamicResource PunchingFemColQsw}" Binding="{Binding Qsw}" SortMemberPath="QswValue" Width="Auto"/>
                   <DataGridTextColumn Header="{DynamicResource PunchingFemColKey}" Binding="{Binding GoverningKey}" Width="Auto"/>
                   <DataGridTextColumn Header="F, кН" Binding="{Binding F}" Width="Auto"/>
                   <DataGridTextColumn Header="Mx, кН·м" Binding="{Binding Mx}" Width="Auto"/>

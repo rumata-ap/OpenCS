@@ -70,6 +70,25 @@ public sealed class PunchingFemJointRowVM
         Mx = gov is null ? "" : gov.Mx.ToString("0.0", c);
         My = gov is null ? "" : gov.My.ToString("0.0", c);
         Method = gov is null ? "" : PunchingFemKeyRowVM.MethodText(gov.Method);
+        Qsw = data.DesignState switch
+        {
+            null => "",
+            "not_ensured" => Loc.S("PunchingFemQswNotEnsured", "не обеспечить"),
+            "layout_ineffective" => Loc.S("PunchingFemQswLayout", "раскладка мимо"),
+            _ when data.QswXReq is double qx => string.Format(c, "{0:0} / {1:0}", qx, data.QswYReq ?? 0),
+            _ => (data.QswReq ?? 0).ToString("0", c),
+        } + (data.DesignSufficient == true ? " ✔" : "");
+        QswValue = (data.QswReq ?? Math.Max(data.QswXReq ?? 0, data.QswYReq ?? 0))
+            + (data.DesignState is "not_ensured" or "layout_ineffective" ? 1e9 : 0);
+        DesignText = data.DesignState is null ? "" : data.DesignState switch
+        {
+            "not_ensured" => string.Format(c, Loc.S("PunchingFemDesignNotEnsured", "Подбор по «{0}»: арматурой не обеспечить."), data.DesignKey),
+            "layout_ineffective" => string.Format(c, Loc.S("PunchingFemDesignLayout", "Подбор по «{0}»: раскладка не пересекает определяющий контур."), data.DesignKey),
+            _ => string.Format(c, Loc.S("PunchingFemDesignLine", "Подбор по «{0}»: {1} кН/м{2}{3}"), data.DesignKey,
+                data.QswXReq is double x ? string.Format(c, "qsw,x ≥ {0:0.#}, qsw,y ≥ {1:0.#}", x, data.QswYReq ?? 0) : string.Format(c, "qsw ≥ {0:0.#}", data.QswReq ?? 0),
+                data.BarDiameter is double dia ? string.Format(c, Loc.S("PunchingDesignBar", "; стержни Ø{0:0}"), dia * 1000) : "",
+                data.DesignSufficient == true ? Loc.S("PunchingFemDesignEnough", "; заданной арматуры достаточно") : Loc.S("PunchingFemDesignNotEnough", "; заданной арматуры недостаточно")),
+        };
         Warnings = data.Warnings.Count > 0 ? data.Warnings.Count.ToString(c) : "";
         WarningsText = string.Join("\n", data.Warnings.Select(w => "• " + w.Text));
     }
@@ -92,6 +111,12 @@ public sealed class PunchingFemJointRowVM
     public string Method { get; }
     public string Warnings { get; }
     public string WarningsText { get; }
+    /// <summary>Требуемое qsw узла (у креста — x / y), кН/м; ✔ — заданной хватает; пусто — бетона хватает.</summary>
+    public string Qsw { get; }
+    /// <summary>Для сортировки столбца qsw.</summary>
+    public double QswValue { get; }
+    /// <summary>Подбор узла строкой карточки.</summary>
+    public string DesignText { get; }
 }
 
 /// <summary>Строка таблицы ключей узла.</summary>
@@ -277,6 +302,7 @@ public sealed class PunchingFemResultVM : ViewModelBase
             if (j.IsChecked)
                 lines.Add(string.Format(c, Loc.S("PunchingFemJointCardKey", "Кисп = {0} по «{1}»: F = {2} кН, Mx = {3}, My = {4} кН·м"),
                     j.K, j.GoverningKey, j.F, j.Mx, j.My));
+            if (j.DesignText.Length > 0) lines.Add(j.DesignText);
             return string.Join("\n", lines);
         }
     }

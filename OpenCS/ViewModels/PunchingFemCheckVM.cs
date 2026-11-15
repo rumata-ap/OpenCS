@@ -24,7 +24,7 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
     bool _include = true, _ownSw;
     double? _ax, _ay;
     double _swDiameter = 8, _swStep = 60;
-    int _swCount = 2;
+    int _swCount = 2, _swRows = 5;
 
     public PunchingFemJointPickVM(PunchingFemJoint joint, PunchingFemJointOverride? o)
     {
@@ -55,6 +55,7 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
                 _swDiameter = r.Diameter * 1000;
                 _swCount = r.Count;
                 _swStep = r.Step * 1000;
+                _swRows = r.RowCount;
             }
         }
     }
@@ -78,13 +79,15 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
     public double SwDiameter { get => _swDiameter; set => Set(ref _swDiameter, value); }
     public int SwCount { get => _swCount; set => Set(ref _swCount, value); }
     public double SwStep { get => _swStep; set => Set(ref _swStep, value); }
+    /// <summary>Число рядов узла (при раскладке рядами).</summary>
+    public int SwRows { get => _swRows; set => Set(ref _swRows, value); }
 
     /// <summary>Переопределение узла; null — переопределять нечего.</summary>
     public PunchingFemJointOverride? ToOverride(PunchingReinforcementParams common) =>
         _include && _ax == null && _ay == null && !_ownSw ? null : new PunchingFemJointOverride
         {
             Node = Node, Excluded = !_include, Ax = _ax / 1000, Ay = _ay / 1000,
-            Reinforcement = _ownSw ? common with { Enabled = true, Diameter = _swDiameter / 1000, Count = _swCount, Step = _swStep / 1000 } : null,
+            Reinforcement = _ownSw ? common with { Enabled = true, Diameter = _swDiameter / 1000, Count = _swCount, Step = _swStep / 1000, RowCount = _swRows } : null,
         };
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -154,6 +157,11 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         Step = r.Step * 1000;
         ZoneEnabled = r.ZoneExtent is not null;
         Zone = (r.ZoneExtent ?? 0.3) * 1000;
+        SwLayout = r.IsCross ? "cross" : "uniform";
+        SwByRows = r.ByRows;
+        FirstRow = (r.FirstRow ?? 0.07) * 1000; RowStep = r.RowStep * 1000; RowCount = r.RowCount;
+        CrossXLines = r.CrossX.Lines; CrossXStep = r.CrossX.Step * 1000; CrossXPos = r.CrossX.Positive; CrossXNeg = r.CrossX.Negative;
+        CrossYLines = r.CrossY.Lines; CrossYStep = r.CrossY.Step * 1000; CrossYPos = r.CrossY.Positive; CrossYNeg = r.CrossY.Negative;
         RswManual = r.RswOverride is not null;
         RswManualValue = (r.RswOverride ?? 170000) / 1000;
         var opt = p.Options;
@@ -242,6 +250,51 @@ public sealed class PunchingFemCheckVM : ViewModelBase
     public bool ZoneEnabled { get => _zoneEnabled; set { if (SetField(ref _zoneEnabled, value)) Preview(); } }
     public double Zone { get => _zone; set { if (SetField(ref _zone, value)) Preview(); } }
     public bool RswManual { get => _rswManual; set { if (SetField(ref _rswManual, value)) Preview(); } }
+
+    /// <summary>Раскладки поперечной арматуры.</summary>
+    public IReadOnlyList<PunchingChoice> SwLayouts { get; } =
+    [
+        new("uniform", Loc.S("PunchingSwLayout_uniform", "равномерно вдоль контура")),
+        new("cross", Loc.S("PunchingSwLayout_cross", "крестообразно у осей площадки (рис. 8.11г)"))
+    ];
+    string _swLayout = "uniform";
+    bool _swByRows, _crossXPos = true, _crossXNeg = true, _crossYPos = true, _crossYNeg = true;
+    double _firstRow = 70, _rowStep = 60, _crossXStep = 100, _crossYStep = 100;
+    int _rowCount = 5, _crossXLines = 3, _crossYLines = 3;
+    public string SwLayout { get => _swLayout; set { if (SetField(ref _swLayout, value)) { OnPropertyChanged(nameof(IsSwCross)); OnPropertyChanged(nameof(IsSwUniform)); Preview(); } } }
+    public bool IsSwCross => SwLayout == "cross";
+    public bool IsSwUniform => !IsSwCross;
+    /// <summary>Ряды поперёк контура (проверка п. 10.3.17); при включении — по h0 выбранного узла.</summary>
+    public bool SwByRows
+    {
+        get => _swByRows;
+        set
+        {
+            if (value && !_swByRows && !_loading)
+            {
+                var (s1, sd, nr) = PunchingParamsVM.DefaultRows(_selectedJoint?.Joint.H0 ?? 0.2);
+                _firstRow = s1 * 1000; _rowStep = sd * 1000; _rowCount = nr;
+                OnPropertyChanged(nameof(FirstRow)); OnPropertyChanged(nameof(RowStep)); OnPropertyChanged(nameof(RowCount));
+            }
+            if (SetField(ref _swByRows, value)) { OnPropertyChanged(nameof(SwLegacy)); Preview(); }
+        }
+    }
+    public bool SwLegacy => !SwByRows;
+    /// <summary>s1, sd, мм; число рядов.</summary>
+    public double FirstRow { get => _firstRow; set { if (SetField(ref _firstRow, value)) Preview(); } }
+    public double RowStep { get => _rowStep; set { if (SetField(ref _rowStep, value)) Preview(); } }
+    public int RowCount { get => _rowCount; set { if (SetField(ref _rowCount, value)) Preview(); } }
+    /// <summary>Лучи креста вдоль осей узла (местные оси сечения колонны): линии, шаг (мм), стороны.</summary>
+    public int CrossXLines { get => _crossXLines; set { if (SetField(ref _crossXLines, value)) { OnPropertyChanged(nameof(CrossXWidthText)); Preview(); } } }
+    public double CrossXStep { get => _crossXStep; set { if (SetField(ref _crossXStep, value)) { OnPropertyChanged(nameof(CrossXWidthText)); Preview(); } } }
+    public bool CrossXPos { get => _crossXPos; set { if (SetField(ref _crossXPos, value)) Preview(); } }
+    public bool CrossXNeg { get => _crossXNeg; set { if (SetField(ref _crossXNeg, value)) Preview(); } }
+    public int CrossYLines { get => _crossYLines; set { if (SetField(ref _crossYLines, value)) { OnPropertyChanged(nameof(CrossYWidthText)); Preview(); } } }
+    public double CrossYStep { get => _crossYStep; set { if (SetField(ref _crossYStep, value)) { OnPropertyChanged(nameof(CrossYWidthText)); Preview(); } } }
+    public bool CrossYPos { get => _crossYPos; set { if (SetField(ref _crossYPos, value)) Preview(); } }
+    public bool CrossYNeg { get => _crossYNeg; set { if (SetField(ref _crossYNeg, value)) Preview(); } }
+    public string CrossXWidthText => string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingCrossWidth", "Lsw = {0:0} мм"), Math.Max(0, CrossXLines - 1) * CrossXStep);
+    public string CrossYWidthText => string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingCrossWidth", "Lsw = {0:0} мм"), Math.Max(0, CrossYLines - 1) * CrossYStep);
     public double RswManualValue { get => _rswManualValue; set { if (SetField(ref _rswManualValue, value)) Preview(); } }
     public string EccentricityX { get => _eccX; set => SetField(ref _eccX, value); }
     public string EccentricityY { get => _eccY; set => SetField(ref _eccY, value); }
@@ -324,6 +377,9 @@ public sealed class PunchingFemCheckVM : ViewModelBase
     {
         Enabled = SwEnabled, MaterialId = Rebar?.Id ?? 0, Diameter = Diameter / 1000, Count = Count, Step = Step / 1000,
         ZoneExtent = ZoneEnabled ? Zone / 1000 : null, RswOverride = RswManual ? RswManualValue * 1000 : null,
+        Layout = SwLayout, FirstRow = SwByRows ? FirstRow / 1000 : null, RowStep = RowStep / 1000, RowCount = RowCount,
+        CrossX = new PunchingCrossArmParams { Lines = CrossXLines, Step = CrossXStep / 1000, Positive = CrossXPos, Negative = CrossXNeg },
+        CrossY = new PunchingCrossArmParams { Lines = CrossYLines, Step = CrossYStep / 1000, Positive = CrossYPos, Negative = CrossYNeg },
     };
 
     /// <summary>Параметры проверки по форме.</summary>
@@ -364,7 +420,9 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         if (_schema == null) e.Add(Loc.S("PunchingFemErrNoSchema", "Не выбрана схема."));
         if (_analysis == null) e.Add(Loc.S("PunchingFemErrNoAnalysis", "Не выбран источник усилий: расчёт CSfea схемы или снимок результатов ЛИРА-САПР/SCAD."));
         if (!RbtManual && Concrete == null && !ConcreteFromSchema) e.Add(Loc.S("PunchingErr_concrete_missing", "Не выбран бетон."));
-        if (SwEnabled && (Diameter <= 0 || Count < 1 || Step <= 0)) e.Add(Loc.S("PunchingErr_sw_values", "Неверные параметры поперечной арматуры."));
+        if (SwEnabled)
+            foreach (var code in new PunchingTaskParams { Reinforcement = Common() }.Validate().Where(c => c.StartsWith("sw_", StringComparison.Ordinal)).Distinct())
+                e.Add(Loc.S("PunchingErr_" + code, "Неверные параметры поперечной арматуры."));
         if (!(DefaultAx >= 0 && DefaultAy >= 0)) e.Add(Loc.S("PunchingErr_h0_nonpositive", "Неверные привязки."));
         return e;
     }

@@ -6647,6 +6647,16 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingWarn_sw_cross_reduced_ignored">Reduced pylon perimeter: cruciform reinforcement is not taken into account (uniform only).</system:String>
    <system:String x:Key="PunchingWarn_sw_detailing_violated">Requirements of cl. 10.3.17 are not met ({0}): only bars crossing the punching pyramid are taken into account (cl. 8.1.48), provided they are anchored — check the anchorage.</system:String>
    <system:String x:Key="PunchingWarn_sw_rows_near_face">Shear reinforcement rows closer than h0/3 to the loaded area face ({0}) are not taken into account.</system:String>
+   <system:String x:Key="PunchingFemCrossHint">Arms run along the joint local axes (column section axes, as in the joint drawing); near an edge the contour clips extra parts.</system:String>
+   <system:String x:Key="PunchingFemColRows">rows</system:String>
+   <system:String x:Key="PunchingFemColQsw">qsw,req, kN/m</system:String>
+   <system:String x:Key="PunchingFemQswNotEnsured">cannot ensure</system:String>
+   <system:String x:Key="PunchingFemQswLayout">layout misses</system:String>
+   <system:String x:Key="PunchingFemDesignNotEnsured">Design by "{0}": cannot be ensured by reinforcement.</system:String>
+   <system:String x:Key="PunchingFemDesignLayout">Design by "{0}": the layout does not cross the governing perimeter.</system:String>
+   <system:String x:Key="PunchingFemDesignLine">Design by "{0}": {1} kN/m{2}{3}</system:String>
+   <system:String x:Key="PunchingFemDesignEnough">; provided reinforcement is sufficient</system:String>
+   <system:String x:Key="PunchingFemDesignNotEnough">; provided reinforcement is not sufficient</system:String>
    <system:String x:Key="PunchingBatchDesignRow">Row No. {0} "{1}" (largest demand of {2}): </system:String>
    <system:String x:Key="PunchingErr_sw_rows">Shear reinforcement rows: s1 ≥ 0, 1 to 100 rows, row spacing must be positive.</system:String>
    <system:String x:Key="PunchingErr_sw_cross">Cruciform arms: enabled arms need at least 2 lines and a positive spacing; at least one arm is required.</system:String>

@@ -6647,6 +6647,16 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingWarn_sw_cross_reduced_ignored">Приведённый периметр пилона: крестообразная арматура не учитывается (только равномерная вдоль контура).</system:String>
    <system:String x:Key="PunchingWarn_sw_detailing_violated">Требования п. 10.3.17 не выполнены ({0}): учитываются только стержни, пересекающие пирамиду продавливания (п. 8.1.48), при условии их анкеровки — проверьте анкеровку.</system:String>
    <system:String x:Key="PunchingWarn_sw_rows_near_face">Ряды поперечной арматуры ближе h0/3 к грани площади ({0} шт.) в расчёте не учитываются.</system:String>
+   <system:String x:Key="PunchingFemCrossHint">Лучи — вдоль местных осей узла (оси сечения колонны, как на рисунке узла); у узла у края лишние участки отсекаются контуром.</system:String>
+   <system:String x:Key="PunchingFemColRows">рядов</system:String>
+   <system:String x:Key="PunchingFemColQsw">qsw,req, кН/м</system:String>
+   <system:String x:Key="PunchingFemQswNotEnsured">не обеспечить</system:String>
+   <system:String x:Key="PunchingFemQswLayout">раскладка мимо</system:String>
+   <system:String x:Key="PunchingFemDesignNotEnsured">Подбор по «{0}»: арматурой не обеспечить.</system:String>
+   <system:String x:Key="PunchingFemDesignLayout">Подбор по «{0}»: раскладка не пересекает определяющий контур.</system:String>
+   <system:String x:Key="PunchingFemDesignLine">Подбор по «{0}»: {1} кН/м{2}{3}</system:String>
+   <system:String x:Key="PunchingFemDesignEnough">; заданной арматуры достаточно</system:String>
+   <system:String x:Key="PunchingFemDesignNotEnough">; заданной арматуры недостаточно</system:String>
    <system:String x:Key="PunchingBatchDesignRow">Строка № {0} «{1}» (наибольшее требование из {2}): </system:String>
    <system:String x:Key="PunchingErr_sw_rows">Ряды поперечной арматуры: s1 ≥ 0, рядов от 1 до 100, шаг рядов больше нуля.</system:String>
    <system:String x:Key="PunchingErr_sw_cross">Лучи креста: у включённых лучей не меньше 2 линий и шаг больше нуля; нужен хотя бы один луч.</system:String>

@@ -71,6 +71,19 @@ public sealed record PunchingFemJointResult
     /// <summary>Параметры одиночной задачи по определяющему ключу (без него — с нулевыми усилиями).</summary>
     public string ParamsJson { get; init; } = "";
     public List<PunchingFemRow> Rows { get; init; } = [];
+    /// <summary>Подбор поперечной арматуры по ключу с наибольшим требованием: состояние (by_calculation … layout_ineffective); null — бетона хватает.</summary>
+    public string? DesignState { get; init; }
+    /// <summary>Ключ, по которому определено требование.</summary>
+    public string? DesignKey { get; init; }
+    /// <summary>Требуемое qsw равномерной раскладки, кН/м.</summary>
+    public double? QswReq { get; init; }
+    /// <summary>Требуемое qsw креста по рис. 8.11г: x — лучи вдоль Y, y — лучи вдоль X, кН/м.</summary>
+    public double? QswXReq { get; init; }
+    public double? QswYReq { get; init; }
+    /// <summary>Наименьший подходящий диаметр при заданных рядах, м.</summary>
+    public double? BarDiameter { get; init; }
+    /// <summary>Заданной арматуры достаточно.</summary>
+    public bool? DesignSufficient { get; init; }
 }
 
 /// <summary>Предупреждение в JSON результата.</summary>
@@ -312,6 +325,8 @@ public static class PunchingFemCheckRunner
         double mismatchWorst = 0;
         string mismatchKey = "";
         bool baseUnknown = false;
+        PunchingDesignResult? design = null;
+        string? designKey = null;
         foreach (var (key, label) in source.Keys)
         {
             if (!forces.ByKey.TryGetValue(key, out var f)) continue;
@@ -347,6 +362,12 @@ public static class PunchingFemCheckRunner
             var input = tp.ToInput(strengths.Rbt, strengths.Rsw);
             geometry ??= PunchingGeometryCache.Prepare(input);
             var r = PunchingChecker.Check(input, includeTrace: false, geometry);
+            if (r.UtilizationConcreteOnly > 1.0)
+            {
+                // Подбор qsw узла — по ключу с наибольшим требованием (без ширины зоны: её даёт окно задачи по строке).
+                var d = PunchingDesign.Solve(input, includeZone: false, geometry);
+                if (design == null || d.Lambda > design.Lambda) { design = d; designKey = label; }
+            }
             row = row with
             {
                 Ratio = r.Utilization, RatioConcrete = r.UtilizationConcreteOnly, RatioMaxSw = r.UtilizationMaxReinforcement,
@@ -397,6 +418,20 @@ public static class PunchingFemCheckRunner
         return baseResult with
         {
             Status = status, Passed = rows.All(r => r.Passed), Ratio = gov.Ratio, GoverningKey = gov.Key,
+            DesignState = design == null ? null : design.State switch
+            {
+                PunchingDesignState.ByCalculation => "by_calculation",
+                PunchingDesignState.ByThreshold => "by_threshold",
+                PunchingDesignState.NotEnsured => "not_ensured",
+                PunchingDesignState.LayoutIneffective => "layout_ineffective",
+                _ => "not_required",
+            },
+            DesignKey = designKey,
+            QswReq = design is { Cross: false } du && double.IsFinite(du.QswReq) ? du.QswReq : null,
+            QswXReq = design is { Cross: true } dx && double.IsFinite(dx.QswYReq) ? dx.QswYReq : null,
+            QswYReq = design is { Cross: true } dy && double.IsFinite(dy.QswXReq) ? dy.QswXReq : null,
+            BarDiameter = design?.BarDiameter,
+            DesignSufficient = design?.ProvidedSufficient,
             // h0 расчёта: с переопределением ax/ay узла (у найденного узла — по защитному слою по умолчанию).
             H0 = governingParams!.H0,
             ParamsJson = governingParams!.ToJson(), Rows = rows, Warnings = warnings.DistinctBy(w => w.Code + w.Text).ToList(),
