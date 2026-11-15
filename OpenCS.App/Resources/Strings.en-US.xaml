@@ -6527,7 +6527,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingErr_edge_side">Unknown edge side.</system:String>
    <system:String x:Key="PunchingErr_hole_size">Opening dimensions must be positive.</system:String>
    <system:String x:Key="PunchingErr_hole_overlaps_area">An opening overlaps the loaded area.</system:String>
-   <system:String x:Key="PunchingErr_sw_values">Shear reinforcement: diameter, bar count and spacing must be positive.</system:String>
+   <system:String x:Key="PunchingErr_sw_values">Shear reinforcement: diameter, number of bars and spacing along the perimeter must be positive.</system:String>
    <system:String x:Key="PunchingErr_sw_zone">Shear reinforcement zone must be positive (or empty).</system:String>
    <system:String x:Key="PunchingErr_rsw_nonpositive">Manual Rsw must be positive.</system:String>
    <system:String x:Key="PunchingErr_force_negative">Punching force F is a magnitude (≥ 0).</system:String>
@@ -6647,6 +6647,61 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingWarn_sw_cross_reduced_ignored">Reduced pylon perimeter: cruciform reinforcement is not taken into account (uniform only).</system:String>
    <system:String x:Key="PunchingWarn_sw_detailing_violated">Requirements of cl. 10.3.17 are not met ({0}): only bars crossing the punching pyramid are taken into account (cl. 8.1.48), provided they are anchored — check the anchorage.</system:String>
    <system:String x:Key="PunchingWarn_sw_rows_near_face">Shear reinforcement rows closer than h0/3 to the loaded area face ({0}) are not taken into account.</system:String>
+   <system:String x:Key="PunchingErr_sw_rows">Shear reinforcement rows: s1 ≥ 0, 1 to 100 rows, row spacing must be positive.</system:String>
+   <system:String x:Key="PunchingErr_sw_cross">Cruciform arms: enabled arms need at least 2 lines and a positive spacing; at least one arm is required.</system:String>
+   <system:String x:Key="PunchingSwLayout">Layout</system:String>
+   <system:String x:Key="PunchingSwLayout_uniform">uniform along the perimeter</system:String>
+   <system:String x:Key="PunchingSwLayout_cross">cruciform along the area axes (Fig. 8.11d)</system:String>
+   <system:String x:Key="PunchingSwStepHint">Bar spacing along the perimeter sw (not more than 1/4 of the perimeter side, cl. 10.3.17)</system:String>
+   <system:String x:Key="PunchingSwByRows">Rows across the perimeter (cl. 10.3.17 check, row design)</system:String>
+   <system:String x:Key="PunchingSwByRowsHint">Asw of a line is counted from rows crossing the pyramid (h0/3 … h0 from the face); the zone ends at the outer row. Without rows — n bars per spacing and a manual zone.</system:String>
+   <system:String x:Key="PunchingSwFirstRowHint">From the area face to the first row: h0/3 ≤ s1 ≤ h0/2 (cl. 10.3.17)</system:String>
+   <system:String x:Key="PunchingSwRowStepHint">Row spacing across the perimeter sides: not more than h0/3 and 300 mm; up to h0/2 counting only the pyramid bars (cl. 10.3.17)</system:String>
+   <system:String x:Key="PunchingSwRowCount">rows</system:String>
+   <system:String x:Key="PunchingCrossAlongX">Arms along X</system:String>
+   <system:String x:Key="PunchingCrossAlongY">Arms along Y</system:String>
+   <system:String x:Key="PunchingCrossLines">lines</system:String>
+   <system:String x:Key="PunchingCrossHint">Bar lines across the arm at spacing sw along the perimeter; arm width Lsw = (n − 1)·sw. Clear +/− if the arm runs into the slab edge.</system:String>
+   <system:String x:Key="PunchingCrossWidth">Lsw = {0:0} mm</system:String>
+   <system:String x:Key="PunchingDesignButton">Design</system:String>
+   <system:String x:Key="PunchingDesignButtonHint">Design the bar diameter (with rows) or the number of bars and the zone width per cl. 8.1.48, 8.1.50 for the given layout</system:String>
+   <system:String x:Key="PunchingSwRowsLine">rows in the pyramid (h0/3 … h0 from the face): {0} of {1}; </system:String>
+   <system:String x:Key="PunchingSwCrossLine">Asw = {0:0.#} mm², Rsw = {1:0.#} MPa; qsw of arms along X = {2:0.#} kN/m, along Y = {3:0.#} kN/m</system:String>
+   <system:String x:Key="PunchingDesignApplied_not_required">Shear reinforcement is not required — input unchanged.</system:String>
+   <system:String x:Key="PunchingDesignAppliedRows">Designed: Ø{0:0}, {1} rows.</system:String>
+   <system:String x:Key="PunchingDesignAppliedTooBig">Even Ø32 is not enough — reduce the spacings or add lines.</system:String>
+   <system:String x:Key="PunchingDesignAppliedCount">Designed: {0} × Ø{1:0} per {2:0} mm spacing.</system:String>
+   <system:String x:Key="PunchingDesignInputError">Cannot design: fix the input data.</system:String>
+   <system:String x:Key="PunchingDesignReqCross">qsw,x ≥ {0:0.#} kN/m (arms along Y, provided {1:0.#}), qsw,y ≥ {2:0.#} kN/m (arms along X, provided {3:0.#})</system:String>
+   <system:String x:Key="PunchingDesignReqHave">qsw ≥ {0:0.#} kN/m (provided {1:0.#})</system:String>
+   <system:String x:Key="PunchingDesignReq">qsw ≥ {0:0.#} kN/m</system:String>
+   <system:String x:Key="PunchingDesignBar">; bars Ø{0:0}</system:String>
+   <system:String x:Key="PunchingDesignBarTooBig">; bar area ≥ {0:0.#} mm² — more than Ø32</system:String>
+   <system:String x:Key="PunchingDesignRows">; rows ≥ {0}</system:String>
+   <system:String x:Key="PunchingDesignZone">; zone ≥ {0:0} mm from the face</system:String>
+   <system:String x:Key="PunchingDesign_not_required">Design: shear reinforcement is not required.</system:String>
+   <system:String x:Key="PunchingDesign_not_ensured">Design: cannot be ensured by reinforcement (utilization &gt; 1 even at 2Fb, 2Mb) — increase the thickness, concrete class or the loaded area.</system:String>
+   <system:String x:Key="PunchingDesign_layout_ineffective">Design: the layout does not cross the governing perimeter or the pyramid — change the arms or rows.</system:String>
+   <system:String x:Key="PunchingDesign_by_threshold">Design: {0} — by the threshold Fsw ≥ 0.25·Fb (cl. 8.1.48){1}.</system:String>
+   <system:String x:Key="PunchingDesign_by_calculation">Design: {0} — from utilization = 1{1}.</system:String>
+   <system:String x:Key="PunchingDesignEnough">The provided reinforcement is sufficient.</system:String>
+   <system:String x:Key="PunchingDesignNotEnough">The provided reinforcement is not sufficient.</system:String>
+   <system:String x:Key="PunchingDesignBeyondBad">The perimeter beyond the reinforcement fails for any zone width.</system:String>
+   <system:String x:Key="PunchingDetailing_first_row_min">First row — not closer than h0/3 to the face</system:String>
+   <system:String x:Key="PunchingDetailing_first_row_max">First row — not farther than h0/2 from the face</system:String>
+   <system:String x:Key="PunchingDetailing_row_step">Row spacing — not more than h0/3 and 300 mm</system:String>
+   <system:String x:Key="PunchingDetailing_zone_width">Zone width from the face — not less than 1.5h0</system:String>
+   <system:String x:Key="PunchingDetailing_line_step">Spacing along the perimeter sides — not more than 1/4 of the side</system:String>
+   <system:String x:Key="PunchingDetailing_line_step_x">Line spacing of arms along X — not more than 1/4 of the perimeter side</system:String>
+   <system:String x:Key="PunchingDetailing_line_step_y">Line spacing of arms along Y — not more than 1/4 of the perimeter side</system:String>
+   <system:String x:Key="PunchingDetailing_anchorage">Anchorage of shear reinforcement is not checked</system:String>
+   <system:String x:Key="PunchingDetailingAllowed"> — allowed, pyramid bars counted</system:String>
+   <system:String x:Key="PunchingDetailingOk">Detailing requirements of cl. 10.3.17 — met</system:String>
+   <system:String x:Key="PunchingDetailingBad">Detailing requirements of cl. 10.3.17 — not met: {0}</system:String>
+   <system:String x:Key="PunchingSummarySwCross">cruciform reinforcement Ø{0:0}, {1:0} rows at {2:0} mm, Rsw = {3:0.#} MPa</system:String>
+   <system:String x:Key="PunchingSummarySwRows">shear reinforcement Ø{0:0} at {1:0} mm along the perimeter, {2:0} rows at {3:0} mm, Rsw = {4:0.#} MPa</system:String>
+   <system:String x:Key="PunchingCanvasLegendCross">; blue — bars and perimeter parts under the cross arms</system:String>
+   <system:String x:Key="PunchingCanvasLegendBars">; blue — shear reinforcement bars</system:String>
    <system:String x:Key="PunchingWarn_m_limited_half_kf">Perimeter "{0}": the moment contribution is limited to half of the force contribution (cl. 8.1.46).</system:String>
    <system:String x:Key="PunchingWarn_concave_area_hull">The loaded area is concave — the perimeter is built on its convex hull.</system:String>
    <system:String x:Key="PunchingWarn_pylon_at_edge_not_checked">Pylon at a slab edge: the broken perimeter is not checked, only SP 63 perimeters.</system:String>

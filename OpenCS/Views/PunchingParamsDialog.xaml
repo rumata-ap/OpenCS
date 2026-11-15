@@ -215,23 +215,74 @@
                         <ComboBox Width="200" ItemsSource="{Binding Rebars}" DisplayMemberPath="Tag" SelectedItem="{Binding Rebar}"
                                   IsEnabled="{Binding RswManual, Converter={StaticResource InverseBool}}"/>
                      </StackPanel>
+                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource PunchingSwLayout}" Style="{StaticResource Lbl}"/>
+                        <ComboBox Width="290" ItemsSource="{Binding SwLayouts}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding SwLayout}"/>
+                     </StackPanel>
                      <WrapPanel>
                         <TextBlock Text="d" Style="{StaticResource Lbl}"/>
                         <TextBox Style="{StaticResource Num}" Width="50" Text="{Binding Diameter, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
                         <TextBlock Text="мм" Style="{StaticResource Unit}"/>
-                        <TextBlock Text="n" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingSwCountHint}"/>
-                        <TextBox Style="{StaticResource Num}" Width="40" ToolTip="{DynamicResource PunchingSwCountHint}"
-                                 Text="{Binding Count, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                        <TextBlock Text="sw" Style="{StaticResource Lbl}" Margin="6,2,8,2"/>
-                        <TextBox Style="{StaticResource Num}" Width="50" Text="{Binding Step, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        <StackPanel Orientation="Horizontal" Visibility="{Binding ShowLegacyCount, Converter={StaticResource BoolToVisibility}}">
+                           <TextBlock Text="n" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingSwCountHint}"/>
+                           <TextBox Style="{StaticResource Num}" Width="40" ToolTip="{DynamicResource PunchingSwCountHint}"
+                                    Text="{Binding Count, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Visibility="{Binding IsSwUniform, Converter={StaticResource BoolToVisibility}}">
+                           <TextBlock Text="sw" Style="{StaticResource Lbl}" Margin="6,2,8,2" ToolTip="{DynamicResource PunchingSwStepHint}"/>
+                           <TextBox Style="{StaticResource Num}" Width="50" ToolTip="{DynamicResource PunchingSwStepHint}"
+                                    Text="{Binding Step, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                           <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        </StackPanel>
                      </WrapPanel>
-                     <StackPanel Orientation="Horizontal">
+
+                     <!-- Ряды поперёк сторон контура (п. 10.3.17) -->
+                     <CheckBox Content="{DynamicResource PunchingSwByRows}" IsChecked="{Binding SwByRows}" Margin="0,4,0,2"
+                               ToolTip="{DynamicResource PunchingSwByRowsHint}"/>
+                     <WrapPanel Visibility="{Binding SwByRows, Converter={StaticResource BoolToVisibility}}" Margin="16,0,0,0">
+                        <TextBlock Text="s1" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingSwFirstRowHint}"/>
+                        <TextBox Style="{StaticResource Num}" Width="50" ToolTip="{DynamicResource PunchingSwFirstRowHint}"
+                                 Text="{Binding FirstRow, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="sd" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingSwRowStepHint}"/>
+                        <TextBox Style="{StaticResource Num}" Width="50" ToolTip="{DynamicResource PunchingSwRowStepHint}"
+                                 Text="{Binding RowStep, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="{DynamicResource PunchingSwRowCount}" Style="{StaticResource Lbl}"/>
+                        <TextBox Style="{StaticResource Num}" Width="40" Text="{Binding RowCount, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                     </WrapPanel>
+                     <StackPanel Orientation="Horizontal" Visibility="{Binding SwLegacy, Converter={StaticResource BoolToVisibility}}">
                         <CheckBox Content="{DynamicResource PunchingSwZone}" IsChecked="{Binding ZoneEnabled}" Margin="0,4,8,2"
                                   ToolTip="{DynamicResource PunchingSwZoneHint}"/>
                         <TextBox Style="{StaticResource Num}" IsEnabled="{Binding ZoneEnabled}"
                                  Text="{Binding Zone, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
                         <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     </StackPanel>
+
+                     <!-- Лучи креста (рис. 8.11г): линии стержней поперёк луча, Lsw = (n − 1)·sw -->
+                     <StackPanel Visibility="{Binding IsSwCross, Converter={StaticResource BoolToVisibility}}" Margin="0,2,0,0">
+                        <WrapPanel ToolTip="{DynamicResource PunchingCrossHint}">
+                           <TextBlock Text="{DynamicResource PunchingCrossAlongX}" Style="{StaticResource Lbl}" Width="92"/>
+                           <TextBlock Text="{DynamicResource PunchingCrossLines}" Style="{StaticResource Lbl}"/>
+                           <TextBox Style="{StaticResource Num}" Width="36" Text="{Binding CrossXLines, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                           <TextBlock Text="sw" Style="{StaticResource Lbl}" Margin="6,2,8,2"/>
+                           <TextBox Style="{StaticResource Num}" Width="46" Text="{Binding CrossXStep, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                           <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                           <CheckBox Content="+X" IsChecked="{Binding CrossXPos}" Margin="4,4,4,2"/>
+                           <CheckBox Content="−X" IsChecked="{Binding CrossXNeg}" Margin="4,4,8,2"/>
+                           <TextBlock Text="{Binding CrossXWidthText}" Style="{StaticResource Hint}" VerticalAlignment="Center"/>
+                        </WrapPanel>
+                        <WrapPanel ToolTip="{DynamicResource PunchingCrossHint}">
+                           <TextBlock Text="{DynamicResource PunchingCrossAlongY}" Style="{StaticResource Lbl}" Width="92"/>
+                           <TextBlock Text="{DynamicResource PunchingCrossLines}" Style="{StaticResource Lbl}"/>
+                           <TextBox Style="{StaticResource Num}" Width="36" Text="{Binding CrossYLines, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                           <TextBlock Text="sw" Style="{StaticResource Lbl}" Margin="6,2,8,2"/>
+                           <TextBox Style="{StaticResource Num}" Width="46" Text="{Binding CrossYStep, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                           <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                           <CheckBox Content="+Y" IsChecked="{Binding CrossYPos}" Margin="4,4,4,2"/>
+                           <CheckBox Content="−Y" IsChecked="{Binding CrossYNeg}" Margin="4,4,8,2"/>
+                           <TextBlock Text="{Binding CrossYWidthText}" Style="{StaticResource Hint}" VerticalAlignment="Center"/>
+                        </WrapPanel>
                      </StackPanel>
                      <StackPanel Orientation="Horizontal">
                         <CheckBox Content="{DynamicResource PunchingRswManual}" IsChecked="{Binding RswManual}" Margin="0,4,8,2"/>
@@ -241,6 +292,11 @@
                      </StackPanel>
                      <TextBlock Text="{Binding SwText}" Style="{StaticResource Hint}"/>
                   </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                     <Button Content="{DynamicResource PunchingDesignButton}" Command="{Binding DesignCommand}" Padding="10,2"
+                             ToolTip="{DynamicResource PunchingDesignButtonHint}"/>
+                  </StackPanel>
+                  <TextBlock Text="{Binding DesignApplyText}" Style="{StaticResource Hint}" TextWrapping="Wrap"/>
                </StackPanel>
             </Expander>
 

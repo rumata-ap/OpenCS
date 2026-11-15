@@ -79,6 +79,66 @@ public sealed class PunchingResultVM : ViewModelBase
         foreach (var w in data.Warnings.Where(w => !string.IsNullOrWhiteSpace(w.Text)))
             Warnings.Add(Variants.Warning(w, data.Variants, edgeCount));
         InputsSummary = BuildInputsSummary(data.Inputs);
+        DesignText = data.Design is { } d ? DesignLine(d) : "";
+        foreach (var c in data.Detailing ?? []) Detailing.Add(DetailingLine(c));
+        int bad = (data.Detailing ?? []).Count(x => x.State is "violated" or "allowed");
+        DetailingHeader = bad == 0
+            ? Loc.S("PunchingDetailingOk", "Конструктивные требования п. 10.3.17 — выполнены")
+            : string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingDetailingBad", "Конструктивные требования п. 10.3.17 — не выполнено: {0}"), bad);
+    }
+
+    /// <summary>Заголовок блока п. 10.3.17 с итогом.</summary>
+    public string DetailingHeader { get; } = "";
+
+    /// <summary>Подбор поперечной арматуры одной строкой; пусто — подбор не выполнялся (обеспечено бетоном).</summary>
+    public string DesignText { get; }
+    /// <summary>Есть подбор.</summary>
+    public bool HasDesign => DesignText.Length > 0;
+    /// <summary>Конструктивные требования п. 10.3.17 построчно.</summary>
+    public ObservableCollection<string> Detailing { get; } = [];
+    /// <summary>Есть проверки п. 10.3.17.</summary>
+    public bool HasDetailing => Detailing.Count > 0;
+
+    /// <summary>Строка подбора по сохранённому результату.</summary>
+    public static string DesignLine(PunchingReportDesign d)
+    {
+        var c = CultureInfo.CurrentCulture;
+        string req = d.Cross
+            ? string.Format(c, Loc.S("PunchingDesignReqCross", "qsw,x ≥ {0:0.#} кН/м (лучи вдоль Y, есть {1:0.#}), qsw,y ≥ {2:0.#} кН/м (лучи вдоль X, есть {3:0.#})"),
+                d.QswXReq ?? 0, d.QswX ?? 0, d.QswYReq ?? 0, d.QswY ?? 0)
+            : d.Qsw is double q && q > 0
+                ? string.Format(c, Loc.S("PunchingDesignReqHave", "qsw ≥ {0:0.#} кН/м (есть {1:0.#})"), d.QswReq ?? 0, q)
+                : string.Format(c, Loc.S("PunchingDesignReq", "qsw ≥ {0:0.#} кН/м"), d.QswReq ?? 0);
+        string extra = "";
+        if (d.BarDiameter is double dia) extra += string.Format(c, Loc.S("PunchingDesignBar", "; стержни Ø{0:0}"), dia * 1000);
+        else if (d.BarAreaReq is double ab) extra += string.Format(c, Loc.S("PunchingDesignBarTooBig", "; площадь стержня ≥ {0:0.#} мм² — больше Ø32"), ab * 1e6);
+        if (d.RowsReq is int n) extra += string.Format(c, Loc.S("PunchingDesignRows", "; рядов ≥ {0}"), n);
+        else if (d.ZoneReq is double z) extra += string.Format(c, Loc.S("PunchingDesignZone", "; зона ≥ {0:0} мм от грани"), z * 1000);
+        string text = d.State switch
+        {
+            "not_required" => Loc.S("PunchingDesign_not_required", "Подбор: поперечная арматура не требуется."),
+            "not_ensured" => Loc.S("PunchingDesign_not_ensured", "Подбор: арматурой не обеспечить (Кисп > 1 и при 2Fb, 2Mb) — увеличьте толщину, класс бетона или площадку."),
+            "layout_ineffective" => Loc.S("PunchingDesign_layout_ineffective", "Подбор: раскладка не пересекает определяющий контур или пирамиду — измените лучи или ряды."),
+            "by_threshold" => string.Format(c, Loc.S("PunchingDesign_by_threshold", "Подбор: {0} — по порогу Fsw ≥ 0,25·Fb (п. 8.1.48){1}."), req, extra),
+            _ => string.Format(c, Loc.S("PunchingDesign_by_calculation", "Подбор: {0} — из условия Кисп = 1{1}."), req, extra)
+        };
+        if (d.State is "by_threshold" or "by_calculation")
+        {
+            text += " " + (d.ProvidedSufficient ? Loc.S("PunchingDesignEnough", "Заданной арматуры достаточно.") : Loc.S("PunchingDesignNotEnough", "Заданной арматуры недостаточно."));
+            if (d.BeyondNotEnsured) text += " " + Loc.S("PunchingDesignBeyondBad", "Контур за армированием не проходит при любой ширине зоны.");
+        }
+        return text;
+    }
+
+    /// <summary>Строка проверки п. 10.3.17: знак итога, требование, значение и предел.</summary>
+    public static string DetailingLine(PunchingReportDetailing d)
+    {
+        var c = CultureInfo.CurrentCulture;
+        string mark = d.State switch { "ok" => "✔", "allowed" => "≈", "violated" => "✘", _ => "·" };
+        string text = Loc.S("PunchingDetailing_" + d.Code, d.Text);
+        if (d.Code == "anchorage" || d.Value is not double v || d.Limit is not double lim) return $"{mark} {text}";
+        string state = d.State == "allowed" ? Loc.S("PunchingDetailingAllowed", " — допускается, учтены стержни пирамиды") : "";
+        return string.Format(c, "{0} {1}: {2:0.#} мм {3} {4:0.#} мм{5}", mark, text, v * 1000, d.Relation, lim * 1000, state);
     }
 
     /// <summary>Результат.</summary>
@@ -185,10 +245,17 @@ public sealed class PunchingResultVM : ViewModelBase
             _ => string.Format(c, "{0:0}×{1:0}", D("bx") * 1000, D("by") * 1000)
         };
         string concrete = S("concrete") is { Length: > 0 } ct ? ct : Loc.S("PunchingManualValue");
-        string sw = i.TryGetProperty("sw", out var swv) && swv.ValueKind == JsonValueKind.True
-            ? string.Format(c, Loc.S("PunchingSummarySw", "поперечная арматура {0}×Ø{1:0} шаг {2:0}, Rsw = {3:0.#} МПа"),
-                D("swCount"), D("swDiameter") * 1000, D("swStep") * 1000, D("rsw") / 1000)
-            : Loc.S("PunchingSummaryNoSw", "без поперечной арматуры");
+        bool hasSw = i.TryGetProperty("sw", out var swv) && swv.ValueKind == JsonValueKind.True;
+        bool rows = i.TryGetProperty("swFirstRow", out var fr) && fr.ValueKind == JsonValueKind.Number;
+        string sw = !hasSw ? Loc.S("PunchingSummaryNoSw", "без поперечной арматуры")
+            : S("swLayout") == "cross"
+                ? string.Format(c, Loc.S("PunchingSummarySwCross", "крестообразная арматура Ø{0:0}, {1:0} рядов с шагом {2:0} мм, Rsw = {3:0.#} МПа"),
+                    D("swDiameter") * 1000, D("swRowCount"), D("swRowStep") * 1000, D("rsw") / 1000)
+            : rows
+                ? string.Format(c, Loc.S("PunchingSummarySwRows", "поперечная арматура Ø{0:0} шаг {1:0} мм вдоль контура, {2:0} рядов с шагом {3:0} мм, Rsw = {4:0.#} МПа"),
+                    D("swDiameter") * 1000, D("swStep") * 1000, D("swRowCount"), D("swRowStep") * 1000, D("rsw") / 1000)
+                : string.Format(c, Loc.S("PunchingSummarySw", "поперечная арматура {0}×Ø{1:0} шаг {2:0}, Rsw = {3:0.#} МПа"),
+                    D("swCount"), D("swDiameter") * 1000, D("swStep") * 1000, D("rsw") / 1000);
         return string.Format(c, Loc.S("PunchingSummary",
                 "Площадь {0} мм; h = {1:0} мм, h0 = {2:0.#} мм; бетон {3}, Rbt = {4:0.###} МПа; {5}; F = {6:0.#} кН, Mx = {7:0.#} кН·м, My = {8:0.#} кН·м"),
             area, D("h") * 1000, D("h0") * 1000, concrete, D("rbt") / 1000, sw, D("F"), D("Mx"), D("My"));

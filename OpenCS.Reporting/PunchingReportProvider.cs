@@ -18,11 +18,23 @@ public sealed record PunchingReportVariant(
 /// <summary>Предупреждение расчёта: код, русский текст и аргументы локализованного шаблона.</summary>
 public sealed record PunchingReportWarning(string Code, string Text, IReadOnlyList<string> Args);
 
+/// <summary>Конструктивная проверка п. 10.3.17 из сохранённого результата (значения — м).</summary>
+public sealed record PunchingReportDetailing(string Code, string Quantity, double? Value, string Relation, double? Limit,
+    string LimitFormula, string State, string Text);
+
+/// <summary>Подбор поперечной арматуры из сохранённого результата (qsw — кН/м, площади — м², длины — м).</summary>
+public sealed record PunchingReportDesign(
+    string State, double? Lambda, string Governing, bool Cross,
+    double? QswReq, double? Qsw, double? QswXReq, double? QswX, double? QswYReq, double? QswY,
+    double? AswReq, double? BarAreaReq, double? BarDiameter, int? RowsReq, double? ZoneReq,
+    bool BeyondNotEnsured, bool ProvidedSufficient);
+
 /// <summary>Разбор <c>DataJson</c> задачи продавливания для отчёта и окна результата.</summary>
 public sealed record PunchingReportData(
     bool Passed, double? Ratio, string Status, double? RatioConcrete, double? RatioMaxSw, string Governing,
     IReadOnlyList<PunchingReportVariant> Variants, IReadOnlyList<PunchingReportWarning> Warnings,
-    IReadOnlyList<PunchingReportStep> CommonTrace, PunchingScene? Scene, JsonElement? Inputs, string? Error)
+    IReadOnlyList<PunchingReportStep> CommonTrace, PunchingScene? Scene, JsonElement? Inputs, string? Error,
+    PunchingReportDesign? Design = null, IReadOnlyList<PunchingReportDetailing>? Detailing = null)
 {
     /// <summary>Разбирает JSON; при ошибке задачи заполняет только <see cref="Error"/>.</summary>
     public static PunchingReportData Parse(string json)
@@ -58,9 +70,21 @@ public sealed record PunchingReportData(
                             : []));
         PunchingScene? scene = r.TryGetProperty("scene", out var s) && s.ValueKind == JsonValueKind.Object ? PunchingSceneJson.Read(s) : null;
         JsonElement? inputs = r.TryGetProperty("inputs", out var inp) && inp.ValueKind == JsonValueKind.Object ? inp.Clone() : null;
+        PunchingReportDesign? design = null;
+        if (r.TryGetProperty("design", out var dz) && dz.ValueKind == JsonValueKind.Object)
+            design = new(Str(dz, "state"), Num(dz, "lambda"), Str(dz, "governing"), Str(dz, "layout") == "cross",
+                Num(dz, "qsw_req"), Num(dz, "qsw"), Num(dz, "qsw_x_req"), Num(dz, "qsw_x"), Num(dz, "qsw_y_req"), Num(dz, "qsw_y"),
+                Num(dz, "asw_req"), Num(dz, "bar_area_req"), Num(dz, "bar_diameter"),
+                Num(dz, "rows_req") is double rq ? (int)rq : null, Num(dz, "zone_req"),
+                Bool(dz, "beyond_not_ensured"), Bool(dz, "provided_sufficient"));
+        var detailing = new List<PunchingReportDetailing>();
+        if (r.TryGetProperty("detailing", out var dt) && dt.ValueKind == JsonValueKind.Array)
+            foreach (var c in dt.EnumerateArray())
+                detailing.Add(new(Str(c, "code"), Str(c, "quantity"), Num(c, "value"), Str(c, "relation"), Num(c, "limit"),
+                    Str(c, "limit_formula"), Str(c, "state"), Str(c, "text")));
         return new(Bool(r, "passed"), Num(r, "ratio"), Str(r, "status"), Num(r, "ratio_concrete"), Num(r, "ratio_max_sw"),
             Str(r, "governing"), variants, warnings, r.TryGetProperty("traceCommon", out var tc) ? Steps(tc) : [],
-            scene, inputs, null);
+            scene, inputs, null, design, detailing);
     }
 
     static List<PunchingReportStep> Steps(JsonElement a)
@@ -167,7 +191,9 @@ public sealed class PunchingReportProvider : IReportProvider
             doc.Add(new ReportParagraph(Verdict(v.Ratio)));
         }
 
+        AddDetailing(doc, data);
         AddSummary(doc, data, edgeCount);
+        AddDesign(doc, data);
         foreach (var w in data.Warnings.Where(w => !string.IsNullOrWhiteSpace(w.Text)))
         {
             string readable = w.Text;
@@ -175,6 +201,57 @@ public sealed class PunchingReportProvider : IReportProvider
                 readable = readable.Replace($"«{v.Id}»", $"«{PunchingReportText.VariantTitle(v.Kind, v.Zone, v.Id, edgeCount)}»", StringComparison.Ordinal);
             doc.Add(new ReportWarning("Примечание: " + readable));
         }
+    }
+
+    /// <summary>Конструктивные требования п. 10.3.17 таблицей.</summary>
+    internal static void AddDetailing(ReportDocument doc, PunchingReportData data)
+    {
+        if (data.Detailing is not { Count: > 0 } det) return;
+        doc.Add(new ReportHeading(1, "Конструктивные требования к поперечной арматуре (п. 10.3.17)"));
+        doc.Add(new ReportTable(["Требование", "Значение, мм", "Предел, мм", "Итог"],
+            det.Select(c => (IReadOnlyList<string>)
+            [
+                c.Text,
+                c.Code == "anchorage" ? "—" : Mm(c.Value),
+                c.Code == "anchorage" ? "—" : $"{c.Relation} {Mm(c.Limit)}",
+                DetailingState(c.State)
+            ]).ToList()));
+        if (det.Any(c => c.State is "violated" or "allowed"))
+            doc.Add(new ReportParagraph("При нарушении требований п. 10.3 в расчёте учитываются только стержни, пересекающие пирамиду "
+                + "продавливания, при обеспечении их анкеровки (пп. 8.1.48, 8.1.50): ряды на расстоянии от h0/3 до h0 от грани "
+                + "грузовой площади, при шаге рядов больше h0/3 — в наиневыгоднейшем положении пирамиды."));
+    }
+
+    internal static string DetailingState(string state) => state switch
+    {
+        "ok" => "выполнено",
+        "allowed" => "допускается (учтены стержни пирамиды)",
+        "violated" => "НЕ выполнено",
+        _ => "не проверяется"
+    };
+
+    static string Mm(double? m) => m is double v ? Sig(v * 1000) : "—";
+
+    /// <summary>Подбор поперечной арматуры.</summary>
+    internal static void AddDesign(ReportDocument doc, PunchingReportData data)
+    {
+        if (data.Design is not { } d) return;
+        doc.Add(new ReportHeading(1, "Подбор поперечной арматуры"));
+        doc.Add(new ReportParagraph(PunchingReportText.DesignSentence(d)));
+        var rows = new List<(string, string)>();
+        if (d.Cross)
+        {
+            rows.Add(("qsw,x треб. / заданное (лучи вдоль Y), кН/м", $"{Sig(d.QswXReq)} / {Sig(d.QswX)}"));
+            rows.Add(("qsw,y треб. / заданное (лучи вдоль X), кН/м", $"{Sig(d.QswYReq)} / {Sig(d.QswY)}"));
+        }
+        else rows.Add(("qsw треб. / заданное, кН/м", $"{Sig(d.QswReq)} / {Sig(d.Qsw)}"));
+        if (d.AswReq is double asw) rows.Add(("Asw линии в пирамиде треб., мм²", Sig(asw * 1e6)));
+        if (d.BarAreaReq is double ab) rows.Add(("Площадь стержня треб., мм²", Sig(ab * 1e6)));
+        if (d.BarDiameter is double dia) rows.Add(("Наименьший подходящий диаметр, мм", Sig(dia * 1000)));
+        if (d.RowsReq is int n) rows.Add(("Рядов не менее (контур за армированием и 1,5h0)", n.ToString(CultureInfo.InvariantCulture)));
+        if (d.ZoneReq is double z) rows.Add(("Граница армированной зоны от грани не менее, мм", Sig(z * 1000)));
+        if (d.BeyondNotEnsured) rows.Add(("Контур за армированием", "не проходит при любой ширине зоны"));
+        doc.Add(new ReportKeyValueTable(rows, "Величина", "Значение"));
     }
 
     internal static string Verdict(double? ratio)
@@ -221,9 +298,28 @@ public sealed class PunchingReportProvider : IReportProvider
         if (i.TryGetProperty("sw", out var sw) && sw.ValueKind == JsonValueKind.True)
         {
             Text("—", S(i, "rebar") is { Length: > 0 } rt ? rt : "Rsw задано вручную", "поперечная арматура");
+            bool cross = S(i, "swLayout") == "cross";
+            Text("—", cross ? "крестообразно у осей площадки (рис. 8.11г)" : "равномерно вдоль контура", "раскладка поперечной арматуры");
             Row("d_sw", N(i, "swDiameter"), "м", "диаметр поперечных стержней");
-            Row("n", N(i, "swCount"), "шт.", "стержней в ряду на длине шага");
-            Row("s_w", N(i, "swStep"), "м", "шаг вдоль контура");
+            if (N(i, "swFirstRow") is double s1)
+            {
+                Row("s_1", s1, "м", "от грани площади до первого ряда");
+                Row("s_d", N(i, "swRowStep"), "м", "шаг рядов поперёк сторон контура");
+                Row("n_r", N(i, "swRowCount"), "шт.", "число рядов");
+            }
+            else Row("n", N(i, "swCount"), "шт.", "стержней в линии на длине шага");
+            if (cross)
+            {
+                foreach (var (key, name) in new[] { ("swCrossX", "лучи вдоль X (у граней ±x)"), ("swCrossY", "лучи вдоль Y (у граней ±y)") })
+                    if (i.TryGetProperty(key, out var arm) && arm.ValueKind == JsonValueKind.Object)
+                    {
+                        bool pos = arm.TryGetProperty("positive", out var pv) && pv.ValueKind == JsonValueKind.True;
+                        bool neg = arm.TryGetProperty("negative", out var nv) && nv.ValueKind == JsonValueKind.True;
+                        string sides = pos && neg ? "в обе стороны" : pos ? "только в сторону +" : neg ? "только в сторону −" : "нет";
+                        Text("L_sw", $"{Sig(N(arm, "width"))} м = ({Sig(N(arm, "lines"))} − 1) × {Sig(N(arm, "step"))} м; {sides}", name);
+                    }
+            }
+            else Row("s_w", N(i, "swStep"), "м", "шаг вдоль контура");
             Row("R_sw", N(i, "rsw"), "кПа", "расчётное сопротивление поперечной арматуры");
             if (N(i, "swZone") is double zone) Row("—", zone, "м", "от грани площади до внешнего ряда арматуры");
         }
@@ -383,7 +479,17 @@ public sealed class PunchingReportProvider : IReportProvider
             "h0y" => "Рабочая высота вдоль Y",
             "h0" => "Приведённая рабочая высота",
             "rbt" => "Расчётное сопротивление бетона растяжению",
-            "asw" => "Площадь поперечной арматуры в ряду на шаге",
+            "asw" => "Площадь стержней одной линии, пересекающих пирамиду",
+            "as1" => "Площадь одного поперечного стержня",
+            "nsw" => "Число рядов, пересекающих пирамиду продавливания (h0/3 … h0 от грани)",
+            "lswx" => "Длина участков контура под лучами креста вдоль Y (Lsw,x, рис. 8.11г)",
+            "lswy" => "Длина участков контура под лучами креста вдоль X (Lsw,y, рис. 8.11г)",
+            "qswx" => "Погонное усилие в арматуре лучей вдоль Y",
+            "qswy" => "Погонное усилие в арматуре лучей вдоль X",
+            "iswx" => "Момент инерции армированных участков относительно оси X",
+            "iswy" => "Момент инерции армированных участков относительно оси Y",
+            "wswx" => "Момент сопротивления армированных участков относительно оси X (п. 8.1.52)",
+            "wswy" => "Момент сопротивления армированных участков относительно оси Y (п. 8.1.52)",
             "rsw" => "Расчётное сопротивление поперечной арматуры",
             "mloc_x" or "mloc_y" => "Момент, передаваемый на продавливание",
             "fred" => "Продавливающая сила за вычетом нагрузки в основании пирамиды",

@@ -53,6 +53,9 @@ public sealed class PunchingPlanCanvas : FrameworkElement
     static readonly Pen ExcludedPen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0x94, 0xA3, 0xB8)), 1.4) { DashStyle = new DashStyle([1.5, 2.5], 0) });
     static readonly Pen HolePen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0x47, 0x55, 0x69)), 1.4));
     static readonly Pen AreaPen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0x11, 0x18, 0x27)), 1.6));
+    static readonly Brush BarBrush = Frozen(new SolidColorBrush(Color.FromRgb(0x25, 0x63, 0xEB)));
+    static readonly Pen ArmedPen = Frozen(new Pen(new SolidColorBrush(Color.FromArgb(0x70, 0x25, 0x63, 0xEB)), 8)
+        { StartLineCap = PenLineCap.Flat, EndLineCap = PenLineCap.Flat });
     static readonly Brush AreaBrush = Frozen(new DrawingBrush(new GeometryDrawing(null,
         new Pen(new SolidColorBrush(Color.FromRgb(0x6B, 0x72, 0x80)), 0.8), Geometry.Parse("M0,8 L8,0")))
     {
@@ -138,7 +141,17 @@ public sealed class PunchingPlanCanvas : FrameworkElement
         var inner = scene.AreaInnerOutline();
         if (inner.Count > 0) dc.DrawGeometry(Brushes.White, AreaPen, Poly(inner, M, true));
 
+        // Поперечная арматура: стержни по рядам (точки), у выбранного контура — участки под лучами креста.
+        if (scene.SwBars is { Count: > 0 } bars)
+        {
+            double r = Math.Clamp(scale * 0.006, 1.2, 3.0);
+            foreach (var b in bars) dc.DrawEllipse(BarBrush, null, M(b), r, r);
+        }
+
         string? selected = SelectedVariantId ?? scene.Variants.FirstOrDefault(v => v.Governs)?.Id;
+        if (scene.Variants.FirstOrDefault(v => v.Id == selected)?.Armed is { Count: > 0 } armed)
+            foreach (var e in armed)
+                dc.DrawGeometry(null, ArmedPen, Poly(PunchingScene.Tessellate(e).Select(M).ToList()));
         foreach (var v in scene.Variants.Where(v => v.Pieces.Count > 0).OrderBy(v => v.Id == selected).ThenBy(v => v.Id == _hoverId))
         {
             bool strong = v.Id == selected;
@@ -171,8 +184,10 @@ public sealed class PunchingPlanCanvas : FrameworkElement
         dc.DrawText(Text("X", 12, gray), new Point(px.X - 12, px.Y - 18));
         var py = M(new PlanPoint(c0.X, y1));
         dc.DrawText(Text("Y", 12, gray), new Point(py.X + 5, py.Y + 2));
-        dc.DrawText(Text(string.Format(CultureInfo.CurrentCulture, Utilites.Loc.S("PunchingCanvasLegend", "h0 = {0:0} мм; + — центр тяжести контура"),
-            scene.H0 * 1000), 11, gray), new Point(pad, ActualHeight - footer));
+        string legend = string.Format(CultureInfo.CurrentCulture, Utilites.Loc.S("PunchingCanvasLegend", "h0 = {0:0} мм; + — центр тяжести контура"), scene.H0 * 1000);
+        if (scene.SwCross) legend += Utilites.Loc.S("PunchingCanvasLegendCross", "; синим — стержни и участки контура под лучами креста");
+        else if (scene.SwBars is { Count: > 0 }) legend += Utilites.Loc.S("PunchingCanvasLegendBars", "; синим — стержни поперечной арматуры");
+        dc.DrawText(Text(legend, 11, gray), new Point(pad, ActualHeight - footer));
     }
 
     FormattedText Text(string s, double size, Brush brush) =>

@@ -98,10 +98,16 @@ public sealed class PunchingParamsVM : ViewModelBase
         if (isNew)
         {
             // Новая задача: бетон и арматура — первые в проекте, усилия — из строки набора, если выбрана.
+            // Поперечная арматура новой задачи — рядами по п. 10.3.17 (проверка конструктивных требований и подбор).
+            var (s1, sd, nr) = DefaultRows(p.H0);
             p = p with
             {
                 Slab = p.Slab with { ConcreteMaterialId = Concretes.FirstOrDefault()?.Id ?? 0 },
-                Reinforcement = p.Reinforcement with { MaterialId = Rebars.FirstOrDefault()?.Id ?? 0 }
+                Reinforcement = p.Reinforcement with
+                {
+                    MaterialId = Rebars.FirstOrDefault()?.Id ?? 0, FirstRow = s1, RowStep = sd, RowCount = nr, Step = sd,
+                    CrossX = p.Reinforcement.CrossX with { Step = sd }, CrossY = p.Reinforcement.CrossY with { Step = sd }
+                }
             };
             if (_forceRow is not null)
                 p = p with { Forces = p.Forces with { F = Math.Abs(_forceRow.N), Mx = _forceRow.Mx, My = _forceRow.My } };
@@ -117,6 +123,20 @@ public sealed class PunchingParamsVM : ViewModelBase
         RemovePointCommand = new RelayCommand(_ => { if (SelectedPoint is not null) Points.Remove(SelectedPoint); }, _ => SelectedPoint is not null);
         TakeForcesFromRowCommand = new RelayCommand(_ => TakeForcesFromRow(), _ => _forceRow is not null);
         TakeFromPlateSectionCommand = new RelayCommand(_ => TakeFromPlateSection(), _ => SelectedPlateSection is not null);
+        DesignCommand = new RelayCommand(_ => ApplyDesign());
+    }
+
+    /// <summary>
+    /// Ряды по п. 10.3.17 для h0, м: первый ряд — h0/3, округлённое вверх до 5 мм (не далее h0/2); шаг — h0/3 и не более 300 мм,
+    /// округлённый вниз до 5 мм; рядов — чтобы зона была не меньше 1,5h0.
+    /// </summary>
+    public static (double FirstRow, double Step, int Count) DefaultRows(double h0)
+    {
+        if (!(h0 > 0)) return (0.06, 0.06, 5);
+        double s1 = Math.Min(Math.Ceiling(h0 / 3 * 200 - 1e-9) / 200, h0 / 2);
+        double sd = Math.Max(0.01, Math.Floor(Math.Min(h0 / 3, 0.3) * 200 + 1e-9) / 200);
+        int n = Math.Max(2, (int)Math.Ceiling((1.5 * h0 - s1) / sd - 1e-9) + 1);
+        return (s1, sd, n);
     }
 
     // ── Списки ────────────────────────────────────────────────────────────
@@ -232,6 +252,63 @@ public sealed class PunchingParamsVM : ViewModelBase
 
     /// <summary>Поперечная арматура.</summary>
     public bool SwEnabled { get => _swEnabled; set => SetField(ref _swEnabled, value); }
+
+    /// <summary>Раскладки поперечной арматуры.</summary>
+    public IReadOnlyList<PunchingChoice> SwLayouts { get; } =
+    [
+        new("uniform", Loc.S("PunchingSwLayout_uniform", "равномерно вдоль контура")),
+        new("cross", Loc.S("PunchingSwLayout_cross", "крестообразно у осей площадки (рис. 8.11г)"))
+    ];
+    string _swLayout = "uniform";
+    bool _swByRows, _crossXPos = true, _crossXNeg = true, _crossYPos = true, _crossYNeg = true;
+    double _firstRow, _rowStep, _crossXStep, _crossYStep;
+    int _rowCount, _crossXLines, _crossYLines;
+    /// <summary>"uniform" | "cross".</summary>
+    public string SwLayout { get => _swLayout; set { if (SetField(ref _swLayout, value)) { OnPropertyChanged(nameof(IsSwCross)); OnPropertyChanged(nameof(IsSwUniform)); OnPropertyChanged(nameof(ShowLegacyCount)); } } }
+    public bool IsSwCross => SwLayout == "cross";
+    public bool IsSwUniform => !IsSwCross;
+    /// <summary>Арматура рядами (s1, sd, nr) — проверка п. 10.3.17 и подбор числа рядов.</summary>
+    public bool SwByRows
+    {
+        get => _swByRows;
+        set
+        {
+            if (value && !_swByRows && !_loading)
+            {
+                // Включение рядов: s1, sd, nr — по п. 10.3.17 для текущей h0.
+                var (s1, sd, nr) = DefaultRows(H0Value());
+                _loading = true;
+                try { FirstRow = Mm(s1); RowStep = Mm(sd); RowCount = nr; }
+                finally { _loading = false; }
+            }
+            if (SetField(ref _swByRows, value)) { OnPropertyChanged(nameof(SwLegacy)); OnPropertyChanged(nameof(ShowLegacyCount)); }
+        }
+    }
+    /// <summary>Старый ввод: n стержней на шаге и граница зоны вручную.</summary>
+    public bool SwLegacy => !SwByRows;
+    /// <summary>Показывать n стержней на шаге (без рядов).</summary>
+    public bool ShowLegacyCount => SwLegacy;
+    /// <summary>Расстояние от грани площади до первого ряда s1, мм.</summary>
+    public double FirstRow { get => _firstRow; set => SetField(ref _firstRow, value); }
+    /// <summary>Шаг рядов sd, мм.</summary>
+    public double RowStep { get => _rowStep; set => SetField(ref _rowStep, value); }
+    /// <summary>Число рядов.</summary>
+    public int RowCount { get => _rowCount; set => SetField(ref _rowCount, value); }
+    /// <summary>Лучи вдоль X: число линий, шаг линий (мм), стороны.</summary>
+    public int CrossXLines { get => _crossXLines; set { if (SetField(ref _crossXLines, value)) OnPropertyChanged(nameof(CrossXWidthText)); } }
+    public double CrossXStep { get => _crossXStep; set { if (SetField(ref _crossXStep, value)) OnPropertyChanged(nameof(CrossXWidthText)); } }
+    public bool CrossXPos { get => _crossXPos; set => SetField(ref _crossXPos, value); }
+    public bool CrossXNeg { get => _crossXNeg; set => SetField(ref _crossXNeg, value); }
+    /// <summary>Лучи вдоль Y.</summary>
+    public int CrossYLines { get => _crossYLines; set { if (SetField(ref _crossYLines, value)) OnPropertyChanged(nameof(CrossYWidthText)); } }
+    public double CrossYStep { get => _crossYStep; set { if (SetField(ref _crossYStep, value)) OnPropertyChanged(nameof(CrossYWidthText)); } }
+    public bool CrossYPos { get => _crossYPos; set => SetField(ref _crossYPos, value); }
+    public bool CrossYNeg { get => _crossYNeg; set => SetField(ref _crossYNeg, value); }
+    /// <summary>Ширина лучей Lsw = (n − 1)·sw, текстом.</summary>
+    public string CrossXWidthText => string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingCrossWidth", "Lsw = {0:0} мм"), Math.Max(0, CrossXLines - 1) * CrossXStep);
+    public string CrossYWidthText => string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingCrossWidth", "Lsw = {0:0} мм"), Math.Max(0, CrossYLines - 1) * CrossYStep);
+    /// <summary>Итог последнего подбора («Подобрать»).</summary>
+    public string DesignApplyText { get; private set; } = "";
     public Material? Rebar { get => _rebar; set => SetField(ref _rebar, value); }
     /// <summary>Диаметр, мм.</summary>
     public double Diameter { get => _diameter; set => SetField(ref _diameter, value); }
@@ -307,6 +384,8 @@ public sealed class PunchingParamsVM : ViewModelBase
     public ICommand RemovePointCommand { get; }
     public ICommand TakeForcesFromRowCommand { get; }
     public ICommand TakeFromPlateSectionCommand { get; }
+    /// <summary>Подобрать поперечную арматуру по ядру.</summary>
+    public ICommand DesignCommand { get; }
 
     bool SetField<T>(ref T field, T value, [CallerMemberName] string? name = null)
     {
@@ -363,6 +442,11 @@ public sealed class PunchingParamsVM : ViewModelBase
             Rebar = Rebars.FirstOrDefault(m => m.Id == r.MaterialId);
             Diameter = Mm(r.Diameter); Count = r.Count; Step = Mm(r.Step);
             ZoneEnabled = r.ZoneExtent is not null; Zone = Mm(r.ZoneExtent ?? 0.3);
+            SwLayout = r.IsCross ? "cross" : "uniform";
+            SwByRows = r.ByRows;
+            FirstRow = Mm(r.FirstRow ?? DefaultRows(p.H0).FirstRow); RowStep = Mm(r.RowStep); RowCount = r.RowCount;
+            CrossXLines = r.CrossX.Lines; CrossXStep = Mm(r.CrossX.Step); CrossXPos = r.CrossX.Positive; CrossXNeg = r.CrossX.Negative;
+            CrossYLines = r.CrossY.Lines; CrossYStep = Mm(r.CrossY.Step); CrossYPos = r.CrossY.Positive; CrossYNeg = r.CrossY.Negative;
             RswManual = r.RswOverride is not null; RswManualValue = (r.RswOverride ?? 170_000) / 1000;
 
             F = p.Forces.F; Mx = p.Forces.Mx; My = p.Forces.My; MomentsAreMloc = p.Forces.MomentsAreMloc;
@@ -403,7 +487,10 @@ public sealed class PunchingParamsVM : ViewModelBase
             Reinforcement = new PunchingReinforcementParams
             {
                 Enabled = SwEnabled, MaterialId = Rebar?.Id ?? 0, Diameter = M(Diameter), Count = Count, Step = M(Step),
-                ZoneExtent = ZoneEnabled ? M(Zone) : null, RswOverride = RswManual ? RswManualValue * 1000 : null
+                ZoneExtent = ZoneEnabled ? M(Zone) : null, RswOverride = RswManual ? RswManualValue * 1000 : null,
+                Layout = SwLayout, FirstRow = SwByRows ? M(FirstRow) : null, RowStep = M(RowStep), RowCount = RowCount,
+                CrossX = new PunchingCrossArmParams { Lines = CrossXLines, Step = M(CrossXStep), Positive = CrossXPos, Negative = CrossXNeg },
+                CrossY = new PunchingCrossArmParams { Lines = CrossYLines, Step = M(CrossYStep), Positive = CrossYPos, Negative = CrossYNeg },
             },
             Forces = new PunchingForceParams
             {
@@ -444,11 +531,7 @@ public sealed class PunchingParamsVM : ViewModelBase
             ? string.Format(c, Loc.S("PunchingRbtLine", "Rbt = {0:0.###} МПа ({1}, расчёт {2})"), strengths.Rbt / 1000,
                 strengths.ConcreteTag.Length > 0 ? strengths.ConcreteTag : Loc.S("PunchingManualValue", "задано вручную"), _task.CalcType)
             : "";
-        double asw = p.Reinforcement.Asw;
-        SwText = p.Reinforcement.Enabled && strengths.Rsw > 0 && p.Reinforcement.Step > 0
-            ? string.Format(c, Loc.S("PunchingSwLine", "Asw = {0:0.#} мм², Rsw = {1:0.#} МПа, qsw = Rsw·Asw/sw = {2:0.#} кН/м"),
-                asw * 1e6, strengths.Rsw / 1000, strengths.Rsw * asw / p.Reinforcement.Step)
-            : "";
+        SwText = SwLine(p, strengths.Rsw);
 
         if (IsBatch && _batchRows is not { Count: > 0 }) errors.Add("force_set_missing");
         if (errors.Count > 0)
@@ -493,6 +576,105 @@ public sealed class PunchingParamsVM : ViewModelBase
         OnPropertyChanged(nameof(SwText));
         OnPropertyChanged(nameof(ErrorText));
         OnPropertyChanged(nameof(HasErrors));
+    }
+
+    /// <summary>Asw, Rsw, qsw (и ряды в пирамиде) по текущему вводу; пусто — арматуры нет или ввод неполон.</summary>
+    static string SwLine(PunchingTaskParams p, double rsw)
+    {
+        var r = p.Reinforcement;
+        if (!r.Enabled || !(rsw > 0) || p.Validate().Any(e => e.StartsWith("sw_", StringComparison.Ordinal))) return "";
+        var c = CultureInfo.CurrentCulture;
+        var core = r.ToCore(rsw);
+        double h0 = p.H0;
+        double asw = PunchingSwLayout.AswPerLine(core, h0);
+        string rows = core.Rows is { } rs
+            ? string.Format(c, Loc.S("PunchingSwRowsLine", "рядов в пирамиде (h0/3 … h0 от грани): {0} из {1}; "), PunchingSwLayout.CountRows(rs, h0).Counted, rs.Count)
+            : "";
+        if (core.Cross is not null)
+        {
+            var (qx, qy) = PunchingSwLayout.QCross(core, h0);
+            return rows + string.Format(c, Loc.S("PunchingSwCrossLine", "Asw = {0:0.#} мм², Rsw = {1:0.#} МПа; qsw лучей вдоль X = {2:0.#} кН/м, вдоль Y = {3:0.#} кН/м"),
+                asw * 1e6, rsw / 1000, qx, qy);
+        }
+        return rows + string.Format(c, Loc.S("PunchingSwLine", "Asw = {0:0.#} мм², Rsw = {1:0.#} МПа, qsw = Rsw·Asw/sw = {2:0.#} кН/м"),
+            asw * 1e6, rsw / 1000, PunchingSwLayout.QUniform(core, h0));
+    }
+
+    /// <summary>
+    /// «Подобрать»: при выключенной арматуре включает её рядами по п. 10.3.17; затем по ядру подбирает диаметр из ряда
+    /// (с рядами) или число стержней на шаге (без рядов) и ширину зоны для контуров за армированием.
+    /// </summary>
+    public void ApplyDesign()
+    {
+        var c = CultureInfo.CurrentCulture;
+        _loading = true;
+        try
+        {
+            if (!SwEnabled)
+            {
+                SwEnabled = true;
+                var (s1, sd, nr) = DefaultRows(H0Value());
+                SwByRows = true; FirstRow = Mm(s1); RowStep = Mm(sd); RowCount = nr;
+                if (!(Step > 0)) Step = Mm(sd);
+            }
+        }
+        finally { _loading = false; }
+
+        var p = ToParams();
+        var errors = p.Validate();
+        var strengths = PunchingRunner.ResolveStrengths(p, _materials, _task.CalcType, out var materialErrors);
+        errors.AddRange(materialErrors);
+
+        if (errors.Count > 0 || !(strengths.Rsw > 0))
+        {
+            DesignApplyText = Loc.S("PunchingDesignInputError", "Подбор невозможен: исправьте исходные данные.");
+            OnPropertyChanged(nameof(DesignApplyText));
+            Recalculate();
+            return;
+        }
+        var single = p;
+        if (IsBatch && _batchRows is { Count: > 0 })
+        {
+            var outcome = PunchingBatchRunner.Evaluate(p, strengths, _batchRows);
+            single = PunchingBatchRunner.RowParams(p, (outcome.Governing ?? outcome.Rows[0]).Item);
+        }
+        var d = PunchingDesign.Solve(single.ToInput(strengths.Rbt, strengths.Rsw));
+        _loading = true;
+        try
+        {
+            switch (d.State)
+            {
+                case PunchingDesignState.NotRequired:
+                    DesignApplyText = Loc.S("PunchingDesignApplied_not_required", "Поперечная арматура не требуется — ввод не изменён.");
+                    break;
+                case PunchingDesignState.NotEnsured:
+                    DesignApplyText = Loc.S("PunchingDesign_not_ensured", "Арматурой не обеспечить.");
+                    break;
+                case PunchingDesignState.LayoutIneffective:
+                    DesignApplyText = Loc.S("PunchingDesign_layout_ineffective", "Раскладка не пересекает определяющий контур или пирамиду.");
+                    break;
+                default:
+                    if (SwByRows)
+                    {
+                        if (d.BarDiameter is double dia) Diameter = Mm(dia);
+                        if (d.RowsRequired is int n) RowCount = n;
+                        DesignApplyText = d.BarDiameter is double dd
+                            ? string.Format(c, Loc.S("PunchingDesignAppliedRows", "Подобрано: Ø{0:0}, рядов {1}."), dd * 1000, RowCount)
+                            : Loc.S("PunchingDesignAppliedTooBig", "Даже Ø32 недостаточно — уменьшите шаги или добавьте линии.");
+                    }
+                    else
+                    {
+                        double bar = Math.PI * Math.Pow(M(Diameter), 2) / 4;
+                        if (bar > 0 && double.IsFinite(d.AswLineReq)) Count = Math.Max(1, (int)Math.Ceiling(d.AswLineReq / bar - 1e-9));
+                        if (d.ZoneExtentRequired is double z) { ZoneEnabled = true; Zone = Math.Ceiling(z * 1000 / 5) * 5; }
+                        DesignApplyText = string.Format(c, Loc.S("PunchingDesignAppliedCount", "Подобрано: {0} × Ø{1:0} на шаге {2:0} мм."), Count, Diameter, Step);
+                    }
+                    break;
+            }
+        }
+        finally { _loading = false; }
+        OnPropertyChanged(nameof(DesignApplyText));
+        Recalculate();
     }
 
     // ── Команды ────────────────────────────────────────────────────────────

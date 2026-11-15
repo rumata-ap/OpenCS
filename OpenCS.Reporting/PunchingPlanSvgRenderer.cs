@@ -11,6 +11,30 @@ public static class PunchingReportText
     /// <summary>Порог «близко к пределу» — как у пакетов.</summary>
     public const double NearLimit = 0.99;
 
+    /// <summary>Вывод подбора поперечной арматуры одной фразой.</summary>
+    public static string DesignSentence(PunchingReportDesign d)
+    {
+        var c = CultureInfo.GetCultureInfo("ru-RU");
+        string Q(double? v) => v is double x ? x.ToString("0.#", c) : "—";
+        string req = d.Cross
+            ? $"qsw,x ≥ {Q(d.QswXReq)} кН/м (лучи вдоль Y), qsw,y ≥ {Q(d.QswYReq)} кН/м (лучи вдоль X)"
+            : $"qsw ≥ {Q(d.QswReq)} кН/м";
+        string tail = d.BarDiameter is double dia
+            ? $"; при заданных рядах и шагах — стержни Ø{(dia * 1000).ToString("0", c)}"
+            : d.BarAreaReq is double ab ? $"; площадь стержня ≥ {(ab * 1e6).ToString("0.#", c)} мм² — больше Ø32, измените шаги или ряды" : "";
+        string rows = d.RowsReq is int n ? $"; рядов не менее {n}" : d.ZoneReq is double z ? $"; зона армирования не менее {(z * 1000).ToString("0", c)} мм от грани" : "";
+        string beyond = d.BeyondNotEnsured ? " Контур за армированием не проходит при любой ширине зоны — увеличьте толщину или класс бетона." : "";
+        string have = d.ProvidedSufficient ? " Заданной арматуры достаточно." : "";
+        return d.State switch
+        {
+            "not_required" => "Поперечная арматура по расчёту не требуется — прочность обеспечена бетоном.",
+            "not_ensured" => "Арматурой прочность не обеспечить: K > 1 и при предельной арматуре (Fult = 2Fb, Mult = 2Mb) — увеличьте толщину плиты, класс бетона или размеры площадки (капитель).",
+            "layout_ineffective" => "Заданная раскладка не пересекает определяющий контур или пирамиду продавливания (лучи креста мимо контура, ряды вне h0/3…h0) — измените раскладку.",
+            "by_threshold" => $"Требуется {req} — по условию учёта арматуры Fsw,ult ≥ 0,25·Fb,ult (п. 8.1.48), по прочности хватило бы меньшей{tail}{rows}.{have}{beyond}",
+            _ => $"Требуется {req} — из условия K = 1{tail}{rows}.{have}{beyond}"
+        };
+    }
+
     /// <summary>Название варианта контура.</summary>
     public static string VariantTitle(PunchingVariantKind kind, PunchingZone zone, string id, int edgeCount = 2)
     {
@@ -164,6 +188,22 @@ public sealed class PunchingPlanSvgRenderer
         if (inner.Count > 0)
             svg.Append("<polygon points=\"").Append(Pts(inner, M)).AppendLine("\" fill=\"white\" stroke=\"#111827\" stroke-width=\"1.2\"/>");
 
+        // Поперечная арматура: стержни; у выделенного контура — участки под лучами креста.
+        if (scene.SwBars is { Count: > 0 } bars)
+        {
+            double br = Math.Clamp(scale * 0.006, 1.0, 2.8);
+            foreach (var b in bars)
+            {
+                var (bx, by) = M(b);
+                svg.Append(CultureInfo.InvariantCulture, $"<circle cx=\"{F(bx)}\" cy=\"{F(by)}\" r=\"{F(br)}\" fill=\"#2563eb\"/>");
+            }
+            svg.AppendLine();
+        }
+        var armedOf = variantId is not null ? shown.FirstOrDefault() : scene.Variants.FirstOrDefault(v => v.Governs);
+        foreach (var e in armedOf?.Armed ?? [])
+            svg.Append("<polyline points=\"").Append(Pts(PunchingScene.Tessellate(e), M))
+                .AppendLine("\" fill=\"none\" stroke=\"#2563eb\" stroke-opacity=\"0.45\" stroke-width=\"8\"/>");
+
         // Контуры: прочие — штрих, определяющий (или единственный) — сплошной.
         foreach (var v in shown.OrderBy(v => v.Governs))
         {
@@ -214,7 +254,7 @@ public sealed class PunchingPlanSvgRenderer
         svg.Append(CultureInfo.InvariantCulture,
             $"<text x=\"{Width / 2}\" y=\"{(head2.Length > 0 ? 60 : 44)}\" text-anchor=\"middle\" font-family=\"Segoe UI,Arial,sans-serif\" font-size=\"13\" fill=\"{subColor}\">{E(sub)}</text>");
         svg.Append(CultureInfo.InvariantCulture,
-            $"<text x=\"{Pad}\" y=\"{Height - 10}\" font-family=\"Segoe UI,Arial,sans-serif\" font-size=\"11\" fill=\"#6b7280\">{E($"h0 = {F(scene.H0 * 1000)} мм; + — центр тяжести контура; серым — вне плиты; серый пунктир — исключено у отверстий")}</text>");
+            $"<text x=\"{Pad}\" y=\"{Height - 10}\" font-family=\"Segoe UI,Arial,sans-serif\" font-size=\"11\" fill=\"#6b7280\">{E($"h0 = {F(scene.H0 * 1000)} мм; + — центр тяжести контура; серым — вне плиты; серый пунктир — исключено у отверстий" + (scene.SwCross ? "; синим — стержни и участки под лучами креста" : scene.SwBars is { Count: > 0 } ? "; синим — стержни" : ""))}</text>");
         svg.AppendLine("</svg>");
         return svg.ToString();
     }

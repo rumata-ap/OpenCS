@@ -118,10 +118,20 @@ public static class PunchingRunner
         };
         if (p.Reinforcement.Enabled)
         {
-            steps.Add(Step("sp63.punching.asw", "п. 8.1.48", "Punching_Trace_Asw", @"A_{sw} = n\,\frac{\pi d_{sw}^2}{4}",
-                @"{n} \cdot \pi \cdot {d}^2 / 4", "{Asw}",
-                ("n", p.Reinforcement.Count, CalculationUnit.Count), ("d", p.Reinforcement.Diameter, CalculationUnit.Meter),
-                ("Asw", p.Reinforcement.Asw, CalculationUnit.SquareMeter)));
+            if (p.Reinforcement.ByRows)
+            {
+                steps.Add(Step("sp63.punching.as1", "п. 8.1.48", "Punching_Trace_As1", @"A_{s1} = \frac{\pi d_{sw}^2}{4}",
+                    @"\pi \cdot {d}^2 / 4", "{As1}",
+                    ("d", p.Reinforcement.Diameter, CalculationUnit.Meter), ("As1", p.Reinforcement.BarArea, CalculationUnit.SquareMeter)));
+                if (r.Rows is { } rc)
+                    steps.Add(Step("sp63.punching.nsw", "п. 8.1.48, п. 10.3.17", "Punching_Trace_Nsw", @"n_{sw}", "", "{n}",
+                        ("n", rc.Counted, CalculationUnit.Count)));
+            }
+            else
+                steps.Add(Step("sp63.punching.asw", "п. 8.1.48", "Punching_Trace_Asw", @"A_{sw} = n\,\frac{\pi d_{sw}^2}{4}",
+                    @"{n} \cdot \pi \cdot {d}^2 / 4", "{Asw}",
+                    ("n", p.Reinforcement.Count, CalculationUnit.Count), ("d", p.Reinforcement.Diameter, CalculationUnit.Meter),
+                    ("Asw", p.Reinforcement.Asw, CalculationUnit.SquareMeter)));
             steps.Add(Step("sp63.punching.rsw", "табл. 6.15", "Punching_Trace_Rsw", @"R_{sw}", "", "{Rsw}",
                 ("Rsw", s.Rsw, CalculationUnit.Kilopascal)));
         }
@@ -139,10 +149,18 @@ public static class PunchingRunner
         return steps;
     }
 
-    /// <summary>JSON результата: объект ядра + сцена, исходные данные и трассировка.</summary>
-    public static string Serialize(CalcTask task, PunchingTaskParams p, PunchingStrengths s, PunchingInput input, PunchingResult result)
+    /// <summary>JSON результата: объект ядра + сцена, исходные данные, трассировка и подбор арматуры.</summary>
+    /// <param name="design">Подбор поперечной арматуры (ширина зоны — перестроением геометрии); false — без подбора.</param>
+    public static string Serialize(CalcTask task, PunchingTaskParams p, PunchingStrengths s, PunchingInput input, PunchingResult result,
+        bool design = true)
     {
         var root = JsonNode.Parse(PunchingResultJson.Write(result))!.AsObject();
+        if (design && result.Status != PunchingStatus.ConcreteSufficient)
+        {
+            // Без арматуры в задаче — подбор равномерной qsw; с арматурой — множитель к заданной раскладке.
+            var d = PunchingDesign.Solve(input);
+            root["design"] = JsonNode.Parse(PunchingResultJson.WriteDesign(d));
+        }
         var details = root["details"]!.AsArray();
         for (int i = 0; i < result.Variants.Count; i++)
         {
@@ -172,8 +190,13 @@ public static class PunchingRunner
             ["sw"] = p.Reinforcement.Enabled, ["rebar"] = s.RebarTag, ["rsw"] = s.Rsw,
             ["swDiameter"] = p.Reinforcement.Diameter, ["swCount"] = p.Reinforcement.Count, ["swStep"] = p.Reinforcement.Step,
             ["asw"] = p.Reinforcement.Enabled ? p.Reinforcement.Asw : 0,
-            ["qsw"] = p.Reinforcement.Enabled && p.Reinforcement.Step > 0 ? s.Rsw * p.Reinforcement.Asw / p.Reinforcement.Step : 0,
-            ["swZone"] = p.Reinforcement.ZoneExtent,
+            ["qsw"] = input.Reinforcement is { Cross: null } ri ? PunchingSwLayout.QUniform(ri, input.H0) : 0,
+            ["swZone"] = p.Reinforcement.ByRows ? input.Reinforcement?.EffectiveZoneExtent : p.Reinforcement.ZoneExtent,
+            ["swLayout"] = p.Reinforcement.Layout,
+            ["swFirstRow"] = p.Reinforcement.FirstRow, ["swRowStep"] = p.Reinforcement.ByRows ? p.Reinforcement.RowStep : null,
+            ["swRowCount"] = p.Reinforcement.ByRows ? p.Reinforcement.RowCount : null,
+            ["swCrossX"] = p.Reinforcement.IsCross ? CrossNode(p.Reinforcement.CrossX) : null,
+            ["swCrossY"] = p.Reinforcement.IsCross ? CrossNode(p.Reinforcement.CrossY) : null,
             ["edges"] = p.Edges.Select(e => new { side = e.Side, c = e.C, angleDeg = e.AngleDeg }).ToList(),
             ["holes"] = p.Holes.Count,
             ["F"] = p.Forces.F, ["Mx"] = p.Forces.Mx, ["My"] = p.Forces.My,
@@ -192,6 +215,11 @@ public static class PunchingRunner
     }
 
     static JsonNode? Finite(double v) => double.IsFinite(v) ? JsonValue.Create(v) : null;
+
+    static Dictionary<string, object?> CrossNode(PunchingCrossArmParams a) => new()
+    {
+        ["lines"] = a.Lines, ["step"] = a.Step, ["width"] = a.Width, ["positive"] = a.Positive, ["negative"] = a.Negative
+    };
 
     /// <summary>Шаг трассировки в формате отчётов (как у наклонных сечений).</summary>
     public static JsonNode TraceNode(CalculationTraceStep step)

@@ -6527,7 +6527,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingErr_edge_side">Неизвестная сторона края.</system:String>
    <system:String x:Key="PunchingErr_hole_size">Размеры отверстия должны быть больше нуля.</system:String>
    <system:String x:Key="PunchingErr_hole_overlaps_area">Отверстие перекрывает грузовую площадь.</system:String>
-   <system:String x:Key="PunchingErr_sw_values">Поперечная арматура: диаметр, число стержней и шаг должны быть больше нуля.</system:String>
+   <system:String x:Key="PunchingErr_sw_values">Поперечная арматура: диаметр, число стержней и шаг вдоль контура должны быть больше нуля.</system:String>
    <system:String x:Key="PunchingErr_sw_zone">Зона поперечной арматуры должна быть больше нуля (или не задана).</system:String>
    <system:String x:Key="PunchingErr_rsw_nonpositive">Ручное Rsw должно быть больше нуля.</system:String>
    <system:String x:Key="PunchingErr_force_negative">Продавливающая сила F задаётся модулем (≥ 0).</system:String>
@@ -6647,6 +6647,61 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingWarn_sw_cross_reduced_ignored">Приведённый периметр пилона: крестообразная арматура не учитывается (только равномерная вдоль контура).</system:String>
    <system:String x:Key="PunchingWarn_sw_detailing_violated">Требования п. 10.3.17 не выполнены ({0}): учитываются только стержни, пересекающие пирамиду продавливания (п. 8.1.48), при условии их анкеровки — проверьте анкеровку.</system:String>
    <system:String x:Key="PunchingWarn_sw_rows_near_face">Ряды поперечной арматуры ближе h0/3 к грани площади ({0} шт.) в расчёте не учитываются.</system:String>
+   <system:String x:Key="PunchingErr_sw_rows">Ряды поперечной арматуры: s1 ≥ 0, рядов от 1 до 100, шаг рядов больше нуля.</system:String>
+   <system:String x:Key="PunchingErr_sw_cross">Лучи креста: у включённых лучей не меньше 2 линий и шаг больше нуля; нужен хотя бы один луч.</system:String>
+   <system:String x:Key="PunchingSwLayout">Раскладка</system:String>
+   <system:String x:Key="PunchingSwLayout_uniform">равномерно вдоль контура</system:String>
+   <system:String x:Key="PunchingSwLayout_cross">крестообразно у осей площадки (рис. 8.11г)</system:String>
+   <system:String x:Key="PunchingSwStepHint">Шаг стержней вдоль контура sw (не более 1/4 стороны контура, п. 10.3.17)</system:String>
+   <system:String x:Key="PunchingSwByRows">Ряды поперёк контура (проверка п. 10.3.17, подбор рядов)</system:String>
+   <system:String x:Key="PunchingSwByRowsHint">Asw линии считается по рядам, пересекающим пирамиду (h0/3 … h0 от грани); граница зоны — внешний ряд. Без рядов — n стержней на шаге и зона вручную.</system:String>
+   <system:String x:Key="PunchingSwFirstRowHint">От грани площади до первого ряда: h0/3 ≤ s1 ≤ h0/2 (п. 10.3.17)</system:String>
+   <system:String x:Key="PunchingSwRowStepHint">Шаг рядов поперёк сторон контура: не более h0/3 и 300 мм; до h0/2 — с учётом только стержней пирамиды (п. 10.3.17)</system:String>
+   <system:String x:Key="PunchingSwRowCount">рядов</system:String>
+   <system:String x:Key="PunchingCrossAlongX">Лучи вдоль X</system:String>
+   <system:String x:Key="PunchingCrossAlongY">Лучи вдоль Y</system:String>
+   <system:String x:Key="PunchingCrossLines">линий</system:String>
+   <system:String x:Key="PunchingCrossHint">Линии стержней поперёк луча с шагом sw вдоль контура; ширина луча Lsw = (n − 1)·sw (Пособие 2025). Снимите +/−, если луч упирается в край плиты.</system:String>
+   <system:String x:Key="PunchingCrossWidth">Lsw = {0:0} мм</system:String>
+   <system:String x:Key="PunchingDesignButton">Подобрать</system:String>
+   <system:String x:Key="PunchingDesignButtonHint">Подобрать диаметр (при рядах) или число стержней и ширину зоны по пп. 8.1.48, 8.1.50 при заданной раскладке</system:String>
+   <system:String x:Key="PunchingSwRowsLine">рядов в пирамиде (h0/3 … h0 от грани): {0} из {1}; </system:String>
+   <system:String x:Key="PunchingSwCrossLine">Asw = {0:0.#} мм², Rsw = {1:0.#} МПа; qsw лучей вдоль X = {2:0.#} кН/м, вдоль Y = {3:0.#} кН/м</system:String>
+   <system:String x:Key="PunchingDesignApplied_not_required">Поперечная арматура не требуется — ввод не изменён.</system:String>
+   <system:String x:Key="PunchingDesignAppliedRows">Подобрано: Ø{0:0}, рядов {1}.</system:String>
+   <system:String x:Key="PunchingDesignAppliedTooBig">Даже Ø32 недостаточно — уменьшите шаги или добавьте линии.</system:String>
+   <system:String x:Key="PunchingDesignAppliedCount">Подобрано: {0} × Ø{1:0} на шаге {2:0} мм.</system:String>
+   <system:String x:Key="PunchingDesignInputError">Подбор невозможен: исправьте исходные данные.</system:String>
+   <system:String x:Key="PunchingDesignReqCross">qsw,x ≥ {0:0.#} кН/м (лучи вдоль Y, есть {1:0.#}), qsw,y ≥ {2:0.#} кН/м (лучи вдоль X, есть {3:0.#})</system:String>
+   <system:String x:Key="PunchingDesignReqHave">qsw ≥ {0:0.#} кН/м (есть {1:0.#})</system:String>
+   <system:String x:Key="PunchingDesignReq">qsw ≥ {0:0.#} кН/м</system:String>
+   <system:String x:Key="PunchingDesignBar">; стержни Ø{0:0}</system:String>
+   <system:String x:Key="PunchingDesignBarTooBig">; площадь стержня ≥ {0:0.#} мм² — больше Ø32</system:String>
+   <system:String x:Key="PunchingDesignRows">; рядов ≥ {0}</system:String>
+   <system:String x:Key="PunchingDesignZone">; зона ≥ {0:0} мм от грани</system:String>
+   <system:String x:Key="PunchingDesign_not_required">Подбор: поперечная арматура не требуется.</system:String>
+   <system:String x:Key="PunchingDesign_not_ensured">Подбор: арматурой не обеспечить (Кисп &gt; 1 и при 2Fb, 2Mb) — увеличьте толщину, класс бетона или площадку.</system:String>
+   <system:String x:Key="PunchingDesign_layout_ineffective">Подбор: раскладка не пересекает определяющий контур или пирамиду — измените лучи или ряды.</system:String>
+   <system:String x:Key="PunchingDesign_by_threshold">Подбор: {0} — по порогу Fsw ≥ 0,25·Fb (п. 8.1.48){1}.</system:String>
+   <system:String x:Key="PunchingDesign_by_calculation">Подбор: {0} — из условия Кисп = 1{1}.</system:String>
+   <system:String x:Key="PunchingDesignEnough">Заданной арматуры достаточно.</system:String>
+   <system:String x:Key="PunchingDesignNotEnough">Заданной арматуры недостаточно.</system:String>
+   <system:String x:Key="PunchingDesignBeyondBad">Контур за армированием не проходит при любой ширине зоны.</system:String>
+   <system:String x:Key="PunchingDetailing_first_row_min">Первый ряд — не ближе h0/3 от грани</system:String>
+   <system:String x:Key="PunchingDetailing_first_row_max">Первый ряд — не далее h0/2 от грани</system:String>
+   <system:String x:Key="PunchingDetailing_row_step">Шаг рядов — не более h0/3 и 300 мм</system:String>
+   <system:String x:Key="PunchingDetailing_zone_width">Ширина зоны от грани — не менее 1,5h0</system:String>
+   <system:String x:Key="PunchingDetailing_line_step">Шаг вдоль сторон контура — не более 1/4 стороны</system:String>
+   <system:String x:Key="PunchingDetailing_line_step_x">Шаг линий лучей вдоль X — не более 1/4 стороны контура</system:String>
+   <system:String x:Key="PunchingDetailing_line_step_y">Шаг линий лучей вдоль Y — не более 1/4 стороны контура</system:String>
+   <system:String x:Key="PunchingDetailing_anchorage">Анкеровка поперечной арматуры не проверяется</system:String>
+   <system:String x:Key="PunchingDetailingAllowed"> — допускается, учтены стержни пирамиды</system:String>
+   <system:String x:Key="PunchingDetailingOk">Конструктивные требования п. 10.3.17 — выполнены</system:String>
+   <system:String x:Key="PunchingDetailingBad">Конструктивные требования п. 10.3.17 — не выполнено: {0}</system:String>
+   <system:String x:Key="PunchingSummarySwCross">крестообразная арматура Ø{0:0}, {1:0} рядов с шагом {2:0} мм, Rsw = {3:0.#} МПа</system:String>
+   <system:String x:Key="PunchingSummarySwRows">поперечная арматура Ø{0:0} шаг {1:0} мм вдоль контура, {2:0} рядов с шагом {3:0} мм, Rsw = {4:0.#} МПа</system:String>
+   <system:String x:Key="PunchingCanvasLegendCross">; синим — стержни и участки контура под лучами креста</system:String>
+   <system:String x:Key="PunchingCanvasLegendBars">; синим — стержни поперечной арматуры</system:String>
    <system:String x:Key="PunchingWarn_m_limited_half_kf">Контур «{0}»: вклад моментов ограничен половиной вклада силы (п. 8.1.46).</system:String>
    <system:String x:Key="PunchingWarn_concave_area_hull">Грузовая площадь невыпуклая — контур построен по выпуклой оболочке.</system:String>
    <system:String x:Key="PunchingWarn_pylon_at_edge_not_checked">Пилон у края плиты: разорванный контур не проверяется, только контуры по СП 63.</system:String>

@@ -23,6 +23,20 @@
                        Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}"/>
             <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" Margin="0,2,0,0"/>
             <TextBlock Text="{Binding RatiosText}" TextWrapping="Wrap" Margin="0,2,0,0" Foreground="#555"/>
+            <!-- Подбор поперечной арматуры (пп. 8.1.48, 8.1.50) -->
+            <TextBlock Text="{Binding DesignText}" TextWrapping="Wrap" Margin="0,4,0,0" FontWeight="SemiBold" Foreground="#1E3A8A"
+                       Visibility="{Binding HasDesign, Converter={StaticResource BoolToVisibility}}"/>
+            <!-- Конструктивные требования п. 10.3.17 -->
+            <Expander Header="{Binding DetailingHeader}" Margin="0,4,0,0" IsExpanded="False"
+                      Visibility="{Binding HasDetailing, Converter={StaticResource BoolToVisibility}}">
+               <ItemsControl ItemsSource="{Binding Detailing}" Margin="4,2,0,0">
+                  <ItemsControl.ItemTemplate>
+                     <DataTemplate>
+                        <TextBlock Text="{Binding}" FontSize="11" TextWrapping="Wrap" Margin="0,1"/>
+                     </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+               </ItemsControl>
+            </Expander>
          </StackPanel>
       </Border>
 

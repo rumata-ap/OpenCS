@@ -84,7 +84,27 @@ public sealed record PunchingSourceParams
     public double? ContourForce { get; init; }
 }
 
-/// <summary>Равномерная поперечная арматура вдоль контура.</summary>
+/// <summary>Лучи крестообразной арматуры вдоль одной оси (рис. 8.11г СП 63).</summary>
+public sealed record PunchingCrossArmParams
+{
+    /// <summary>Число линий стержней поперёк луча (≥ 2): ширина луча Lsw = (n − 1)·sw.</summary>
+    public int Lines { get; init; } = 3;
+    /// <summary>Шаг линий вдоль контура sw, м.</summary>
+    public double Step { get; init; } = 0.1;
+    /// <summary>Луч в сторону + оси.</summary>
+    public bool Positive { get; init; } = true;
+    /// <summary>Луч в сторону − оси.</summary>
+    public bool Negative { get; init; } = true;
+
+    /// <summary>Ширина луча Lsw = (n − 1)·sw, м.</summary>
+    [JsonIgnore] public double Width => Math.Max(0, Lines - 1) * Step;
+}
+
+/// <summary>
+/// Поперечная арматура: равномерная вдоль контура или крестообразная (п. 8.1.48). Рядами (<see cref="FirstRow"/> задано) —
+/// Asw линии считается по рядам в пирамиде и проверяется п. 10.3.17; без рядов (старые задачи) — n стержней на шаге
+/// и граница зоны вручную.
+/// </summary>
 public sealed record PunchingReinforcementParams
 {
     public bool Enabled { get; init; }
@@ -92,17 +112,45 @@ public sealed record PunchingReinforcementParams
     public int MaterialId { get; init; }
     /// <summary>Диаметр стержня, м.</summary>
     public double Diameter { get; init; } = 0.008;
-    /// <summary>Число стержней в ряду на длине шага вдоль контура.</summary>
+    /// <summary>"uniform" — равномерно вдоль контура | "cross" — крестообразно у осей площадки.</summary>
+    public string Layout { get; init; } = "uniform";
+    /// <summary>Число стержней в линии на длине шага вдоль контура (без рядов).</summary>
     public int Count { get; init; } = 2;
-    /// <summary>Шаг вдоль контура sw, м.</summary>
+    /// <summary>Шаг вдоль контура sw равномерной раскладки, м.</summary>
     public double Step { get; init; } = 0.06;
-    /// <summary>От грани площади до внешнего ряда, м; null — контур за зоной не проверять.</summary>
+    /// <summary>От грани площади до внешнего ряда, м (без рядов); null — контур за зоной не проверять.</summary>
     public double? ZoneExtent { get; init; }
+    /// <summary>Расстояние от грани площади до первого ряда s1, м; null — ряды не заданы (старый ввод).</summary>
+    public double? FirstRow { get; init; }
+    /// <summary>Шаг рядов поперёк сторон контура sd, м.</summary>
+    public double RowStep { get; init; } = 0.06;
+    /// <summary>Число рядов.</summary>
+    public int RowCount { get; init; } = 5;
+    /// <summary>Лучи креста вдоль X (у граней ±x).</summary>
+    public PunchingCrossArmParams CrossX { get; init; } = new();
+    /// <summary>Лучи креста вдоль Y (у граней ±y).</summary>
+    public PunchingCrossArmParams CrossY { get; init; } = new();
     /// <summary>Ручное Rsw, кПа; null — из материала по табл. 6.15.</summary>
     public double? RswOverride { get; init; }
 
-    /// <summary>Asw = n·πd²/4, м².</summary>
+    /// <summary>Asw = n·πd²/4, м² (без рядов).</summary>
     [JsonIgnore] public double Asw => Count * Math.PI * Diameter * Diameter / 4;
+    /// <summary>Площадь одного стержня πd²/4, м².</summary>
+    [JsonIgnore] public double BarArea => Math.PI * Diameter * Diameter / 4;
+    /// <summary>Арматура задана рядами.</summary>
+    [JsonIgnore] public bool ByRows => FirstRow is not null;
+    /// <summary>Крестообразная раскладка.</summary>
+    [JsonIgnore] public bool IsCross => Layout == "cross";
+
+    /// <summary>Арматура ядра при Rsw, кПа.</summary>
+    public PunchingShearReinforcement ToCore(double rsw)
+    {
+        var rows = FirstRow is double s1 ? new PunchingStirrupRows(BarArea, s1, RowStep, RowCount) : null;
+        PunchingCrossArm Arm(PunchingCrossArmParams a) => new(a.Width, a.Step, a.Positive, a.Negative);
+        return new PunchingShearReinforcement(rsw, rows is null ? Asw : 0, IsCross ? 0 : Step,
+            rows is null ? ZoneExtent : null, rows,
+            IsCross ? new PunchingCrossArms(Arm(CrossX), Arm(CrossY)) : null);
+    }
 }
 
 /// <summary>Усилия продавливания.</summary>
@@ -179,10 +227,12 @@ public sealed record PunchingTaskParams
     {
         if (string.IsNullOrWhiteSpace(json) || json.Trim() == "{}") return new PunchingTaskParams();
         var p = JsonSerializer.Deserialize<PunchingTaskParams>(json, JsonOpts) ?? new PunchingTaskParams();
+        var sw = p.Reinforcement ?? new();
         return p with
         {
             Area = p.Area ?? new(), Slab = p.Slab ?? new(), Edges = p.Edges ?? [], Holes = p.Holes ?? [],
-            Reinforcement = p.Reinforcement ?? new(), Forces = p.Forces ?? new(), Options = p.Options ?? new(),
+            Reinforcement = sw with { Layout = sw.Layout ?? "uniform", CrossX = sw.CrossX ?? new(), CrossY = sw.CrossY ?? new() },
+            Forces = p.Forces ?? new(), Options = p.Options ?? new(),
             CustomContours = p.CustomContours ?? []
         };
     }
@@ -296,9 +346,19 @@ public sealed record PunchingTaskParams
 
         if (Reinforcement.Enabled)
         {
-            if (!(Reinforcement.Diameter > 0) || Reinforcement.Count < 1 || !(Reinforcement.Step > 0)) errors.Add("sw_values");
-            if (Reinforcement.ZoneExtent is double z && !(z > 0)) errors.Add("sw_zone");
-            if (Reinforcement.RswOverride is double rsw && !(rsw > 0)) errors.Add("rsw_nonpositive");
+            var r = Reinforcement;
+            if (!(r.Diameter > 0) || (!r.ByRows && r.Count < 1) || (!r.IsCross && !(r.Step > 0))) errors.Add("sw_values");
+            if (!r.ByRows && r.ZoneExtent is double z && !(z > 0)) errors.Add("sw_zone");
+            if (r.FirstRow is double s1 && (!(s1 >= 0) || r.RowCount < 1 || r.RowCount > 100 || (r.RowCount > 1 && !(r.RowStep > 0))))
+                errors.Add("sw_rows");
+            if (r.IsCross)
+            {
+                bool Bad(PunchingCrossArmParams a) => (a.Positive || a.Negative) && (a.Lines < 2 || !(a.Step > 0));
+                bool None(PunchingCrossArmParams a) => !(a.Positive || a.Negative);
+                if (Bad(r.CrossX) || Bad(r.CrossY) || (None(r.CrossX) && None(r.CrossY))) errors.Add("sw_cross");
+            }
+            if (r.Layout is not ("uniform" or "cross")) errors.Add("sw_values");
+            if (r.RswOverride is double rsw && !(rsw > 0)) errors.Add("rsw_nonpositive");
         }
 
         if (Forces.F < 0 || !double.IsFinite(Forces.F)) errors.Add("force_negative");
@@ -339,7 +399,7 @@ public sealed record PunchingTaskParams
     public PunchingInput ToInput(double rbt, double rsw)
     {
         var r = Reinforcement;
-        var reinforcement = r.Enabled ? new PunchingShearReinforcement(rsw, r.Asw, r.Step, r.ZoneExtent) : null;
+        var reinforcement = r.Enabled ? r.ToCore(rsw) : null;
         var custom = CustomContours
             .Where(c => c.Points.Count >= 3)
             .Select(c => new PunchingCustomContour(c.Points.Select(p => new PlanPoint(p[0], p[1])).ToList(),
