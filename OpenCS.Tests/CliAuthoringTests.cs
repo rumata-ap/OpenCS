@@ -296,7 +296,21 @@ public sealed class CliAuthoringTests : IDisposable
         Assert.Equal(CliExitCode.Usage, (await Run("add", "tasks", project, "--kind", "shell_layered_uls", "--section", "1")).Code);
         Assert.Equal(CliExitCode.Usage, (await Run("add", "tasks", project, "--kind", "steel_check", "--section", "нет")).Code);
 
+        // --params @файл: JSON из файла, а не response-файл System.CommandLine (тот терял кавычки).
+        string paramsFile = Path.Combine(Path.GetTempPath(), $"opencs-cli-params-{Guid.NewGuid():N}.json");
+        File.WriteAllText(paramsFile, """{"LefX":7.5,"LefY":3}""");
+        try
+        {
+            var fromFile = await Run("add", "tasks", project, "--kind", "steel_check", "--section", "1",
+                "--params", "@" + paramsFile, "--tag", "Из файла");
+            Assert.True(fromFile.Code == CliExitCode.Ok, fromFile.Err);
+        }
+        finally { File.Delete(paramsFile); }
+
         using var db = Load(project);
+        var fromFileTask = Assert.Single(db.CalcTasks, t => t.Tag == "Из файла");
+        Assert.Equal(7.5, CScore.Sp16.SteelDesignParams.Parse(fromFileTask.ParamsJson).LefX);
+        Assert.Equal(3, CScore.Sp16.SteelDesignParams.Parse(fromFileTask.ParamsJson).LefY);
         var perRow = db.CalcTasks.Where(t => t.Tag.StartsWith("Ригель — ")).ToList();
         Assert.Equal(5, perRow.Count);
         Assert.All(perRow, t => Assert.True(t.ForceItemId > 0));

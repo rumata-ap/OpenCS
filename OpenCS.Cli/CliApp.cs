@@ -51,7 +51,9 @@ sealed partial class CliApp
         using var tools = string.Equals(Environment.GetEnvironmentVariable(ExternalToolPolicy.EnvironmentVariable), "auto",
             StringComparison.OrdinalIgnoreCase) ? null : ExternalToolPolicy.Use(ExternalToolSource.PythonPackages);
         var app = new CliApp(stdout, stderr);
-        var parse = app.BuildRoot().Parse(args);
+        // Response-файлы System.CommandLine (@файл) отключены: «@файл» — значение --params (JSON из файла),
+        // а разворачивание как response-файла рвёт JSON на токены и теряет кавычки.
+        var parse = app.BuildRoot().Parse(args, new ParserConfiguration { ResponseFileTokenReplacer = null });
         if (parse.Errors.Count > 0)
         {
             foreach (var error in parse.Errors) stderr.WriteLine(error.Message);
