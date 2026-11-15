@@ -6,6 +6,17 @@
    <!-- Результат проверки продавливания по МКЭ: сводка, план перекрытия, узлы, ключи узла и полный расчёт строки. -->
    <UserControl.Resources>
       <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+      <!-- Длинные заголовки («Основание, кН», «Загружение / сочетание») переносятся, а не обрезаются. -->
+      <Style TargetType="DataGridColumnHeader">
+         <Setter Property="ContentTemplate">
+            <Setter.Value>
+               <DataTemplate>
+                  <TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="110"/>
+               </DataTemplate>
+            </Setter.Value>
+         </Setter>
+         <Setter Property="VerticalContentAlignment" Value="Bottom"/>
+      </Style>
       <Style x:Key="StatusCell" TargetType="TextBlock">
          <Setter Property="FontWeight" Value="SemiBold"/>
          <Setter Property="Margin" Value="4,0"/>

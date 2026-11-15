@@ -15,6 +15,9 @@ public static class PunchingFemJointFinder
 {
     static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
 
+    /// <summary>Плоскость круче этого — стена, а не плита: узлы в ней не ищутся.</summary>
+    public const double MaxSlabTiltDeg = 45;
+
     /// <summary>Все узлы продавливания схемы в порядке тегов узлов.</summary>
     public static List<PunchingFemJoint> Find(PunchingFemModel model, PunchingFemOptions? options = null) =>
         Find(model, options, out _);
@@ -102,6 +105,8 @@ public static class PunchingFemJointFinder
                     var axis = d.Normalize();
                     foreach (var slab in HostSlabs(n))
                     {
+                        // Стена (наклон больше 45°) — не плита: стержень, входящий в стену, — не узел продавливания.
+                        if (slab.TiltDeg > MaxSlabTiltDeg) continue;
                         double c = axis.Dot(slab.Normal);
                         if (Math.Abs(c) < SinAngle) continue;
                         var key = (JointNode(n), slab.Index);

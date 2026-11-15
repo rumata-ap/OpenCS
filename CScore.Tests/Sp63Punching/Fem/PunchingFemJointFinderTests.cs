@@ -267,6 +267,16 @@ public class PunchingFemJointFinderTests
     }
 
     [Fact]
+    public void BeamIntoWall_NotAJoint()
+    {
+        var m = new PunchingFemTestMesh();
+        m.WallXZ(0, 4, 0, 0, 3, 0.2, h: 0.2);
+        // Горизонтальная балка упирается в стену по нормали — это не продавливание плиты.
+        m.Bar(m.Node(2, 0, 1.6), m.Node(2, 3, 1.6));
+        Assert.Empty(PunchingFemJointFinder.Find(m.Model()));
+    }
+
+    [Fact]
     public void BarWithoutSlab_NotAJoint()
     {
         var m = Plate();

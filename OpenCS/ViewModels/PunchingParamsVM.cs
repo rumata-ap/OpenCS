@@ -45,6 +45,8 @@ public sealed class PunchingHoleRowVM : PunchingEditableRow
     public double Bx { get => _bx; set => Set(ref _bx, value); }
     public double By { get => _by; set => Set(ref _by, value); }
     public double D { get => _d; set => Set(ref _d, value); }
+    /// <summary>Вершины отверстия-многоугольника из схемы МКЭ, м (только "polygon"; в окне не правятся).</summary>
+    public List<double[]> Points { get; init; } = [];
 }
 
 /// <summary>Вершина многоугольной площади (мм).</summary>
@@ -133,7 +135,8 @@ public sealed class PunchingParamsVM : ViewModelBase
     ];
     /// <summary>Формы отверстий.</summary>
     public IReadOnlyList<PunchingChoice> HoleShapes { get; } =
-        [new("rectangle", Loc.S("PunchingShape_rectangle", "прямоугольник")), new("circle", Loc.S("PunchingShape_circle", "круг"))];
+        [new("rectangle", Loc.S("PunchingShape_rectangle", "прямоугольник")), new("circle", Loc.S("PunchingShape_circle", "круг")),
+         new("polygon", Loc.S("PunchingShape_hole_polygon", "контур из схемы"))];
     /// <summary>Положение узла.</summary>
     public IReadOnlyList<PunchingChoice> Positions { get; } =
     [
@@ -346,7 +349,13 @@ public sealed class PunchingParamsVM : ViewModelBase
 
             Holes.Clear();
             foreach (var h in p.Holes)
-                Holes.Add(new PunchingHoleRowVM { Shape = h.Shape, Cx = Mm(h.Cx), Cy = Mm(h.Cy), Bx = Mm(h.Bx), By = Mm(h.By), D = Mm(h.D) });
+                Holes.Add(h.Shape == "polygon" && h.Points is { Count: >= 3 } pts
+                    ? new PunchingHoleRowVM
+                    {
+                        Shape = "polygon", Points = pts, Cx = Mm(pts.Average(q => q[0])), Cy = Mm(pts.Average(q => q[1])),
+                        Bx = Mm(pts.Max(q => q[0]) - pts.Min(q => q[0])), By = Mm(pts.Max(q => q[1]) - pts.Min(q => q[1])), D = 0,
+                    }
+                    : new PunchingHoleRowVM { Shape = h.Shape, Cx = Mm(h.Cx), Cy = Mm(h.Cy), Bx = Mm(h.Bx), By = Mm(h.By), D = Mm(h.D) });
 
             var r = p.Reinforcement;
             SwEnabled = r.Enabled;
@@ -387,7 +396,9 @@ public sealed class PunchingParamsVM : ViewModelBase
                 RbtOverride = RbtManual ? RbtManualValue * 1000 : null
             },
             Edges = edges,
-            Holes = Holes.Select(h => new PunchingHoleParams { Shape = h.Shape, Cx = M(h.Cx), Cy = M(h.Cy), Bx = M(h.Bx), By = M(h.By), D = M(h.D) }).ToList(),
+            Holes = Holes.Select(h => h.Shape == "polygon" && h.Points.Count >= 3
+                ? new PunchingHoleParams { Shape = "polygon", Points = h.Points }
+                : new PunchingHoleParams { Shape = h.Shape == "polygon" ? "rectangle" : h.Shape, Cx = M(h.Cx), Cy = M(h.Cy), Bx = M(h.Bx), By = M(h.By), D = M(h.D) }).ToList(),
             Reinforcement = new PunchingReinforcementParams
             {
                 Enabled = SwEnabled, MaterialId = Rebar?.Id ?? 0, Diameter = M(Diameter), Count = Count, Step = M(Step),

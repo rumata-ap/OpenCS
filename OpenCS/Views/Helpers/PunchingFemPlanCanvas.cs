@@ -83,6 +83,7 @@ public sealed class PunchingFemPlanCanvas : FrameworkElement
     {
         dc.DrawRectangle(Brushes.White, null, new Rect(0, 0, ActualWidth, ActualHeight));
         _hit.Clear();
+        _labelHit.Clear();
         if (Data is not { } d) return;
         if (!_fitted) Fit();
         double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
@@ -100,6 +101,7 @@ public sealed class PunchingFemPlanCanvas : FrameworkElement
             dc.DrawGeometry(SlabFill, SlabPen, geo);
         }
 
+        var labels = new List<(PunchingFemJointResult J, Point At, double R)>();
         foreach (var j in d.Joints.Where(j => j.Origin.Length == 3 && OnLevel(j.Origin[2])))
         {
             var brush = PunchingFemStatus.Brush(j.Status, j.Passed);
@@ -125,12 +127,33 @@ public sealed class PunchingFemPlanCanvas : FrameworkElement
             }
             else DrawMarker(dc, brush, at, r, j.Node == SelectedNode);
             _hit.Add((j.Node, at, Math.Max(r, 8)));
+            labels.Add((j, at, r));
+        }
 
+        // Подписи без наложений: выбранный узел, затем не прошедшие и с наибольшим Кисп; остальные — при увеличении.
+        var placed = new List<Rect>(labels.Select(l => new Rect(l.At.X - l.R, l.At.Y - l.R, 2 * l.R, 2 * l.R)));
+        var order = labels
+            .OrderByDescending(l => l.J.Node == SelectedNode)
+            .ThenBy(l => l.J.Status == "no_check")
+            .ThenBy(l => l.J.Passed)
+            .ThenByDescending(l => l.J.Ratio);
+        foreach (var (j, at, r) in order)
+        {
             string label = j.Status == "no_check" ? j.Node + " —" : j.Node + "  " + Variants.K(j.Ratio);
             var text = new FormattedText(label, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, Font, 11, TextBrush, dpi);
-            dc.DrawText(text, new Point(at.X + r + 3, at.Y - text.Height / 2));
+            var rect = new Rect(at.X + r + 3, at.Y - text.Height / 2, text.Width, text.Height);
+            bool selected = j.Node == SelectedNode;
+            // Свой маркер (первые labels.Count прямоугольников — маркеры) пересечением не считается.
+            if (!selected && placed.Where((p, i) => i >= labels.Count || labels[i].J != j).Any(p => p.IntersectsWith(rect))) continue;
+            if (selected) dc.DrawRectangle(LabelBack, null, rect);
+            dc.DrawText(text, rect.TopLeft);
+            placed.Add(rect);
+            _labelHit.Add((j.Node, rect));
         }
     }
+
+    readonly List<(string Node, Rect Rect)> _labelHit = [];
+    static readonly Brush LabelBack = Frozen(new SolidColorBrush(Color.FromArgb(0xE6, 0xFF, 0xFF, 0xFF)));
 
     static void DrawMarker(DrawingContext dc, Brush brush, Point at, double r, bool selected) =>
         dc.DrawEllipse(brush, selected ? SelectPen : null, at, r, r);
@@ -140,10 +163,11 @@ public sealed class PunchingFemPlanCanvas : FrameworkElement
         base.OnMouseLeftButtonDown(e);
         Focus();
         var p = e.GetPosition(this);
-        var best = _hit.Where(h => (h.At - p).Length <= h.R + 4).OrderBy(h => (h.At - p).Length).FirstOrDefault();
-        if (best.Node != null)
+        var best = _hit.Where(h => (h.At - p).Length <= h.R + 6).OrderBy(h => (h.At - p).Length).FirstOrDefault();
+        string? node = best.Node ?? _labelHit.FirstOrDefault(l => l.Rect.Contains(p)).Node;
+        if (node != null)
         {
-            NodeClicked?.Invoke(best.Node);
+            NodeClicked?.Invoke(node);
             e.Handled = true;
         }
     }

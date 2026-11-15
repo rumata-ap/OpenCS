@@ -487,7 +487,9 @@ public static class PunchingFemService
             Reinforcement = o?.Reinforcement ?? check.Reinforcement,
             Forces = new PunchingForceParams
             {
-                F = forces.F, Mx = forces.Mx, My = forces.My, MomentsAreMloc = check.MomentsAreMloc,
+                // До 1 Н и 1 Н·м: в окне задачи по строке — читаемые числа; проверка считает по тем же значениям.
+                F = Math.Round(forces.F, 3), Mx = Math.Round(forces.Mx, 3), My = Math.Round(forces.My, 3),
+                MomentsAreMloc = check.MomentsAreMloc,
                 LoadSide = forces.Side == PunchingLoadSide.FromAbove ? "from_above" : "from_below",
             },
             Options = check.Options,

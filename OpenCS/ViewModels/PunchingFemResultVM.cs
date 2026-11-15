@@ -179,7 +179,8 @@ public sealed class PunchingFemResultVM : ViewModelBase
         Passed = Data.Passed;
         VerdictBrush = PunchingFemStatus.Brush(Data.Error != null ? "no_check" : Data.Passed ? "concrete" : Data.FailedJoints > 0 ? "not_ensured" : "no_check", Data.Passed);
         WarningsText = string.Join("\n", Data.Warnings.Select(w => "• " + w.Text));
-        foreach (var j in Data.Joints.OrderByDescending(j => j.Status == "no_check" ? double.MaxValue : j.Ratio))
+        // Сначала проверенные по убыванию Кисп (не прошедшие — вверху), узлы без проверки — в конце.
+        foreach (var j in Data.Joints.OrderBy(j => j.Status == "no_check").ThenByDescending(j => j.Ratio))
             Joints.Add(new PunchingFemJointRowVM(j));
         var zs = new List<double>();
         foreach (var z in Data.Slabs.Select(s => s.Z).Order())

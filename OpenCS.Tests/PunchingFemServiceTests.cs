@@ -644,6 +644,6 @@ public sealed class PunchingFemServiceTests : IDisposable
         Assert.Empty(errors);
         var result = PunchingChecker.Check(p.ToInput(st.Rbt, st.Rsw));
         Assert.True(result.GoverningIndex >= 0);
-        Assert.Equal(forces.ByKey[key].F, result.Fred, 9);
+        Assert.Equal(forces.ByKey[key].F, result.Fred, 3);   // усилия задачи округлены до 1 Н
     }
 }

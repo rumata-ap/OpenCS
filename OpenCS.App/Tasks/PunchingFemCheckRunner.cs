@@ -324,7 +324,7 @@ public static class PunchingFemCheckRunner
             var tp = PunchingFemService.TaskParams(joint, f, p, data.Schema.Tag, label);
             var row = new PunchingFemRow
             {
-                Key = label, F = f.F, Mx = f.Mx, My = f.My, Side = tp.Forces.LoadSide,
+                Key = label, F = tp.Forces.F, Mx = tp.Forces.Mx, My = tp.Forces.My, Side = tp.Forces.LoadSide,
                 Method = f.Method == PunchingFemForceMethod.Contour ? "contour" : "column",
                 ColumnAction = f.ColumnAction, BaseLoad = f.BaseLoad, ContourForce = f.ContourForce,
             };
