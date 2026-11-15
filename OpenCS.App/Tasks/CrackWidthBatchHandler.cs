@@ -46,14 +46,18 @@ public sealed class CrackWidthBatchHandler : ITaskHandler
             }
 
             var calcCrc = task.CalcType is CalcType.N or CalcType.NL ? task.CalcType : CalcType.N;
-            CrackWidthSolver Solver(CrossSection s) => new(s,
+            // Образование трещин — по трёхлинейной диаграмме бетона (п. 6.1.24), раскрытие — по диаграмме области.
+            var crcSection = CrackFormationSection.For(section, settings.Sp63DescEtaMin,
+                ctx.Database.Diagrams, settings.RebarDifferentialDiagram, settings.EkbDescEtaMin);
+            CrackWidthSolver Solver(CrossSection s, CrossSection crc) => new(s,
                 calcCrc: calcCrc, calcService: CalcType.N,
                 calcServiceLong: p.LongPartUseNL ? CalcType.NL : (CalcType?)null,
                 phi2: p.Phi2,
                 acrcUltLong: p.AcrcUltLong, acrcUltShort: p.AcrcUltShort,
                 sp63EtaMin: settings.Sp63DescEtaMin,
-                psiSMethod: settings.ResolvePsiSMethod(), ekbEtaMin: settings.EkbDescEtaMin);
-            var shared = Solver(section);
+                psiSMethod: settings.ResolvePsiSMethod(), ekbEtaMin: settings.EkbDescEtaMin,
+                crackFormationSection: crc);
+            var shared = Solver(section, crcSection);
 
             var etaParams = LimitForceParams.Parse(task.ParamsJson);
             double etaThreshold = etaParams.EtaSlendernessThreshold
@@ -71,7 +75,9 @@ public sealed class CrackWidthBatchHandler : ITaskHandler
                 var fi = items[i];
                 // Расчёт меняет состояние сечения (фибры) — в параллели у каждой строки свой клон.
                 var sec = settings.BatchParallel ? section.CloneForCalc() : section;
-                var solver = settings.BatchParallel ? Solver(sec) : shared;
+                var solver = settings.BatchParallel
+                    ? Solver(sec, ReferenceEquals(crcSection, section) ? sec : crcSection.CloneForCalc())
+                    : shared;
                 double nTotal = fi.N, mxTotal = fi.Mx, myTotal = fi.My;
                 double mxLong, myLong;
 

@@ -47,6 +47,12 @@ public sealed class StrainSurfaceHandler : ITaskHandler
          section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
             pool: ctx?.Database?.Diagrams,
             rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
+         // Тело образования трещин (crack_surface, основа acrc_surface) — по трёхлинейной диаграмме
+         // бетона (п. 6.1.24 СП 63); раскрытие и ПС1 — по диаграмме области.
+         var crcSection = task.Kind is "crack_surface" or "acrc_surface"
+            ? CrackFormationSection.For(section, settings.Sp63DescEtaMin, ctx?.Database?.Diagrams,
+               settings.RebarDifferentialDiagram, settings.EkbDescEtaMin)
+            : section;
          var parameters = LimitSurfaceTaskParams.Parse(task.ParamsJson);
          var options = parameters.ToOptions();
          var ct = ctx?.CancellationToken ?? default;
@@ -63,7 +69,8 @@ public sealed class StrainSurfaceHandler : ITaskHandler
             var acrc = new AcrcSurfaceCriterion(task.CalcType, cw.LongPartUseNL, cw.LongShare, cw.Phi2,
                cw.AcrcUltLong, cw.AcrcUltShort, settings.ResolvePsiSMethod(),
                settings.Sp63DescEtaMin, settings.EkbDescEtaMin);
-            var mesher = new AcrcColumnMesher(section, acrc, options, ct: ct);
+            var crackMesh = new StrainDomainMesher(crcSection, acrc.CrackCriterion, options).Build(ct);
+            var mesher = new AcrcColumnMesher(section, acrc, options, crackMesh, ct);
             mesh = mesher.Build(ct);
             notConverged = mesher.NotConvergedCount;
             noTensileRebar = mesher.NoTensileRebarCount;
@@ -73,7 +80,7 @@ public sealed class StrainSurfaceHandler : ITaskHandler
          else
          {
             criterion = CriterionFor(task.Kind, task.CalcType, settings.ResolveConcreteTension(task.CalcType));
-            mesh = new StrainDomainMesher(section, criterion, options).Build(ct);
+            mesh = new StrainDomainMesher(crcSection, criterion, options).Build(ct);
          }
          sw.Stop();
          bool ten = criterion.Ten;
@@ -86,7 +93,7 @@ public sealed class StrainSurfaceHandler : ITaskHandler
             CalcType = task.CalcType,
             Ten = ten,
             Accuracy = parameters.Accuracy,
-            ControlPoints = criterion.BuildDomain(section).Points
+            ControlPoints = criterion.BuildDomain(crcSection).Points
                .Select(p => new LimitSurfaceControlPointRecord(p.Kind, p.X, p.Y, p.AreaIndex)).ToList(),
             Mesh = LimitSurfaceResultData.EncodeMesh(mesh),
             ForceSetId = forceSet?.Id ?? 0,

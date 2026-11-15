@@ -156,6 +156,8 @@ public sealed record RebarAcrcEntry(
 public sealed class CrackWidthSolver
 {
     readonly CrossSection _section;
+    /// <summary>Сечение для образования трещин (п. 6.1.24 — трёхлинейная диаграмма бетона), см. <see cref="CrackFormationSection"/>.</summary>
+    readonly CrossSection _crcSection;
     readonly CalcType _calcCrc;
     readonly double _acrcUltLong;
     readonly double _acrcUltShort;
@@ -172,9 +174,13 @@ public sealed class CrackWidthSolver
         double sp63EtaMin = 0.85,
         double solverTol = 0.5,
         PsiSMethod psiSMethod = PsiSMethod.Stress8138,
-        double ekbEtaMin = 0.05)
+        double ekbEtaMin = 0.05,
+        CrossSection? crackFormationSection = null)
     {
         _section = section ?? throw new ArgumentNullException(nameof(section));
+        // Mcrc и точка трещинообразования — по сечению образования трещин (п. 6.1.24); по умолчанию —
+        // то же сечение с бетоном L2 → L3. Раскрытие (σs, ψs) — по диаграмме области (п. 6.1.26).
+        _crcSection = crackFormationSection ?? CrackFormationSection.For(section, sp63EtaMin, ekbEtaMin: ekbEtaMin);
         _calcCrc = calcCrc;
         _acrcUltLong = acrcUltLong;
         _acrcUltShort = acrcUltShort;
@@ -208,8 +214,8 @@ public sealed class CrackWidthSolver
         // Трещинообразование ищется только по грани, растянутой внешней нагрузкой: у сильно
         // обжатого сечения противоположная грань может треснуть от одного обжатия, и без
         // фильтра Mcrc относился бы к ней (см. CrackingSolver.LoadedTensionZone).
-        var crcSolver = new CrackingSolver(_section, _calcCrc, solverTol: 0.5,
-            tensionZone: CrackingSolver.LoadedTensionZone(_section, N, mxDir, myDir, nAtZeroMoment: N));
+        var crcSolver = new CrackingSolver(_crcSection, _calcCrc, solverTol: 0.5,
+            tensionZone: CrackingSolver.LoadedTensionZone(_crcSection, N, mxDir, myDir, nAtZeroMoment: N));
 
         var crcRes = crcSolver.CrackingMoment(N, mxDir, myDir);
         double mcrc = Math.Sqrt(crcRes.Mx * crcRes.Mx + crcRes.My * crcRes.My);
@@ -242,8 +248,8 @@ public sealed class CrackWidthSolver
         {
             // Зона догружения — от состояния без нагрузки (N растёт вместе с моментом): у обжатого
             // сечения грань, треснувшая от одного обжатия, не считается растянутой нагрузкой.
-            var rayCrc = new CrackingSolver(_section, _calcCrc, solverTol: 0.5,
-                tensionZone: CrackingSolver.LoadedTensionZone(_section, N, mxTot, myTot, nAtZeroMoment: 0.0));
+            var rayCrc = new CrackingSolver(_crcSection, _calcCrc, solverTol: 0.5,
+                tensionZone: CrackingSolver.LoadedTensionZone(_crcSection, N, mxTot, myTot, nAtZeroMoment: 0.0));
             var lf = rayCrc.CrackingLoadFactor(N, mxTot, myTot);
             if (!lf.Converged || !lf.StrainPlane.HasValue || lf.Lambda > 1.0) return WithCrackingFields(zero);
             mcrc = Math.Sqrt(lf.Mx * lf.Mx + lf.My * lf.My);

@@ -30,13 +30,16 @@ public sealed class CrackingHandler : ITaskHandler
             // Трещину ищем только на грани, растянутой внешней нагрузкой: у сильно обжатого
             // сечения противоположная грань может треснуть от одного обжатия, и без фильтра
             // Mcrc относился бы к ней (см. CrackingSolver.LoadedTensionZone).
-            var solver = new CrackingSolver(section, calcCrc,
-                tensionZone: CrackingSolver.LoadedTensionZone(section, item.N, dmx, dmy, nAtZeroMoment: item.N));
+            // Образование трещин по НДМ — трёхлинейная диаграмма бетона (п. 6.1.24 СП 63).
+            var crcSection = CrackFormationSection.For(section, settings.Sp63DescEtaMin,
+                ctx?.Database?.Diagrams, settings.RebarDifferentialDiagram, settings.EkbDescEtaMin);
+            var solver = new CrackingSolver(crcSection, calcCrc,
+                tensionZone: CrackingSolver.LoadedTensionZone(crcSection, item.N, dmx, dmy, nAtZeroMoment: item.N));
             var res = solver.CrackingMoment(item.N, dmx, dmy);
             double mcrc = Math.Sqrt(res.Mx * res.Mx + res.My * res.My);
             var prestress = PrestressActionsJsonModel.From(section.PrestressActions(
                 null, calcCrc, settings.ResolveConcreteTension(calcCrc)));
-            var axial = CentralTensionCracking.TryRun(section, calcCrc, item.N, item.Mx, item.My);
+            var axial = CentralTensionCracking.TryRun(crcSection, calcCrc, item.N, item.Mx, item.My);
 
             var data = new
             {

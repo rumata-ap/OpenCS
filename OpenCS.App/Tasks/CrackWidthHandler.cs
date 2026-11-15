@@ -139,19 +139,23 @@ public sealed class CrackWidthHandler : ITaskHandler
             var calcCrc = task.CalcType is CalcType.N or CalcType.NL ? task.CalcType : CalcType.N;
             var prestress = PrestressActionsJsonModel.From(section.PrestressActions(
                 null, calcCrc, settings.ResolveConcreteTension(calcCrc)));
+            // Образование трещин — по трёхлинейной диаграмме бетона (п. 6.1.24), раскрытие — по диаграмме области.
+            var crcSection = CrackFormationSection.For(section, settings.Sp63DescEtaMin,
+                ctx?.Database?.Diagrams, settings.RebarDifferentialDiagram, settings.EkbDescEtaMin);
             var solver = new CrackWidthSolver(section,
                 calcCrc: calcCrc, calcService: CalcType.N,
                 calcServiceLong: p.LongPartUseNL ? CalcType.NL : (CalcType?)null,
                 phi2: p.Phi2,
                 acrcUltLong: p.AcrcUltLong, acrcUltShort: p.AcrcUltShort,
                 sp63EtaMin: settings.Sp63DescEtaMin,
-                psiSMethod: settings.ResolvePsiSMethod(), ekbEtaMin: settings.EkbDescEtaMin);
+                psiSMethod: settings.ResolvePsiSMethod(), ekbEtaMin: settings.EkbDescEtaMin,
+                crackFormationSection: crcSection);
 
             var res = solver.Compute(N: nTotal, mxLong: mxLong, mxTotal: mxTotal, myLong: myLong, myTotal: myTotal);
             var plane = res.PlaneLong ?? res.PlaneTotal;
             // Центральное растяжение (ни полного, ни длительного момента): Mcrc при заданной N
             // вырожден — образование трещин проверяется по N > N_crc (ф. 8.117).
-            var axial = CentralTensionCracking.TryRun(section, calcCrc, nTotal,
+            var axial = CentralTensionCracking.TryRun(crcSection, calcCrc, nTotal,
                 Math.Abs(mxTotal) + Math.Abs(mxLong), Math.Abs(myTotal) + Math.Abs(myLong));
 
             var data = new

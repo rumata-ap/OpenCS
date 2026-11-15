@@ -59,7 +59,10 @@ public sealed class AcrcColumnMesher
         _section = section ?? throw new ArgumentNullException(nameof(section));
         _criterion = criterion ?? throw new ArgumentNullException(nameof(criterion));
         _opt = options ?? new LimitSurfaceOptions();
-        CrackMesh = crackMesh ?? new StrainDomainMesher(section, criterion.CrackCriterion, _opt).Build(ct);
+        // Тело образования трещин — по трёхлинейной диаграмме бетона (п. 6.1.24), как у CrackWidthSolver.
+        CrackMesh = crackMesh ?? new StrainDomainMesher(
+            CrackFormationSection.For(section, criterion.Sp63EtaMin, ekbEtaMin: criterion.EkbEtaMin),
+            criterion.CrackCriterion, _opt).Build(ct);
         double mMax = CrackMesh.Vertices.Select(v => Math.Sqrt(v.Mx * v.Mx + v.My * v.My)).DefaultIfEmpty(0).Max();
         _mRef = mMax > 0 ? mMax : 1.0;
         var verts = CrackMesh.Vertices;

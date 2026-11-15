@@ -32,11 +32,14 @@ public sealed class CrackingBatchHandler : ITaskHandler
             var rowResults = new object[total];
             var convergedArr = new bool[total];
             var calcCrc = task.CalcType is CalcType.N or CalcType.NL ? task.CalcType : CalcType.N;
+            // Образование трещин по НДМ — трёхлинейная диаграмма бетона (п. 6.1.24 СП 63).
+            var crcSection = CrackFormationSection.For(section, settings.Sp63DescEtaMin,
+                ctx.Database.Diagrams, settings.RebarDifferentialDiagram, settings.EkbDescEtaMin);
 
             BatchProgress.ForEachRow(total, settings, ctx, i =>
             {
                 var fi = items[i];
-                var clone = settings.BatchParallel ? section.CloneForCalc() : section;
+                var clone = settings.BatchParallel ? crcSection.CloneForCalc() : crcSection;
                 double mag = Math.Sqrt(fi.Mx * fi.Mx + fi.My * fi.My);
                 double dmx = mag > 1e-12 ? fi.Mx / mag : 1.0;
                 double dmy = mag > 1e-12 ? fi.My / mag : 0.0;
