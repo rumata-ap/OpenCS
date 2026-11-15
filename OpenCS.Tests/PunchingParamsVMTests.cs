@@ -71,6 +71,18 @@ public sealed class PunchingParamsVMTests
     }
 
     [Fact]
+    public void RowTaskSource_SurvivesSave()
+    {
+        // Задача по строке проверки по МКЭ: окно не правит источник, но не должно его терять — по нему
+        // «Создать задачу» находит прежнюю задачу строки (иначе повторный выбор строки плодит дубли).
+        var src = new PunchingSourceParams { CheckId = 8, Schema = "Музей", Node = "47460", Key = "РСУ 1" };
+        var vm = Vm(Gosha() with { Source = src });
+        var back = PunchingTaskParams.Parse(vm.ToJson()).Source;
+        Assert.NotNull(back);
+        Assert.Equal((8, "47460", "РСУ 1"), (back.CheckId, back.Node, back.Key));
+    }
+
+    [Fact]
     public void LiveRecalc_EdgeDistanceRebuildsVariants()
     {
         var vm = Vm(Gosha(new PunchingEdgeParams { Side = "-y", C = 0 }));
