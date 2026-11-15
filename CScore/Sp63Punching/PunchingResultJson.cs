@@ -76,6 +76,40 @@ public static class PunchingResultJson
                 w.WriteEndObject();
             }
             w.WriteEndArray();
+            if (result.Rows is { } rc)
+            {
+                w.WriteStartObject("sw_rows");
+                w.WriteNumber("counted", rc.Counted);
+                w.WriteNumber("total", rc.Total);
+                w.WriteNumber("near_face", rc.NearFace);
+                w.WriteBoolean("worst_window", rc.WorstWindow);
+                Num(w, "window_start", rc.WindowStart);
+                w.WriteEndObject();
+            }
+            if (result.Detailing is { Count: > 0 } det)
+            {
+                w.WriteStartArray("detailing");
+                foreach (var c in det)
+                {
+                    w.WriteStartObject();
+                    w.WriteString("code", c.Code);
+                    w.WriteString("quantity", c.Quantity);
+                    Num(w, "value", c.Value);
+                    w.WriteString("relation", c.Relation);
+                    Num(w, "limit", c.Limit);
+                    w.WriteString("limit_formula", c.LimitFormula);
+                    w.WriteString("state", c.State switch
+                    {
+                        PunchingDetailingState.Ok => "ok",
+                        PunchingDetailingState.Allowed => "allowed",
+                        PunchingDetailingState.Violated => "violated",
+                        _ => "not_checked"
+                    });
+                    w.WriteString("text", c.Text);
+                    w.WriteEndObject();
+                }
+                w.WriteEndArray();
+            }
             w.WriteStartArray("warnings");
             foreach (var x in result.Warnings)
             {

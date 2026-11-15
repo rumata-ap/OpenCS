@@ -187,4 +187,41 @@ public class PunchingCrossReinforcementTests
         var sw = System.Text.Json.JsonDocument.Parse(json).RootElement.GetProperty("details")[0].GetProperty("sw");
         Assert.Equal(1.8, sw.GetProperty("lsw_x").GetDouble(), 9);
     }
+
+    [Fact]
+    public void Detailing_Posobie_AllRequirementsMet()
+    {
+        var r = PunchingChecker.Check(Posobie());
+        var d = r.Detailing!.ToDictionary(c => c.Code);
+        Assert.Equal(PunchingDetailingState.Ok, d["first_row_min"].State);
+        Assert.Equal(H0 / 3, d["first_row_min"].Limit, 12);              // 180,3 мм
+        Assert.Equal(PunchingDetailingState.Ok, d["first_row_max"].State);
+        Assert.Equal(PunchingDetailingState.Ok, d["row_step"].State);
+        Assert.Equal(PunchingDetailingState.Ok, d["zone_width"].State);   // 950 ≥ 811,5
+        Assert.Equal((0.25 + H0) / 4, d["line_step_x"].Limit, 12);        // их swy ≤ 790/4 = 197,5 мм
+        Assert.Equal((0.8 + H0) / 4, d["line_step_y"].Limit, 12);        // их swx ≤ 1341/4 = 335,25 мм
+        Assert.Equal(PunchingDetailingState.NotChecked, d["anchorage"].State);
+        Assert.DoesNotContain(r.Warnings, w => w.Code == "sw_detailing_violated");
+        Assert.Equal(3, r.Rows!.Counted);
+    }
+
+    [Fact]
+    public void Detailing_StepUpToHalfH0_AllowedWithPyramidBars()
+    {
+        var sw = PosobieCross() with { Rows = new PunchingStirrupRows(7.85e-5, 0.2, 0.25, 4) };
+        var r = PunchingChecker.Check(Posobie(sw));
+        Assert.Equal(PunchingDetailingState.Allowed, r.Detailing!.Single(c => c.Code == "row_step").State);
+        Assert.Contains(r.Warnings, w => w.Code == "sw_detailing_violated");
+        Assert.True(r.Rows!.WorstWindow);
+        Assert.Equal(2 * 7.85e-5, V(r, "closed").Sw!.AswLine, 12);
+    }
+
+    [Fact]
+    public void Detailing_WithoutRows_NotChecked()
+    {
+        var sw = new PunchingShearReinforcement(300_000, 2e-4, 0.1);
+        var r = PunchingChecker.Check(Posobie(sw));
+        Assert.Empty(r.Detailing!);
+        Assert.Contains(r.Warnings, w => w.Code == "sw_detailing_not_checked");
+    }
 }

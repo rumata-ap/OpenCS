@@ -6640,10 +6640,13 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CalcResultStatus_running">выполняется</system:String>
    <!-- Предупреждения продавливания по кодам ядра -->
    <system:String x:Key="PunchingWarn_fred_nonpositive">Нагрузка в основании пирамиды не меньше продавливающей силы — продавливания нет (Кисп = 0).</system:String>
-   <system:String x:Key="PunchingWarn_sw_detailing_not_checked">Конструктивные требования п. 10.3 к поперечной арматуре не проверяются.</system:String>
+   <system:String x:Key="PunchingWarn_sw_detailing_not_checked">Конструктивные требования п. 10.3 к поперечной арматуре не проверяются (ряды не заданы).</system:String>
    <system:String x:Key="PunchingWarn_no_variants">Не построено ни одного расчётного контура.</system:String>
    <system:String x:Key="PunchingWarn_wb_stress_side_needs_auto">«Уточнённый» момент сопротивления требует учёта эксцентриситета по знакам — взят наименьший W.</system:String>
    <system:String x:Key="PunchingWarn_sw_not_counted">Контур «{0}»: Fsw,ult &lt; 0,25·Fb,ult — поперечная арматура не учитывается (п. 8.1.48).</system:String>
+   <system:String x:Key="PunchingWarn_sw_cross_reduced_ignored">Приведённый периметр пилона: крестообразная арматура не учитывается (только равномерная вдоль контура).</system:String>
+   <system:String x:Key="PunchingWarn_sw_detailing_violated">Требования п. 10.3.17 не выполнены ({0}): учитываются только стержни, пересекающие пирамиду продавливания (п. 8.1.48), при условии их анкеровки — проверьте анкеровку.</system:String>
+   <system:String x:Key="PunchingWarn_sw_rows_near_face">Ряды поперечной арматуры ближе h0/3 к грани площади ({0} шт.) в расчёте не учитываются.</system:String>
    <system:String x:Key="PunchingWarn_m_limited_half_kf">Контур «{0}»: вклад моментов ограничен половиной вклада силы (п. 8.1.46).</system:String>
    <system:String x:Key="PunchingWarn_concave_area_hull">Грузовая площадь невыпуклая — контур построен по выпуклой оболочке.</system:String>
    <system:String x:Key="PunchingWarn_pylon_at_edge_not_checked">Пилон у края плиты: разорванный контур не проверяется, только контуры по СП 63.</system:String>

@@ -30,6 +30,34 @@ public sealed record PunchingArmedSegments(
     public static PunchingArmedSegments Empty { get; } = new([], [], 0, 0, 0, 0, 0, 0);
 }
 
+/// <summary>Итог конструктивной проверки п. 10.3.17.</summary>
+public enum PunchingDetailingState
+{
+    /// <summary>Выполнено.</summary>
+    Ok,
+
+    /// <summary>Допускается с учётом только стержней, пересекающих пирамиду (шаг рядов до h0/2).</summary>
+    Allowed,
+
+    /// <summary>Нарушено.</summary>
+    Violated,
+
+    /// <summary>Не проверяется.</summary>
+    NotChecked
+}
+
+/// <summary>Конструктивная проверка поперечной арматуры по п. 10.3.17 СП 63.</summary>
+/// <param name="Code">Код: first_row_min, first_row_max, row_step, zone_width, line_step_x, line_step_y, line_step, anchorage.</param>
+/// <param name="Quantity">Обозначение величины (LaTeX).</param>
+/// <param name="Value">Значение, м.</param>
+/// <param name="Relation">«≥» или «≤».</param>
+/// <param name="Limit">Предел, м.</param>
+/// <param name="LimitFormula">Формула предела (LaTeX).</param>
+/// <param name="State">Итог.</param>
+/// <param name="Text">Русское описание требования.</param>
+public sealed record PunchingDetailingCheck(string Code, string Quantity, double Value, string Relation, double Limit,
+    string LimitFormula, PunchingDetailingState State, string Text);
+
 /// <summary>Габарит грузовой площади от её центра тяжести: расстояния до граней в стороны ±x, ±y, м.</summary>
 public readonly record struct PunchingAreaExtents(PlanPoint O, double XPlus, double XMinus, double YPlus, double YMinus);
 
@@ -170,6 +198,62 @@ public static class PunchingSwLayout
             pts.Add(end - f.Arm.Width / 2 * f.N);
         }
         return PunchingContourBuilder.ConvexHullCcw(pts);
+    }
+
+    /// <summary>
+    /// Конструктивные требования п. 10.3.17 к рядам и шагу линий. Пусто — ряды не заданы (проверка невозможна).
+    /// Стороны контура для шага вдоль контура — по габариту площади + h0 (у прямоугольника — стороны контура на h0/2).
+    /// </summary>
+    public static List<PunchingDetailingCheck> Detailing(PunchingInput input)
+    {
+        var list = new List<PunchingDetailingCheck>();
+        var r = input.Reinforcement;
+        if (r?.Rows is not { } rows) return list;
+        double h0 = input.H0;
+        const double eps = 1e-9;
+        PunchingDetailingState Ge(double v, double lim) => v >= lim - eps ? PunchingDetailingState.Ok : PunchingDetailingState.Violated;
+        PunchingDetailingState Le(double v, double lim) => v <= lim + eps ? PunchingDetailingState.Ok : PunchingDetailingState.Violated;
+
+        list.Add(new("first_row_min", "s_1", rows.FirstRow, "≥", h0 / 3, @"h_0/3", Ge(rows.FirstRow, h0 / 3),
+            "Первый ряд — не ближе h0/3 от грани грузовой площади"));
+        list.Add(new("first_row_max", "s_1", rows.FirstRow, "≤", h0 / 2, @"h_0/2", Le(rows.FirstRow, h0 / 2),
+            "Первый ряд — не далее h0/2 от грани грузовой площади"));
+        if (rows.Count > 1)
+        {
+            double lim = Math.Min(h0 / 3, 0.3);
+            var st = rows.Step <= lim + eps ? PunchingDetailingState.Ok
+                : rows.Step <= Math.Min(h0 / 2, 0.3) + eps ? PunchingDetailingState.Allowed
+                : PunchingDetailingState.Violated;
+            list.Add(new("row_step", "s_d", rows.Step, "≤", lim, @"\min(h_0/3;\ 300\ мм)", st,
+                "Шаг рядов поперёк сторон контура — не более h0/3 и 300 мм (допускается до h0/2 с учётом только стержней, пересекающих пирамиду)"));
+        }
+        list.Add(new("zone_width", @"s_1 + (n_r - 1)\,s_d", rows.Extent, "≥", 1.5 * h0, @"1{,}5\,h_0", Ge(rows.Extent, 1.5 * h0),
+            "Ширина зоны постановки поперечной арматуры от грани грузовой площади — не менее 1,5h0"));
+
+        if (input.LoadArea is not (PunchingLoadArea.Circle or PunchingLoadArea.Ring))
+        {
+            var ex = Extents(input.LoadArea);
+            double sideX = ex.XPlus + ex.XMinus + h0, sideY = ex.YPlus + ex.YMinus + h0;   // стороны контура вдоль X и вдоль Y
+            if (r.Cross is { } cross)
+            {
+                // Лучи вдоль X пересекают стороны контура, параллельные Y (длина sideY), и наоборот.
+                if (cross.AlongX is { Any: true } ax)
+                    list.Add(new("line_step_x", @"s_{w}", ax.Sw, "≤", sideY / 4, @"L_y/4", Le(ax.Sw, sideY / 4),
+                        "Шаг линий лучей вдоль X вдоль стороны контура — не более 1/4 её длины"));
+                if (cross.AlongY is { Any: true } ay)
+                    list.Add(new("line_step_y", @"s_{w}", ay.Sw, "≤", sideX / 4, @"L_x/4", Le(ay.Sw, sideX / 4),
+                        "Шаг линий лучей вдоль Y вдоль стороны контура — не более 1/4 её длины"));
+            }
+            else if (r.Sw > 0)
+            {
+                double side = Math.Min(sideX, sideY);
+                list.Add(new("line_step", @"s_{w}", r.Sw, "≤", side / 4, @"L_{min}/4", Le(r.Sw, side / 4),
+                    "Шаг стержней вдоль сторон контура — не более 1/4 длины стороны"));
+            }
+        }
+        list.Add(new("anchorage", "", 0, "", 0, "", PunchingDetailingState.NotChecked,
+            "Анкеровка поперечной арматуры (пп. 8.1.48, 10.3) не проверяется"));
+        return list;
     }
 
     /// <summary>Стержни для рисунка: центры в плане, м. Без рядов — пусто.</summary>

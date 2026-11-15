@@ -67,12 +67,16 @@ public sealed record PunchingSwDetail(
 /// <param name="Fred">Продавливающая сила за вычетом нагрузки в основании пирамиды, кН.</param>
 /// <param name="BaseArea">Площадь основания пирамиды, м².</param>
 /// <param name="Warnings">Предупреждения.</param>
+/// <param name="Detailing">Конструктивные проверки п. 10.3.17 (пусто — ряды не заданы).</param>
+/// <param name="Rows">Счёт рядов в пирамиде (null — ряды не заданы).</param>
 public sealed record PunchingResult(
     IReadOnlyList<PunchingVariantResult> Variants, int GoverningIndex,
     double Utilization, PunchingStatus Status,
     double UtilizationConcreteOnly, double UtilizationMaxReinforcement,
     double Fred, double BaseArea,
-    IReadOnlyList<PunchingWarning> Warnings)
+    IReadOnlyList<PunchingWarning> Warnings,
+    IReadOnlyList<PunchingDetailingCheck>? Detailing = null,
+    PunchingRowCount? Rows = null)
 {
     /// <summary>Прочность на продавливание обеспечена с заданной арматурой.</summary>
     public bool Passed => GoverningIndex >= 0 && Utilization <= 1.0;
@@ -152,6 +156,13 @@ public static class PunchingChecker
             warnings.Add(new("fred_nonpositive",
                 "Нагрузка в основании пирамиды не меньше продавливающей силы — продавливания нет (Кисп = 0)."));
         var sw = SwSetup.From(input, warnings);
+        var detailing = PunchingSwLayout.Detailing(input);
+        var bad = detailing.Where(d => d.State is PunchingDetailingState.Violated or PunchingDetailingState.Allowed).ToList();
+        if (bad.Count > 0)
+            warnings.Add(new("sw_detailing_violated",
+                $"Требования п. 10.3.17 не выполнены ({string.Join(", ", bad.Select(b => b.Code))}): учитываются только стержни, " +
+                "пересекающие пирамиду продавливания (п. 8.1.48), при условии их анкеровки — проверьте анкеровку.",
+                [string.Join(", ", bad.Select(b => b.Code))]));
 
         var ctx = new Context(input, options, fred, baseArea, warnings, includeTrace, geometry, sw, swScale);
         var results = build.Variants.Select(v => Evaluate(ctx, v)).ToList();
@@ -176,7 +187,7 @@ public static class PunchingChecker
             : PunchingStatus.NotEnsured;
 
         return new PunchingResult(results, gov, util, status, kb, kmax, fred, baseArea,
-            warnings.DistinctBy(w => w.Code + w.Text).ToList());
+            warnings.DistinctBy(w => w.Code + w.Text).ToList(), detailing, sw.Rows);
     }
 
     static bool Eligible(PunchingVariant v, PunchingOptions o)
