@@ -397,6 +397,8 @@ public static class PunchingFemCheckRunner
         return baseResult with
         {
             Status = status, Passed = rows.All(r => r.Passed), Ratio = gov.Ratio, GoverningKey = gov.Key,
+            // h0 расчёта: с переопределением ax/ay узла (у найденного узла — по защитному слою по умолчанию).
+            H0 = governingParams!.H0,
             ParamsJson = governingParams!.ToJson(), Rows = rows, Warnings = warnings.DistinctBy(w => w.Code + w.Text).ToList(),
         };
     }

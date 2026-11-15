@@ -314,7 +314,7 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         int noCheck = data.Joints.Count(j => j.NoCheck != null);
         JointsSummary = data.Joints.Count == 0
             ? Loc.S("PunchingFemNoJoints", "Узлов «колонна — плита» не найдено: нужен стержень под углом к горизонтальной плите с концом в её узле или в теле АЖТ.")
-            : string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingFemJointsFound", "Найдено узлов: {0}, из них без проверки: {1}, плит: {2}."),
+            : string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingFemJointsFound", "Найдено узлов: {0}, из них не проверяются по геометрии: {1}, плит: {2}. При расчёте без проверки останутся и узлы без усилий в результате."),
                 data.Joints.Count, noCheck, data.Slabs.Count(s => data.Joints.Any(j => j.SlabIndex == s.Index)));
         OnPropertyChanged(nameof(JointsSummary));
         SelectedJoint = Joints.FirstOrDefault(j => j.Node == keep) ?? Joints.FirstOrDefault(j => j.Checkable) ?? Joints.FirstOrDefault();

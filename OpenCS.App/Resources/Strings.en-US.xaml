@@ -6709,8 +6709,16 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemReport">Report...</system:String>
    <system:String x:Key="PunchingFemParams">Parameters...</system:String>
    <system:String x:Key="PunchingFemRerun">Recalculate</system:String>
+   <system:String x:Key="PunchingFemOpenJoint">Joint calculation →</system:String>
+   <system:String x:Key="PunchingFemWarningsHeader">Warnings: {0}</system:String>
+   <system:String x:Key="PunchingFemJointTab">Joint {0}</system:String>
+   <system:String x:Key="PunchingFemFit">Fit</system:String>
+   <system:String x:Key="PunchingFemJointTabEmpty">Joint calculation</system:String>
+   <system:String x:Key="PunchingFemTabPlan">Plan</system:String>
+   <system:String x:Key="PunchingFemTabJoints">Joints table</system:String>
+   <system:String x:Key="PunchingFemJointCardKey">K = {0} for &quot;{1}&quot;: F = {2} kN, Mx = {3}, My = {4} kN·m</system:String>
    <system:String x:Key="PunchingFemPlan">Floor plan</system:String>
-   <system:String x:Key="PunchingFemPlanHint">Click a joint to see its rows; wheel — zoom; right button — pan, double right click — fit</system:String>
+   <system:String x:Key="PunchingFemPlanHint">Click a joint to select it, double-click to open its calculation; wheel — zoom; right button — pan</system:String>
    <system:String x:Key="PunchingFemColKey">Load case / combination</system:String>
    <system:String x:Key="PunchingFemColMethod">Method</system:String>
    <system:String x:Key="PunchingFemColSide">Side</system:String>
@@ -6720,7 +6728,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemColMismatch">Mismatch, kN</system:String>
    <system:String x:Key="PunchingFemColPylon">Pylon ends</system:String>
    <system:String x:Key="PunchingFemPylonParts">ends {0:0.0} and {1:0.0}, middle {2:0.0} kN; ends utilization {3}</system:String>
-   <system:String x:Key="PunchingFemRowsHint">"Columns" — bar action on the slab, "Base" — load within the pyramid base, "Cut" — force across the base boundary from element nodal forces; mismatch = columns + base − cut (≈ 0 when the force goes through the slab only). Full calculation of the row is on the right.</system:String>
+   <system:String x:Key="PunchingFemRowsHint">"Columns" — bar action on the slab, "Base" — load within the pyramid base, "Cut" — force across the base boundary from element nodal forces; mismatch = columns + base − cut (≈ 0 when the force goes through the slab only). Full calculation of the row is below.</system:String>
    <system:String x:Key="PunchingFemStatus_concrete">concrete sufficient</system:String>
    <system:String x:Key="PunchingFemStatus_reinforcement">reinforcement required</system:String>
    <system:String x:Key="PunchingFemStatus_not_ensured">strength not ensured</system:String>
@@ -6749,7 +6757,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemLinear">linear</system:String>
    <system:String x:Key="PunchingFemSecant">secant</system:String>
    <system:String x:Key="PunchingFemNoJoints">No column-to-slab joints found: a bar at an angle to a horizontal slab ending in its node or a rigid body is required.</system:String>
-   <system:String x:Key="PunchingFemJointsFound">Joints found: {0}, not checked: {1}, slabs: {2}.</system:String>
+   <system:String x:Key="PunchingFemJointsFound">Joints found: {0}, not checkable by geometry: {1}, slabs: {2}. Joints without forces in the result also stay unchecked.</system:String>
    <system:String x:Key="PunchingFemErrNoSchema">No model selected.</system:String>
    <system:String x:Key="PunchingFemErrNoAnalysis">No CSfea analysis selected as the force source (create and run an analysis of the model).</system:String>
    <system:String x:Key="PunchingFemPreview">Joint {0}: {1}, h = {2:0} mm, h0 = {3:0.#} mm, ax = {4:0}, ay = {5:0} mm{6}; concrete {7}. Forces come from the analysis, utilization — in the check result.</system:String>

@@ -25,8 +25,9 @@ public partial class PunchingFemResultView : UserControl
         Plan.NodeClicked += node =>
         {
             _vm.SelectNode(node);
-            if (_vm.SelectedJoint != null) JointsGrid.ScrollIntoView(_vm.SelectedJoint);
+            if (_vm.SelectedJoint != null) JointsListGrid.ScrollIntoView(_vm.SelectedJoint);
         };
+        Plan.NodeDoubleClicked += _ => OpenJoint();
         ReportButton.IsEnabled = app.ExportCalcResultReportCommand.CanExecute(result);
         ParamsButton.IsEnabled = RunButton.IsEnabled = check is not null;
         UpdateCreateTask();
@@ -56,6 +57,21 @@ public partial class PunchingFemResultView : UserControl
         if (_app is not null && _check is not null && _vm.SelectedJoint is { } joint && _vm.SelectedRow is { } row)
             BatchRowTask.CreateAndRun(_app, _check, joint.Data, row.Row);
     }
+
+    /// <summary>Вкладка расчёта выбранного узла.</summary>
+    void OpenJoint()
+    {
+        if (_vm.SelectedJoint != null) Tabs.SelectedItem = JointTab;
+    }
+
+    void OpenJoint_Click(object sender, RoutedEventArgs e) => OpenJoint();
+
+    void JointsGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is DependencyObject d && ItemsControl.ContainerFromElement((DataGrid)sender, d) is DataGridRow) OpenJoint();
+    }
+
+    void Fit_Click(object sender, RoutedEventArgs e) => Plan.FitView();
 
     void Report_Click(object sender, RoutedEventArgs e)
     {

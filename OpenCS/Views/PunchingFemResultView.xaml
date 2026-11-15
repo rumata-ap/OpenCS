@@ -26,118 +26,104 @@
    <Grid Margin="8">
       <Grid.RowDefinitions>
          <RowDefinition Height="Auto"/>
-         <RowDefinition Height="*" MinHeight="180"/>
-         <RowDefinition Height="5"/>
-         <RowDefinition Height="1.4*" MinHeight="220"/>
+         <RowDefinition Height="*"/>
       </Grid.RowDefinitions>
 
-      <!-- Сводка и кнопки -->
+      <!-- Сводка: вердикт и счётчики одной строкой, предупреждения свёрнуты; кнопки справа -->
       <DockPanel Grid.Row="0" Margin="0,0,0,6">
          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
-            <Button x:Name="CreateTaskBtn" Content="{DynamicResource PunchingFemCreateTask}" Click="CreateTask_Click" Padding="10,3" Margin="6,0,0,0"
-                    ToolTip="{DynamicResource PunchingFemCreateTaskHint}"/>
             <Button x:Name="ReportButton" Content="{DynamicResource PunchingFemReport}" Click="Report_Click" Padding="10,3" Margin="6,0,0,0"/>
             <Button x:Name="ParamsButton" Content="{DynamicResource PunchingFemParams}" Click="Params_Click" Padding="10,3" Margin="6,0,0,0"/>
             <Button x:Name="RunButton" Content="{DynamicResource PunchingFemRerun}" Click="Run_Click" Padding="10,3" Margin="6,0,0,0"/>
          </StackPanel>
-         <Border Padding="10,6" CornerRadius="4" BorderThickness="1" BorderBrush="{Binding VerdictBrush}">
+         <Border Padding="10,5" CornerRadius="4" BorderThickness="1" BorderBrush="{Binding VerdictBrush}">
             <StackPanel>
-               <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="14"/>
-               <TextBlock Text="{Binding VerdictText}" FontWeight="SemiBold" Foreground="{Binding VerdictBrush}" TextWrapping="Wrap"/>
+               <TextBlock TextWrapping="Wrap">
+                  <Run Text="{Binding Title, Mode=OneWay}" FontWeight="Bold" FontSize="14"/>
+                  <Run Text="   "/>
+                  <Run Text="{Binding VerdictText, Mode=OneWay}" FontWeight="SemiBold" Foreground="{Binding VerdictBrush}"/>
+               </TextBlock>
                <TextBlock Text="{Binding ErrorText}" Foreground="#8B0000" TextWrapping="Wrap"
                           Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}"/>
-               <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" Margin="0,2,0,0"/>
-               <TextBlock Text="{Binding WarningsText}" TextWrapping="Wrap" Foreground="#7A4F00" Margin="0,2,0,0"
-                          Visibility="{Binding HasWarnings, Converter={StaticResource BoolToVisibility}}"/>
+               <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" Foreground="#333" Margin="0,2,0,0"/>
+               <Expander Header="{Binding WarningsHeader}" Foreground="#7A4F00" Margin="0,2,0,0" IsExpanded="False"
+                         Visibility="{Binding HasWarnings, Converter={StaticResource BoolToVisibility}}">
+                  <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto">
+                     <TextBlock Text="{Binding WarningsText}" TextWrapping="Wrap" Foreground="#7A4F00"/>
+                  </ScrollViewer>
+               </Expander>
             </StackPanel>
          </Border>
       </DockPanel>
 
-      <!-- План и узлы -->
-      <Grid Grid.Row="1">
-         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" MinWidth="240"/>
-            <ColumnDefinition Width="5"/>
-            <ColumnDefinition Width="1.5*" MinWidth="360"/>
-         </Grid.ColumnDefinitions>
-         <DockPanel Grid.Column="0">
-            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,3">
-               <ComboBox DockPanel.Dock="Right" Width="150" ItemsSource="{Binding Levels}" DisplayMemberPath="Label"
-                         SelectedItem="{Binding SelectedLevel}" Visibility="{Binding HasLevels, Converter={StaticResource BoolToVisibility}}"/>
-               <TextBlock Text="{DynamicResource PunchingFemPlan}" FontWeight="SemiBold" VerticalAlignment="Center"
-                          ToolTip="{DynamicResource PunchingFemPlanHint}"/>
-            </DockPanel>
-            <Border BorderBrush="#D5DDE5" BorderThickness="1">
-               <h:PunchingFemPlanCanvas x:Name="Plan" Data="{Binding Data}" Level="{Binding LevelZ}" SelectedNode="{Binding SelectedJointNode}"
-                                        ToolTip="{DynamicResource PunchingFemPlanHint}"/>
-            </Border>
-         </DockPanel>
-         <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="Transparent"/>
-         <DataGrid Grid.Column="2" x:Name="JointsGrid" ItemsSource="{Binding Joints}" SelectedItem="{Binding SelectedJoint}"
-                   AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column"
-                   SelectionMode="Single" GridLinesVisibility="Horizontal">
-            <DataGrid.Columns>
-               <DataGridTextColumn Header="{DynamicResource PunchingFemColNode}" Binding="{Binding Node}" Width="Auto"/>
-               <DataGridTextColumn Header="{DynamicResource PunchingFemColSection}" Binding="{Binding Section}" Width="Auto"/>
-               <DataGridTextColumn Header="{DynamicResource PunchingFemColSlab}" Binding="{Binding Slab}" Width="Auto"/>
-               <DataGridTextColumn Header="{DynamicResource PunchingFemColPosition}" Binding="{Binding Position}" Width="Auto"/>
-               <DataGridTextColumn Header="{DynamicResource PunchingKisp}" Binding="{Binding K}" SortMemberPath="KValue" Width="Auto">
-                  <DataGridTextColumn.ElementStyle>
-                     <Style TargetType="TextBlock" BasedOn="{StaticResource StatusCell}">
-                        <Setter Property="Foreground" Value="{Binding StatusBrush}"/>
-                     </Style>
-                  </DataGridTextColumn.ElementStyle>
-               </DataGridTextColumn>
-               <DataGridTemplateColumn Header="{DynamicResource PunchingFemColStatus}" Width="*" MinWidth="160" SortMemberPath="StatusShort">
-                  <DataGridTemplateColumn.CellTemplate>
-                     <DataTemplate>
-                        <TextBlock Text="{Binding StatusShort}" Foreground="{Binding StatusBrush}" Style="{StaticResource StatusCell}"
-                                   ToolTip="{Binding StatusText}" TextTrimming="CharacterEllipsis"/>
-                     </DataTemplate>
-                  </DataGridTemplateColumn.CellTemplate>
-               </DataGridTemplateColumn>
-               <DataGridTextColumn Header="{DynamicResource PunchingFemColKey}" Binding="{Binding GoverningKey}" Width="Auto"/>
-               <DataGridTextColumn Header="F, кН" Binding="{Binding F}" Width="Auto"/>
-               <DataGridTextColumn Header="Mx, кН·м" Binding="{Binding Mx}" Width="Auto"/>
-               <DataGridTextColumn Header="My, кН·м" Binding="{Binding My}" Width="Auto"/>
-               <DataGridTextColumn Header="{DynamicResource PunchingFemColMethod}" Binding="{Binding Method}" Width="Auto"/>
-               <DataGridTemplateColumn Header="⚠" Width="Auto">
-                  <DataGridTemplateColumn.CellTemplate>
-                     <DataTemplate>
-                        <TextBlock Text="{Binding Warnings}" Foreground="#7A4F00" ToolTip="{Binding WarningsText}" Margin="4,0"/>
-                     </DataTemplate>
-                  </DataGridTemplateColumn.CellTemplate>
-               </DataGridTemplateColumn>
-            </DataGrid.Columns>
-         </DataGrid>
-      </Grid>
+      <TabControl Grid.Row="1" x:Name="Tabs">
+         <!-- План: схема во всю площадь, справа — узкий список узлов и карточка выбранного -->
+         <TabItem Header="{DynamicResource PunchingFemTabPlan}">
+            <Grid Margin="4">
+               <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" MinWidth="300"/>
+                  <ColumnDefinition Width="5"/>
+                  <ColumnDefinition Width="330" MinWidth="240"/>
+               </Grid.ColumnDefinitions>
+               <DockPanel Grid.Column="0">
+                  <DockPanel DockPanel.Dock="Top" Margin="0,0,0,3">
+                     <Button DockPanel.Dock="Right" Content="{DynamicResource PunchingFemFit}" Click="Fit_Click" Padding="8,1" Margin="6,0,0,0"/>
+                     <ComboBox DockPanel.Dock="Right" Width="150" ItemsSource="{Binding Levels}" DisplayMemberPath="Label"
+                               SelectedItem="{Binding SelectedLevel}" Visibility="{Binding HasLevels, Converter={StaticResource BoolToVisibility}}"/>
+                     <TextBlock Text="{DynamicResource PunchingFemPlanHint}" Foreground="#555" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                  </DockPanel>
+                  <Border BorderBrush="#D5DDE5" BorderThickness="1">
+                     <h:PunchingFemPlanCanvas x:Name="Plan" Data="{Binding Data}" Level="{Binding LevelZ}" SelectedNode="{Binding SelectedJointNode}"/>
+                  </Border>
+               </DockPanel>
+               <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="Transparent"/>
+               <DockPanel Grid.Column="2">
+                  <!-- Карточка выбранного узла -->
+                  <Border DockPanel.Dock="Bottom" BorderBrush="#D5DDE5" BorderThickness="1" Padding="8,6" Margin="0,6,0,0"
+                          Visibility="{Binding HasSelectedJoint, Converter={StaticResource BoolToVisibility}}">
+                     <StackPanel>
+                        <TextBlock Text="{Binding JointHeader}" TextWrapping="Wrap" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding JointCard}" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                        <Button Content="{DynamicResource PunchingFemOpenJoint}" Click="OpenJoint_Click" HorizontalAlignment="Left"
+                                Padding="10,3" Margin="0,6,0,0"/>
+                     </StackPanel>
+                  </Border>
+                  <DataGrid x:Name="JointsListGrid" ItemsSource="{Binding Joints}" SelectedItem="{Binding SelectedJoint}"
+                            AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column"
+                            SelectionMode="Single" GridLinesVisibility="Horizontal" MouseDoubleClick="JointsGrid_MouseDoubleClick">
+                     <DataGrid.Columns>
+                        <DataGridTextColumn Header="{DynamicResource PunchingFemColNode}" Binding="{Binding Node}" Width="Auto"/>
+                        <DataGridTextColumn Header="{DynamicResource PunchingKisp}" Binding="{Binding K}" SortMemberPath="KValue" Width="Auto">
+                           <DataGridTextColumn.ElementStyle>
+                              <Style TargetType="TextBlock" BasedOn="{StaticResource StatusCell}">
+                                 <Setter Property="Foreground" Value="{Binding StatusBrush}"/>
+                              </Style>
+                           </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTemplateColumn Header="{DynamicResource PunchingFemColStatus}" Width="*" SortMemberPath="StatusShort">
+                           <DataGridTemplateColumn.CellTemplate>
+                              <DataTemplate>
+                                 <TextBlock Text="{Binding StatusShort}" Foreground="{Binding StatusBrush}" Style="{StaticResource StatusCell}"
+                                            ToolTip="{Binding StatusText}" TextTrimming="CharacterEllipsis"/>
+                              </DataTemplate>
+                           </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                     </DataGrid.Columns>
+                  </DataGrid>
+               </DockPanel>
+            </Grid>
+         </TabItem>
 
-      <GridSplitter Grid.Row="2" HorizontalAlignment="Stretch" Background="Transparent"/>
-
-      <!-- Ключи узла и расчёт строки -->
-      <Grid Grid.Row="3">
-         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" MinWidth="320"/>
-            <ColumnDefinition Width="5"/>
-            <ColumnDefinition Width="1.2*" MinWidth="380"/>
-         </Grid.ColumnDefinitions>
-         <DockPanel Grid.Column="0">
-            <TextBlock DockPanel.Dock="Top" Text="{Binding JointHeader}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,0,0,3"/>
-            <TextBlock DockPanel.Dock="Bottom" Text="{DynamicResource PunchingFemRowsHint}" TextWrapping="Wrap" Foreground="#555" Margin="0,3,0,0"/>
-            <DataGrid x:Name="RowsGrid" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" AutoGenerateColumns="False"
-                      IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" SelectionMode="Single"
-                      GridLinesVisibility="Horizontal" MouseDoubleClick="RowsGrid_MouseDoubleClick">
+         <!-- Таблица узлов: все столбцы -->
+         <TabItem Header="{DynamicResource PunchingFemTabJoints}">
+            <DataGrid x:Name="JointsGrid" Margin="4" ItemsSource="{Binding Joints}" SelectedItem="{Binding SelectedJoint}"
+                      AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column"
+                      SelectionMode="Single" GridLinesVisibility="Horizontal" MouseDoubleClick="JointsGrid_MouseDoubleClick">
                <DataGrid.Columns>
-                  <DataGridTextColumn Header="{DynamicResource PunchingFemColKey}" Binding="{Binding Key}" Width="*" MinWidth="90"/>
-                  <DataGridTextColumn Header="F, кН" Binding="{Binding F}" Width="Auto"/>
-                  <DataGridTextColumn Header="Mx" Binding="{Binding Mx}" Width="Auto"/>
-                  <DataGridTextColumn Header="My" Binding="{Binding My}" Width="Auto"/>
-                  <DataGridTextColumn Header="{DynamicResource PunchingFemColSide}" Binding="{Binding Side}" Width="Auto"/>
-                  <DataGridTextColumn Header="{DynamicResource PunchingFemColColumn}" Binding="{Binding Column}" Width="Auto"/>
-                  <DataGridTextColumn Header="{DynamicResource PunchingFemColBase}" Binding="{Binding BaseLoad}" Width="Auto"/>
-                  <DataGridTextColumn Header="{DynamicResource PunchingFemColContour}" Binding="{Binding Contour}" Width="Auto"/>
-                  <DataGridTextColumn Header="{DynamicResource PunchingFemColMismatch}" Binding="{Binding Mismatch}" Width="Auto"/>
-                  <DataGridTextColumn Header="{DynamicResource PunchingFemColPylon}" Binding="{Binding Pylon}" Width="Auto"/>
+                  <DataGridTextColumn Header="{DynamicResource PunchingFemColNode}" Binding="{Binding Node}" Width="Auto"/>
+                  <DataGridTextColumn Header="{DynamicResource PunchingFemColSection}" Binding="{Binding Section}" Width="Auto"/>
+                  <DataGridTextColumn Header="{DynamicResource PunchingFemColSlab}" Binding="{Binding Slab}" Width="Auto"/>
+                  <DataGridTextColumn Header="{DynamicResource PunchingFemColPosition}" Binding="{Binding Position}" Width="Auto"/>
                   <DataGridTextColumn Header="{DynamicResource PunchingKisp}" Binding="{Binding K}" SortMemberPath="KValue" Width="Auto">
                      <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource StatusCell}">
@@ -145,11 +131,71 @@
                         </Style>
                      </DataGridTextColumn.ElementStyle>
                   </DataGridTextColumn>
+                  <DataGridTemplateColumn Header="{DynamicResource PunchingFemColStatus}" Width="*" MinWidth="160" SortMemberPath="StatusShort">
+                     <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                           <TextBlock Text="{Binding StatusShort}" Foreground="{Binding StatusBrush}" Style="{StaticResource StatusCell}"
+                                      ToolTip="{Binding StatusText}" TextTrimming="CharacterEllipsis"/>
+                        </DataTemplate>
+                     </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTextColumn Header="{DynamicResource PunchingFemColKey}" Binding="{Binding GoverningKey}" Width="Auto"/>
+                  <DataGridTextColumn Header="F, кН" Binding="{Binding F}" Width="Auto"/>
+                  <DataGridTextColumn Header="Mx, кН·м" Binding="{Binding Mx}" Width="Auto"/>
+                  <DataGridTextColumn Header="My, кН·м" Binding="{Binding My}" Width="Auto"/>
+                  <DataGridTextColumn Header="{DynamicResource PunchingFemColMethod}" Binding="{Binding Method}" Width="Auto"/>
+                  <DataGridTemplateColumn Header="⚠" Width="Auto">
+                     <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                           <TextBlock Text="{Binding Warnings}" Foreground="#7A4F00" ToolTip="{Binding WarningsText}" Margin="4,0"/>
+                        </DataTemplate>
+                     </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
                </DataGrid.Columns>
             </DataGrid>
-         </DockPanel>
-         <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="Transparent"/>
-         <v:PunchingResultPanel Grid.Column="2" DataContext="{Binding Detail}"/>
-      </Grid>
+         </TabItem>
+
+         <!-- Расчёт узла: ключи узла сверху, полный расчёт выбранной строки ниже -->
+         <TabItem x:Name="JointTab" Header="{Binding JointTabHeader}">
+            <Grid Margin="4">
+               <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="*" MinHeight="90" MaxHeight="260"/>
+                  <RowDefinition Height="5"/>
+                  <RowDefinition Height="3*" MinHeight="240"/>
+               </Grid.RowDefinitions>
+               <DockPanel Grid.Row="0" Margin="0,0,0,3">
+                  <Button x:Name="CreateTaskBtn" DockPanel.Dock="Right" Content="{DynamicResource PunchingFemCreateTask}" Click="CreateTask_Click"
+                          Padding="10,3" Margin="6,0,0,0" VerticalAlignment="Top" ToolTip="{DynamicResource PunchingFemCreateTaskHint}"/>
+                  <TextBlock Text="{Binding JointHeader}" TextWrapping="Wrap" FontWeight="SemiBold" ToolTip="{DynamicResource PunchingFemRowsHint}"/>
+               </DockPanel>
+               <DataGrid Grid.Row="1" x:Name="RowsGrid" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" AutoGenerateColumns="False"
+                         IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" SelectionMode="Single"
+                         GridLinesVisibility="Horizontal" MouseDoubleClick="RowsGrid_MouseDoubleClick">
+                  <DataGrid.Columns>
+                     <DataGridTextColumn Header="{DynamicResource PunchingFemColKey}" Binding="{Binding Key}" Width="*" MinWidth="120"/>
+                     <DataGridTextColumn Header="F, кН" Binding="{Binding F}" Width="Auto"/>
+                     <DataGridTextColumn Header="Mx" Binding="{Binding Mx}" Width="Auto"/>
+                     <DataGridTextColumn Header="My" Binding="{Binding My}" Width="Auto"/>
+                     <DataGridTextColumn Header="{DynamicResource PunchingFemColSide}" Binding="{Binding Side}" Width="Auto"/>
+                     <DataGridTextColumn Header="{DynamicResource PunchingFemColColumn}" Binding="{Binding Column}" Width="Auto"/>
+                     <DataGridTextColumn Header="{DynamicResource PunchingFemColBase}" Binding="{Binding BaseLoad}" Width="Auto"/>
+                     <DataGridTextColumn Header="{DynamicResource PunchingFemColContour}" Binding="{Binding Contour}" Width="Auto"/>
+                     <DataGridTextColumn Header="{DynamicResource PunchingFemColMismatch}" Binding="{Binding Mismatch}" Width="Auto"/>
+                     <DataGridTextColumn Header="{DynamicResource PunchingFemColPylon}" Binding="{Binding Pylon}" Width="Auto"/>
+                     <DataGridTextColumn Header="{DynamicResource PunchingKisp}" Binding="{Binding K}" SortMemberPath="KValue" Width="Auto">
+                        <DataGridTextColumn.ElementStyle>
+                           <Style TargetType="TextBlock" BasedOn="{StaticResource StatusCell}">
+                              <Setter Property="Foreground" Value="{Binding StatusBrush}"/>
+                           </Style>
+                        </DataGridTextColumn.ElementStyle>
+                     </DataGridTextColumn>
+                  </DataGrid.Columns>
+               </DataGrid>
+               <GridSplitter Grid.Row="2" HorizontalAlignment="Stretch" Background="Transparent"/>
+               <v:PunchingResultPanel Grid.Row="3" DataContext="{Binding Detail}"/>
+            </Grid>
+         </TabItem>
+      </TabControl>
    </Grid>
 </UserControl>

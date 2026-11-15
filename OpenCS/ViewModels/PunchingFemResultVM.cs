@@ -224,6 +224,8 @@ public sealed class PunchingFemResultVM : ViewModelBase
         : Loc.S("PunchingFemVerdictNoCheck", "Есть узлы без проверки — см. причины в таблице");
     public string WarningsText { get; }
     public bool HasWarnings => WarningsText.Length > 0;
+    /// <summary>Заголовок свёрнутых предупреждений проверки.</summary>
+    public string WarningsHeader => string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingFemWarningsHeader", "Предупреждения: {0}"), Data.Warnings.Count);
 
     public ObservableCollection<PunchingFemJointRowVM> Joints { get; } = [];
     public ObservableCollection<PunchingFemKeyRowVM> Rows { get; } = [];
@@ -240,6 +242,9 @@ public sealed class PunchingFemResultVM : ViewModelBase
                     Rows.Add(new PunchingFemKeyRowVM(r, r.Key == value.Data.GoverningKey));
             OnPropertyChanged(nameof(SelectedJointNode));
             OnPropertyChanged(nameof(JointHeader));
+            OnPropertyChanged(nameof(JointCard));
+            OnPropertyChanged(nameof(JointTabHeader));
+            OnPropertyChanged(nameof(HasSelectedJoint));
             if (Levels != null) FollowLevel(value);
             SelectedRow = Rows.FirstOrDefault();
             if (Rows.Count == 0) { Detail = null; OnPropertyChanged(nameof(Detail)); }
@@ -252,6 +257,29 @@ public sealed class PunchingFemResultVM : ViewModelBase
     public string JointHeader => _selectedJoint == null ? ""
         : string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingFemJointHeader", "Узел {0}: {1}"), _selectedJoint.Node, _selectedJoint.StatusText)
           + (_selectedJoint.WarningsText.Length > 0 ? "\n" + _selectedJoint.WarningsText : "");
+
+    public bool HasSelectedJoint => _selectedJoint != null;
+
+    /// <summary>Вкладка расчёта узла: «Узел 47460».</summary>
+    public string JointTabHeader => _selectedJoint == null ? Loc.S("PunchingFemJointTabEmpty", "Расчёт узла")
+        : string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingFemJointTab", "Узел {0}"), _selectedJoint.Node);
+
+    /// <summary>Карточка узла на вкладке плана: сечения, положение, определяющий ключ и его усилия.</summary>
+    public string JointCard
+    {
+        get
+        {
+            if (_selectedJoint is not { } j) return "";
+            var c = CultureInfo.CurrentCulture;
+            var lines = new List<string>();
+            if (j.Section.Length > 0) lines.Add(j.Section);
+            lines.Add(j.Slab.Length > 0 ? j.Slab + "; " + j.Position : j.Position);
+            if (j.IsChecked)
+                lines.Add(string.Format(c, Loc.S("PunchingFemJointCardKey", "Кисп = {0} по «{1}»: F = {2} кН, Mx = {3}, My = {4} кН·м"),
+                    j.K, j.GoverningKey, j.F, j.Mx, j.My));
+            return string.Join("\n", lines);
+        }
+    }
 
     public PunchingFemKeyRowVM? SelectedRow
     {

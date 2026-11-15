@@ -6709,8 +6709,16 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemReport">Отчёт...</system:String>
    <system:String x:Key="PunchingFemParams">Параметры...</system:String>
    <system:String x:Key="PunchingFemRerun">Пересчитать</system:String>
+   <system:String x:Key="PunchingFemOpenJoint">Расчёт узла →</system:String>
+   <system:String x:Key="PunchingFemWarningsHeader">Предупреждения: {0}</system:String>
+   <system:String x:Key="PunchingFemJointTab">Узел {0}</system:String>
+   <system:String x:Key="PunchingFemFit">Вписать</system:String>
+   <system:String x:Key="PunchingFemJointTabEmpty">Расчёт узла</system:String>
+   <system:String x:Key="PunchingFemTabPlan">План</system:String>
+   <system:String x:Key="PunchingFemTabJoints">Таблица узлов</system:String>
+   <system:String x:Key="PunchingFemJointCardKey">Кисп = {0} по «{1}»: F = {2} кН, Mx = {3}, My = {4} кН·м</system:String>
    <system:String x:Key="PunchingFemPlan">План перекрытия</system:String>
-   <system:String x:Key="PunchingFemPlanHint">Щелчок по узлу — его строки; колесо — масштаб; правая кнопка — сдвиг, двойной щелчок правой — вписать</system:String>
+   <system:String x:Key="PunchingFemPlanHint">Щелчок по узлу — выбрать, двойной — открыть его расчёт; колесо — масштаб; правая кнопка — сдвиг</system:String>
    <system:String x:Key="PunchingFemColKey">Загружение / сочетание</system:String>
    <system:String x:Key="PunchingFemColMethod">Способ</system:String>
    <system:String x:Key="PunchingFemColSide">Сторона</system:String>
@@ -6719,5 +6727,5 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemColContour">Разрез, кН</system:String>
    <system:String x:Key="PunchingFemColMismatch">Невязка, кН</system:String>
    <system:String x:Key="PunchingFemColPylon">Торцы пилона</system:String>
-   <system:String x:Key="PunchingFemRowsHint">«Колонны» — действие стержней на плиту, «Основание» — нагрузка в основании пирамиды, «Разрез» — сила по границе основания из узловых сил КЭ; невязка = колонны + основание − разрез (≈ 0, если сила идёт только через плиту). Справа — полный расчёт строки.</system:String>
+   <system:String x:Key="PunchingFemRowsHint">«Колонны» — действие стержней на плиту, «Основание» — нагрузка в основании пирамиды, «Разрез» — сила по границе основания из узловых сил КЭ; невязка = колонны + основание − разрез (≈ 0, если сила идёт только через плиту). Ниже — полный расчёт строки.</system:String>
 </ResourceDictionary>

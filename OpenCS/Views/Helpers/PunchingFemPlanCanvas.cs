@@ -30,6 +30,11 @@ public sealed class PunchingFemPlanCanvas : FrameworkElement
 
     /// <summary>Щелчок по узлу (тег).</summary>
     public event Action<string>? NodeClicked;
+    /// <summary>Двойной щелчок по узлу (тег) — открыть его расчёт.</summary>
+    public event Action<string>? NodeDoubleClicked;
+
+    /// <summary>Вписать план в окно.</summary>
+    public void FitView() => ResetView();
 
     /// <summary>Допуск отметки при отборе по уровню, м.</summary>
     public const double LevelTol = 0.05;
@@ -168,6 +173,7 @@ public sealed class PunchingFemPlanCanvas : FrameworkElement
         if (node != null)
         {
             NodeClicked?.Invoke(node);
+            if (e.ClickCount == 2) NodeDoubleClicked?.Invoke(node);
             e.Handled = true;
         }
     }
