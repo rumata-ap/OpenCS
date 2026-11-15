@@ -130,6 +130,43 @@ public static class PunchingResultJson
         return System.Text.Encoding.UTF8.GetString(ms.ToArray());
     }
 
+    /// <summary>JSON подбора (ключ <c>design</c> результата задачи).</summary>
+    public static string WriteDesign(PunchingDesignResult d)
+    {
+        using var ms = new MemoryStream();
+        using (var w = new Utf8JsonWriter(ms))
+        {
+            w.WriteStartObject();
+            w.WriteString("state", d.State switch
+            {
+                PunchingDesignState.NotRequired => "not_required",
+                PunchingDesignState.ByCalculation => "by_calculation",
+                PunchingDesignState.ByThreshold => "by_threshold",
+                PunchingDesignState.NotEnsured => "not_ensured",
+                _ => "layout_ineffective"
+            });
+            Num(w, "lambda", d.Lambda);
+            w.WriteString("governing", d.GoverningId ?? "");
+            w.WriteString("layout", d.Cross ? "cross" : "uniform");
+            if (d.Cross)
+            {
+                // Индексы — по рис. 8.11г: x — лучи вдоль Y, y — лучи вдоль X.
+                Num(w, "qsw_x_req", d.QswYReq); Num(w, "qsw_y_req", d.QswXReq);
+                Num(w, "qsw_x", d.QswYProvided); Num(w, "qsw_y", d.QswXProvided);
+            }
+            else { Num(w, "qsw_req", d.QswReq); Num(w, "qsw", d.QswProvided); }
+            Num(w, "asw_req", d.AswLineReq);
+            if (d.BarAreaReq is double b) Num(w, "bar_area_req", b);
+            if (d.BarDiameter is double dia) Num(w, "bar_diameter", dia);
+            if (d.RowsRequired is int n) w.WriteNumber("rows_req", n);
+            if (d.ZoneExtentRequired is double z) Num(w, "zone_req", z);
+            w.WriteBoolean("beyond_not_ensured", d.BeyondNotEnsured);
+            Num(w, "ratio_at_req", d.UtilizationAtRequired);
+            w.WriteBoolean("provided_sufficient", d.ProvidedSufficient);
+            w.WriteEndObject();
+        }
+        return System.Text.Encoding.UTF8.GetString(ms.ToArray());
+    }
     static void WritePieces(Utf8JsonWriter w, IEnumerable<IReadOnlyList<ContourElement>> pieces)
     {
         w.WriteStartArray();

@@ -224,4 +224,63 @@ public class PunchingCrossReinforcementTests
         Assert.Empty(r.Detailing!);
         Assert.Contains(r.Warnings, w => w.Code == "sw_detailing_not_checked");
     }
+
+    [Fact]
+    public void Design_Posobie_ThresholdGoverns_Diameter10_SixRows()
+    {
+        var d = PunchingDesign.Solve(Posobie());
+        // По Кисп = 1 хватило бы Fsw ≈ 440 кН, но арматура учитывается только при Fsw ≥ 0,25Fb = 605,5 кН.
+        Assert.Equal(PunchingDesignState.ByThreshold, d.State);
+        double fb = Rbt * 4.264 * H0;
+        Assert.Equal(0.25 * fb / 904.778684, d.Lambda, 5);
+        Assert.Equal(d.Lambda * 471.238898, d.QswXReq, 3);
+        Assert.Equal(0.010, d.BarDiameter!.Value, 12);           // Ø8 — 50,3 мм² < 52,6 мм²; у Пособия тоже Ø10
+        Assert.True(d.ProvidedSufficient);
+        Assert.Equal(6, d.RowsRequired);                         // не меньше 1,5h0 по п. 10.3.17
+        Assert.False(d.BeyondNotEnsured);
+
+        // Требуемая площадь стержня даёт Кисп ≤ 1 и учёт арматуры.
+        var exact = PosobieCross() with { Rows = new PunchingStirrupRows(d.BarAreaReq!.Value * (1 + 1e-6), 0.2, 0.15, 6) };
+        var r = PunchingChecker.Check(Posobie(exact));
+        Assert.True(V(r, "closed").SwCounted);
+        Assert.True(V(r, "closed").Utilization <= 1);
+    }
+
+    [Fact]
+    public void Design_NoReinforcement_UniformQswByThreshold()
+    {
+        var input = Posobie() with { Reinforcement = null };
+        var d = PunchingDesign.Solve(input);
+        Assert.Equal(PunchingDesignState.ByThreshold, d.State);
+        double fb = Rbt * 4.264 * H0;
+        Assert.Equal(0.25 * fb / (0.8 * 4.264), d.QswReq, 4);
+        Assert.True(double.IsNaN(d.AswLineReq));
+        Assert.False(d.ProvidedSufficient);
+        Assert.Null(d.RowsRequired);
+    }
+
+    [Fact]
+    public void Design_ByCalculation_AndNotEnsured_AndNotRequired()
+    {
+        var sw = new PunchingShearReinforcement(300_000, 1e-4, 0.1);
+        PunchingInput With(double f) => new(new PunchingLoadArea.Rectangle(0.4, 0.4), 0.2, Rbt, new PunchingForces(f, 0, 0), sw);
+        double fb = Rbt * 2.4 * 0.2;   // 504 кН
+
+        var calc = PunchingDesign.Solve(With(1.6 * fb));
+        Assert.Equal(PunchingDesignState.ByCalculation, calc.State);
+        Assert.Equal(0.6 * fb / (0.8 * 2.4), calc.QswReq, 6);     // Fsw = 0,6Fb
+        Assert.Equal(1.0, calc.UtilizationAtRequired, 6);
+
+        Assert.Equal(PunchingDesignState.NotEnsured, PunchingDesign.Solve(With(2.1 * fb)).State);
+        var none = PunchingDesign.Solve(With(0.9 * fb));
+        Assert.Equal(PunchingDesignState.NotRequired, none.State);
+        Assert.True(none.ProvidedSufficient);
+    }
+
+    [Fact]
+    public void Design_RowsOutsidePyramid_LayoutIneffective()
+    {
+        var sw = PosobieCross() with { Rows = new PunchingStirrupRows(7.85e-5, 0.6, 0.15, 4) };
+        Assert.Equal(PunchingDesignState.LayoutIneffective, PunchingDesign.Solve(Posobie(sw)).State);
+    }
 }
