@@ -174,9 +174,9 @@ public static class StoreyFragmentMaskService
         : $"силы кромок пластин — МНК по центрам КЭ ({reason ?? "см. предупреждения"})";
 
     /// <summary>Вход и модель родителя на все загружения и нагрузки по КЭ.</summary>
-    sealed record ParentModel(FemRcModelInput Input, FemRcModelResult Adapted, Dictionary<int, FragmentParentCaseLoads> Loads);
+    internal sealed record ParentModel(FemRcModelInput Input, FemRcModelResult Adapted, Dictionary<int, FragmentParentCaseLoads> Loads);
 
-    static ParentModel ParentModelOf(DatabaseService db, int parentId, FemCsfeaSetup setup, bool sections)
+    internal static ParentModel ParentModelOf(DatabaseService db, int parentId, FemCsfeaSetup setup, bool sections)
     {
         var input = FemCsfeaInputBuilder.Build(db, parentId, setup with { Stages = [] }, sections);
         var adapted = AdaptAllCases(input);
@@ -187,7 +187,7 @@ public static class StoreyFragmentMaskService
     /// Источник узловых сил кромок для постановки CSfea (спека 2026-11-05, разд. 5); null — путь МНК, причина —
     /// предупреждение <c>fragment_mask_nodal_unsupported</c>.
     /// </summary>
-    static CsfeaNodalForcesSource? NodalSource(DatabaseService db, int parentId, FemAnalysis analysis, FemCsfeaResultSummary summary,
+    internal static CsfeaNodalForcesSource? NodalSource(DatabaseService db, int parentId, FemAnalysis analysis, FemCsfeaResultSummary summary,
         bool linear, FemCsfeaSetup parentSetup, ParentModel parent, CsfeaFieldsParentResult fields,
         IReadOnlyDictionary<FragmentMaskKey, RcSecantStepFields> steps, Func<int, int?> parentLoadCase, List<FemValidationDiagnostic> diag)
     {

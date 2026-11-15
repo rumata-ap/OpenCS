@@ -30,6 +30,29 @@ public sealed class FragmentBounds
         ];
     }
 
+    /// <summary>
+    /// Полоса z₁…z₂ и выпуклый многоугольник в плане, заданный вертикальными гранями (внешняя нормаль, смещение) —
+    /// например, основание пирамиды продавливания. <see cref="Prism"/> = null.
+    /// </summary>
+    public static FragmentBounds OfFaces(double z1, double z2, IEnumerable<FragmentPrismFace> faces, double tol)
+    {
+        ArgumentNullException.ThrowIfNull(faces);
+        return new FragmentBounds(z1, z2, faces.ToList(), tol);
+    }
+
+    FragmentBounds(double z1, double z2, List<FragmentPrismFace> faces, double tol)
+    {
+        Z1 = z1;
+        Z2 = z2;
+        Tol = tol;
+        Planes =
+        [
+            new(new PlanarVector3(0, 0, -1), -z1, FragmentCutSide.Bottom),
+            new(new PlanarVector3(0, 0, 1), z2, FragmentCutSide.Top),
+            .. faces.Select(f => new FragmentBoundPlane(f.Normal, f.Offset, FragmentCutSide.Lateral)),
+        ];
+    }
+
     public double Z1 { get; }
     public double Z2 { get; }
     public FragmentPrism? Prism { get; }

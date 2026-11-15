@@ -50,13 +50,36 @@ public sealed record PunchingEdgeParams
 /// <summary>Отверстие: центр относительно центра площади и размеры, м.</summary>
 public sealed record PunchingHoleParams
 {
-    /// <summary>"rectangle" | "circle".</summary>
+    /// <summary>"rectangle" | "circle" | "polygon" (контур из схемы МКЭ).</summary>
     public string Shape { get; init; } = "rectangle";
     public double Cx { get; init; }
     public double Cy { get; init; }
     public double Bx { get; init; } = 0.2;
     public double By { get; init; } = 0.2;
     public double D { get; init; } = 0.2;
+    /// <summary>Вершины многоугольника [[x, y], …] в осях площади, м (только "polygon").</summary>
+    public List<double[]> Points { get; init; } = [];
+}
+
+/// <summary>
+/// Откуда взяты усилия задачи, созданной по строке проверки продавливания по МКЭ (справочно — для отчёта и окна).
+/// </summary>
+public sealed record PunchingSourceParams
+{
+    /// <summary>Схема МКЭ.</summary>
+    public string Schema { get; init; } = "";
+    /// <summary>Узел сетки.</summary>
+    public string Node { get; init; } = "";
+    /// <summary>Загружение или сочетание.</summary>
+    public string Key { get; init; } = "";
+    /// <summary>Главный способ: "column" | "contour".</summary>
+    public string Method { get; init; } = "column";
+    /// <summary>Действие стержней колонн на плиту по нормали, кН (+ вверх).</summary>
+    public double? ColumnAction { get; init; }
+    /// <summary>Нагрузка в основании пирамиды по нормали, кН (+ вверх).</summary>
+    public double? BaseLoad { get; init; }
+    /// <summary>Сила по разрезу основания пирамиды, кН (со знаком силы продавливания).</summary>
+    public double? ContourForce { get; init; }
 }
 
 /// <summary>Равномерная поперечная арматура вдоль контура.</summary>
@@ -134,6 +157,8 @@ public sealed record PunchingTaskParams
     public PunchingForceParams Forces { get; init; } = new();
     public PunchingOptionParams Options { get; init; } = new();
     public List<PunchingCustomContourParams> CustomContours { get; init; } = [];
+    /// <summary>Источник усилий (задача по строке проверки по МКЭ); null — усилия заданы вручную.</summary>
+    public PunchingSourceParams? Source { get; init; }
 
     /// <summary>Наибольший допустимый угол скоса края, град.</summary>
     public const double MaxEdgeAngleDeg = 60;
@@ -217,6 +242,8 @@ public sealed record PunchingTaskParams
 
     static List<PlanPoint> HolePolygon(PunchingHoleParams h)
     {
+        if (h.Shape == "polygon")
+            return (h.Points ?? []).Where(p => p is { Length: 2 }).Select(p => new PlanPoint(p[0], p[1])).ToList();
         if (h.Shape == "circle")
             return Enumerable.Range(0, 32)
                 .Select(i => new PlanPoint(h.Cx + h.D / 2 * Math.Cos(2 * Math.PI * i / 32), h.Cy + h.D / 2 * Math.Sin(2 * Math.PI * i / 32)))
@@ -255,8 +282,14 @@ public sealed record PunchingTaskParams
         if (Edges.Any(e => Math.Abs(e.AngleDeg) > MaxEdgeAngleDeg)) errors.Add("edge_angle");
         if (Edges.Any(e => e.Side is not ("+x" or "-x" or "+y" or "-y"))) errors.Add("edge_side");
 
-        if (Holes.Any(h => h.Shape == "circle" ? !(h.D > 0) : !(h.Bx > 0 && h.By > 0))) errors.Add("hole_size");
-        else if (areaOk && Holes.Any(h => ConvexOverlap(PunchingContourBuilder.AreaPolygon(BuildArea()), HolePolygon(h))))
+        if (Holes.Any(h => h.Shape switch
+            {
+                "circle" => !(h.D > 0),
+                "polygon" => (h.Points ?? []).Count(p => p is { Length: 2 } && p.All(double.IsFinite)) < 3,
+                _ => !(h.Bx > 0 && h.By > 0),
+            })) errors.Add("hole_size");
+        // Отверстие-многоугольник из схемы МКЭ бывает невыпуклым — проверка пересечения выпуклых к нему неприменима.
+        else if (areaOk && Holes.Any(h => h.Shape != "polygon" && ConvexOverlap(PunchingContourBuilder.AreaPolygon(BuildArea()), HolePolygon(h))))
             errors.Add("hole_overlaps_area");
 
         if (Reinforcement.Enabled)

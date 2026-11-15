@@ -16,7 +16,11 @@ public static class PunchingFemJointFinder
     static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
 
     /// <summary>Все узлы продавливания схемы в порядке тегов узлов.</summary>
-    public static List<PunchingFemJoint> Find(PunchingFemModel model, PunchingFemOptions? options = null)
+    public static List<PunchingFemJoint> Find(PunchingFemModel model, PunchingFemOptions? options = null) =>
+        Find(model, options, out _);
+
+    /// <summary>Узлы продавливания и плиты схемы (<see cref="PunchingFemJoint.SlabIndex"/> — индекс в <paramref name="slabs"/>).</summary>
+    public static List<PunchingFemJoint> Find(PunchingFemModel model, PunchingFemOptions? options, out IReadOnlyList<PunchingFemSlab> slabs)
     {
         ArgumentNullException.ThrowIfNull(model);
         options ??= new PunchingFemOptions();
@@ -24,6 +28,7 @@ public static class PunchingFemJointFinder
         var joints = new List<PunchingFemJoint>();
         foreach (var ((node, slab), bars) in ctx.Candidates().OrderBy(kv => kv.Key.Node, FemNodeRigidBodies.TagComparer))
             joints.Add(ctx.Build(node, ctx.Slabs[slab], bars));
+        slabs = ctx.Slabs;
         return joints;
     }
 
