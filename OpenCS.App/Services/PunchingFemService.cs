@@ -39,6 +39,8 @@ public sealed class PunchingFemSource
     public IFragmentParentNodalForces? Nodal { get; init; }
     /// <summary>Почему недоступны узловые силы (для журнала); null — доступны.</summary>
     public string? NodalUnavailable { get; init; }
+    /// <summary>Без узловых сил — справочный разрез по усилиям пластин (<see cref="PunchingFemShellCut"/>).</summary>
+    public bool ShellCut { get; init; }
     /// <summary>
     /// Нагрузки (и реакции опор у CSfea) внутри границ по ключам, Н и Н·м относительно точки; null — нагрузки схемы
     /// неизвестны.
@@ -238,6 +240,110 @@ public static class PunchingFemService
         };
     }
 
+    /// <summary>
+    /// Источник по снимку результатов программы во вложении схемы (ЛИРА-САПР, SCAD; меню «… → Результаты для
+    /// фрагментов…»): загружения снимка, сопоставленные загружениям схемы, и сочетания схемы (определения загружений) —
+    /// линейной суперпозицией. Узловых сил КЭ нет: главный способ — по стержням колонн, разрез — справочно по усилиям
+    /// пластин. null — снимка нет или он не читается (причина — ошибкой в <paramref name="diag"/>).
+    /// </summary>
+    public static PunchingFemSource? OpenImported(DatabaseService db, FemSchema schema, string sourceKind, List<FemValidationDiagnostic> diag)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        PunchingFemSource? Fail(string code, string message)
+        {
+            diag.Add(new(code, message, true));
+            return null;
+        }
+        string program = sourceKind == FragmentMaskSet.SourceLira ? "ЛИРА-САПР" : "SCAD";
+        string menu = sourceKind == FragmentMaskSet.SourceLira ? "ЛИРА" : "SCAD";
+        if (db.GetFemSchemaSourceFile(schema.Id, StoreyFragmentMaskService.SnapshotFileKind(sourceKind)) is not { } file)
+            return Fail("punching_fem_no_snapshot", $"У схемы нет снимка результатов {program}: меню схемы «{menu} → Результаты для фрагментов…».");
+        ImportedResultSnapshot snapshot;
+        try { snapshot = ImportedResultSnapshotCodec.Decode(file.Data); }
+        catch (InvalidDataException ex) { return Fail("punching_fem_snapshot_broken", $"Снимок результатов {program} не читается: {ex.Message}"); }
+
+        var loadCases = db.GetFemLoadCases(schema.Id);
+        var warnings = new List<string>();
+        var identity = loadCases.ToDictionary(c => c.Id, c => c.Id);
+        var byNum = FragmentMaskSourceKeys.ImportedLoadCaseMap(snapshot.Loads, loadCases, FemLoadOrigin.Import(sourceKind), identity, warnings);
+        foreach (var w in warnings) diag.Add(new("punching_fem_source", w, false));
+        if (byNum.Count == 0)
+            return Fail("punching_fem_no_keys", $"Ни одно загружение снимка {program} не сопоставлено загружениям схемы.");
+        var nodes = new Dictionary<string, FemMeshNode>(StringComparer.Ordinal);
+        foreach (var n in db.GetFemMeshNodes(schema.Id)) nodes.TryAdd(n.NodeTag, n);
+        var elements = db.GetFemMeshElements(schema.Id);
+        var inner = new ImportedParentResult(snapshot, byNum, nodes, elements,
+            sourceKind == FragmentMaskSet.SourceLira ? ImportedForceConvention.Lira : ImportedForceConvention.Scad);
+        var known = byNum.Values.ToHashSet();
+        var caseTag = loadCases.ToDictionary(c => c.Id, c => c.Tag);
+
+        // Ключи: сочетания схемы (по загружениям снимка), без них — загружения.
+        var keys = new List<(FragmentMaskKey Key, string Label)>();
+        foreach (var d in db.GetFemLoadDefinitions(schema.Id))
+        {
+            var e = d.GetExpression();
+            IReadOnlyList<(int, double)> terms = e.Mode switch
+            {
+                FemLoadExpressionMode.Single => e.LoadCaseIds.Select(id => (id, 1.0)).ToList(),
+                FemLoadExpressionMode.All => loadCases.Select(c => (c.Id, 1.0)).ToList(),
+                _ => e.Terms.Select(t => (t.LoadCaseId, t.Coefficient)).ToList(),
+            };
+            if (terms.Count == 0) continue;
+            if (terms.Any(t => !known.Contains(t.Item1)))
+            {
+                diag.Add(new("punching_fem_combination_skipped",
+                    $"Сочетание «{d.Tag}»: есть загружения без результатов в снимке {program} — пропущено.", false));
+                continue;
+            }
+            var key = FragmentMaskKey.OfStageTerms(terms);
+            if (keys.All(k => k.Key != key)) keys.Add((key, d.Tag));
+        }
+        if (keys.Count == 0)
+        {
+            diag.Add(new("punching_fem_no_combinations", $"В схеме нет сочетаний по загружениям снимка {program} — проверка по " +
+                "отдельным загружениям (задайте сочетания: продавливание проверяется по расчётным сочетаниям).", false));
+            foreach (int id in known.Order())
+                keys.Add((FragmentMaskKey.OfStageTerms([(id, 1.0)]), caseTag.GetValueOrDefault(id, $"#{id}")));
+        }
+
+        Func<FragmentBounds, PlanarVector3, IReadOnlyDictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>>? baseLoads = null;
+        try
+        {
+            var model = StoreyFragmentMaskService.ParentModelOf(db, schema.Id, new FemCsfeaSetup(), sections: false);
+            if (model.Adapted.Model.LoadCases.Count > 0)
+                baseLoads = (bounds, origin) =>
+                {
+                    var perCase = FragmentBandLoads.Compute(model.Input, model.Loads, bounds, origin);
+                    var byKey = new Dictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>();
+                    foreach (var (key, _) in keys)
+                    {
+                        var f = PlanarVector3.Zero;
+                        var m = PlanarVector3.Zero;
+                        foreach (var (lc, k) in key.Terms())
+                            if (perCase.TryGetValue(lc, out var l)) { f += l.F * k; m += l.M * k; }
+                        byKey[key] = (f, m);
+                    }
+                    return byKey;
+                };
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
+        {
+            diag.Add(new("punching_fem_loads_unknown", $"Нагрузки схемы не собраны ({ex.Message}) — сила без вычета нагрузки основания (в запас).", false));
+        }
+
+        return new PunchingFemSource
+        {
+            Kind = sourceKind,
+            Label = $"{program} — снимок {snapshot.TakenAt.Replace('T', ' ')}",
+            Keys = keys,
+            Result = new PunchingFemCombinedResult(inner, keys.Select(k => k.Key).ToList()),
+            Nodal = null,
+            NodalUnavailable = $"импорт {program} — узловых сил КЭ программы нет",
+            ShellCut = true,
+            BaseLoads = baseLoads,
+        };
+    }
+
     /// <summary>Реакции опор внутри границ из полей шага CSfea: сила и момент относительно <paramref name="origin"/>.</summary>
     static (PlanarVector3 F, PlanarVector3 M) Reactions(RcSecantStepFields fields, IReadOnlyDictionary<string, FemMeshNode> nodes,
         FragmentBounds bounds, PlanarVector3 origin)
@@ -282,7 +388,7 @@ public static class PunchingFemService
             cut = PunchingFemCut.Compute(joint, data.Model.Nodes, data.Model.Elements, data.SlabShells[joint.SlabIndex], keys, source.Nodal);
             cutFailure = cut.Failure;
         }
-        else if (main == PunchingFemForceMethod.Contour)
+        else if (main == PunchingFemForceMethod.Contour && !source.ShellCut)
             cutFailure = source.NodalUnavailable ?? "у источника нет узловых сил КЭ";
 
         var byKey = new Dictionary<FragmentMaskKey, PunchingFemForces>();
@@ -297,7 +403,9 @@ public static class PunchingFemService
             }
             double colAction = af.Dot(joint.Normal) / 1e3;
             double? baseLoad = baseLoads != null && baseLoads.TryGetValue(key, out var bl) ? bl.F.Dot(joint.Normal) / 1e3 : null;
-            double? contour = cut?.Failure == null && cut?.ByKey.TryGetValue(key, out var cf) == true ? cf.Force : null;
+            double? contour = cut?.Failure == null && cut?.ByKey.TryGetValue(key, out var cf) == true ? cf.Force
+                : cut == null && source.ShellCut ? PunchingFemShellCut.Compute(joint, data.Model.Nodes, data.ElementsByTag, source.Result, key)
+                : null;
             var method = main ?? (source.Nodal != null ? PunchingFemForceMethod.Contour : PunchingFemForceMethod.Column);
             if (method == PunchingFemForceMethod.Contour && contour == null) method = PunchingFemForceMethod.Column;
             double signed = method == PunchingFemForceMethod.Contour ? contour!.Value : colAction + (baseLoad ?? 0);

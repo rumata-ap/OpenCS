@@ -110,6 +110,7 @@ public sealed class PunchingFemCheckVM : ViewModelBase
     readonly IReadOnlyList<Material> _materials;
     readonly Dictionary<string, PunchingFemJointOverride> _overrides = new(StringComparer.Ordinal);
     FemSchema? _schema;
+    string? _keepKind;
     PunchingFemAnalysisItem? _analysis;
     PunchingFemJointPickVM? _selectedJoint;
     bool _loading;
@@ -135,6 +136,7 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         _loading = true;
         Tag = existing?.Tag is { Length: > 0 } t ? t : Loc.S("PunchingFemDefaultTag", "Продавливание");
         _schema = existing != null ? Schemas.FirstOrDefault(s => s.Id == existing.SchemaId) : schema ?? Schemas.FirstOrDefault();
+        _keepKind = existing != null ? p.SourceKind : null;
         RefreshAnalyses(p.SourceRef);
         Method = p.Method;
         MomentsAreMloc = p.MomentsAreMloc;
@@ -277,8 +279,16 @@ public sealed class PunchingFemCheckVM : ViewModelBase
                     a.Tag + (a.ResultId == null ? " " + Loc.S("PunchingFemAnalysisNoResult", "(не рассчитана)") : "")
                          + (a.Kind == FemCsfeaRunner.LinearAnalysisKind ? " — " + Loc.S("PunchingFemLinear", "линейный") : " — " + Loc.S("PunchingFemSecant", "секущий")),
                     a.Kind));
-        Analysis = Analyses.FirstOrDefault(a => a.Id.ToString(CultureInfo.InvariantCulture) == keepRef)
-                   ?? Analyses.FirstOrDefault(a => !a.Label.Contains('(')) ?? Analyses.FirstOrDefault();
+        // Снимки результатов программ (вложения схемы) — источник для импортированных схем.
+        if (_schema != null)
+            foreach (var (kind, label) in new[] { (FragmentMaskSet.SourceLira, "ЛИРА-САПР"), (FragmentMaskSet.SourceScad, "SCAD") })
+                if (_db.GetFemSchemaSourceFile(_schema.Id, StoreyFragmentMaskService.SnapshotFileKind(kind)) is { } file)
+                    Analyses.Add(new PunchingFemAnalysisItem(kind == FragmentMaskSet.SourceLira ? -1 : -2,
+                        string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingFemSnapshotSource", "Снимок результатов {0} ({1})"), label,
+                            file.ImportedAt.Replace('T', ' ')), kind));
+        Analysis = Analyses.FirstOrDefault(a => a.Kind == _keepKind && (a.Id < 0 || a.Id.ToString(CultureInfo.InvariantCulture) == keepRef))
+                   ?? Analyses.FirstOrDefault(a => a.Id.ToString(CultureInfo.InvariantCulture) == keepRef)
+                   ?? Analyses.FirstOrDefault(a => !a.Label.Contains('(') || a.Id < 0) ?? Analyses.FirstOrDefault();
         OnPropertyChanged(nameof(HasNoAnalyses));
     }
 
@@ -326,8 +336,14 @@ public sealed class PunchingFemCheckVM : ViewModelBase
             else overrides.Remove(j.Node);
         return new PunchingFemCheckParams
         {
-            SourceKind = _analysis?.Kind == FemCsfeaRunner.AnalysisKind ? FragmentMaskSet.SourceCsfeaSecant : FragmentMaskSet.SourceCsfeaLinear,
-            SourceRef = _analysis?.Id.ToString(CultureInfo.InvariantCulture) ?? "",
+            SourceKind = _analysis?.Kind switch
+            {
+                FemCsfeaRunner.AnalysisKind => FragmentMaskSet.SourceCsfeaSecant,
+                FragmentMaskSet.SourceLira => FragmentMaskSet.SourceLira,
+                FragmentMaskSet.SourceScad => FragmentMaskSet.SourceScad,
+                _ => FragmentMaskSet.SourceCsfeaLinear,
+            },
+            SourceRef = _analysis is { Id: > 0 } a ? a.Id.ToString(CultureInfo.InvariantCulture) : "",
             Method = Method, MomentsAreMloc = MomentsAreMloc, ConcreteFromSchema = ConcreteFromSchema,
             ConcreteMaterialId = Concrete?.Id ?? 0, RbtOverride = RbtManual ? RbtManualValue * 1000 : null,
             DefaultAx = DefaultAx / 1000, DefaultAy = DefaultAy / 1000, Reinforcement = common,
@@ -346,7 +362,7 @@ public sealed class PunchingFemCheckVM : ViewModelBase
     {
         var e = new List<string>();
         if (_schema == null) e.Add(Loc.S("PunchingFemErrNoSchema", "Не выбрана схема."));
-        if (_analysis == null) e.Add(Loc.S("PunchingFemErrNoAnalysis", "Не выбран расчёт CSfea — источник усилий (создайте и выполните постановку схемы)."));
+        if (_analysis == null) e.Add(Loc.S("PunchingFemErrNoAnalysis", "Не выбран источник усилий: расчёт CSfea схемы или снимок результатов ЛИРА-САПР/SCAD."));
         if (!RbtManual && Concrete == null && !ConcreteFromSchema) e.Add(Loc.S("PunchingErr_concrete_missing", "Не выбран бетон."));
         if (SwEnabled && (Diameter <= 0 || Count < 1 || Step <= 0)) e.Add(Loc.S("PunchingErr_sw_values", "Неверные параметры поперечной арматуры."));
         if (!(DefaultAx >= 0 && DefaultAy >= 0)) e.Add(Loc.S("PunchingErr_h0_nonpositive", "Неверные привязки."));

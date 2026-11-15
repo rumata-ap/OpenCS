@@ -166,8 +166,10 @@ public static class PunchingFemCheckRunner
                 return new PunchingFemCheckData { Schema = schema.Tag, Error = "Не выбрана постановка расчёта CSfea — источник усилий." };
             source = PunchingFemService.OpenCsfea(db, schema, analysisId, diag);
         }
+        else if (p.SourceKind is FragmentMaskSet.SourceLira or FragmentMaskSet.SourceScad)
+            source = PunchingFemService.OpenImported(db, schema, p.SourceKind, diag);
         else
-            diag.Add(new("punching_fem_source_unsupported", "Источник усилий ЛИРА-САПР/SCAD пока не поддерживается — выберите расчёт CSfea схемы.", true));
+            diag.Add(new("punching_fem_source_unsupported", $"Источник усилий «{p.SourceKind}» не поддерживается.", true));
         foreach (var d in diag.Where(d => !d.IsError)) warnings.Add(new(d.Code, d.Message));
         if (source == null)
             return new PunchingFemCheckData
@@ -276,7 +278,13 @@ public static class PunchingFemCheckRunner
                 .Select(q => joint.ToGlobal(q)).Select(g => new[] { g.X, g.Y }).ToList(),
         };
         if (joint.NoCheck != null)
-            return baseResult with { Status = "no_check", NoCheck = joint.NoCheck, NoCheckText = joint.NoCheckText };
+            return baseResult with
+            {
+                Status = "no_check", NoCheck = joint.NoCheck,
+                NoCheckText = joint.NoCheck == PunchingFemNoCheck.AreaUnknown && !source.Kind.StartsWith("csfea", StringComparison.Ordinal)
+                    ? joint.NoCheckText + " Назначьте стержням сечения (у импорта — «Создать сечения стержней» по жёсткостям)."
+                    : joint.NoCheckText,
+            };
 
         var forces = PunchingFemService.Evaluate(data, source, joint, p.MainMethod);
         if (forces.CutFailure != null && source.Nodal != null)

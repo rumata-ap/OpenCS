@@ -6753,5 +6753,6 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemPreview">Joint {0}: {1}, h = {2:0} mm, h0 = {3:0.#} mm, ax = {4:0}, ay = {5:0} mm{6}; concrete {7}. Forces come from the analysis, utilization — in the check result.</system:String>
    <system:String x:Key="PunchingFemCoverDefault">(default)</system:String>
    <system:String x:Key="PunchingFemNoSchemas">The project has no FE models.</system:String>
+   <system:String x:Key="PunchingFemSnapshotSource">{0} results snapshot ({1})</system:String>
    <system:String x:Key="PunchingFemRowTaskTag">{0} — joint {1}, {2}</system:String>
 </ResourceDictionary>

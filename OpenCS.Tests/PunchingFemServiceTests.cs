@@ -406,6 +406,115 @@ public sealed class PunchingFemServiceTests : IDisposable
         Assert.True(error == null, error?.ToString());
     }
 
+    void Exec(string sql)
+    {
+        using var c = new SqliteConnection($"Data Source={_path};Pooling=False");
+        c.Open();
+        using var cmd = c.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Снимок «как SCAD» из полей линейного результата (как в тестах масок): шаг i — загружение программы № i; стержни —
+    /// силы сечений в знаках SCAD, пластины — в осях выдачи CSfea.
+    /// </summary>
+    void ScadSnapshotFromCsfea(DatabaseService db, FemSchema schema, FemAnalysis analysis, IReadOnlyList<FemLoadCase> lc)
+    {
+        var nodes = db.GetFemMeshNodes(schema.Id).ToDictionary(n => n.NodeTag);
+        var members = db.GetFemMembers(schema.Id).ToDictionary(m => m.ElemTag);
+        var regionAxes = FemCsfeaInputBuilder.RegionAxes([.. members.Values], db.GetPlanarRegions(schema.Id));
+        foreach (var e in db.GetFemMeshElements(schema.Id))
+        {
+            var g = CScore.Fem.Loads.FemElementGeometry.Of(e, nodes)!;
+            if (g.IsShell)
+            {
+                var axis = FemRcModelAdapter.ShellForceAxis(e, g, members, regionAxes);
+                var (x1, _, n) = g.ShellFrame();
+                double deg = Math.Atan2(x1.Cross(axis).Dot(n), x1.Dot(axis)) * 180 / Math.PI;
+                Exec(FormattableString.Invariant($"UPDATE fem_elements SET local_axis_angle_deg={deg:R} WHERE schema_id={schema.Id} AND elem_tag='{e.ElemTag}'"));
+            }
+            else
+                Exec(FormattableString.Invariant($"UPDATE fem_elements SET beam_rotation_deg={FemRcModelAdapter.BeamRotationDeg(e, members):R} WHERE schema_id={schema.Id} AND elem_tag='{e.ElemTag}'"));
+        }
+        var c = CScore.Fem.Fragment.Masks.ImportedForceConvention.Scad;
+        var loads = new List<CScore.Fem.Fragment.Masks.ImportedResultLoad>();
+        for (int i = 1; i <= lc.Count; i++)
+        {
+            var f = FemCsfeaStepFieldsCodec.Unpack(db.GetFemResultStep(analysis.ResultId!.Value, i)!);
+            var bars = new double[f.BeamIds.Length * CScore.Fem.Fragment.Masks.ImportedResultLoad.BarComponents];
+            for (int b = 0; b < f.BeamIds.Length; b++)
+                for (int k = 0; k < 6; k++)
+                {
+                    bars[12 * b + k] = -c.Bar[k] * f.BeamForces[RcSecantStepFields.BeamForceComponents * b + k];
+                    bars[12 * b + 6 + k] = c.Bar[k] * f.BeamForces[RcSecantStepFields.BeamForceComponents * b + 6 + k];
+                }
+            var shells = new double[f.ShellIds.Length * CScore.Fem.Fragment.Masks.ImportedResultLoad.ShellComponents];
+            for (int sh = 0; sh < f.ShellIds.Length; sh++)
+                for (int k = 0; k < 8; k++)
+                    shells[8 * sh + k] = c.Shell[k] * f.ShellForces[RcSecantStepFields.ShellForceComponents * sh + k];
+            loads.Add(new CScore.Fem.Fragment.Masks.ImportedResultLoad
+            {
+                Num = i, Name = $"Загружение {i}", NodeNums = f.NodeIds, Displacements = f.Displacements,
+                BarNums = f.BeamIds, BarForces = bars, ShellNums = f.ShellIds, ShellForces = shells,
+            });
+            Exec($"UPDATE fem_load_cases SET origin='import:scad', source_load_num={i} WHERE id={lc[i - 1].Id}");
+        }
+        var snapshot = new CScore.Fem.Fragment.Masks.ImportedResultSnapshot
+        {
+            Program = CScore.Fem.Fragment.Masks.ImportedResultSnapshot.ProgramScad, SourceName = "плита.SPR",
+            TakenAt = "2026-11-15T12:00:00", Loads = loads,
+        };
+        db.SaveFemSchemaSourceFile(schema.Id, FemSchemaSourceFileKind.ScadMaskResults, "плита.SPR",
+            CScore.Fem.Fragment.Masks.ImportedResultSnapshotCodec.Encode(snapshot));
+    }
+
+    /// <summary>
+    /// Снимок SCAD из того же линейного расчёта и сочетание 1,2·«Пост.» + «Ветер»: сила по колоннам — суперпозиция
+    /// загружений CSfea; справочный разрез по усилиям пластин — того же порядка, что разрез по узловым силам.
+    /// </summary>
+    [Fact]
+    public void Imported_Scad_CombinationAndShellCut()
+    {
+        var s = Create();
+        using var db = s.Db;
+        var lc = db.GetFemLoadCases(s.Schema.Id);
+        var csfea = Evaluate(s);
+        var post = csfea.Forces.ByKey[csfea.Source.Keys.Single(k => k.Label == "Пост.").Key];
+        var wind = csfea.Forces.ByKey[csfea.Source.Keys.Single(k => k.Label == "Ветер").Key];
+
+        ScadSnapshotFromCsfea(db, s.Schema, s.Analysis, lc);
+        var def = new FemLoadDefinition { SchemaId = s.Schema.Id, Tag = "РСН1" };
+        def.SetExpression(new FemLoadExpression
+        {
+            Mode = FemLoadExpressionMode.Sum,
+            Terms = [new FemLoadTerm { LoadCaseId = lc[0].Id, Coefficient = 1.2 }, new FemLoadTerm { LoadCaseId = lc[1].Id, Coefficient = 1.0 }],
+        });
+        db.SaveFemLoadDefinition(def);
+
+        var diag = new List<FemValidationDiagnostic>();
+        var source = PunchingFemService.OpenImported(db, s.Schema, CScore.Fem.Fragment.Masks.FragmentMaskSet.SourceScad, diag);
+        Assert.True(source != null, string.Join("; ", diag.Select(d => d.Message)));
+        var (key, label) = Assert.Single(source!.Keys);
+        Assert.Equal("РСН1", label);
+        var data = PunchingFemService.Load(db, s.Schema, new PunchingFemOptions());
+        var f = PunchingFemService.Evaluate(data, source, Assert.Single(data.Joints)).ByKey[key];
+        Assert.Equal(PunchingFemForceMethod.Column, f.Method);
+        Assert.Equal(1.2 * post.ColumnAction!.Value + wind.ColumnAction!.Value, f.ColumnAction!.Value, 3);
+        Assert.Equal(1.2 * post.BaseLoad!.Value + wind.BaseLoad!.Value, f.BaseLoad!.Value, 6);
+        Assert.Equal(1.2 * post.Mx + wind.Mx, f.Mx, 3);
+        Assert.NotNull(f.ContourForce);
+        double cut = 1.2 * post.ContourForce!.Value + wind.ContourForce!.Value;
+        Assert.True(Math.Abs(f.ContourForce!.Value - cut) < 0.25 * cut, $"разрез по пластинам {f.ContourForce} против узлового {cut}");
+
+        // Проверка целиком по снимку.
+        var check = PunchingFemCheckRunner.Compute(db, s.Schema.Id,
+            new PunchingFemCheckParams { SourceKind = CScore.Fem.Fragment.Masks.FragmentMaskSet.SourceScad }, CalcType.C);
+        Assert.Null(check.Error);
+        Assert.Equal("РСН1", Assert.Single(check.Joints).GoverningKey);
+        Assert.Contains("SCAD", check.Source);
+    }
+
     [Fact]
     public void TaskParams_RunCore()
     {
