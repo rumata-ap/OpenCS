@@ -169,10 +169,29 @@ public sealed class SectionCutVM : ViewModelBase
         Changed?.Invoke();
     }
 
-    public void AddPoint((double X, double Y) p)
+    /// <summary>
+    /// Ортогональный разрез (Shift): «Свободный» — вторая точка выравнивается по горизонтали или
+    /// вертикали от первой; «По градиенту» — линия через точку по ближайшей к градиенту оси сечения.
+    /// </summary>
+    bool _ortho;
+
+    /// <summary>Первая точка «Свободного» разреза, пока вторая не указана (для предпросмотра линии).</summary>
+    public (double X, double Y)? PendingStart => HasPendingPoint ? _p1 : null;
+
+    /// <summary>
+    /// Выравнивает точку <paramref name="p"/> по горизонтали или вертикали от <paramref name="anchor"/>:
+    /// сохраняется большая из разностей координат.
+    /// </summary>
+    public static (double X, double Y) SnapOrtho((double X, double Y) anchor, (double X, double Y) p)
+        => Math.Abs(p.X - anchor.X) >= Math.Abs(p.Y - anchor.Y)
+            ? (p.X, anchor.Y)
+            : (anchor.X, p.Y);
+
+    public void AddPoint((double X, double Y) p, bool ortho = false)
     {
         if (Mode == CutMode.GradientSnap)
         {
+            _ortho = ortho;
             _p1 = p;
             _p2 = null;
             Recompute();
@@ -184,19 +203,23 @@ public sealed class SectionCutVM : ViewModelBase
         }
         else
         {
-            _p2 = p;
+            _p2 = ortho ? SnapOrtho(_p1.Value, p) : p;
             Recompute();
         }
     }
 
-    public void SetPoint(int index, (double X, double Y) p)
+    public void SetPoint(int index, (double X, double Y) p, bool ortho = false)
     {
         if (Mode == CutMode.Free)
         {
+            // Ручка index — конец линии; при Shift выравниваем её относительно второй точки.
+            var other = index == 0 ? _p2 : _p1;
+            if (ortho && other is { } o) p = SnapOrtho(o, p);
             if (index == 0) _p1 = p; else _p2 = p;
         }
         else
         {
+            _ortho = ortho;
             _p1 = p;
         }
         Recompute();
@@ -232,7 +255,15 @@ public sealed class SectionCutVM : ViewModelBase
     {
         if (_p1 == null) return;
         ClearRebarOverrides();
-        Result = SectionCutBuilder.Build(_section, _k, _calcType, Mode, _p1.Value, _p2, RebarThresholdM, tenB: _ten, stressSource: _stressSource);
+        if (Mode == CutMode.GradientSnap && _ortho)
+        {
+            // Ось сечения, ближайшая к градиенту: вертикальный разрез сверху вниз, горизонтальный — слева направо.
+            var p = _p1.Value;
+            var p2 = Math.Abs(_k.ky) >= Math.Abs(_k.kz) ? (p.X, p.Y - 1.0) : (p.X + 1.0, p.Y);
+            Result = SectionCutBuilder.Build(_section, _k, _calcType, CutMode.Free, p, p2, RebarThresholdM, tenB: _ten, stressSource: _stressSource);
+        }
+        else
+            Result = SectionCutBuilder.Build(_section, _k, _calcType, Mode, _p1.Value, _p2, RebarThresholdM, tenB: _ten, stressSource: _stressSource);
         OnPropertyChanged(nameof(HasPendingPoint));
         OnPropertyChanged(nameof(Result));
         RequestFit();

@@ -45,9 +45,11 @@
             <StackPanel Orientation="Horizontal"
                         Visibility="{Binding CutVM.IsActive, Converter={StaticResource BoolToVisibility}}">
                <RadioButton Content="{DynamicResource SectionCutModeGradient}"
+                            ToolTip="{DynamicResource SectionCutModeGradientTip}"
                             IsChecked="{Binding CutVM.Mode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static cs:CutMode.GradientSnap}, FallbackValue=False}"
                             GroupName="CutMode" VerticalAlignment="Center" Margin="0,0,8,0"/>
                <RadioButton Content="{DynamicResource SectionCutModeFree}"
+                            ToolTip="{DynamicResource SectionCutModeFreeTip}"
                             IsChecked="{Binding CutVM.Mode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static cs:CutMode.Free}, FallbackValue=False}"
                             GroupName="CutMode" VerticalAlignment="Center"/>
             </StackPanel>

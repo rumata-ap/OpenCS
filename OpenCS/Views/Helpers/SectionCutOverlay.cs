@@ -39,6 +39,7 @@ namespace OpenCS.Views.Helpers
         static readonly Pen _linePen = MakeFreezePen(Brushes.OrangeRed, 2.0);
         static readonly Brush _handleFill = MakeFreezeBrush(Brushes.White);
         static readonly Pen _handlePen = MakeFreezePen(Brushes.OrangeRed, 1.5);
+        static readonly Pen _previewPen = MakeDashedPen(Brushes.OrangeRed, 1.5);
 
         Point _previewScreen;
         bool _hasPreview;
@@ -86,8 +87,17 @@ namespace OpenCS.Views.Helpers
 
             if (vm.HasPendingPoint && _hasPreview)
             {
-                // первая точка Free-режима уже поставлена, но результата ещё нет — рисуем только текущий курсор
-                dc.DrawEllipse(_handleFill, _handlePen, _previewScreen, HandleRadius, HandleRadius);
+                // Первая точка Free-режима уже поставлена, вторая — под курсором (с Shift — по оси).
+                var preview = _previewScreen;
+                if (vm.PendingStart is { } p1)
+                {
+                    var startScreen = host.ToScreen(new Point(p1.X * 1000, p1.Y * 1000));
+                    if (IsOrtho)
+                        preview = SnapScreen(startScreen, preview);
+                    dc.DrawLine(_previewPen, startScreen, preview);
+                    dc.DrawEllipse(_handleFill, _handlePen, startScreen, HandleRadius, HandleRadius);
+                }
+                dc.DrawEllipse(_handleFill, _handlePen, preview, HandleRadius, HandleRadius);
             }
         }
 
@@ -109,10 +119,18 @@ namespace OpenCS.Views.Helpers
             }
 
             var modelMm = host.ToModel(screenPos);
-            vm.AddPoint((modelMm.X / 1000.0, modelMm.Y / 1000.0));
+            vm.AddPoint((modelMm.X / 1000.0, modelMm.Y / 1000.0), IsOrtho);
             InvalidateVisual();
             e.Handled = true;
         }
+
+        /// <summary>Зажат Shift — ортогональный разрез.</summary>
+        static bool IsOrtho => (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
+
+        static Point SnapScreen(Point anchor, Point p)
+            => Math.Abs(p.X - anchor.X) >= Math.Abs(p.Y - anchor.Y)
+                ? new Point(p.X, anchor.Y)
+                : new Point(anchor.X, p.Y);
 
         protected override void OnMouseMove(MouseEventArgs e)
         {
@@ -123,7 +141,7 @@ namespace OpenCS.Views.Helpers
             if (_dragIndex >= 0 && IsMouseCaptured)
             {
                 var modelMm = host.ToModel(e.GetPosition(this));
-                vm.SetPoint(_dragIndex, (modelMm.X / 1000.0, modelMm.Y / 1000.0));
+                vm.SetPoint(_dragIndex, (modelMm.X / 1000.0, modelMm.Y / 1000.0), IsOrtho);
                 InvalidateVisual();
                 return;
             }
@@ -153,8 +171,16 @@ namespace OpenCS.Views.Helpers
             e.Handled = true;
         }
 
+        protected override void OnKeyUp(KeyEventArgs e)
+        {
+            if (e.Key is Key.LeftShift or Key.RightShift && CutViewModel?.HasPendingPoint == true)
+                InvalidateVisual();
+        }
+
         protected override void OnKeyDown(KeyEventArgs e)
         {
+            if (e.Key is Key.LeftShift or Key.RightShift && CutViewModel?.HasPendingPoint == true)
+                InvalidateVisual();
             if (e.Key == Key.Escape)
             {
                 CutViewModel?.CancelPending();
@@ -168,6 +194,13 @@ namespace OpenCS.Views.Helpers
         {
             var b = brush.Clone(); b.Freeze();
             var pen = new Pen(b, thickness); pen.Freeze();
+            return pen;
+        }
+
+        static Pen MakeDashedPen(Brush brush, double thickness)
+        {
+            var b = brush.Clone(); b.Freeze();
+            var pen = new Pen(b, thickness) { DashStyle = DashStyles.Dash }; pen.Freeze();
             return pen;
         }
 

@@ -5014,6 +5014,8 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="SectionCutButton">Cut</system:String>
    <system:String x:Key="SectionCutModeGradient">By gradient</system:String>
    <system:String x:Key="SectionCutModeFree">Free</system:String>
+   <system:String x:Key="SectionCutModeGradientTip">Click — a line through the point along the steepest strain change. With Shift — along the nearest section axis (vertical or horizontal).</system:String>
+   <system:String x:Key="SectionCutModeFreeTip">Two clicks — start A and end of the line. With Shift the second point (and a dragged end) snaps horizontally or vertically.</system:String>
    <system:String x:Key="SectionCutOrientHorizontal">Horizontal</system:String>
    <system:String x:Key="SectionCutOrientVertical">Vertical</system:String>
    <system:String x:Key="SectionCutFillToggle">Fill</system:String>

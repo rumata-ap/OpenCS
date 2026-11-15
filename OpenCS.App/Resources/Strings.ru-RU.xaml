@@ -5014,6 +5014,8 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="SectionCutButton">Разрез</system:String>
    <system:String x:Key="SectionCutModeGradient">По градиенту</system:String>
    <system:String x:Key="SectionCutModeFree">Свободный</system:String>
+   <system:String x:Key="SectionCutModeGradientTip">Щелчок — линия через точку по направлению наибольшего изменения деформаций. С Shift — по ближайшей к нему оси сечения (вертикально или горизонтально).</system:String>
+   <system:String x:Key="SectionCutModeFreeTip">Два щелчка — начало A и конец линии. С Shift вторая точка (и перетаскиваемый конец) выравнивается по горизонтали или вертикали.</system:String>
    <system:String x:Key="SectionCutOrientHorizontal">Горизонтально</system:String>
    <system:String x:Key="SectionCutOrientVertical">Вертикально</system:String>
    <system:String x:Key="SectionCutFillToggle">Заливка</system:String>
