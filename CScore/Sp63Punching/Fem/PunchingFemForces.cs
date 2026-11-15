@@ -30,6 +30,12 @@ public sealed record PunchingFemForces(
     double F, PunchingLoadSide Side, double Mx, double My, PunchingFemForceMethod Method,
     double? ColumnAction, double? BaseLoad, double? ContourForce)
 {
+    /// <summary>
+    /// Пилон из пластин: сила по разрезу у торца −x, у торца +x и в середине, кН (со знаком силы продавливания);
+    /// null — не пилон из пластин или разреза нет.
+    /// </summary>
+    public (double Minus, double Plus, double Middle)? PylonParts { get; init; }
+
     /// <summary>Сила по стержням со знаком: действие стержней плюс нагрузка основания, кН; null — нет данных.</summary>
     public double? ColumnForce => ColumnAction is double a ? a + (BaseLoad ?? 0) : null;
 
@@ -66,6 +72,55 @@ public static class PunchingFemColumnAction
             m = m - me - (p - joint.Origin).Cross(fe);
         }
         return (f, m);
+    }
+
+    /// <summary>
+    /// Действие пилона из пластин на плиту в общих осях, Н и Н·м (момент — относительно начала осей узла): минус сумма
+    /// узловых сил его пластин (f_int − f_нагр, сила узла на КЭ) в узлах примыкания. null — нет сил КЭ по ключу.
+    /// </summary>
+    public static (PlanarVector3 F, PlanarVector3 M)? ComputeShells(PunchingFemJoint joint, IReadOnlyDictionary<string, FemMeshNode> nodes,
+        IFragmentParentNodalForces nodal, FragmentMaskKey key)
+    {
+        ArgumentNullException.ThrowIfNull(joint);
+        ArgumentNullException.ThrowIfNull(nodal);
+        var junction = joint.JunctionNodes.ToHashSet(StringComparer.Ordinal);
+        var f = PlanarVector3.Zero;
+        var m = PlanarVector3.Zero;
+        foreach (var tag in joint.WallShells)
+        {
+            if (!nodal.TryElementNodeForces(key, tag, out var forces)) return null;
+            foreach (var (n, v) in forces)
+            {
+                if (!junction.Contains(n) || !nodes.TryGetValue(n, out var mn)) continue;
+                var p = new PlanarVector3(mn.X, mn.Y, mn.Z);
+                f -= v.Force;
+                m = m - v.Moment - (p - joint.Origin).Cross(v.Force);
+            }
+        }
+        return (f, m);
+    }
+
+    /// <summary>
+    /// Пилон из пластин: сила по разрезу основания у торцов и в середине, кН. Торец — часть основания, где |x| не меньше
+    /// L/2 − Lmin − h0/2 (как ветви П-контура СП 430 длиной Lmin + h0 от торцевого отрезка на h0/2 за торцом).
+    /// </summary>
+    public static (double Minus, double Plus, double Middle)? PylonParts(PunchingFemJoint joint, IReadOnlyList<FragmentNodalTerm> terms)
+    {
+        if (joint.Kind != PunchingFemJointKind.PylonShells || joint.Area is not PunchingLoadArea.Rectangle r) return null;
+        double h0 = joint.H0, half = Math.Max(r.Bx, r.By) / 2, tmin = Math.Min(r.Bx, r.By);
+        bool alongX = r.Bx >= r.By;
+        double limit = half - tmin - h0 / 2;
+        double minus = 0, plus = 0, middle = 0;
+        foreach (var t in terms)
+        {
+            var d = t.At - joint.Origin;
+            double u = alongX ? d.Dot(joint.AxisX) : d.Dot(joint.AxisY);
+            double v = -t.F.Dot(joint.Normal) / 1e3;
+            if (u >= limit) plus += v;
+            else if (u <= -limit) minus += v;
+            else middle += v;
+        }
+        return (minus, plus, middle);
     }
 
     /// <summary>

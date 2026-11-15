@@ -60,6 +60,15 @@ public sealed record PunchingFemOptions(
     public static readonly PunchingFemCover StandardCover = new(0.035, 0.045);
 }
 
+/// <summary>Вид узла продавливания.</summary>
+public enum PunchingFemJointKind
+{
+    /// <summary>Колонна или пилон — стержень.</summary>
+    Bar,
+    /// <summary>Пилон из пластин: вертикальные пластины примыкают к плите по короткой линии.</summary>
+    PylonShells,
+}
+
 /// <summary>Стержень, примыкающий к плите в узле: КЭ, конец у плиты и сторона.</summary>
 /// <param name="ElemTag">КЭ стержня.</param>
 /// <param name="NodeTag">Узел конца стержня у плиты.</param>
@@ -82,6 +91,7 @@ public static class PunchingFemNoCheck
     public const string NoConsistentForces = "no_consistent_forces";
     public const string NodalSelfCheck = "nodal_selfcheck_failed";
     public const string NoForces = "no_forces";
+    public const string PylonShellsNoNodal = "pylon_shells_no_nodal";
 }
 
 /// <summary>
@@ -101,6 +111,9 @@ public sealed record PunchingFemJoint
     public required PlanarVector3 AxisY { get; init; }
     public required PlanarVector3 Normal { get; init; }
     public IReadOnlyList<PunchingFemBar> Bars { get; init; } = [];
+    public PunchingFemJointKind Kind { get; init; } = PunchingFemJointKind.Bar;
+    /// <summary>Пластины пилона, примыкающие к плите (у <see cref="PunchingFemJointKind.PylonShells"/>).</summary>
+    public IReadOnlyList<string> WallShells { get; init; } = [];
     /// <summary>Подпись сечения стержня, по которому взята грузовая площадь.</summary>
     public string SectionLabel { get; init; } = "";
     public PunchingLoadArea? Area { get; init; }

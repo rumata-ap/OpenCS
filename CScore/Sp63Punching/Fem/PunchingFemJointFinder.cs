@@ -26,10 +26,11 @@ public static class PunchingFemJointFinder
         options ??= new PunchingFemOptions();
         var ctx = new Context(model, options);
         var joints = new List<PunchingFemJoint>();
-        foreach (var ((node, slab), bars) in ctx.Candidates().OrderBy(kv => kv.Key.Node, FemNodeRigidBodies.TagComparer))
+        foreach (var ((node, slab), bars) in ctx.Candidates())
             joints.Add(ctx.Build(node, ctx.Slabs[slab], bars));
+        joints.AddRange(ctx.ShellPylons());
         slabs = ctx.Slabs;
-        return joints;
+        return joints.OrderBy(j => j.NodeTag, FemNodeRigidBodies.TagComparer).ToList();
     }
 
     sealed class Context
@@ -171,26 +172,38 @@ public static class PunchingFemJointFinder
                     break;
                 }
 
-            PunchingFemJoint Partial(string code, string text) => Fail(code, text, axisX, axisY, origin) with
-            {
-                Area = area, SectionLabel = pick.Section.Label,
-            };
-
             if (area is PunchingLoadArea.Rectangle r && Math.Max(r.Bx, r.By) > Options.WallRatio * Math.Min(r.Bx, r.By))
-                return Partial(PunchingFemNoCheck.Wall, string.Create(Ru,
-                    $"Сечение {r.Bx:0.###}×{r.By:0.###} м вытянуто больше чем в {Options.WallRatio:0.#} раза — это стена, а не пилон: продавливание у стен (СП 430) пока не проверяется."));
+                return Fail(PunchingFemNoCheck.Wall, string.Create(Ru,
+                    $"Сечение {r.Bx:0.###}×{r.By:0.###} м вытянуто больше чем в {Options.WallRatio:0.#} раза — это стена, а не пилон: продавливание у стен (СП 430) пока не проверяется."),
+                    axisX, axisY, origin) with { Area = area, SectionLabel = pick.Section.Label };
 
-            // Свойства плиты у узла.
             var joint = new PunchingFemJoint
             {
                 NodeTag = node, SlabIndex = slab.Index, Origin = origin, AxisX = axisX, AxisY = axisY, Normal = n,
                 Bars = bars, JunctionNodes = junction, Area = area, SectionLabel = pick.Section.Label,
             };
+            return Complete(joint, slab, area, bars.All(b => !b.Below), warnings,
+                bars.Select(b => b.ElemTag).ToHashSet(StringComparer.Ordinal));
+        }
+
+        /// <summary>
+        /// Общая часть узла после грузовой площади: свойства плиты, привязки (по стороне растяжения), края и отверстия,
+        /// основание пирамиды, КЭ основания, сечения в основании и прочие опоры (<paramref name="own"/> — свои КЭ узла).
+        /// </summary>
+        PunchingFemJoint Complete(PunchingFemJoint joint, PunchingFemSlab slab, PunchingLoadArea area, bool onlyAbove,
+            List<PunchingWarning> warnings, IReadOnlySet<string> own)
+        {
+            string node = joint.NodeTag;
+            var n = joint.Normal;
+            var origin = joint.Origin;
+            var junction = joint.JunctionNodes;
+            PunchingFemJoint Partial(string code, string text) => joint with { NoCheck = code, NoCheckText = text, Warnings = warnings };
+
+            // Свойства плиты у узла.
             var near = slab.Shells.Where(s => s.Geometry.NodeTags.Any(junction.Contains)).ToList();
             if (near.Count == 0) near = [slab.Shells.MinBy(s => (s.Centroid - origin).Length)!];
             if (Model.ShellProps(near[0].Element) is not { } props)
                 return Partial(PunchingFemNoCheck.SlabSectionUnknown, $"У пластин плиты у узла {node} нет сечения (толщины).");
-            bool onlyAbove = bars.All(b => !b.Below);
             var cover = (onlyAbove ? props.Bottom : props.Top) ?? Options.DefaultCover;
             bool coverDefault = (onlyAbove ? props.Bottom : props.Top) == null;
             cover ??= PunchingFemOptions.StandardCover;
@@ -233,7 +246,7 @@ public static class PunchingFemJointFinder
                 };
 
             // Прочие элементы и опоры в основании пирамиды.
-            var barTags = bars.Select(b => b.ElemTag).ToHashSet(StringComparer.Ordinal);
+            var barTags = own;
             var junctionSet = junction.ToHashSet(StringComparer.Ordinal);
             var supportBars = new SortedSet<string>(FemNodeRigidBodies.TagComparer);
             var walls = new SortedSet<string>(FemNodeRigidBodies.TagComparer);
@@ -274,6 +287,81 @@ public static class PunchingFemJointFinder
                     $"В основании пирамиды {supported} узлов с опорами или пружинами (упругое основание): их отпор вычитается из силы только при расчёте по контуру.")));
 
             return joint with { Ribs = ribs.Count > 0, Warnings = warnings };
+        }
+
+        /// <summary>
+        /// Пилоны из пластин: вертикальная плита (стена) примыкает к горизонтальной по общим узлам на одной прямой длиной
+        /// L ≤ <see cref="PunchingFemOptions.WallRatio"/>·t (t — толщина стены); длиннее — стена (срез 5), узлом не
+        /// считается. Стены снизу и сверху по той же линии — один узел. Грузовая площадь — прямоугольник L × t по оси
+        /// линии, ось x узла — вдоль линии.
+        /// </summary>
+        public List<PunchingFemJoint> ShellPylons()
+        {
+            var found = new List<(PunchingFemSlab Slab, PlanarVector3 A, PlanarVector3 B, double T, List<string> Shared, List<PunchingFemSlab> Walls, bool Below, PunchingFemShellProps Props)>();
+            foreach (var slab in Slabs.Where(s => s.TiltDeg <= Options.HorizontalTolDeg))
+                foreach (var wall in Slabs.Where(s => s.TiltDeg >= 80))
+                {
+                    var shared = wall.NodeTags.Where(slab.NodeTags.Contains).ToList();
+                    if (shared.Count < 2) continue;
+                    var pts = shared.Select(t => Position(t)!.Value).ToList();
+                    var (a, b) = Farthest(pts);
+                    var d = b - a;
+                    if (d.Length < 1e-6) continue;
+                    var dir = d.Normalize();
+                    if (pts.Any(p => ((p - a) - dir * (p - a).Dot(dir)).Length > Options.PlaneTolM)) continue;
+                    var touching = wall.Shells.Where(s => s.Geometry.NodeTags.Any(shared.Contains)).ToList();
+                    if (touching.Count == 0 || Model.ShellProps(touching[0].Element) is not { } props || !(props.H > 0)) continue;
+                    if (d.Length > Options.WallRatio * props.H) continue;
+                    bool below = touching.Any(s => slab.Distance(s.Centroid) < 0);
+                    var same = found.FindIndex(f => f.Slab == slab && ((f.A + f.B) * 0.5 - (a + b) * 0.5).Length < 1e-3);
+                    if (same >= 0)
+                    {
+                        var f = found[same];
+                        found[same] = f with { Walls = [.. f.Walls, wall], Shared = f.Shared.Union(shared).ToList(), Below = f.Below || below };
+                    }
+                    else found.Add((slab, a, b, props.H, shared, [wall], below, props));
+                }
+
+            var joints = new List<PunchingFemJoint>();
+            foreach (var (slab, a, b, t, shared, walls, below, props) in found)
+            {
+                var n = slab.Normal;
+                var mid = (a + b) * 0.5;
+                mid = mid - n * slab.Distance(mid);
+                var dir = (b - a) - n * (b - a).Dot(n);
+                var x = dir.Normalize();
+                var y = n.Cross(x).Normalize();
+                string node = shared.MinBy(s => (Position(s)!.Value - mid).Length)!;
+                var wallShells = walls.SelectMany(w => w.Shells).Select(s => s.Element.ElemTag).ToHashSet(StringComparer.Ordinal);
+                var touching = walls.SelectMany(w => w.Shells).Where(s => s.Geometry.NodeTags.Any(shared.Contains))
+                    .Select(s => s.Element.ElemTag).OrderBy(s => s, FemNodeRigidBodies.TagComparer).ToList();
+                var area = new PunchingLoadArea.Rectangle((b - a).Length, t);
+                var joint = new PunchingFemJoint
+                {
+                    NodeTag = node, SlabIndex = slab.Index, Origin = mid, AxisX = x, AxisY = y, Normal = n,
+                    Kind = PunchingFemJointKind.PylonShells, WallShells = touching, JunctionNodes = shared, Area = area,
+                    SectionLabel = string.Create(Ru, $"пилон {area.Bx * 1000:0}×{t * 1000:0} ({props.Label})"),
+                };
+                var warnings = new List<PunchingWarning>
+                {
+                    new("fem_pylon_shells", "Пилон из пластин: сила пилона на плиту — по узловым силам его пластин; проверены также торцы — каждый по своему П-контуру с силой торца по разрезу."),
+                };
+                if (slab.TiltDeg > Options.HorizontalTolDeg)
+                {
+                    joints.Add(joint with { NoCheck = PunchingFemNoCheck.SlabInclined, NoCheckText = "Плита наклонная.", Warnings = warnings });
+                    continue;
+                }
+                joints.Add(Complete(joint, slab, area, !below, warnings, wallShells));
+            }
+            return joints;
+        }
+
+        static (PlanarVector3 A, PlanarVector3 B) Farthest(IReadOnlyList<PlanarVector3> pts)
+        {
+            var a = pts[0];
+            var b = pts.MaxBy(p => (p - a).Length);
+            a = pts.MaxBy(p => (p - b).Length);
+            return (a, b);
         }
 
         PlanarVector3? Position(string tag) => Model.Nodes.TryGetValue(tag, out var m) ? new PlanarVector3(m.X, m.Y, m.Z) : null;

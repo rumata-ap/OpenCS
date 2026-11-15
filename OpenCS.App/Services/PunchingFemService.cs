@@ -395,10 +395,17 @@ public static class PunchingFemService
         string? missing = null;
         foreach (var key in keys)
         {
-            var action = PunchingFemColumnAction.Compute(joint, data.Model.Nodes, data.ElementsByTag, source.Result, key);
+            bool shells = joint.Kind == PunchingFemJointKind.PylonShells;
+            var action = shells
+                ? source.Nodal is { } nodal ? PunchingFemColumnAction.ComputeShells(joint, data.Model.Nodes, nodal, key) : null
+                : PunchingFemColumnAction.Compute(joint, data.Model.Nodes, data.ElementsByTag, source.Result, key);
             if (action is not var (af, am))
             {
-                missing ??= "нет сил концов стержней колонн в результате";
+                missing ??= shells
+                    ? source.Nodal == null
+                        ? "пилон из пластин проверяется только по расчёту CSfea: силу стены на плиту дают узловые силы КЭ, а у источника их нет"
+                        : "нет узловых сил пластин пилона"
+                    : "нет сил концов стержней колонн в результате";
                 continue;
             }
             double colAction = af.Dot(joint.Normal) / 1e3;
@@ -410,7 +417,11 @@ public static class PunchingFemService
             if (method == PunchingFemForceMethod.Contour && contour == null) method = PunchingFemForceMethod.Column;
             double signed = method == PunchingFemForceMethod.Contour ? contour!.Value : colAction + (baseLoad ?? 0);
             byKey[key] = new PunchingFemForces(Math.Abs(signed), signed >= 0 ? PunchingLoadSide.FromBelow : PunchingLoadSide.FromAbove,
-                am.Dot(joint.AxisX) / 1e3, am.Dot(joint.AxisY) / 1e3, method, colAction, baseLoad, contour);
+                am.Dot(joint.AxisX) / 1e3, am.Dot(joint.AxisY) / 1e3, method, colAction, baseLoad, contour)
+            {
+                PylonParts = cut?.Failure == null && cut?.ByKey.TryGetValue(key, out var pc) == true
+                    ? PunchingFemColumnAction.PylonParts(joint, pc.Terms) : null,
+            };
         }
         return new PunchingFemNodeForces(byKey, cutFailure, missing);
     }

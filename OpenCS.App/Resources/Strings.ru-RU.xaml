@@ -6718,5 +6718,6 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemColBase">Основание, кН</system:String>
    <system:String x:Key="PunchingFemColContour">Разрез, кН</system:String>
    <system:String x:Key="PunchingFemColMismatch">Невязка, кН</system:String>
+   <system:String x:Key="PunchingFemColPylon">Торцы пилона</system:String>
    <system:String x:Key="PunchingFemRowsHint">«Колонны» — действие стержней на плиту, «Основание» — нагрузка в основании пирамиды, «Разрез» — сила по границе основания из узловых сил КЭ; невязка = колонны + основание − разрез (≈ 0, если сила идёт только через плиту). Справа — полный расчёт строки.</system:String>
 </ResourceDictionary>

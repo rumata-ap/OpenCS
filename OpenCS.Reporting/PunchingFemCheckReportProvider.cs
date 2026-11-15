@@ -59,6 +59,7 @@ public sealed class PunchingFemCheckReportProvider : IReportProvider
         var joints = r.TryGetProperty("joints", out var js) && js.ValueKind == JsonValueKind.Array ? js.EnumerateArray().ToList() : [];
         AddSummary(doc, r, joints);
         AddTable(doc, joints);
+        AddPylons(doc, joints);
         AddNoCheck(doc, joints);
         AddConclusion(doc, r, joints);
         if (r.TryGetProperty("warnings", out var w) && w.ValueKind == JsonValueKind.Array)
@@ -128,6 +129,26 @@ public sealed class PunchingFemCheckReportProvider : IReportProvider
         doc.Add(new ReportParagraph("F — продавливающая сила за вычетом нагрузки основания пирамиды; Mx, My — полные моменты Mloc в осях узла. "
             + "Статус «требуется армирование» — бетона недостаточно, с предельной поперечной арматурой (2Fb, 2Mb) прочность обеспечивается."
             + (cut ? $" Узлов больше {FullTableLimit}: показаны все не прошедшие и 50 наиболее нагруженных из прошедших." : "")));
+    }
+
+    /// <summary>Пилоны из пластин: силы торцов и середины по разрезу в определяющем сочетании и Кисп торцов.</summary>
+    static void AddPylons(ReportDocument doc, IReadOnlyList<JsonElement> joints)
+    {
+        var rows = new List<IReadOnlyList<string>>();
+        foreach (var j in joints)
+        {
+            var gov = Rows(j).FirstOrDefault(x => S(x, "key") == S(j, "governingKey"));
+            if (gov.ValueKind != JsonValueKind.Object || N(gov, "pylonMinus") is not double m) continue;
+            rows.Add([S(j, "node"), S(j, "governingKey"), PunchingReportProvider.Sig(m), PunchingReportProvider.Sig(N(gov, "pylonPlus") ?? 0),
+                PunchingReportProvider.Sig(N(gov, "pylonMiddle") ?? 0), N(gov, "pylonEndRatio") is double k ? ReportNumberFormatter.FormatUtilization(k) : "—"]);
+        }
+        if (rows.Count == 0) return;
+        doc.Add(new ReportHeading(1, "Пилоны из пластин — торцы"))
+           .Add(new ReportTable(["Узел", "Сочетание", "F торца −x, кН", "F торца +x, кН", "F середины, кН", "Кисп торцов"], rows))
+           .Add(new ReportParagraph("Сила основания пирамиды разделена по слагаемым разреза: торец — участки у концов пилона на длине "
+               + "ветви П-контура (Lmin + h0), середина — остальное. Каждый торец проверен по своему П-контуру (СП 430, рис. 6.1а) с силой "
+               + "торца, моменты не учитываются; Кисп узла — наибольший из всех вариантов, включая торцы (у плит перекрытий сила "
+               + "собирается к торцам, у фундаментных плит — наоборот)."));
     }
 
     static void AddNoCheck(ReportDocument doc, IReadOnlyList<JsonElement> joints)

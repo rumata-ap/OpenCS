@@ -6718,6 +6718,8 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemColBase">Base, kN</system:String>
    <system:String x:Key="PunchingFemColContour">Cut, kN</system:String>
    <system:String x:Key="PunchingFemColMismatch">Mismatch, kN</system:String>
+   <system:String x:Key="PunchingFemColPylon">Pylon ends</system:String>
+   <system:String x:Key="PunchingFemPylonParts">ends {0:0.0} and {1:0.0}, middle {2:0.0} kN; ends utilization {3}</system:String>
    <system:String x:Key="PunchingFemRowsHint">"Columns" — bar action on the slab, "Base" — load within the pyramid base, "Cut" — force across the base boundary from element nodal forces; mismatch = columns + base − cut (≈ 0 when the force goes through the slab only). Full calculation of the row is on the right.</system:String>
    <system:String x:Key="PunchingFemStatus_concrete">concrete sufficient</system:String>
    <system:String x:Key="PunchingFemStatus_reinforcement">reinforcement required</system:String>

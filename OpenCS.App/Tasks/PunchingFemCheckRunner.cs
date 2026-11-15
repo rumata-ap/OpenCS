@@ -34,6 +34,12 @@ public sealed record PunchingFemRow
     /// <summary>Определяющий вариант контура (id ядра).</summary>
     public string Governing { get; init; } = "";
     public string? Error { get; init; }
+    /// <summary>Пилон из пластин: сила по разрезу у торца −x, +x и в середине, кН.</summary>
+    public double? PylonMinus { get; init; }
+    public double? PylonPlus { get; init; }
+    public double? PylonMiddle { get; init; }
+    /// <summary>Пилон из пластин: наибольший Кисп торцов (П-контур с силой торца).</summary>
+    public double? PylonEndRatio { get; init; }
 }
 
 /// <summary>Узел результата: геометрия, статус, огибающая по ключам и строки.</summary>
@@ -344,6 +350,33 @@ public static class PunchingFemCheckRunner
                 Ratio = r.Utilization, RatioConcrete = r.UtilizationConcreteOnly, RatioMaxSw = r.UtilizationMaxReinforcement,
                 Status = StatusCode(r.Status), Passed = r.Passed, Governing = r.Governing?.Variant.Id ?? "",
             };
+            if (f.PylonParts is var (pm, pp, pmid) && joint.Area is PunchingLoadArea.Rectangle pr)
+            {
+                // Торцы пилона из пластин: каждый — свой П-контур с силой торца по разрезу (М = 0), определяет худший.
+                row = row with { PylonMinus = pm, PylonPlus = pp, PylonMiddle = pmid };
+                double side = tp.Forces.LoadSide == "from_above" ? -1 : 1;
+                foreach (var (signed, sign, id) in new[] { (pm, -1, "pylon_end_minus"), (pp, 1, "pylon_end_plus") })
+                {
+                    double fe = side * signed;
+                    if (!(fe > 0)) continue;
+                    var ep = tp with
+                    {
+                        Forces = tp.Forces with { F = fe, Mx = 0, My = 0 },
+                        CustomContours = [EndContour(pr, input.H0, sign, id)],
+                    };
+                    var er = PunchingChecker.Check(ep.ToInput(strengths.Rbt, strengths.Rsw), includeTrace: false);
+                    if (er.Variants.FirstOrDefault(v => v.Variant.Kind == PunchingVariantKind.Custom) is not { } ev) continue;
+                    row = row with { PylonEndRatio = Math.Max(row.PylonEndRatio ?? 0, ev.Utilization) };
+                    if (ev.Utilization > row.Ratio)
+                        row = row with
+                        {
+                            Ratio = ev.Utilization, Governing = id, Passed = row.Passed && ev.Passed,
+                            Status = StatusCode(ev.UtilizationConcreteOnly <= 1 ? PunchingStatus.ConcreteSufficient
+                                : ev.UtilizationMaxReinforcement <= 1 ? PunchingStatus.ReinforcementRequired : PunchingStatus.NotEnsured),
+                        };
+                    else if (!ev.Passed) row = row with { Passed = false };
+                }
+            }
             rows.Add(row);
             if (r.Utilization > worst || governingParams == null)
             {
@@ -381,6 +414,24 @@ public static class PunchingFemCheckRunner
         "not_ensured" => 2,
         _ => 3,
     };
+
+    /// <summary>
+    /// П-контур торца пилона (СП 430, рис. 6.1а; как у <see cref="PunchingContourBuilder"/>): торцевой отрезок Lmin + h0 на
+    /// h0/2 за торцом и ветви длиной Lmin + h0 вдоль пилона; сторона внутрь пилона выключена.
+    /// </summary>
+    static PunchingCustomContourParams EndContour(PunchingLoadArea.Rectangle r, double h0, int sign, string name)
+    {
+        bool alongX = r.Bx >= r.By;
+        double cmin = Math.Min(r.Bx, r.By), cmax = Math.Max(r.Bx, r.By);
+        double w = cmin + h0, leg = cmin + h0, end = cmax / 2 + h0 / 2;
+        double[] P(double u, double v) => alongX ? [sign * u, v] : [v, sign * u];
+        return new PunchingCustomContourParams
+        {
+            Name = name,
+            Points = [P(end - leg, -w / 2), P(end, -w / 2), P(end, w / 2), P(end - leg, w / 2)],
+            InactiveEdges = [3],
+        };
+    }
 
     /// <summary>Параметры одиночной задачи по строке узла: параметры узла с усилиями и источником строки.</summary>
     public static PunchingTaskParams? RowParams(PunchingFemJointResult joint, PunchingFemRow row)

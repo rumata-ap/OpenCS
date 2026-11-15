@@ -183,7 +183,7 @@ public class PunchingFemJointFinderTests
         var m = Plate();
         string master = m.Node(3, 3, Z);
         m.Bar(m.Node(3, 3, 0), master);
-        m.WallXZ(3.2, 4.0, 3.0, 0, Z, 0.2);
+        m.WallXZ(3.2, 4.4, 3.0, 0, Z, 0.2);   // 1,2 м при t = 0,2 — стена, а не пилон
         var slaves = m.NodesIn(2.8, 2.8, 3.2, 3.2, Z).Where(t => t != master).ToList();
         m.Body(master, slaves);
         Assert.Equal(PunchingFemNoCheck.JunctionWallAndColumn, Single(m).NoCheck);
@@ -241,6 +241,29 @@ public class PunchingFemJointFinderTests
             }
         m.Bar(m.Node(2, 2, 0), m.Node(2, 2, Z + k * 2));
         Assert.Equal(PunchingFemNoCheck.SlabInclined, Single(m).NoCheck);
+    }
+
+    [Fact]
+    public void ShellPylon_ShortWall_IsJoint_LongWall_Skipped()
+    {
+        var m = Plate();
+        // Пилон 0,8 × 0,25 из пластин под плитой: стенка по y = 3 от x = 2,6 до 3,4 (шаг 0,2 совпадает с сеткой плиты).
+        m.WallXZ(2.6, 3.4, 3.0, 0, Z, 0.2, h: 0.25);
+        // Длинная стена 2 м × 0,2 — не пилон.
+        m.WallXZ(0.4, 2.4, 1.0, 0, Z, 0.2, h: 0.2);
+        var joints = PunchingFemJointFinder.Find(m.Model());
+        var j = Assert.Single(joints);
+        Assert.Equal(PunchingFemJointKind.PylonShells, j.Kind);
+        Assert.Null(j.NoCheck);
+        var r = Assert.IsType<PunchingLoadArea.Rectangle>(j.Area);
+        Assert.Equal(0.8, r.Bx, 9);
+        Assert.Equal(0.25, r.By, 9);
+        Assert.Equal(3.0, j.Origin.X, 9);
+        Assert.Equal(3.0, j.Origin.Y, 9);
+        Assert.Equal(1.0, Math.Abs(j.AxisX.X), 9);
+        Assert.Equal(4, j.WallShells.Count);
+        Assert.Equal(5, j.JunctionNodes.Count);
+        Assert.Contains(j.Warnings, w => w.Code == "fem_pylon_shells");
     }
 
     [Fact]

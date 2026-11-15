@@ -146,6 +146,118 @@ public sealed class PunchingFemServiceTests : IDisposable
         return new Setup(db, parent, SaveLinear(db, parent, stages));
     }
 
+    /// <summary>
+    /// Та же плита на пилоне 1,0 × 0,3 м из пластин (стенка W1 в плоскости y = 0 от x = −0,5 до 0,5, z 0…3, сетка 0,25),
+    /// низ стенки заделан; «Пост.» — −10 кПа на плиту.
+    /// </summary>
+    Setup CreatePylon()
+    {
+        var db = new DatabaseService(_path);
+        var schema = new FemSchema { Tag = "Плита на пилоне" };
+        db.SaveFemSchema(schema);
+        var slabFrame = new Frame3D(new PlanarVector3(0, 0, Zs), new(1, 0, 0), new(0, 1, 0), new(0, 0, 1));
+        var slab = PlanarRegion.CreateFromContour(new Contour([-Half, Half, Half, -Half, -Half], [-Half, -Half, Half, Half, -Half], "S1"), [], slabFrame, "S1");
+        slab.MeshMaxElementSizeM = Step;
+        db.AddPlanarRegion(slab, schema.Id);
+        var wallFrame = new Frame3D(new PlanarVector3(-0.5, 0, 0), new(1, 0, 0), new(0, 0, 1), new(0, -1, 0));
+        var wallRegion = PlanarRegion.CreateFromContour(new Contour([0.0, 1, 1, 0, 0], [0.0, 0, Zs, Zs, 0], "W1"), [], wallFrame, "W1");
+        wallRegion.MeshMaxElementSizeM = Step;
+        db.AddPlanarRegion(wallRegion, schema.Id);
+
+        var concrete = MaterialCatalog.CreateHeavyConcrete("B25", CatalogDirectory())!;
+        var rebar = MaterialCatalog.CreateRebar("А500С", CatalogDirectory())!;
+        db.AddMaterial(concrete);
+        db.AddMaterial(rebar);
+        PlateSection Plate(string tag, double h) => new()
+        {
+            Tag = tag, H = h, ConcreteMaterialId = concrete.Id, RebarMaterialId = rebar.Id,
+            RebarLayers =
+            [
+                new PlateRebarLayer { Name = "низ", InputMode = "direct", Asx = 5e-4, Asy = 5e-4, Zsx = -h / 2 + 0.03, Zsy = -h / 2 + 0.03, Face = RebarFace.MinusN },
+                new PlateRebarLayer { Name = "верх", InputMode = "direct", Asx = 5e-4, Asy = 5e-4, Zsx = h / 2 - 0.03, Zsy = h / 2 - 0.03, Face = RebarFace.PlusN },
+            ],
+        };
+        var p200 = Plate("П200", 0.2);
+        var p300 = Plate("С300", 0.3);
+        db.SavePlateSection(p200);
+        db.SavePlateSection(p300);
+
+        var nodes = new List<FemNode>();
+        for (int i = 0; i <= 4; i++)
+            nodes.Add(new FemNode { Id = -1 - i, NodeTag = S(1 + i), X = -0.5 + 0.25 * i, Y = 0, Z = 0, DofMask = 63 });
+        var members = new List<FemMember>
+        {
+            new() { Id = -10, ElemTag = "S1", ElemType = "shell", NodeIdsJson = "[]", PlanarRegionId = slab.Id, Kind = "plate", ThicknessM = 0.2, PlateSectionId = p200.Id },
+            new() { Id = -11, ElemTag = "W1", ElemType = "shell", NodeIdsJson = "[]", PlanarRegionId = wallRegion.Id, Kind = "wall", ThicknessM = 0.3, PlateSectionId = p300.Id },
+        };
+        var loadCases = new List<FemLoadCase> { new() { Id = -1, Tag = "Пост." } };
+        var load = new FemElementLoad { LoadCaseId = -1, LoadKind = FemElementLoadKinds.Uniform, Axis = "z", CoordinateSystem = "global" };
+        load.SetTargetTags(Enumerable.Range(1, N * N).Select(S).ToArray());
+        load.SetValues([Q]);
+        db.SaveFemSchemaEdit(schema.Id, nodes, members, [], loadCases, [], [], [], null, [load], []);
+
+        var meshNodes = new List<FemMeshNode>();
+        var meshElements = new List<FemElement>();
+        for (int j = 0; j <= N; j++)
+            for (int i = 0; i <= N; i++)
+                meshNodes.Add(new FemMeshNode { NodeTag = S(SlabNode(i, j)), X = -Half + Step * i, Y = -Half + Step * j, Z = Zs });
+        for (int j = 0; j < N; j++)
+            for (int i = 0; i < N; i++)
+                meshElements.Add(new FemElement
+                {
+                    ElemTag = S(1 + j * N + i), ElemType = "shell", SourceMemberTag = "S1", ThicknessM = 0.2,
+                    NodeIdsJson = $"[{SlabNode(i, j)},{SlabNode(i + 1, j)},{SlabNode(i, j + 1)},{SlabNode(i + 1, j + 1)}]",
+                });
+        // Стенка: 4 × 12 квадратов; верхний ряд узлов — узлы плиты на y = 0.
+        string W(int i, int k) => k == 12 ? S(SlabNode(N / 2 - 2 + i, N / 2)) : S(20000 + k * 5 + i);
+        for (int k = 0; k < 12; k++)
+            for (int i = 0; i <= 4; i++)
+                meshNodes.Add(new FemMeshNode { NodeTag = W(i, k), X = -0.5 + 0.25 * i, Y = 0, Z = 0.25 * k, SourceNodeTag = k == 0 ? S(1 + i) : null });
+        for (int k = 0; k < 12; k++)
+            for (int i = 0; i < 4; i++)
+                meshElements.Add(new FemElement
+                {
+                    ElemTag = S(7000 + k * 4 + i), ElemType = "shell", SourceMemberTag = "W1", ThicknessM = 0.3,
+                    NodeIdsJson = $"[{W(i, k)},{W(i + 1, k)},{W(i, k + 1)},{W(i + 1, k + 1)}]",
+                });
+        db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
+        db.LoadAll();
+        var parent = db.FemSchemas.Single(s => s.Id == schema.Id);
+        var lc = db.GetFemLoadCases(parent.Id);
+        var stages = lc.Select(c => new FemAnalysisStage
+        {
+            Tag = c.Tag, LoadFactorStep = 1, MaxLoadFactor = 1,
+            LoadExpressionJson = new FemLoadExpression { Mode = FemLoadExpressionMode.Single, LoadCaseIds = [c.Id] }.ToJson(),
+        }).ToList();
+        return new Setup(db, parent, SaveLinear(db, parent, stages));
+    }
+
+    [Fact]
+    public void PylonShells_ContourEqualsWallActionMinusBase_EndsChecked()
+    {
+        var s = CreatePylon();
+        using var db = s.Db;
+        var (_, source, joint, forces) = Evaluate(s);
+        Assert.Equal(PunchingFemJointKind.PylonShells, joint.Kind);
+        var r = Assert.IsType<PunchingLoadArea.Rectangle>(joint.Area);
+        Assert.Equal(1.0, r.Bx, 9);
+        Assert.Equal(0.3, r.By, 9);
+        var f = forces.ByKey[source.Keys.Single().Key];
+        Assert.Equal(-Q * 36 / 1e3, f.ColumnAction!.Value, 2);
+        Assert.Equal(f.ColumnForce!.Value, f.ContourForce!.Value, 2);
+        var (minus, plus, middle) = f.PylonParts!.Value;
+        Assert.Equal(f.ContourForce!.Value, minus + plus + middle, 6);
+        Assert.Equal(minus, plus, 2);   // симметрия
+
+        var data = PunchingFemCheckRunner.Compute(db, s.Schema.Id,
+            new PunchingFemCheckParams { SourceRef = s.Analysis.Id.ToString(CultureInfo.InvariantCulture) }, CalcType.C);
+        var j = Assert.Single(data.Joints);
+        Assert.True(j.NoCheck == null, j.NoCheckText);
+        var row = Assert.Single(j.Rows);
+        Assert.NotNull(row.PylonEndRatio);
+        Assert.True(row.Ratio >= row.PylonEndRatio!.Value - 1e-12);
+    }
+
     static FemAnalysis SaveLinear(DatabaseService db, FemSchema schema, IReadOnlyList<FemAnalysisStage> stages)
     {
         var analysis = new FemAnalysis { SchemaId = schema.Id, Tag = "Линейный", Kind = FemCsfeaRunner.LinearAnalysisKind };

@@ -126,6 +126,7 @@
                   <DataGridTextColumn Header="{DynamicResource PunchingFemColBase}" Binding="{Binding BaseLoad}" Width="Auto"/>
                   <DataGridTextColumn Header="{DynamicResource PunchingFemColContour}" Binding="{Binding Contour}" Width="Auto"/>
                   <DataGridTextColumn Header="{DynamicResource PunchingFemColMismatch}" Binding="{Binding Mismatch}" Width="Auto"/>
+                  <DataGridTextColumn Header="{DynamicResource PunchingFemColPylon}" Binding="{Binding Pylon}" Width="Auto"/>
                   <DataGridTextColumn Header="{DynamicResource PunchingKisp}" Binding="{Binding K}" SortMemberPath="KValue" Width="Auto">
                      <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource StatusCell}">

@@ -117,7 +117,14 @@ public sealed class PunchingFemKeyRowVM
         StatusText = PunchingFemStatus.Text(row.Status);
         StatusBrush = PunchingFemStatus.Brush(row.Status, row.Passed);
         Governing = row.Governing;
+        Pylon = row.PylonMinus is double m && row.PylonPlus is double p
+            ? string.Format(c, Loc.S("PunchingFemPylonParts", "торцы {0:0.0} и {1:0.0}, середина {2:0.0} кН; Кисп торцов {3}"),
+                m, p, row.PylonMiddle ?? 0, row.PylonEndRatio is double k ? Variants.K(k) : "—")
+            : "";
     }
+
+    /// <summary>Пилон из пластин: силы торцов и середины по разрезу и Кисп торцов; пусто — не пилон.</summary>
+    public string Pylon { get; }
 
     public static string MethodText(string method) => method == "contour"
         ? Loc.S("PunchingFemMethod_contour", "по разрезу")
