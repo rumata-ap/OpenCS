@@ -6669,4 +6669,54 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingVariantShort_Custom">пользователя</system:String>
    <system:String x:Key="PunchingVariantShortOuterSuffix">, за арматурой</system:String>
    <system:String x:Key="PunchingInvalidNumber">Поле содержит нераспознанное число. Исправьте значение, выделенное красной рамкой.</system:String>
+
+   <!-- Продавливание по МКЭ-схеме (punching_check, срез 3) -->
+   <system:String x:Key="PunchingFemCheckAdd">Проверка продавливания по схеме...</system:String>
+   <system:String x:Key="PunchingFemDialogTitle">Проверка продавливания по МКЭ-схеме (СП 63)</system:String>
+   <system:String x:Key="PunchingFemGroupSource">Схема и усилия</system:String>
+   <system:String x:Key="PunchingFemName">Название</system:String>
+   <system:String x:Key="PunchingFemSchema">Схема</system:String>
+   <system:String x:Key="PunchingFemAnalysis">Расчёт</system:String>
+   <system:String x:Key="PunchingFemNoAnalysesHint">У схемы нет постановок расчёта CSfea. Создайте постановку («Постановки расчёта → Создать…») и выполните расчёт — усилия берутся из его результата.</system:String>
+   <system:String x:Key="PunchingFemMethod">Сила F</system:String>
+   <system:String x:Key="PunchingFemMethodHint">F — за вычетом нагрузки в основании пирамиды продавливания (п. 8.1.46). По разрезу — равновесие плиты в основании по узловым силам КЭ: точно и у края, и с колонной сверху; по колоннам — действие стержней минус нагрузка основания. В результате показаны оба способа и их расхождение.</system:String>
+   <system:String x:Key="PunchingFemMloc">Моменты колонн — полные Mloc (в расчёт идёт половина)</system:String>
+   <system:String x:Key="PunchingFemMlocHint">Из МКЭ приходит полный неуравновешенный момент узла Mloc. По п. 8.1.46 при расчёте на продавливание учитывают его половину, другую половину — в расчёте по нормальным сечениям.</system:String>
+   <system:String x:Key="PunchingFemConcreteFromSchema">Бетон — по сечению плиты схемы (если задан)</system:String>
+   <system:String x:Key="PunchingFemConcreteHint">Бетон ниже — для пластин без бетона в сечении (импорт) или для всех узлов, если флажок снят.</system:String>
+   <system:String x:Key="PunchingFemDefaultCover">Привязки по умолчанию:</system:String>
+   <system:String x:Key="PunchingFemCoverHint">Привязки центров арматуры к растянутой грани берутся из слоёв сечения плиты (верхняя сетка у колонны снизу, нижняя — у колонны только сверху). Эти значения — если слоёв нет; на узел можно задать свои в таблице.</system:String>
+   <system:String x:Key="PunchingFemSwHint">Общая арматура всех узлов. Узлу можно задать свою в таблице («своя», d, n, sw) — класс тот же.</system:String>
+   <system:String x:Key="PunchingFemGroupFinder">Поиск узлов</system:String>
+   <system:String x:Key="PunchingFemAngle">Наименьший угол стержня к плите</system:String>
+   <system:String x:Key="PunchingFemEdgeInfluence">Края плиты ближе</system:String>
+   <system:String x:Key="PunchingFemWallRatio">Стена, если Lmax/Lmin больше</system:String>
+   <system:String x:Key="PunchingFemFinderHint">Узел — стержень под углом к горизонтальной плите, конец которого в узле плиты или в теле АЖТ. Грузовая площадь — по сечению стержня, края и отверстия — по свободным рёбрам сетки, толщина — по сечению пластины. Сечение длиннее Lmax/Lmin — стена (СП 430, пока не проверяется).</system:String>
+   <system:String x:Key="PunchingFemFind">Найти узлы</system:String>
+   <system:String x:Key="PunchingFemFindHint">Повторить поиск с текущими настройками (флажки и переопределения узлов сохраняются)</system:String>
+   <system:String x:Key="PunchingFemIncludeAll">Включить все</system:String>
+   <system:String x:Key="PunchingFemExcludeAll">Исключить все</system:String>
+   <system:String x:Key="PunchingFemColInclude">Проверять</system:String>
+   <system:String x:Key="PunchingFemColNode">Узел</system:String>
+   <system:String x:Key="PunchingFemColSection">Колонна</system:String>
+   <system:String x:Key="PunchingFemColSlab">Плита</system:String>
+   <system:String x:Key="PunchingFemColPosition">Положение</system:String>
+   <system:String x:Key="PunchingFemColOwnSw">Своя арм.</system:String>
+   <system:String x:Key="PunchingFemColStatus">Состояние</system:String>
+   <system:String x:Key="PunchingFemOverrideCoverHint">Своя привязка узла, мм; пусто — из сечения плиты</system:String>
+   <system:String x:Key="PunchingFemCreateTask">Создать задачу</system:String>
+   <system:String x:Key="PunchingFemCreateTaskHint">Одиночная задача «Продавливание плиты» по выбранной строке узла — с геометрией узла, усилиями и источником (двойной щелчок по строке)</system:String>
+   <system:String x:Key="PunchingFemReport">Отчёт...</system:String>
+   <system:String x:Key="PunchingFemParams">Параметры...</system:String>
+   <system:String x:Key="PunchingFemRerun">Пересчитать</system:String>
+   <system:String x:Key="PunchingFemPlan">План перекрытия</system:String>
+   <system:String x:Key="PunchingFemPlanHint">Щелчок по узлу — его строки; колесо — масштаб; правая кнопка — сдвиг, двойной щелчок правой — вписать</system:String>
+   <system:String x:Key="PunchingFemColKey">Загружение / сочетание</system:String>
+   <system:String x:Key="PunchingFemColMethod">Способ</system:String>
+   <system:String x:Key="PunchingFemColSide">Сторона</system:String>
+   <system:String x:Key="PunchingFemColColumn">Колонны, кН</system:String>
+   <system:String x:Key="PunchingFemColBase">Основание, кН</system:String>
+   <system:String x:Key="PunchingFemColContour">Разрез, кН</system:String>
+   <system:String x:Key="PunchingFemColMismatch">Невязка, кН</system:String>
+   <system:String x:Key="PunchingFemRowsHint">«Колонны» — действие стержней на плиту, «Основание» — нагрузка в основании пирамиды, «Разрез» — сила по границе основания из узловых сил КЭ; невязка = колонны + основание − разрез (≈ 0, если сила идёт только через плиту). Справа — полный расчёт строки.</system:String>
 </ResourceDictionary>

@@ -157,6 +157,28 @@ static class BatchRowTask
         RunOrOpen(app, FemCheckRowTaskFactory.FindExisting(app.CalcTasks, check, key), built);
     }
 
+    /// <summary>
+    /// По строке проверки продавливания по МКЭ: одиночная задача «Продавливание плиты» с геометрией узла, усилиями и
+    /// источником строки (тип расчёта — проверки). Та же строка (проверка, узел, ключ) — та же задача.
+    /// </summary>
+    public static void CreateAndRun(AppViewModel app, FemCheck check, PunchingFemJointResult joint, PunchingFemRow row)
+    {
+        if (app.IsBusy) return;
+        if (PunchingFemCheckRunner.RowParams(joint, row) is not { } p) return;
+        p = p with { Source = p.Source! with { CheckId = check.Id } };
+        var built = new CalcTask
+        {
+            Kind = PunchingRunner.Kind,
+            Tag = string.Format(Loc.S("PunchingFemRowTaskTag", "{0} — узел {1}, {2}"), check.DisplayTag, joint.Node, row.Key),
+            ParamsJson = p.ToJson(),
+            CalcType = check.CalcTypeOverride is { } s && Enum.TryParse<CalcType>(s, out var t) ? t : CalcType.C,
+        };
+        var existing = app.CalcTasks.FirstOrDefault(task => task.Kind == PunchingRunner.Kind
+            && PunchingTaskParams.Parse(task.ParamsJson).Source is { } src
+            && src.CheckId == check.Id && src.Node == joint.Node && src.Key == row.Key);
+        RunOrOpen(app, existing, built);
+    }
+
     /// <summary>Новая задача — сохранить и посчитать; прежняя — обновить и пересчитать, если изменилась, иначе открыть.</summary>
     static async void RunOrOpen(AppViewModel app, CalcTask? task, CalcTask built)
     {

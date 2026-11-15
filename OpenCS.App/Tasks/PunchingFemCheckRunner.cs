@@ -60,6 +60,8 @@ public sealed record PunchingFemJointResult
     public string? NoCheck { get; init; }
     public string? NoCheckText { get; init; }
     public List<PunchingWarningJson> Warnings { get; init; } = [];
+    /// <summary>Контур грузовой площади в плане (общие X, Y), м.</summary>
+    public List<double[]> Area { get; init; } = [];
     /// <summary>Параметры одиночной задачи по определяющему ключу (без него — с нулевыми усилиями).</summary>
     public string ParamsJson { get; init; } = "";
     public List<PunchingFemRow> Rows { get; init; } = [];
@@ -67,6 +69,14 @@ public sealed record PunchingFemJointResult
 
 /// <summary>Предупреждение в JSON результата.</summary>
 public sealed record PunchingWarningJson(string Code, string Text);
+
+/// <summary>Плита для плана перекрытия: петли свободных рёбер в плане (общие X, Y), м; первая — наибольшая.</summary>
+public sealed record PunchingFemSlabOutline
+{
+    public int Index { get; init; }
+    public double Z { get; init; }
+    public List<List<double[]>> Loops { get; init; } = [];
+}
 
 /// <summary>Сводка результата проверки продавливания по МКЭ (<see cref="CalcResult.DataJson"/>).</summary>
 public sealed record PunchingFemCheckData
@@ -85,6 +95,12 @@ public sealed record PunchingFemCheckData
     public string? Error { get; init; }
     public List<PunchingWarningJson> Warnings { get; init; } = [];
     public List<PunchingFemJointResult> Joints { get; init; } = [];
+    /// <summary>Плиты с узлами — для плана перекрытия.</summary>
+    public List<PunchingFemSlabOutline> Slabs { get; init; } = [];
+    /// <summary>Определяющий узел (наибольший Кисп).</summary>
+    public string? GoverningNode { get; init; }
+    /// <summary>DataJson одиночной задачи по определяющей строке определяющего узла (с ходом вычислений) — для отчёта.</summary>
+    public string? GoverningDetail { get; init; }
 
     static readonly JsonSerializerOptions Opts = new()
     {
@@ -180,14 +196,68 @@ public static class PunchingFemCheckRunner
 
         int failed = results.Count(r => r.Status != "no_check" && !r.Passed);
         int noCheck = results.Count(r => r.Status == "no_check");
+        var govJoint = results.Where(r => r.Status != "no_check" && r.Rows.Count > 0).MaxBy(r => r.Ratio);
+        string? detail = null;
+        if (govJoint != null && RowParams(govJoint, govJoint.Rows.First(r => r.Key == govJoint.GoverningKey)) is { } gp)
+        {
+            var st = PunchingRunner.ResolveStrengths(gp, materials, calcType, out var me);
+            if (me.Count == 0 && gp.Validate().Count == 0)
+            {
+                var input = gp.ToInput(st.Rbt, st.Rsw);
+                var task = new CalcTask { Kind = PunchingRunner.Kind, CalcType = calcType, Tag = $"{schema.Tag}, узел {govJoint.Node}, {govJoint.GoverningKey}" };
+                detail = PunchingRunner.Serialize(task, gp, st, input, PunchingChecker.Check(input));
+            }
+        }
         return new PunchingFemCheckData
         {
+            GoverningNode = govJoint?.Node, GoverningDetail = detail,
             Schema = schema.Tag, Source = source.Label, SourceKind = source.Kind,
             Passed = results.Count > 0 && failed == 0 && noCheck == 0,
             Ratio = results.Where(r => r.Status != "no_check").Select(r => r.Ratio).DefaultIfEmpty(0).Max(),
             TotalJoints = results.Count, PassedJoints = results.Count(r => r.Passed), FailedJoints = failed, NoCheckJoints = noCheck,
             Keys = source.Keys.Count, Warnings = warnings, Joints = results,
+            Slabs = Outlines(schemaData, results.Select(r => r.Slab).ToHashSet()),
         };
+    }
+
+    /// <summary>Петли плит с узлами в плане; почти коллинеарные вершины (отклонение до 0,5°) выбрасываются.</summary>
+    static List<PunchingFemSlabOutline> Outlines(PunchingFemSchemaData data, IReadOnlySet<int> slabs)
+    {
+        var list = new List<PunchingFemSlabOutline>();
+        foreach (var s in data.Slabs.Where(s => slabs.Contains(s.Index)))
+        {
+            var loops = new List<List<double[]>>();
+            foreach (var loop in s.Loops)
+            {
+                var pts = loop.Where(data.Model.Nodes.ContainsKey).Select(t => data.Model.Nodes[t]).Select(n => new[] { n.X, n.Y }).ToList();
+                var kept = new List<double[]>();
+                for (int i = 0; i < pts.Count; i++)
+                {
+                    var a = pts[(i - 1 + pts.Count) % pts.Count];
+                    var b = pts[i];
+                    var c = pts[(i + 1) % pts.Count];
+                    double ux = b[0] - a[0], uy = b[1] - a[1], vx = c[0] - b[0], vy = c[1] - b[1];
+                    double lu = Math.Sqrt(ux * ux + uy * uy), lv = Math.Sqrt(vx * vx + vy * vy);
+                    if (lu < 1e-9 || lv < 1e-9) continue;
+                    if (Math.Abs(ux * vy - uy * vx) / (lu * lv) > Math.Sin(0.5 * Math.PI / 180) || (ux * vx + uy * vy) < 0) kept.Add(b);
+                }
+                if (kept.Count >= 3) loops.Add(kept);
+            }
+            loops = loops.OrderByDescending(l => Math.Abs(Area(l))).ToList();
+            list.Add(new PunchingFemSlabOutline { Index = s.Index, Z = s.Point.Z, Loops = loops });
+        }
+        return list;
+    }
+
+    static double Area(List<double[]> p)
+    {
+        double a = 0;
+        for (int i = 0; i < p.Count; i++)
+        {
+            var q = p[(i + 1) % p.Count];
+            a += p[i][0] * q[1] - q[0] * p[i][1];
+        }
+        return a / 2;
     }
 
     static PunchingFemJointResult Joint(PunchingFemSchemaData data, PunchingFemSource source, PunchingFemJoint joint,
@@ -201,6 +271,9 @@ public static class PunchingFemCheckRunner
             Section = joint.SectionLabel, SlabSection = joint.SlabLabel, H = joint.H, H0 = joint.H0,
             Edges = joint.Edges.Count, Holes = joint.Holes.Count, Bars = joint.Bars.Select(b => b.ElemTag).ToList(),
             Warnings = warnings,
+            Area = joint.Area == null ? [] : PunchingContourBuilder.AreaPolygon(joint.Area)
+                .Where((_, i) => joint.Area is not (PunchingLoadArea.Circle or PunchingLoadArea.Ring) || i % 20 == 0)
+                .Select(q => joint.ToGlobal(q)).Select(g => new[] { g.X, g.Y }).ToList(),
         };
         if (joint.NoCheck != null)
             return baseResult with { Status = "no_check", NoCheck = joint.NoCheck, NoCheckText = joint.NoCheckText };

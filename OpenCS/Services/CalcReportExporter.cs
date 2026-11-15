@@ -10,12 +10,30 @@ namespace OpenCS.Services;
 /// <summary>Экспорт отчёта по любому зарегистрированному виду расчётной задачи.</summary>
 static class CalcReportExporter
 {
+    /// <summary>
+    /// Задача, по которой строится отчёт результата: сама задача или — у проверки продавливания по МКЭ, у которой задачи
+    /// нет, — описание проверки (вид, имя, тип расчёта). null — отчёт не строится.
+    /// </summary>
+    public static CalcTask? ReportTask(IProjectContext app, CalcResult result)
+    {
+        if (result.TaskKind == PunchingFemCheckParams.NormCode)
+        {
+            var check = app.Db.FemChecks.FirstOrDefault(c => c.ResultId == result.Id && result.Id > 0);
+            return new CalcTask
+            {
+                Kind = result.TaskKind, Tag = result.TaskTag,
+                CalcType = check?.CalcTypeOverride is { } s && Enum.TryParse<CalcType>(s, out var t) ? t : CalcType.C,
+            };
+        }
+        return app.CalcTasks.FirstOrDefault(candidate => candidate.Id == result.TaskId);
+    }
+
     /// <summary>Строит карты, документирует результат и сохраняет отчёт выбранного формата.</summary>
     public static async Task ExportAsync(IProjectContext app, IFileDialogService fileDialogs, CalcResult? result)
     {
         if (result == null) return;
 
-        var task = app.CalcTasks.FirstOrDefault(candidate => candidate.Id == result.TaskId);
+        var task = ReportTask(app, result);
         if (task == null || !app.ReportProviders.TryResolve(task, out var provider)) return;
 
         // Пластинные задачи (одиночные и пакеты) ссылаются на плитное сечение; стержневое сечение
@@ -26,7 +44,8 @@ static class CalcReportExporter
             ? app.PlateSections.FirstOrDefault(candidate => candidate.Id == task.SectionId)
             : null;
         // Продавливание не ссылается на сечение: всё нужное отчёту — в DataJson.
-        if (section == null && plateSection == null && !PunchingBatchRunner.IsPunchingKind(task.Kind)) return;
+        if (section == null && plateSection == null && !PunchingBatchRunner.IsPunchingKind(task.Kind)
+            && task.Kind != PunchingFemCheckParams.NormCode) return;
 
         CScore.ParametricRc.ParametricRcSectionDefinition? parametricSection = null;
         string? parametricSectionWarning = null;

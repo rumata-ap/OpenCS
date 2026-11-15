@@ -1,0 +1,428 @@
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Globalization;
+using System.Runtime.CompilerServices;
+using System.Windows.Input;
+using System.Windows.Media;
+using CScore;
+using CScore.Fem;
+using CScore.Fem.Fragment.Masks;
+using CScore.Sp63Punching;
+using CScore.Sp63Punching.Fem;
+using OpenCS.Services;
+using OpenCS.Tasks;
+using OpenCS.Utilites;
+
+namespace OpenCS.ViewModels;
+
+/// <summary>Постановка CSfea — источник усилий.</summary>
+public sealed record PunchingFemAnalysisItem(int Id, string Label, string Kind);
+
+/// <summary>Строка таблицы найденных узлов окна параметров: включение и переопределения узла.</summary>
+public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
+{
+    bool _include = true, _ownSw;
+    double? _ax, _ay;
+    double _swDiameter = 8, _swStep = 60;
+    int _swCount = 2;
+
+    public PunchingFemJointPickVM(PunchingFemJoint joint, PunchingFemJointOverride? o)
+    {
+        Joint = joint;
+        var c = CultureInfo.CurrentCulture;
+        Node = joint.NodeTag;
+        Section = joint.SectionLabel;
+        Slab = joint.SlabLabel.Length > 0 ? string.Format(c, "{0}; h0 = {1:0} мм", joint.SlabLabel, joint.H0 * 1000) : "";
+        Position = (joint.Edges.Count switch
+        {
+            0 => Loc.S("PunchingPosition_inside", "внутри плиты"),
+            1 => Loc.S("PunchingPosition_edge", "у края"),
+            _ => Loc.S("PunchingPosition_corner", "в углу"),
+        }) + (joint.Holes.Count > 0 ? string.Format(c, Loc.S("PunchingFemHolesSuffix", ", отверстий {0}"), joint.Holes.Count) : "");
+        Checkable = joint.NoCheck == null;
+        StatusText = joint.NoCheck == null
+            ? (joint.Warnings.Count > 0 ? string.Join("\n", joint.Warnings.Select(w => "• " + w.Text)) : Loc.S("PunchingFemPickReady", "готов к проверке"))
+            : PunchingFemStatus.Text("no_check") + " — " + joint.NoCheckText;
+        StatusBrush = PunchingFemStatus.Brush(joint.NoCheck == null ? (joint.Warnings.Count > 0 ? "reinforcement" : "concrete") : "no_check", true);
+        if (o != null)
+        {
+            _include = !o.Excluded;
+            _ax = o.Ax * 1000;
+            _ay = o.Ay * 1000;
+            if (o.Reinforcement is { } r)
+            {
+                _ownSw = true;
+                _swDiameter = r.Diameter * 1000;
+                _swCount = r.Count;
+                _swStep = r.Step * 1000;
+            }
+        }
+    }
+
+    public PunchingFemJoint Joint { get; }
+    public string Node { get; }
+    public string Section { get; }
+    public string Slab { get; }
+    public string Position { get; }
+    public bool Checkable { get; }
+    public string StatusText { get; }
+    public Brush StatusBrush { get; }
+    public string AxAuto => (Joint.Ax * 1000).ToString("0", CultureInfo.CurrentCulture);
+    public string AyAuto => (Joint.Ay * 1000).ToString("0", CultureInfo.CurrentCulture);
+
+    public bool Include { get => _include; set => Set(ref _include, value); }
+    /// <summary>Привязка ax узла, мм; null — из сечения плиты.</summary>
+    public double? Ax { get => _ax; set => Set(ref _ax, value is > 0 ? value : null); }
+    public double? Ay { get => _ay; set => Set(ref _ay, value is > 0 ? value : null); }
+    public bool OwnSw { get => _ownSw; set => Set(ref _ownSw, value); }
+    public double SwDiameter { get => _swDiameter; set => Set(ref _swDiameter, value); }
+    public int SwCount { get => _swCount; set => Set(ref _swCount, value); }
+    public double SwStep { get => _swStep; set => Set(ref _swStep, value); }
+
+    /// <summary>Переопределение узла; null — переопределять нечего.</summary>
+    public PunchingFemJointOverride? ToOverride(PunchingReinforcementParams common) =>
+        _include && _ax == null && _ay == null && !_ownSw ? null : new PunchingFemJointOverride
+        {
+            Node = Node, Excluded = !_include, Ax = _ax / 1000, Ay = _ay / 1000,
+            Reinforcement = _ownSw ? common with { Enabled = true, Diameter = _swDiameter / 1000, Count = _swCount, Step = _swStep / 1000 } : null,
+        };
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    public event Action? Changed;
+
+    void Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value)) return;
+        field = value;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        Changed?.Invoke();
+    }
+}
+
+/// <summary>
+/// Окно параметров проверки продавливания по МКЭ (<c>punching_check</c>): схема и расчёт CSfea — источник усилий,
+/// способ определения силы, бетон и привязки, поперечная арматура, режимы ядра, поиск узлов с таблицей и
+/// переопределениями на узел; живой рисунок выбранного узла (контуры по геометрии из схемы).
+/// </summary>
+public sealed class PunchingFemCheckVM : ViewModelBase
+{
+    readonly DatabaseService _db;
+    readonly IReadOnlyList<Material> _materials;
+    readonly Dictionary<string, PunchingFemJointOverride> _overrides = new(StringComparer.Ordinal);
+    FemSchema? _schema;
+    PunchingFemAnalysisItem? _analysis;
+    PunchingFemJointPickVM? _selectedJoint;
+    bool _loading;
+
+    public PunchingFemCheckVM(DatabaseService db, FemCheck? existing, FemSchema? schema = null)
+    {
+        _db = db;
+        _materials = db.Materials.ToList();
+        Concretes = [.. _materials.Where(m => m.Type == MatType.Concrete)];
+        Rebars = [.. _materials.Where(m => m.Type is MatType.ReSteelF or MatType.ReSteelU)];
+        Schemas = [.. db.FemSchemas];
+        Existing = existing;
+        var p = PunchingFemCheckParams.Parse(existing?.ParamsJson);
+        bool isNew = existing == null;
+        if (isNew)
+            p = p with
+            {
+                ConcreteMaterialId = Concretes.FirstOrDefault()?.Id ?? 0,
+                Reinforcement = p.Reinforcement with { MaterialId = Rebars.FirstOrDefault()?.Id ?? 0 },
+            };
+        foreach (var o in p.Overrides) _overrides[o.Node] = o;
+
+        _loading = true;
+        Tag = existing?.Tag is { Length: > 0 } t ? t : Loc.S("PunchingFemDefaultTag", "Продавливание");
+        _schema = existing != null ? Schemas.FirstOrDefault(s => s.Id == existing.SchemaId) : schema ?? Schemas.FirstOrDefault();
+        RefreshAnalyses(p.SourceRef);
+        Method = p.Method;
+        MomentsAreMloc = p.MomentsAreMloc;
+        ConcreteFromSchema = p.ConcreteFromSchema;
+        Concrete = Concretes.FirstOrDefault(m => m.Id == p.ConcreteMaterialId) ?? Concretes.FirstOrDefault();
+        RbtManual = p.RbtOverride is not null;
+        RbtManualValue = (p.RbtOverride ?? 1050) / 1000;
+        DefaultAx = p.DefaultAx * 1000;
+        DefaultAy = p.DefaultAy * 1000;
+        var r = p.Reinforcement;
+        SwEnabled = r.Enabled;
+        Rebar = Rebars.FirstOrDefault(m => m.Id == r.MaterialId) ?? Rebars.FirstOrDefault();
+        Diameter = r.Diameter * 1000;
+        Count = r.Count;
+        Step = r.Step * 1000;
+        ZoneEnabled = r.ZoneExtent is not null;
+        Zone = (r.ZoneExtent ?? 0.3) * 1000;
+        RswManual = r.RswOverride is not null;
+        RswManualValue = (r.RswOverride ?? 170000) / 1000;
+        var opt = p.Options;
+        EccentricityX = opt.EccentricityX;
+        EccentricityY = opt.EccentricityY;
+        Wb = opt.Wb;
+        Pylon = opt.Pylon;
+        HoleInfluence = opt.HoleInfluence;
+        PylonReduced = opt.PylonReduced;
+        AngleDeg = p.AngleDeg;
+        EdgeInfluence = p.EdgeInfluence;
+        WallRatio = p.WallRatio;
+        _loading = false;
+
+        FindJointsCommand = new RelayCommand(_ => FindJoints(), _ => _schema != null);
+        IncludeAllCommand = new RelayCommand(_ => { foreach (var j in Joints) j.Include = true; });
+        ExcludeAllCommand = new RelayCommand(_ => { foreach (var j in Joints) j.Include = false; });
+        if (_schema != null) FindJoints();
+    }
+
+    public FemCheck? Existing { get; }
+    /// <summary>Схему можно выбрать только у новой проверки.</summary>
+    public bool CanChangeSchema => Existing == null;
+    public IReadOnlyList<FemSchema> Schemas { get; }
+    public IReadOnlyList<Material> Concretes { get; }
+    public IReadOnlyList<Material> Rebars { get; }
+    public ObservableCollection<PunchingFemAnalysisItem> Analyses { get; } = [];
+    public ObservableCollection<PunchingFemJointPickVM> Joints { get; } = [];
+
+    public IReadOnlyList<PunchingChoice> Methods { get; } =
+    [
+        new("auto", Loc.S("PunchingFemMethodAuto", "автоматически: по разрезу основания пирамиды у CSfea")),
+        new("contour", Loc.S("PunchingFemMethodContour", "по разрезу основания пирамиды (узловые силы КЭ)")),
+        new("column", Loc.S("PunchingFemMethodColumn", "по стержням колонн минус нагрузка основания")),
+    ];
+    public IReadOnlyList<PunchingChoice> EccentricityModes { get; } =
+    [
+        new("loading", Loc.S("PunchingEcc_loading", "догружающий")), new("unloading", Loc.S("PunchingEcc_unloading", "разгружающий")),
+        new("auto", Loc.S("PunchingEcc_auto", "по знаку")), new("ignore", Loc.S("PunchingEcc_ignore", "не учитывать"))
+    ];
+    public IReadOnlyList<PunchingChoice> WbModes { get; } =
+        [new("minimum", Loc.S("PunchingWb_minimum", "наименьший")), new("stress_side", Loc.S("PunchingWb_stress_side", "по стороне напряжений"))];
+    public IReadOnlyList<PunchingChoice> PylonModes { get; } =
+        [new("auto", Loc.S("PunchingPylon_auto", "автоматически (Lmax > 2Lmin + h0)")), new("off", Loc.S("PunchingPylon_off", "не рассматривать"))];
+
+    // ── Поля ───────────────────────────────────────────────────────────────
+
+    string _tag = "", _method = "auto", _eccX = "loading", _eccY = "loading", _wb = "minimum", _pylon = "auto";
+    bool _mloc = true, _concreteFromSchema = true, _rbtManual, _swEnabled, _zoneEnabled, _rswManual, _pylonReduced;
+    double _rbtManualValue, _defaultAx, _defaultAy, _diameter, _step, _zone, _rswManualValue, _holeInfluence = 6, _angle = 10, _edgeInfluence = 6, _wallRatio = 4;
+    int _count = 2;
+    Material? _concrete, _rebar;
+
+    public string Tag { get => _tag; set => SetField(ref _tag, value); }
+
+    public FemSchema? Schema
+    {
+        get => _schema;
+        set
+        {
+            if (!SetField(ref _schema, value)) return;
+            RefreshAnalyses(null);
+            Joints.Clear();
+            if (value != null) FindJoints();
+        }
+    }
+
+    public PunchingFemAnalysisItem? Analysis { get => _analysis; set => SetField(ref _analysis, value); }
+    public bool HasNoAnalyses => Analyses.Count == 0;
+
+    public string Method { get => _method; set => SetField(ref _method, value); }
+    public bool MomentsAreMloc { get => _mloc; set => SetField(ref _mloc, value); }
+    public bool ConcreteFromSchema { get => _concreteFromSchema; set { if (SetField(ref _concreteFromSchema, value)) Preview(); } }
+    public Material? Concrete { get => _concrete; set { if (SetField(ref _concrete, value)) Preview(); } }
+    public bool RbtManual { get => _rbtManual; set { if (SetField(ref _rbtManual, value)) Preview(); } }
+    /// <summary>Rbt вручную, МПа.</summary>
+    public double RbtManualValue { get => _rbtManualValue; set { if (SetField(ref _rbtManualValue, value)) Preview(); } }
+    /// <summary>Привязки по умолчанию, мм.</summary>
+    public double DefaultAx { get => _defaultAx; set { if (SetField(ref _defaultAx, value)) Refind(); } }
+    public double DefaultAy { get => _defaultAy; set { if (SetField(ref _defaultAy, value)) Refind(); } }
+    public bool SwEnabled { get => _swEnabled; set { if (SetField(ref _swEnabled, value)) Preview(); } }
+    public Material? Rebar { get => _rebar; set { if (SetField(ref _rebar, value)) Preview(); } }
+    public double Diameter { get => _diameter; set { if (SetField(ref _diameter, value)) Preview(); } }
+    public int Count { get => _count; set { if (SetField(ref _count, value)) Preview(); } }
+    public double Step { get => _step; set { if (SetField(ref _step, value)) Preview(); } }
+    public bool ZoneEnabled { get => _zoneEnabled; set { if (SetField(ref _zoneEnabled, value)) Preview(); } }
+    public double Zone { get => _zone; set { if (SetField(ref _zone, value)) Preview(); } }
+    public bool RswManual { get => _rswManual; set { if (SetField(ref _rswManual, value)) Preview(); } }
+    public double RswManualValue { get => _rswManualValue; set { if (SetField(ref _rswManualValue, value)) Preview(); } }
+    public string EccentricityX { get => _eccX; set => SetField(ref _eccX, value); }
+    public string EccentricityY { get => _eccY; set => SetField(ref _eccY, value); }
+    public string Wb { get => _wb; set => SetField(ref _wb, value); }
+    public string Pylon { get => _pylon; set { if (SetField(ref _pylon, value)) Preview(); } }
+    public double HoleInfluence { get => _holeInfluence; set { if (SetField(ref _holeInfluence, value)) Refind(); } }
+    public bool PylonReduced { get => _pylonReduced; set => SetField(ref _pylonReduced, value); }
+    public double AngleDeg { get => _angle; set { if (SetField(ref _angle, value)) Refind(); } }
+    public double EdgeInfluence { get => _edgeInfluence; set { if (SetField(ref _edgeInfluence, value)) Refind(); } }
+    public double WallRatio { get => _wallRatio; set { if (SetField(ref _wallRatio, value)) Refind(); } }
+
+    public PunchingFemJointPickVM? SelectedJoint { get => _selectedJoint; set { if (SetField(ref _selectedJoint, value)) Preview(); } }
+
+    /// <summary>Сводка поиска узлов.</summary>
+    public string JointsSummary { get; private set; } = "";
+    /// <summary>Сцена живого рисунка выбранного узла (без усилий — только контуры).</summary>
+    public PunchingScene? Scene { get; private set; }
+    /// <summary>Пояснение к рисунку или ошибка исходных данных узла.</summary>
+    public string PreviewText { get; private set; } = "";
+    public string ErrorText { get; private set; } = "";
+    public bool HasErrors => ErrorText.Length > 0;
+
+    public ICommand FindJointsCommand { get; }
+    public ICommand IncludeAllCommand { get; }
+    public ICommand ExcludeAllCommand { get; }
+
+    // ── Логика ─────────────────────────────────────────────────────────────
+
+    void RefreshAnalyses(string? keepRef)
+    {
+        Analyses.Clear();
+        if (_schema != null)
+            foreach (var a in _db.GetFemAnalyses(_schema.Id).Where(a => a.Kind is FemCsfeaRunner.LinearAnalysisKind or FemCsfeaRunner.AnalysisKind))
+                Analyses.Add(new PunchingFemAnalysisItem(a.Id,
+                    a.Tag + (a.ResultId == null ? " " + Loc.S("PunchingFemAnalysisNoResult", "(не рассчитана)") : "")
+                         + (a.Kind == FemCsfeaRunner.LinearAnalysisKind ? " — " + Loc.S("PunchingFemLinear", "линейный") : " — " + Loc.S("PunchingFemSecant", "секущий")),
+                    a.Kind));
+        Analysis = Analyses.FirstOrDefault(a => a.Id.ToString(CultureInfo.InvariantCulture) == keepRef)
+                   ?? Analyses.FirstOrDefault(a => !a.Label.Contains('(')) ?? Analyses.FirstOrDefault();
+        OnPropertyChanged(nameof(HasNoAnalyses));
+    }
+
+    void Refind()
+    {
+        if (!_loading && _schema != null) FindJoints();
+    }
+
+    /// <summary>Поиск узлов схемы с текущими настройками; включение и переопределения узлов сохраняются.</summary>
+    public void FindJoints()
+    {
+        if (_schema == null) return;
+        foreach (var j in Joints) if (j.ToOverride(Common()) is { } o) _overrides[j.Node] = o; else _overrides.Remove(j.Node);
+        string? keep = _selectedJoint?.Node;
+        Joints.Clear();
+        var data = PunchingFemService.Load(_db, _schema, ToParams().FinderOptions);
+        foreach (var joint in data.Joints)
+        {
+            var row = new PunchingFemJointPickVM(joint, _overrides.GetValueOrDefault(joint.NodeTag));
+            row.Changed += () => { if (row == _selectedJoint) Preview(); };
+            Joints.Add(row);
+        }
+        int noCheck = data.Joints.Count(j => j.NoCheck != null);
+        JointsSummary = data.Joints.Count == 0
+            ? Loc.S("PunchingFemNoJoints", "Узлов «колонна — плита» не найдено: нужен стержень под углом к горизонтальной плите с концом в её узле или в теле АЖТ.")
+            : string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingFemJointsFound", "Найдено узлов: {0}, из них без проверки: {1}, плит: {2}."),
+                data.Joints.Count, noCheck, data.Slabs.Count(s => data.Joints.Any(j => j.SlabIndex == s.Index)));
+        OnPropertyChanged(nameof(JointsSummary));
+        SelectedJoint = Joints.FirstOrDefault(j => j.Node == keep) ?? Joints.FirstOrDefault(j => j.Checkable) ?? Joints.FirstOrDefault();
+    }
+
+    PunchingReinforcementParams Common() => new()
+    {
+        Enabled = SwEnabled, MaterialId = Rebar?.Id ?? 0, Diameter = Diameter / 1000, Count = Count, Step = Step / 1000,
+        ZoneExtent = ZoneEnabled ? Zone / 1000 : null, RswOverride = RswManual ? RswManualValue * 1000 : null,
+    };
+
+    /// <summary>Параметры проверки по форме.</summary>
+    public PunchingFemCheckParams ToParams()
+    {
+        var common = Common();
+        var overrides = new Dictionary<string, PunchingFemJointOverride>(_overrides, StringComparer.Ordinal);
+        foreach (var j in Joints)
+            if (j.ToOverride(common) is { } o) overrides[j.Node] = o;
+            else overrides.Remove(j.Node);
+        return new PunchingFemCheckParams
+        {
+            SourceKind = _analysis?.Kind == FemCsfeaRunner.AnalysisKind ? FragmentMaskSet.SourceCsfeaSecant : FragmentMaskSet.SourceCsfeaLinear,
+            SourceRef = _analysis?.Id.ToString(CultureInfo.InvariantCulture) ?? "",
+            Method = Method, MomentsAreMloc = MomentsAreMloc, ConcreteFromSchema = ConcreteFromSchema,
+            ConcreteMaterialId = Concrete?.Id ?? 0, RbtOverride = RbtManual ? RbtManualValue * 1000 : null,
+            DefaultAx = DefaultAx / 1000, DefaultAy = DefaultAy / 1000, Reinforcement = common,
+            Options = new PunchingOptionParams
+            {
+                EccentricityX = EccentricityX, EccentricityY = EccentricityY, Wb = Wb, Pylon = Pylon, HoleInfluence = HoleInfluence,
+                PylonReduced = PylonReduced,
+            },
+            AngleDeg = AngleDeg, EdgeInfluence = EdgeInfluence, WallRatio = WallRatio,
+            Overrides = overrides.Values.OrderBy(o => o.Node, FemNodeRigidBodies.TagComparer).ToList(),
+        };
+    }
+
+    /// <summary>Проверка формы: коды ошибок для сохранения; пусто — можно сохранять.</summary>
+    public List<string> Validate()
+    {
+        var e = new List<string>();
+        if (_schema == null) e.Add(Loc.S("PunchingFemErrNoSchema", "Не выбрана схема."));
+        if (_analysis == null) e.Add(Loc.S("PunchingFemErrNoAnalysis", "Не выбран расчёт CSfea — источник усилий (создайте и выполните постановку схемы)."));
+        if (!RbtManual && Concrete == null && !ConcreteFromSchema) e.Add(Loc.S("PunchingErr_concrete_missing", "Не выбран бетон."));
+        if (SwEnabled && (Diameter <= 0 || Count < 1 || Step <= 0)) e.Add(Loc.S("PunchingErr_sw_values", "Неверные параметры поперечной арматуры."));
+        if (!(DefaultAx >= 0 && DefaultAy >= 0)) e.Add(Loc.S("PunchingErr_h0_nonpositive", "Неверные привязки."));
+        return e;
+    }
+
+    /// <summary>Записывает форму в проверку.</summary>
+    public void ApplyTo(FemCheck check)
+    {
+        check.SchemaId = _schema?.Id ?? check.SchemaId;
+        check.MemberId = 0;
+        check.ElementId = null;
+        check.NormCode = PunchingFemCheckParams.NormCode;
+        check.Tag = Tag;
+        check.ParamsJson = ToParams().ToJson();
+        check.ForceSetIdsJson = "[]";
+    }
+
+    /// <summary>Живой рисунок выбранного узла: контуры по геометрии узла с параметрами формы, без усилий.</summary>
+    void Preview()
+    {
+        if (_loading) return;
+        Scene = null;
+        ErrorText = "";
+        PreviewText = "";
+        if (_selectedJoint is not { } pick)
+        {
+            Raise();
+            return;
+        }
+        var joint = pick.Joint;
+        if (joint.NoCheck != null)
+        {
+            ErrorText = pick.StatusText;
+            Raise();
+            return;
+        }
+        var p = ToParams();
+        var zero = new PunchingFemForces(0, PunchingLoadSide.FromBelow, 0, 0, PunchingFemForceMethod.Column, null, null, null);
+        var tp = PunchingFemService.TaskParams(joint, zero, p, _schema?.Tag ?? "", "");
+        var errors = tp.Validate();
+        var strengths = PunchingRunner.ResolveStrengths(tp, _materials, CalcType.C, out var materialErrors);
+        errors.AddRange(materialErrors);
+        if (errors.Count > 0)
+            ErrorText = string.Join("\n", errors.Distinct().Select(code => Loc.S("PunchingErr_" + code, code)));
+        try
+        {
+            var input = tp.ToInput(Math.Max(strengths.Rbt, 1), strengths.Rsw);
+            Scene = PunchingScene.FromInput(input);
+            var c = CultureInfo.CurrentCulture;
+            PreviewText = string.Format(c, Loc.S("PunchingFemPreview",
+                    "Узел {0}: {1}, h = {2:0} мм, h0 = {3:0.#} мм, ax = {4:0}, ay = {5:0} мм{6}; бетон {7}. Усилия — из расчёта, Кисп — в результате проверки."),
+                joint.NodeTag, joint.SectionLabel, tp.Slab.H * 1000, tp.H0 * 1000, tp.Slab.Ax * 1000, tp.Slab.Ay * 1000,
+                joint.CoverDefault && pick.Ax == null ? " " + Loc.S("PunchingFemCoverDefault", "(по умолчанию)") : "",
+                strengths.ConcreteTag.Length > 0 ? strengths.ConcreteTag : RbtManual ? Loc.S("PunchingManualValue", "задано вручную") : "—");
+        }
+        catch (Exception ex)
+        {
+            ErrorText = ex.Message;
+        }
+        Raise();
+    }
+
+    bool SetField<T>(ref T field, T value, [CallerMemberName] string? name = null)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value)) return false;
+        field = value;
+        OnPropertyChanged(name);
+        return true;
+    }
+
+    void Raise()
+    {
+        OnPropertyChanged(nameof(Scene));
+        OnPropertyChanged(nameof(PreviewText));
+        OnPropertyChanged(nameof(ErrorText));
+        OnPropertyChanged(nameof(HasErrors));
+    }
+}

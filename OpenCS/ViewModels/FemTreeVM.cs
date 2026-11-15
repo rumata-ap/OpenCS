@@ -118,7 +118,7 @@ class FemChecksRootNode
 
     static string Classify(FemCheck c) => c.NormCode switch
     {
-        "steel_check" or "rc_check" => "uls",
+        "steel_check" or "rc_check" or "punching_check" => "uls",
         "rc_plate_check"             => ClassifyPlate(c),
         _                            => "other"
     };

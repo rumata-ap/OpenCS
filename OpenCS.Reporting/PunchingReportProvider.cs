@@ -242,6 +242,32 @@ public sealed class PunchingReportProvider : IReportProvider
         Text("—", $"{Mode(S(i, "eccentricityX"))} / {Mode(S(i, "eccentricityY"))}", "учёт эксцентриситета F для Mx / My");
         Text("—", S(i, "wb") == "stress_side" ? "со стороны наибольших напряжений" : "наименьший (п. 8.1.51)", "момент сопротивления контура");
         doc.Add(new ReportTable(["Обозначение", "Значение", "Ед. изм.", "Наименование"], rows));
+        if (i.TryGetProperty("source", out var src) && src.ValueKind == JsonValueKind.Object)
+            AddSource(doc, src);
+    }
+
+    /// <summary>Источник усилий задачи, созданной по строке проверки продавливания по МКЭ.</summary>
+    internal static void AddSource(ReportDocument doc, JsonElement src)
+    {
+        bool contour = S(src, "method") == "contour";
+        var rows = new List<(string, string)>
+        {
+            ("Схема МКЭ", S(src, "schema")),
+            ("Узел сетки", S(src, "node")),
+            ("Загружение или сочетание", S(src, "key")),
+            ("Способ определения F", contour
+                ? "по разрезу плиты по границе основания пирамиды продавливания (узловые силы КЭ)"
+                : "по стержням колонн за вычетом нагрузки в основании пирамиды продавливания"),
+        };
+        if (N(src, "columnAction") is double a) rows.Add(("Действие колонн на плиту по нормали, кН", Sig(a)));
+        if (N(src, "baseLoad") is double b) rows.Add(("Нагрузка в основании пирамиды по нормали, кН", Sig(b)));
+        if (N(src, "contourForce") is double c) rows.Add(("Сила по разрезу основания пирамиды, кН", Sig(c)));
+        doc.Add(new ReportHeading(2, "Источник усилий"))
+           .Add(new ReportKeyValueTable(rows, "Параметр", "Значение"))
+           .Add(new ReportParagraph("Сила F принимается за вычетом сил, действующих в пределах основания пирамиды продавливания "
+               + "в противоположном направлении (п. 8.1.46). Положительное направление по нормали — вверх; колонна снизу передаёт "
+               + "на плиту силу вверх. Моменты — неуравновешенный момент колонн на плиту относительно центра тяжести грузовой "
+               + "площади в осях узла (x — местная ось Y стержня, спроецированная на плиту)."));
     }
 
     static string EdgesText(JsonElement i)

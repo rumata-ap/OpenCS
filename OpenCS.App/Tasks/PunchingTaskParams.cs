@@ -66,6 +66,8 @@ public sealed record PunchingHoleParams
 /// </summary>
 public sealed record PunchingSourceParams
 {
+    /// <summary>Проверка по МКЭ, по строке которой создана задача; null — не задана.</summary>
+    public int? CheckId { get; init; }
     /// <summary>Схема МКЭ.</summary>
     public string Schema { get; init; } = "";
     /// <summary>Узел сетки.</summary>

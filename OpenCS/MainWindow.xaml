@@ -1272,6 +1272,9 @@
                               <MenuItem helpers:CommandIcons.Header="FemCheckAddSls"
                                         Command="{Binding PlacementTarget.Tag.AddSlsFemCheckCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem helpers:CommandIcons.Header="PunchingFemCheckAdd"
+                                        Command="{Binding PlacementTarget.Tag.AddPunchingFemCheckCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <Separator/>
                               <MenuItem helpers:CommandIcons.Header="FemCheckDeleteAll"
                                         Command="{Binding PlacementTarget.Tag.DeleteAllFemChecksCommand,
@@ -2199,6 +2202,12 @@
                            <ContextMenu>
                               <MenuItem helpers:CommandIcons.Header="FemAnalysisCreate"
                                         Command="{Binding PlacementTarget.Tag.CreateFemAnalysisCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <Separator/>
+                              <MenuItem helpers:CommandIcons.Header="PunchingFemCheckAdd"
+                                        Command="{Binding PlacementTarget.Tag.AddPunchingFemCheckCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>

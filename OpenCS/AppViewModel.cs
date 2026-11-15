@@ -1057,6 +1057,8 @@ namespace OpenCS
       public ICommand AddSlsFemCheckCommand     { get; set; } = null!;
       /// <summary>Команда добавления проверки по ключу группы (диспетчер uls/sls).</summary>
       public ICommand AddFemCheckByGroupCommand { get; set; } = null!;
+      /// <summary>Новая проверка продавливания по МКЭ-схеме (параметр — схема или null).</summary>
+      public ICommand AddPunchingFemCheckCommand { get; set; } = null!;
       /// <summary>Команда показа эпюр вдоль стержней группы или конструктивного элемента.</summary>
       public ICommand ShowBarDiagramsCommand    { get; set; } = null!;
 
@@ -1937,7 +1939,7 @@ namespace OpenCS
          ExportCalcResultReportCommand = new RelayCommand(
             p => _ = CalcReportExporter.ExportAsync(this, FileDialogService, p as CalcResult),
             p => p is CalcResult result
-                 && CalcTasks.FirstOrDefault(task => task.Id == result.TaskId) is { } task
+                 && Services.CalcReportExporter.ReportTask(this, result) is { } task
                  && ReportProviders.TryResolve(task, out _));
           ImportContoursFromDxfCommand = new RelayCommand(_ => ImportContoursFromDxf());
           ImportAcadRegionsCommand     = new RelayCommand(_ => ImportAcadRegions());
@@ -2003,6 +2005,8 @@ namespace OpenCS
          DeleteAllFemChecksCommand = new RelayCommand(_ => DeleteAllFemChecks());
          AddSlsFemCheckCommand     = new RelayCommand(p => AddSlsFemCheck(p as CScore.Fem.IFemCheckable));
          ShowBarDiagramsCommand    = new RelayCommand(p => ShowBarDiagrams(p as CScore.Fem.IFemCheckable));
+         AddPunchingFemCheckCommand = new RelayCommand(p => AddPunchingFemCheck(p as CScore.Fem.FemSchema
+                                                                                 ?? (p as ViewModels.FemSchemaTreeVM)?.Schema));
          AddFemCheckByGroupCommand = new RelayCommand(p =>
          {
              if (p is string g && g == "sls") AddSlsFemCheck();
@@ -6261,6 +6265,22 @@ namespace OpenCS
          db.SaveFemCheck(check);
       }
 
+      /// <summary>Новая проверка продавливания по МКЭ-схеме (<c>punching_check</c>); «Сохранить и рассчитать» — сразу расчёт.</summary>
+      public void AddPunchingFemCheck(CScore.Fem.FemSchema? schema)
+      {
+         if (db.FemSchemas.Count == 0)
+         {
+            MessageBox.Show(Loc.S("PunchingFemNoSchemas", "В проекте нет МКЭ-схем."), Loc.S("PunchingFemDialogTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+         }
+         var dlg = new Views.PunchingFemCheckDialog(db, null, schema ?? currentFemSchema);
+         if (dlg.ShowDialog() != true || dlg.ResultCheck == null) return;
+         db.SaveFemCheck(dlg.ResultCheck);
+         CurrentFemCheck = dlg.ResultCheck;
+         if (dlg.RunRequested) _ = RunFemCheck(dlg.ResultCheck);
+      }
+
       /// <param name="group">Группа или КонЭ, из меню которых вызвана команда: становится целью проверки.</param>
       public void AddSlsFemCheck(CScore.Fem.IFemCheckable? group = null)
       {
@@ -6297,6 +6317,15 @@ namespace OpenCS
          check ??= currentFemCheck;
          if (check == null) return;
 
+         if (check.NormCode == Tasks.PunchingFemCheckParams.NormCode)
+         {
+             var punching = new Views.PunchingFemCheckDialog(db, check);
+             if (punching.ShowDialog() != true) return;
+             db.SaveFemCheck(check);
+             if (punching.RunRequested) _ = RunFemCheck(check);
+             return;
+         }
+
          bool isSls = check.NormCode == "rc_plate_check"
                       && CScore.Fem.PlateCheckParams.Parse(check.ParamsJson).CheckGroup == "sls";
 
@@ -6323,7 +6352,9 @@ namespace OpenCS
          if (check == null) return;
          if (await Tasks.FemCheckExecutor.RunAsync(this, check) is not { } result) return;
          CurrentFemCheck = check;
-         CurrentPage = new Views.FemCheckResultView(result, db, this, check);
+         CurrentPage = check.NormCode == Tasks.PunchingFemCheckParams.NormCode
+            ? new Views.PunchingFemResultView(result, this, check)
+            : new Views.FemCheckResultView(result, db, this, check);
       }
 
       /// <summary>

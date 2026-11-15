@@ -311,6 +311,102 @@ public sealed class PunchingFemServiceTests : IDisposable
     }
 
     [Fact]
+    public void Report_SummaryAndGoverningDetail()
+    {
+        var s = Create();
+        using var db = s.Db;
+        var data = PunchingFemCheckRunner.Compute(db, s.Schema.Id,
+            new PunchingFemCheckParams { SourceRef = s.Analysis.Id.ToString(CultureInfo.InvariantCulture) }, CalcType.C);
+        Assert.Equal(S(SlabNode(N / 2, N / 2)), data.GoverningNode);
+        Assert.False(string.IsNullOrEmpty(data.GoverningDetail));
+        var result = new CalcResult { TaskKind = PunchingFemCheckParams.NormCode, TaskTag = "Пр", Status = "ok", DataJson = data.ToJson() };
+        var doc = new OpenCS.Reporting.PunchingFemCheckReportProvider().Build(new OpenCS.Reporting.ReportContext(
+            new CalcTask { Kind = PunchingFemCheckParams.NormCode, Tag = "Пр", CalcType = CalcType.C }, result));
+        var headings = doc.Blocks.OfType<OpenCS.Reporting.ReportHeading>().Select(h => h.Text).ToList();
+        Assert.Contains("Ведомость узлов", headings);
+        Assert.Contains(headings, h => h.StartsWith("Определяющий узел", StringComparison.Ordinal));
+        Assert.Contains("Источник усилий", headings);
+        Assert.Contains(headings, h => h.Contains("Расчётная схема", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ResultVM_SelectsGoverningRowWithFullTrace()
+    {
+        var s = Create();
+        using var db = s.Db;
+        var data = PunchingFemCheckRunner.Compute(db, s.Schema.Id,
+            new PunchingFemCheckParams { SourceRef = s.Analysis.Id.ToString(CultureInfo.InvariantCulture) }, CalcType.C);
+        var result = new CalcResult { TaskKind = PunchingFemCheckParams.NormCode, Status = "ok", DataJson = data.ToJson() };
+        var vm = new OpenCS.ViewModels.PunchingFemResultVM(result, null, db.Materials);
+        var joint = Assert.Single(vm.Joints);
+        Assert.Same(joint, vm.SelectedJoint);
+        Assert.Equal(2, vm.Rows.Count);
+        Assert.True(vm.SelectedRow!.Governs);
+        Assert.NotNull(vm.Detail);
+        Assert.False(vm.Detail!.HasError, vm.Detail.ErrorText);
+        Assert.NotEmpty(vm.Detail.Rows);
+        Assert.Equal(data.Joints[0].Ratio, vm.Detail.Rows.Max(r => r.KValue), 9);
+        vm.SelectedRow = vm.Rows[1];
+        Assert.NotNull(vm.Detail);
+        Assert.Single(vm.Levels);
+    }
+
+    [Fact]
+    public void CheckVM_FindsJointsAndBuildsParams()
+    {
+        var s = Create();
+        using var db = s.Db;
+        var vm = new OpenCS.ViewModels.PunchingFemCheckVM(db, null, s.Schema);
+        var pick = Assert.Single(vm.Joints);
+        Assert.True(pick.Checkable);
+        Assert.Same(pick, vm.SelectedJoint);
+        Assert.NotNull(vm.Scene);
+        Assert.False(vm.HasErrors, vm.ErrorText);
+        Assert.Equal(s.Analysis.Id, vm.Analysis!.Id);
+        Assert.Empty(vm.Validate());
+
+        pick.Ax = 50;
+        pick.Include = false;
+        var p = vm.ToParams();
+        var o = Assert.Single(p.Overrides);
+        Assert.True(o.Excluded);
+        Assert.Equal(0.05, o.Ax!.Value, 12);
+
+        var check = new FemCheck();
+        vm.ApplyTo(check);
+        Assert.Equal(PunchingFemCheckParams.NormCode, check.NormCode);
+        Assert.Equal(s.Schema.Id, check.SchemaId);
+        var back = new OpenCS.ViewModels.PunchingFemCheckVM(db, check);
+        Assert.False(Assert.Single(back.Joints).Include);
+        Assert.Equal(50, back.Joints[0].Ax);
+    }
+
+    /// <summary>
+    /// Разметка окна параметров загружается без ресурсов приложения (конвертеры объявлены в окне). Окно результата
+    /// встраивает панель одиночной задачи со стилем строк приложения — его проверяет ручной прогон.
+    /// </summary>
+    [Fact]
+    public void Dialog_LoadsOnStaThread()
+    {
+        var s = Create();
+        using var db = s.Db;
+        Exception? error = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var dialog = new OpenCS.Views.PunchingFemCheckDialog(db, null, s.Schema);
+                dialog.Close();
+            }
+            catch (Exception ex) { error = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        Assert.True(error == null, error?.ToString());
+    }
+
+    [Fact]
     public void TaskParams_RunCore()
     {
         var s = Create();

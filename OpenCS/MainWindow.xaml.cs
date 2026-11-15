@@ -304,7 +304,9 @@ namespace OpenCS
              {
                 var result = vm.db.GetCalcResultByFemCheck(femCheckItem.Id);
                 if (result != null)
-                   vm.CurrentPage = new Views.FemCheckResultView(result, vm.db, vm, femCheckItem);
+                   vm.CurrentPage = femCheckItem.NormCode == Tasks.PunchingFemCheckParams.NormCode
+                      ? new Views.PunchingFemResultView(result, vm, femCheckItem)
+                      : new Views.FemCheckResultView(result, vm.db, vm, femCheckItem);
              }
              else
              {

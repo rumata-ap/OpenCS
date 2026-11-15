@@ -181,7 +181,12 @@ public static class PunchingRunner
             ["counterPressure"] = p.Forces.CounterPressure,
             ["eccentricityX"] = p.Options.EccentricityX, ["eccentricityY"] = p.Options.EccentricityY,
             ["wb"] = p.Options.Wb, ["pylon"] = p.Options.Pylon, ["holeInfluence"] = p.Options.HoleInfluence,
-            ["pylonReduced"] = p.Options.PylonReduced, ["mu"] = p.Options.Mu
+            ["pylonReduced"] = p.Options.PylonReduced, ["mu"] = p.Options.Mu,
+            ["source"] = p.Source is not { } src ? null : new Dictionary<string, object?>
+            {
+                ["schema"] = src.Schema, ["node"] = src.Node, ["key"] = src.Key, ["method"] = src.Method,
+                ["columnAction"] = src.ColumnAction, ["baseLoad"] = src.BaseLoad, ["contourForce"] = src.ContourForce,
+            }
         });
         return root.ToJsonString();
     }
