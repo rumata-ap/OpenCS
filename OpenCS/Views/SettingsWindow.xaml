@@ -308,6 +308,34 @@
                                          ToolTip="{DynamicResource CalcSettingsShellTolResTip}"/>
                             </Grid>
                         </GroupBox>
+                        <GroupBox Header="{DynamicResource CalcSettingsLimitBisectGroup}" Margin="0,0,0,10">
+                            <Grid Margin="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="160"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsLimitBisectAbs}"
+                                           VerticalAlignment="Center"
+                                           ToolTip="{DynamicResource CalcSettingsLimitBisectTip}"/>
+                                <TextBox Grid.Row="0" Grid.Column="1"
+                                         x:Name="LimitBisectAbsBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource CalcSettingsLimitBisectTip}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsLimitBisectRel}"
+                                           VerticalAlignment="Center"
+                                           ToolTip="{DynamicResource CalcSettingsLimitBisectTip}"/>
+                                <TextBox Grid.Row="1" Grid.Column="1"
+                                         x:Name="LimitBisectRelBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource CalcSettingsLimitBisectTip}"/>
+                            </Grid>
+                        </GroupBox>
                         <GroupBox Header="{DynamicResource CalcSettingsSp20Group}" Margin="0,0,0,10">
                             <Grid Margin="4">
                                 <Grid.ColumnDefinitions>

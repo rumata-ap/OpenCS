@@ -44,7 +44,16 @@ public sealed class LimitForceResult
    /// <summary>Предельная растяжимость арматуры.</summary>
    public double? EpsSu { get; set; }
 
-   /// <summary>Управляющий критерий: concrete | rebar | both | none.</summary>
+   /// <summary>
+   /// Бетонное сечение: деформация наиболее растянутой вершины контура εbt,max (п. 8.1.29);
+   /// null — сечение армировано, растяжение бетона не учитывается или растянутых вершин нет.
+   /// </summary>
+   public double? EpsBtMax { get; set; }
+
+   /// <summary>Предельная деформация бетона при растяжении εbt,ult для <see cref="EpsBtMax"/> (п. 8.1.30).</summary>
+   public double? EpsBtUlt { get; set; }
+
+   /// <summary>Управляющий критерий: concrete | rebar | both | concrete_tension | none.</summary>
    public string Governing { get; set; } = "none";
 
    /// <summary>

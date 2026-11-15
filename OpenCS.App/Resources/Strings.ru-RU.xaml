@@ -340,6 +340,10 @@
    <system:String x:Key="CalcSettingsEkbEtaMinTip">Нижняя граница нисходящей ветви диаграммы ЕКБ (η = σ/Rb). Ветвь по CEB-FIP MC90 ур. (2.1-20) начинается при η = 0.5, поэтому при η ≥ 0.5 она не строится. По умолчанию 0.05</system:String>
    <system:String x:Key="CalcSettingsShellTolRes">Точность (пластины)</system:String>
    <system:String x:Key="CalcSettingsShellTolResTip">Относительный допуск Ньютона для пластинчатых сечений: ‖невязка‖ / (1 + ‖усилия‖). Рекомендуется 1e-3.</system:String>
+   <system:String x:Key="CalcSettingsLimitBisectGroup">Предельные усилия: дихотомия по k</system:String>
+   <system:String x:Key="CalcSettingsLimitBisectAbs">Абсолютный допуск по k</system:String>
+   <system:String x:Key="CalcSettingsLimitBisectRel">Относительный допуск по k (доля k)</system:String>
+   <system:String x:Key="CalcSettingsLimitBisectTip">Дихотомия по коэффициенту нагружения k останавливается, когда ширина интервала не больше меньшего из двух допусков: абсолютного и относительного·k. Относительный 0 — только абсолютный. Невязка усилий в каждой пробной точке — это допуск Ньютона выше, отдельная величина. По умолчанию 1e-4 и 1e-5.</system:String>
    <system:String x:Key="PlotSettingsForceSetColorize">Раскраска значений усилий в наборах по осям</system:String>
    <system:String x:Key="PlotSettingsForceSetColorizeTip">При включении значения в таблице наборов усилий окрашиваются как в карточке правила знаков: N/T — красный, Mx/Vx/Qx/Nx — зелёный, My/Vy/Qy/Ny — синий; Nxy — тёмно-красный, Mxy — оранжевый.</system:String>
    <system:String x:Key="CalcSettingsRcGroup">Ж/б сечение</system:String>

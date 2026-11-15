@@ -216,6 +216,8 @@ namespace OpenCS.Views
          NewtonTolBox.Text     = _calcSettings.NewtonTolerance.ToString("G6", System.Globalization.CultureInfo.InvariantCulture);
          NewtonMaxIterBox.Text = _calcSettings.NewtonMaxIter.ToString();
          NewtonDeltaHBox.Text  = _calcSettings.NewtonDeltaH.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
+         LimitBisectAbsBox.Text = _calcSettings.LimitBisectAbsTol.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
+         LimitBisectRelBox.Text = _calcSettings.LimitBisectRelTol.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
 
          HullColorBox.Text         = _calcSettings.HullColor;
          HullThickBox.Text         = _calcSettings.HullThickness.ToString("F1");
@@ -271,6 +273,16 @@ namespace OpenCS.Views
          {
             if (Pars.ParseAny(NewtonDeltaHBox.Text, out var v) && v > 0)
                _calcSettings.NewtonDeltaH = v;
+         };
+         LimitBisectAbsBox.TextChanged += (_, _) =>
+         {
+            if (Pars.ParseAny(LimitBisectAbsBox.Text, out var v) && v > 0)
+               _calcSettings.LimitBisectAbsTol = v;
+         };
+         LimitBisectRelBox.TextChanged += (_, _) =>
+         {
+            if (Pars.ParseAny(LimitBisectRelBox.Text, out var v) && v >= 0)
+               _calcSettings.LimitBisectRelTol = v;
          };
          NewtonJacobianCombo.SelectionChanged += (_, _) =>
          {

@@ -17,6 +17,9 @@ public sealed class CrossSectionLimitAdapter : ILimitSection
    /// <inheritdoc/>
    public double EpsCu { get; }
 
+   /// <inheritdoc/>
+   public IEnumerable<(double X, double Y, double EpsBt0, double EpsBt2)> PlainConcreteTensionVertices { get; }
+
    /// <summary>
    /// Создаёт адаптер сечения для решателя предельных усилий.
    /// </summary>
@@ -26,6 +29,33 @@ public sealed class CrossSectionLimitAdapter : ILimitSection
       ContourVertices = CollectContourVertices(section);
       RebarPoints = CollectRebarPoints(section, calc);
       EpsCu = ResolveEpsCu(section, calc);
+      PlainConcreteTensionVertices = RebarPoints.Any()
+         ? []
+         : CollectPlainConcreteTension(section, calc);
+   }
+
+   /// <summary>Вершины бетонных областей с εbt0, εbt2 их бетона (для бетонного сечения).</summary>
+   static List<(double X, double Y, double EpsBt0, double EpsBt2)> CollectPlainConcreteTension(
+      CrossSection section, CalcType calc)
+   {
+      var res = new List<(double X, double Y, double EpsBt0, double EpsBt2)>();
+      foreach (var area in section.Areas)
+      {
+         if (!MaterialArea.IsCalcActive(area) || area.Material?.Type != MatType.Concrete || area.Hull is null)
+            continue;
+
+         var ch = ResolveChars(area.Material, calc);
+         double et2 = ch is not null && double.IsFinite(ch.Et2) && ch.Et2 > 0 ? ch.Et2
+            : area.Diagramms.TryGetValue(calc, out var dgr) && dgr.It?.X is { Length: > 0 } itx ? itx[^1]
+            : 0;
+         if (et2 <= 0) continue;
+         double et0 = ch is not null && double.IsFinite(ch.Et0) && ch.Et0 > 0 && ch.Et0 < et2 ? ch.Et0 : et2;
+
+         foreach (var c in new[] { area.Hull }.Concat(area.Holes))
+            for (int i = 0; i < c.X.Count; i++)
+               res.Add((c.X[i], c.Y[i], et0, et2));
+      }
+      return res;
    }
 
    /// <inheritdoc/>

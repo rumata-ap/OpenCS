@@ -14,7 +14,8 @@ public static class LimitForceSolvers
       int newtonMaxIter = 60,
       double bisectTol = 1e-4,
       int bisectMaxIter = 60,
-      bool ten = true)
+      bool ten = true,
+      double bisectRelTol = 1e-5)
    {
       parameters ??= new LimitForceParams();
 
@@ -26,11 +27,13 @@ public static class LimitForceSolvers
       {
          return new LimitForceSolverFast(section, calc,
             newtonTol: newtonTol, newtonMaxIter: newtonMaxIter,
-            bisectTol: bisectTol, bisectMaxIter: bisectMaxIter, ten: ten);
+            bisectTol: bisectTol, bisectMaxIter: bisectMaxIter, ten: ten)
+         { BisectRelTol = bisectRelTol };
       }
 
       return LimitForceSolver.ForCrossSection(section, calc,
          solverTol: newtonTol, solverMaxIter: newtonMaxIter,
-         bisectTol: bisectTol, bisectMaxIter: bisectMaxIter, ten: ten, etaParams: parameters);
+         bisectTol: bisectTol, bisectMaxIter: bisectMaxIter, ten: ten, etaParams: parameters,
+         bisectRelTol: bisectRelTol);
    }
 }

@@ -35,6 +35,7 @@ static class LimitForceTaskHelper
             LimitForceParams.Parse(task.ParamsJson),
             newtonTol: settings.NewtonTolerance,
             newtonMaxIter: settings.NewtonMaxIter,
+            bisectTol: settings.LimitBisectAbsTol, bisectRelTol: settings.LimitBisectRelTol,
             ten: settings.ResolveConcreteTension(task.CalcType));
 
          var res = mode switch
@@ -87,6 +88,7 @@ static class LimitForceTaskHelper
                var solver = LimitForceSolvers.Create(clone, task.CalcType, parameters,
                   newtonTol: settings.NewtonTolerance,
                   newtonMaxIter: settings.NewtonMaxIter,
+                  bisectTol: settings.LimitBisectAbsTol, bisectRelTol: settings.LimitBisectRelTol,
                   ten: settings.ResolveConcreteTension(task.CalcType));
                var res = Solve(solver, fi, mode);
                convergedArr[i] = res.Converged;
@@ -101,6 +103,7 @@ static class LimitForceTaskHelper
             var solver = LimitForceSolvers.Create(section, task.CalcType, parameters,
                newtonTol: settings.NewtonTolerance,
                newtonMaxIter: settings.NewtonMaxIter,
+               bisectTol: settings.LimitBisectAbsTol, bisectRelTol: settings.LimitBisectRelTol,
                ten: settings.ResolveConcreteTension(task.CalcType));
             for (int i = 0; i < total; i++)
             {
@@ -227,6 +230,8 @@ static class LimitForceTaskHelper
          eps_cu            = Math.Round(res.EpsCu, 8),
          eps_rebar_max     = res.EpsRebarMax.HasValue ? Math.Round(res.EpsRebarMax.Value, 8) : (double?)null,
          eps_su            = res.EpsSu.HasValue ? Math.Round(res.EpsSu.Value, 8) : (double?)null,
+         eps_bt_max        = res.EpsBtMax.HasValue ? Math.Round(res.EpsBtMax.Value, 8) : (double?)null,
+         eps_bt_ult        = res.EpsBtUlt.HasValue ? Math.Round(res.EpsBtUlt.Value, 8) : (double?)null,
          N_result          = Math.Round(nRes, 4),
          Mx_result         = Math.Round(mxRes, 4),
          My_result         = Math.Round(myRes, 4),

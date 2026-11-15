@@ -28,6 +28,17 @@ namespace OpenCS.Utilites
       [JsonPropertyName("newtonJacobian")]
       public string NewtonJacobian { get; set; } = "forward";
 
+      /// <summary>
+      /// Абсолютный допуск дихотомии по коэффициенту нагружения k в задачах предельных усилий.
+      /// Дихотомия останавливается по более строгому из абсолютного и относительного допусков.
+      /// </summary>
+      [JsonPropertyName("limitBisectAbsTol")]
+      public double LimitBisectAbsTol { get; set; } = 1e-4;
+
+      /// <summary>Относительный допуск дихотомии по k (доля k); 0 — только абсолютный.</summary>
+      [JsonPropertyName("limitBisectRelTol")]
+      public double LimitBisectRelTol { get; set; } = 1e-5;
+
       // ── Стили линий ──────────────────────────────────────────────────
       [JsonPropertyName("hullColor")]
       public string HullColor { get; set; } = "#000000";
@@ -381,6 +392,8 @@ namespace OpenCS.Utilites
          NewtonMaxIter         = NewtonMaxIter,
          NewtonDeltaH          = NewtonDeltaH,
          NewtonJacobian        = NewtonJacobian,
+         LimitBisectAbsTol     = LimitBisectAbsTol,
+         LimitBisectRelTol     = LimitBisectRelTol,
          HullColor             = HullColor,
          HullThickness         = HullThickness,
          HoleColor             = HoleColor,

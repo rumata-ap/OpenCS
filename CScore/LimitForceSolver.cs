@@ -43,7 +43,20 @@ public sealed class LimitForceSolver : ILimitForceSolver
       _ten = ten;
       _eta = etaParams is { EtaEnabled: true } ? etaParams : null;
       _solver = new LimitSectionStrainSolver(section, _guessSection, calc, solverTol, solverMaxIter, solverStep, ten);
+      _plainTension = ten ? section.PlainConcreteTensionVertices.ToList() : [];
    }
+
+   /// <summary>Вершины бетонного сечения для критерия εbt,max ≤ εbt,ult (пусто — критерий не действует).</summary>
+   readonly List<(double X, double Y, double EpsBt0, double EpsBt2)> _plainTension;
+
+   /// <summary>Относительный допуск дихотомии по k (0 — только абсолютный).</summary>
+   public double BisectRelTol { get; init; } = 1e-5;
+
+   /// <summary>
+   /// Допуск ширины интервала дихотомии: строже из абсолютного и относительного (от k).
+   /// </summary>
+   double BisectWidthTol(double k)
+      => BisectRelTol > 0 && k > 0 ? Math.Min(_bisectTol, BisectRelTol * k) : _bisectTol;
 
    /// <summary>Создаёт решатель для обычного сечения через адаптер.</summary>
    public static LimitForceSolver ForCrossSection(
@@ -54,9 +67,11 @@ public sealed class LimitForceSolver : ILimitForceSolver
       double bisectTol = 1e-4,
       int bisectMaxIter = 60,
       bool ten = true,
-      LimitForceParams? etaParams = null)
+      LimitForceParams? etaParams = null,
+      double bisectRelTol = 1e-5)
       => new(new CrossSectionLimitAdapter(section, calc), section, calc,
-         solverTol, solverMaxIter, bisectTol: bisectTol, bisectMaxIter: bisectMaxIter, ten: ten, etaParams: etaParams);
+         solverTol, solverMaxIter, bisectTol: bisectTol, bisectMaxIter: bisectMaxIter, ten: ten, etaParams: etaParams)
+      { BisectRelTol = bisectRelTol };
 
    /// <inheritdoc/>
    public LimitForceResult AllFactor(double n, double mx, double my)
@@ -187,13 +202,13 @@ public sealed class LimitForceSolver : ILimitForceSolver
             right = mid;
          }
 
-         if ((right - left) <= _bisectTol)
+         if ((right - left) <= BisectWidthTol(left))
             break;
       }
 
       return BuildResult(
          left, nIter, totalNewton, bestSp, bestEta,
-         (right - left) <= _bisectTol * 10.0,
+         (right - left) <= BisectWidthTol(left) * 10.0,
          nFn, mxFn, myFn);
    }
 
@@ -261,10 +276,19 @@ public sealed class LimitForceSolver : ILimitForceSolver
       // некуда) — не «бетон сжатой зоны», как подписывалось раньше. Сжатый бетон при этом
       // далёк от εcu (меньше половины): иначе это обычное исчерпание сжатой зоны, которое
       // бисекция лишь не догнала до допуска 2 %.
+      double? epsBtMax = null, epsBtUlt = null;
+      bool btGoverns = false;
+      if (bestSp.HasValue && _plainTension.Count > 0)
+      {
+         double u = PlainConcreteTension.Utilization(_plainTension, bestSp.Value, out double em, out double eu);
+         if (u > 0) { epsBtMax = em; epsBtUlt = eu; btGoverns = Math.Abs(u - 1.0) < govTol; }
+      }
+
       bool tensionGoverns = !concGoverns && !rebarGoverns && _ten && bestSp.HasValue
-         && epsContourMin > 0.5 * _section.EpsCu
-         && _section.ContourVertices.Any()
-         && _section.ContourVertices.Max(p => Eps(bestSp.Value, p.X, p.Y)) > 0;
+         && (btGoverns
+             || (epsContourMin > 0.5 * _section.EpsCu
+                 && _section.ContourVertices.Any()
+                 && _section.ContourVertices.Max(p => Eps(bestSp.Value, p.X, p.Y)) > 0));
 
       string governing = concGoverns && rebarGoverns ? "both"
          : rebarGoverns ? "rebar"
@@ -286,6 +310,8 @@ public sealed class LimitForceSolver : ILimitForceSolver
          EpsCu = _section.EpsCu,
          EpsRebarMax = epsRebarMax,
          EpsSu = epsSu,
+         EpsBtMax = epsBtMax,
+         EpsBtUlt = epsBtUlt,
          Governing = governing,
          Eta = bestEta
       };
@@ -320,6 +346,12 @@ public sealed class LimitForceSolver : ILimitForceSolver
          if (Eps(k, rb.X, rb.Y) + rb.EpsP > rb.EpsSu)
             return false;
       }
+
+      // Бетонное сечение: наиболее растянутое волокно — вершина контура, а не центр
+      // крайней фибры (п. 8.1.29, ф. 8.52). Без этой проверки предел наступал по потере
+      // равновесия фибр, и грань уходила за εbt2 на полтолщины крайней фибры.
+      if (_plainTension.Count > 0 && PlainConcreteTension.Utilization(_plainTension, k, out _, out _) > 1.0)
+         return false;
 
       strainPlane = k;
       return true;

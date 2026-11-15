@@ -340,6 +340,10 @@
    <system:String x:Key="CalcSettingsEkbEtaMinTip">Lower bound of the CEB-FIP (EKB) descending branch (η = σ/Rb). The MC90 eq. (2.1-20) branch starts at η = 0.5, so it is not built when η ≥ 0.5. Default 0.05</system:String>
    <system:String x:Key="CalcSettingsShellTolRes">Tolerance (plates)</system:String>
    <system:String x:Key="CalcSettingsShellTolResTip">Relative Newton tolerance for plate sections: ‖residual‖ / (1 + ‖target forces‖). Recommended: 1e-3.</system:String>
+   <system:String x:Key="CalcSettingsLimitBisectGroup">Limit forces: bisection on k</system:String>
+   <system:String x:Key="CalcSettingsLimitBisectAbs">Absolute tolerance on k</system:String>
+   <system:String x:Key="CalcSettingsLimitBisectRel">Relative tolerance on k (fraction of k)</system:String>
+   <system:String x:Key="CalcSettingsLimitBisectTip">Bisection on the load factor k stops when the interval width does not exceed the smaller of the two tolerances: absolute and relative·k. Relative 0 — absolute only. The force residual at each trial point is the Newton tolerance above, a separate quantity. Defaults 1e-4 and 1e-5.</system:String>
    <system:String x:Key="PlotSettingsForceSetColorize">Colorize force values in sets by axis</system:String>
    <system:String x:Key="PlotSettingsForceSetColorizeTip">When enabled, force set table values are colored like the sign convention card: N/T — red, Mx/Vx/Qx/Nx — green, My/Vy/Qy/Ny — blue; Nxy — dark red, Mxy — orange.</system:String>
    <system:String x:Key="CalcSettingsRcGroup">RC cross-section</system:String>

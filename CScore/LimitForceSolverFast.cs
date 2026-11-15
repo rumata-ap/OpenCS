@@ -31,6 +31,12 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
    readonly double _xRef;
    const double _relTol = 1e-3;
 
+   /// <summary>Вершины бетонного сечения для критерия εbt,max ≤ εbt,ult (пусто — критерий не действует).</summary>
+   readonly List<(double X, double Y, double EpsBt0, double EpsBt2)> _plainTension;
+
+   /// <summary>Относительный допуск дихотомии по k для запасного бисекционного решения.</summary>
+   public double BisectRelTol { get; init; } = 1e-5;
+
    /// <summary>Создаёт быстрый решатель предельных усилий.</summary>
    public LimitForceSolverFast(
       CrossSection section,
@@ -60,6 +66,7 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
       _rebarLimits = _adapter.RebarPoints.ToList();
       _strainSolver = new LimitSectionStrainSolver(_adapter, section, calc, solverTol, solverMaxIter, ten: ten);
       _epsCu = _adapter.EpsCu;
+      _plainTension = ten ? _adapter.PlainConcreteTensionVertices.ToList() : [];
 
       if (_contourPts.Count == 0)
          throw new InvalidOperationException("LimitForceSolverFast: нет вершин контура.");
@@ -105,7 +112,13 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
       if (_rebarLimits.Count > 0 && n > 0)
          tens = SolveTension(nFn, mxFn, myFn, dNdk, dMxdk, dMydk, guess);
 
-      var candidates = new[] { comp, tens }.Where(r => r is { Converged: true }).ToList();
+      // Бетонное сечение: Ньютон ищет предел по сжатию и арматуре, критерия растянутого
+      // бетона (п. 8.1.29) у него нет — решение, нарушающее его, отдаём бисекции.
+      var candidates = new[] { comp, tens }
+         .Where(r => r is { Converged: true }
+            && (_plainTension.Count == 0 || r.StrainPlane is not { } sp
+                || PlainConcreteTension.Utilization(_plainTension, sp, out _, out _) <= 1.0 + 1e-6))
+         .ToList();
       if (candidates.Count > 0)
          return candidates.MinBy(r => r!.Factor)!;
 
@@ -946,7 +959,7 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
    {
       var bisect = LimitForceSolver.ForCrossSection(_section, _calc,
          solverTol: _solverTol, solverMaxIter: _solverMaxIter,
-         bisectTol: _bisectTol, bisectMaxIter: _bisectMaxIter, ten: _ten);
+         bisectTol: _bisectTol, bisectMaxIter: _bisectMaxIter, ten: _ten, bisectRelTol: BisectRelTol);
       return mode switch
       {
          SolveMode.Moment => bisect.MomentFactor(n, mx, my),
