@@ -32,6 +32,9 @@ public static class FemCheckExecutor
         var db = app.Db;
         var log = app.LogService;
 
+        if (check.NormCode == PunchingFemCheckParams.NormCode)
+            return await RunPunchingAsync(app, check);
+
         if (await PrepareAsync(app, check) is not { } setup) return null;
         var (target, scope, candidates, selected, lookup, inputs, isPlate, perElement) = setup;
 
@@ -108,6 +111,53 @@ public static class FemCheckExecutor
             log.Warning($"FemCheck «{check.DisplayTag}»: {checkError}");
         else
             log.Info($"FemCheck «{check.DisplayTag}»: {result.Status}");
+        return result;
+    }
+
+    /// <summary>
+    /// Проверка продавливания по МКЭ-схеме (<see cref="PunchingFemCheckRunner"/>): в фоне, с прогрессом и отменой;
+    /// результат сохраняется в потоке вызова. Null — отмена или сбой (причина в журнале).
+    /// </summary>
+    static async Task<CalcResult?> RunPunchingAsync(IProjectContext app, FemCheck check)
+    {
+        var busy = app.Busy;
+        var db = app.Db;
+        var log = app.LogService;
+        var cts = busy.BeginBusyWithCancellation(string.Format(Loc.S("FemCheckRunning"), check.DisplayTag), indeterminate: false);
+        var progress = new Progress<double>(f => { if (busy.IsBusy) busy.ReportBusyProgress(f); });
+        var token = cts.Token;
+        CalcResult result;
+        try
+        {
+            result = await Task.Run(() => PunchingFemCheckRunner.Run(db, check, progress, token));
+            busy.EndBusy();
+        }
+        catch (OperationCanceledException)
+        {
+            busy.EndBusy(Loc.S("CalcTaskCancelled"));
+            return null;
+        }
+        catch (Exception ex)
+        {
+            busy.EndBusy();
+            log.Error($"FemCheck «{check.DisplayTag}»: {ex.Message}");
+            return null;
+        }
+
+        db.SaveCalcResultRaw(result, check.Id);
+        check.ResultId = result.Id;
+        db.SaveFemCheck(check);
+        var data = PunchingFemCheckData.Parse(result.DataJson);
+        if (data?.Error is { } error)
+            log.Warning($"FemCheck «{check.DisplayTag}»: {error}");
+        else if (data != null)
+        {
+            foreach (var w in data.Warnings) log.Warning($"FemCheck «{check.DisplayTag}»: {w.Text}");
+            foreach (var j in data.Joints.Where(j => j.Status == "no_check"))
+                log.Warning($"FemCheck «{check.DisplayTag}», узел {j.Node}: нет проверки — {j.NoCheckText}");
+            log.Info(string.Create(System.Globalization.CultureInfo.CurrentCulture,
+                $"FemCheck «{check.DisplayTag}»: {result.Status}; узлов {data.TotalJoints}, не прошли {data.FailedJoints}, без проверки {data.NoCheckJoints}, Кисп max {OpenCS.Reporting.ReportNumberFormatter.FormatUtilization(data.Ratio)}"));
+        }
         return result;
     }
 

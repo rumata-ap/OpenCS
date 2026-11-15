@@ -173,11 +173,13 @@ public sealed class PunchingFemServiceTests : IDisposable
         return analysis;
     }
 
-    static string CatalogDirectory()
+    /// <summary>Каталог материалов: вверх от сборки, иначе — от исходника теста (сборка вне репозитория).</summary>
+    static string CatalogDirectory([System.Runtime.CompilerServices.CallerFilePath] string source = "")
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "OpenCS.sln"))) dir = dir.Parent;
-        return Path.Combine(dir!.FullName, "OpenCS.App", "DataSource");
+        dir ??= new FileInfo(source).Directory!.Parent!;
+        return Path.Combine(dir.FullName, "OpenCS.App", "DataSource");
     }
 
     (PunchingFemSchemaData Data, PunchingFemSource Source, PunchingFemJoint Joint, PunchingFemNodeForces Forces) Evaluate(Setup s)
@@ -258,6 +260,54 @@ public sealed class PunchingFemServiceTests : IDisposable
         // Верхняя колонна без нагрузки: вся сила плиты — в нижнюю.
         Assert.Equal(360.0, f.ColumnAction!.Value, 2);
         Assert.Equal(f.ColumnForce!.Value, f.ContourForce!.Value, 3);
+    }
+
+    [Fact]
+    public void CheckRunner_EnvelopeAndRowTask()
+    {
+        var s = Create();
+        using var db = s.Db;
+        var p = new PunchingFemCheckParams { SourceRef = s.Analysis.Id.ToString(CultureInfo.InvariantCulture) };
+        var data = PunchingFemCheckRunner.Compute(db, s.Schema.Id, p, CalcType.C);
+        Assert.Null(data.Error);
+        var j = Assert.Single(data.Joints);
+        Assert.Null(j.NoCheck);
+        Assert.Equal(2, j.Rows.Count);
+        Assert.Equal("Пост.", j.GoverningKey);
+        Assert.True(j.Ratio > 0.1, $"Кисп = {j.Ratio}");
+        Assert.Equal(j.Rows.Max(r => r.Ratio), data.Ratio);
+        Assert.Contains(j.Status, new[] { "concrete", "reinforcement", "not_ensured" });
+        Assert.Equal(j.Passed, data.Passed);
+
+        // Задача по строке — та же проверка ядра с полной трассировкой.
+        var row = j.Rows.Single(r => r.Key == "Пост.");
+        var tp = PunchingFemCheckRunner.RowParams(j, row)!;
+        Assert.Empty(tp.Validate());
+        var st = PunchingRunner.ResolveStrengths(tp, db.Materials, CalcType.C, out var errors);
+        Assert.Empty(errors);
+        Assert.Equal(row.Ratio, PunchingChecker.Check(tp.ToInput(st.Rbt, st.Rsw)).Utilization, 12);
+        Assert.Equal("Пост.", tp.Source!.Key);
+
+        // Круговой проход JSON.
+        var back = PunchingFemCheckData.Parse(data.ToJson())!;
+        Assert.Equal(data.Ratio, back.Ratio);
+        Assert.Equal(row.F, back.Joints[0].Rows.Single(r => r.Key == "Пост.").F);
+    }
+
+    [Fact]
+    public void CheckRunner_ExcludedJoint_NoAnalysis_Error()
+    {
+        var s = Create();
+        using var db = s.Db;
+        var none = PunchingFemCheckRunner.Compute(db, s.Schema.Id, new PunchingFemCheckParams(), CalcType.C);
+        Assert.NotNull(none.Error);
+        var data = PunchingFemCheckRunner.Compute(db, s.Schema.Id, new PunchingFemCheckParams
+        {
+            SourceRef = s.Analysis.Id.ToString(CultureInfo.InvariantCulture),
+            Overrides = [new PunchingFemJointOverride { Node = S(SlabNode(N / 2, N / 2)), Excluded = true }],
+        }, CalcType.C);
+        Assert.Empty(data.Joints);
+        Assert.Contains(data.Warnings, w => w.Code == "punching_fem_no_joints");
     }
 
     [Fact]
