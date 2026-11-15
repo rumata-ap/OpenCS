@@ -208,11 +208,25 @@ public static class PunchingContourBuilder
     /// </summary>
     public static double PyramidBaseArea(PunchingLoadArea area, double h0, IReadOnlyList<PunchingSlabEdge> edges)
     {
-        var pts = OffsetPolygon(AreaPolygon(area), h0);
-        foreach (var e in edges) pts = ClipPolygon(pts, e);
+        var pts = PyramidBasePolygon(area, h0, edges);
         double a = 0;
         for (int i = 0; i < pts.Count; i++) a += pts[i].Cross(pts[(i + 1) % pts.Count]);
         return Math.Abs(a) / 2;
+    }
+
+    /// <summary>
+    /// Основание пирамиды продавливания — площадь, смещённая на h0 (острые углы), обрезанная краями плиты;
+    /// выпуклый многоугольник против часовой стрелки. Круг — 720-угольник. Пусто — основание вне плиты.
+    /// </summary>
+    public static List<PlanPoint> PyramidBasePolygon(PunchingLoadArea area, double h0, IReadOnlyList<PunchingSlabEdge> edges)
+    {
+        var pts = OffsetPolygon(AreaPolygon(area), h0);
+        foreach (var e in edges)
+        {
+            pts = ClipPolygon(pts, e);
+            if (pts.Count < 3) return [];
+        }
+        return pts;
     }
 
     static PunchingVariant Pylon(PunchingLoadArea.Rectangle rect, double h0)
