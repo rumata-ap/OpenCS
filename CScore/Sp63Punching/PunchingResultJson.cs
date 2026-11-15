@@ -51,6 +51,24 @@ public static class PunchingResultJson
                 Num(w, "kF", v.KF);
                 Num(w, "kM", v.KM);
                 w.WriteBoolean("sw_counted", v.SwCounted);
+                if (v.Sw is { } sw)
+                {
+                    w.WriteStartObject("sw");
+                    w.WriteString("layout", sw.Cross ? "cross" : "uniform");
+                    Num(w, "asw", sw.AswLine);
+                    if (sw.Cross)
+                    {
+                        // Индексы — по рис. 8.11г: x — участки под лучами вдоль Y, y — под лучами вдоль X.
+                        Num(w, "qsw_x", sw.QY); Num(w, "qsw_y", sw.QX);
+                        Num(w, "lsw_x", sw.Armed?.LY ?? 0); Num(w, "lsw_y", sw.Armed?.LX ?? 0);
+                    }
+                    else Num(w, "qsw", sw.Qsw);
+                    Num(w, "usw", sw.Usw);
+                    Num(w, "fsw_raw", sw.FswRaw);
+                    Num(w, "mswx", v.Mswx);
+                    Num(w, "mswy", v.Mswy);
+                    w.WriteEndObject();
+                }
                 w.WritePropertyName("pieces");
                 WritePieces(w, v.Variant.Contour.Pieces.Select(p => p.Elements));
                 w.WritePropertyName("excluded");

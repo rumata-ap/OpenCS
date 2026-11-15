@@ -10,7 +10,8 @@ internal sealed record PunchingTraceData(
     double Fult, double Mxult, double Myult, double F, double Fred, double Mx0, double My0,
     PlanPoint AreaCentroid, double Ex, double Ey, double SignLoad,
     EccentricityMode ModeX, EccentricityMode ModeY,
-    double MxStar, double MyStar, double KF, double KMRaw, double KM, double K);
+    double MxStar, double MyStar, double KF, double KMRaw, double KM, double K,
+    PunchingSwDetail? Sw = null, PunchingRowCount? Rows = null);
 
 /// <summary>
 /// Пошаговая трассировка расчёта на продавливание для отчёта. Каждый шаг — одна величина в форме
@@ -88,31 +89,8 @@ internal static class PunchingTrace
             ("h0", d.H0, CalculationUnit.Meter), ("Mby", d.Mby, CalculationUnit.KilonewtonMeter)));
 
         // Поперечная арматура (8.91), (8.92), (8.97)
-        if (d.Qsw > 0)
-        {
-            var r = d.Reinforcement!;
-            steps.Add(Step($"{p}.qsw", "(8.92)", "Punching_Trace_Qsw",
-                @"q_{sw} = \frac{R_{sw} A_{sw}}{s_w}", @"\frac{{Rsw} \cdot {Asw}}{{sw}}", "{qsw}",
-                ("Rsw", r.Rsw, CalculationUnit.Kilopascal), ("Asw", r.Asw, CalculationUnit.SquareMeter),
-                ("sw", r.Sw, CalculationUnit.Meter), ("qsw", d.Qsw, CalculationUnit.KilonewtonPerMeter)));
-            steps.Add(Step($"{p}.fsw", "(8.91), п. 8.1.48", "Punching_Trace_Fsw",
-                @"F_{sw,ult} = 0{,}8\,q_{sw}\,u", @"0{,}8 \cdot {qsw} \cdot {u}", "{FswRaw}",
-                d.SwCounted ? CalculationTraceStatus.Passed : CalculationTraceStatus.NotApplicable,
-                ("qsw", d.Qsw, CalculationUnit.KilonewtonPerMeter), ("u", g.U, CalculationUnit.Meter),
-                ("FswRaw", d.FswRaw, CalculationUnit.Kilonewton), ("Fb025", 0.25 * d.Fb, CalculationUnit.Kilonewton)));
-            if (d.SwCounted)
-            {
-                steps.Add(Step($"{p}.mswx", "(8.97), п. 8.1.52", "Punching_Trace_Mswx",
-                    @"M_{swx,ult} = 0{,}8\,q_{sw}\,W_{bx}", @"0{,}8 \cdot {qsw} \cdot {Wbx}", "{Mswx}",
-                    ("qsw", d.Qsw, CalculationUnit.KilonewtonPerMeter), ("Wbx", d.Wbx, CalculationUnit.SquareMeter),
-                    ("Mswx", d.Mswx, CalculationUnit.KilonewtonMeter)));
-                steps.Add(Step($"{p}.mswy", "(8.97), п. 8.1.52", "Punching_Trace_Mswy",
-                    @"M_{swy,ult} = 0{,}8\,q_{sw}\,W_{by}", @"0{,}8 \cdot {qsw} \cdot {Wby}", "{Mswy}",
-                    ("qsw", d.Qsw, CalculationUnit.KilonewtonPerMeter), ("Wby", d.Wby, CalculationUnit.SquareMeter),
-                    ("Mswy", d.Mswy, CalculationUnit.KilonewtonMeter)));
-            }
-        }
-
+        if (d.Sw is { } sw && d.Reinforcement is { } r)
+            AddSwSteps(steps, p, d, sw, r);
         // Предельные усилия (п. 8.1.48, п. 8.1.50)
         if (d.SwCounted)
         {
@@ -148,6 +126,124 @@ internal static class PunchingTrace
             ("kMRaw", d.KMRaw, CalculationUnit.Unitless), ("kM", d.KM, CalculationUnit.Unitless),
             ("K", d.K, CalculationUnit.Unitless)) with { FormulaCode = formula });
         return steps;
+    }
+
+    static void AddSwSteps(List<CalculationTraceStep> steps, string p, PunchingTraceData d, PunchingSwDetail sw, PunchingShearReinforcement r)
+    {
+        var g = d.G;
+        var counted = d.SwCounted ? CalculationTraceStatus.Passed : CalculationTraceStatus.NotApplicable;
+        if (d.Rows is { } rc && r.Rows is { } rows)
+            steps.Add(Step($"{p}.asw", "п. 8.1.48, п. 10.3.17", "Punching_Trace_AswRows",
+                @"A_{sw} = n_{sw}\,A_{s1}", @"{n} \cdot {As1}", "{Asw}",
+                ("n", rc.Counted, CalculationUnit.Count), ("nTotal", rc.Total, CalculationUnit.Count),
+                ("As1", rows.BarArea, CalculationUnit.SquareMeter), ("Asw", sw.AswLine, CalculationUnit.SquareMeter)));
+
+        if (!sw.Cross)
+        {
+            steps.Add(Step($"{p}.qsw", "(8.92)", "Punching_Trace_Qsw",
+                @"q_{sw} = \frac{R_{sw} A_{sw}}{s_w}", @"\frac{{Rsw} \cdot {Asw}}{{sw}}", "{qsw}",
+                ("Rsw", r.Rsw, CalculationUnit.Kilopascal), ("Asw", sw.AswLine, CalculationUnit.SquareMeter),
+                ("sw", r.Sw, CalculationUnit.Meter), ("qsw", sw.Qsw, CalculationUnit.KilonewtonPerMeter)));
+            steps.Add(Step($"{p}.fsw", "(8.91), п. 8.1.48", "Punching_Trace_Fsw",
+                @"F_{sw,ult} = 0{,}8\,q_{sw}\,u", @"0{,}8 \cdot {qsw} \cdot {u}", "{FswRaw}", counted,
+                ("qsw", sw.Qsw, CalculationUnit.KilonewtonPerMeter), ("u", g.U, CalculationUnit.Meter),
+                ("FswRaw", sw.FswRaw, CalculationUnit.Kilonewton), ("Fb025", 0.25 * d.Fb, CalculationUnit.Kilonewton)));
+            if (d.SwCounted)
+            {
+                steps.Add(Step($"{p}.mswx", "(8.97), п. 8.1.52", "Punching_Trace_Mswx",
+                    @"M_{swx,ult} = 0{,}8\,q_{sw}\,W_{bx}", @"0{,}8 \cdot {qsw} \cdot {Wbx}", "{Mswx}",
+                    ("qsw", sw.Qsw, CalculationUnit.KilonewtonPerMeter), ("Wbx", d.Wbx, CalculationUnit.SquareMeter),
+                    ("Mswx", d.Mswx, CalculationUnit.KilonewtonMeter)));
+                steps.Add(Step($"{p}.mswy", "(8.97), п. 8.1.52", "Punching_Trace_Mswy",
+                    @"M_{swy,ult} = 0{,}8\,q_{sw}\,W_{by}", @"0{,}8 \cdot {qsw} \cdot {Wby}", "{Mswy}",
+                    ("qsw", sw.Qsw, CalculationUnit.KilonewtonPerMeter), ("Wby", d.Wby, CalculationUnit.SquareMeter),
+                    ("Mswy", d.Mswy, CalculationUnit.KilonewtonMeter)));
+            }
+            return;
+        }
+
+        // Крест (п. 8.1.48, рис. 8.11г): лучи вдоль X дают участки Lsw,y у граней ±x, лучи вдоль Y — Lsw,x у граней ±y.
+        var a = sw.Armed ?? PunchingArmedSegments.Empty;
+        double sX = r.Cross?.AlongY?.Sw ?? 0, sY = r.Cross?.AlongX?.Sw ?? 0;
+        bool hasX = sw.QY > 0 && a.LY > 0, hasY = sw.QX > 0 && a.LX > 0;   // индекс — по рис. 8.11г
+        if (hasX)
+        {
+            steps.Add(Step($"{p}.lswx", "п. 8.1.48, рис. 8.11г", "Punching_Trace_LswX",
+                @"L_{sw,x} = \sum L_i", "", "{L}", ("L", a.LY, CalculationUnit.Meter)));
+            steps.Add(Step($"{p}.qswx", "(8.92)", "Punching_Trace_QswX",
+                @"q_{sw,x} = \frac{R_{sw} A_{sw}}{s_{w,x}}", @"\frac{{Rsw} \cdot {Asw}}{{sw}}", "{qsw}",
+                ("Rsw", r.Rsw, CalculationUnit.Kilopascal), ("Asw", sw.AswLine, CalculationUnit.SquareMeter),
+                ("sw", sX, CalculationUnit.Meter), ("qsw", sw.QY, CalculationUnit.KilonewtonPerMeter)));
+        }
+        if (hasY)
+        {
+            steps.Add(Step($"{p}.lswy", "п. 8.1.48, рис. 8.11г", "Punching_Trace_LswY",
+                @"L_{sw,y} = \sum L_i", "", "{L}", ("L", a.LX, CalculationUnit.Meter)));
+            steps.Add(Step($"{p}.qswy", "(8.92)", "Punching_Trace_QswY",
+                @"q_{sw,y} = \frac{R_{sw} A_{sw}}{s_{w,y}}", @"\frac{{Rsw} \cdot {Asw}}{{sw}}", "{qsw}",
+                ("Rsw", r.Rsw, CalculationUnit.Kilopascal), ("Asw", sw.AswLine, CalculationUnit.SquareMeter),
+                ("sw", sY, CalculationUnit.Meter), ("qsw", sw.QX, CalculationUnit.KilonewtonPerMeter)));
+        }
+        if (!hasX && !hasY)
+        {
+            steps.Add(Step($"{p}.fsw", "п. 8.1.48, рис. 8.11г", "Punching_Trace_FswCross",
+                @"F_{sw,ult} = 0", "", "{FswRaw}", CalculationTraceStatus.NotApplicable, ("FswRaw", 0, CalculationUnit.Kilonewton)));
+            return;
+        }
+
+        // Fsw = 0,8·(qsw,x·Lsw,x + qsw,y·Lsw,y) — сумма по направлениям, у которых есть участки.
+        var fTerms = new List<string>();
+        if (hasX) fTerms.Add(@"q_{sw,x} L_{sw,x}");
+        if (hasY) fTerms.Add(@"q_{sw,y} L_{sw,y}");
+        var fSubst = new List<string>();
+        if (hasX) fSubst.Add(@"{qx} \cdot {Lx}");
+        if (hasY) fSubst.Add(@"{qy} \cdot {Ly}");
+        steps.Add(Step($"{p}.fsw", "(8.91), п. 8.1.48", "Punching_Trace_FswCross",
+            @"F_{sw,ult} = 0{,}8\,(" + string.Join(" + ", fTerms) + ")",
+            @"0{,}8 \cdot (" + string.Join(" + ", fSubst) + ")", "{FswRaw}", counted,
+            ("qx", sw.QY, CalculationUnit.KilonewtonPerMeter), ("Lx", a.LY, CalculationUnit.Meter),
+            ("qy", sw.QX, CalculationUnit.KilonewtonPerMeter), ("Ly", a.LX, CalculationUnit.Meter),
+            ("FswRaw", sw.FswRaw, CalculationUnit.Kilonewton), ("Fb025", 0.25 * d.Fb, CalculationUnit.Kilonewton)));
+        if (!d.SwCounted) return;
+
+        // Wsw по участкам (п. 8.1.52): I относительно центра тяжести контура бетона, тот же делитель, что у Wb.
+        steps.Add(Step($"{p}.iswx", "п. 8.1.52", "Punching_Trace_Iswx",
+            @"I_{swx} = \int_{L_{sw}} (y - y_c)^2\,dl", "", "{I}", ("I", a.IbxX + a.IbxY, CalculationUnit.CubicMeter)));
+        steps.Add(Step($"{p}.iswy", "п. 8.1.52", "Punching_Trace_Iswy",
+            @"I_{swy} = \int_{L_{sw}} (x - x_c)^2\,dl", "", "{I}", ("I", a.IbyX + a.IbyY, CalculationUnit.CubicMeter)));
+        double wswx = sw.YMax > 0 ? (a.IbxX + a.IbxY) / sw.YMax : 0, wswy = sw.XMax > 0 ? (a.IbyX + a.IbyY) / sw.XMax : 0;
+        steps.Add(Step($"{p}.wswx", "п. 8.1.52, (8.98)", "Punching_Trace_Wswx",
+            @"W_{swx} = \frac{I_{swx}}{y_{max}}", @"\frac{{I}}{{ymax}}", "{W}",
+            ("I", a.IbxX + a.IbxY, CalculationUnit.CubicMeter), ("ymax", sw.YMax, CalculationUnit.Meter), ("W", wswx, CalculationUnit.SquareMeter)));
+        steps.Add(Step($"{p}.wswy", "п. 8.1.52, (8.98)", "Punching_Trace_Wswy",
+            @"W_{swy} = \frac{I_{swy}}{x_{max}}", @"\frac{{I}}{{xmax}}", "{W}",
+            ("I", a.IbyX + a.IbyY, CalculationUnit.CubicMeter), ("xmax", sw.XMax, CalculationUnit.Meter), ("W", wswy, CalculationUnit.SquareMeter)));
+        bool sameQ = !hasX || !hasY || Math.Abs(sw.QX - sw.QY) <= 1e-9 * Math.Max(sw.QX, sw.QY);
+        double q = Math.Max(sw.QX, sw.QY);
+        if (sameQ)
+        {
+            steps.Add(Step($"{p}.mswx", "(8.97), п. 8.1.52", "Punching_Trace_Mswx",
+                @"M_{swx,ult} = 0{,}8\,q_{sw}\,W_{swx}", @"0{,}8 \cdot {qsw} \cdot {W}", "{Mswx}",
+                ("qsw", q, CalculationUnit.KilonewtonPerMeter), ("W", wswx, CalculationUnit.SquareMeter), ("Mswx", d.Mswx, CalculationUnit.KilonewtonMeter)));
+            steps.Add(Step($"{p}.mswy", "(8.97), п. 8.1.52", "Punching_Trace_Mswy",
+                @"M_{swy,ult} = 0{,}8\,q_{sw}\,W_{swy}", @"0{,}8 \cdot {qsw} \cdot {W}", "{Mswy}",
+                ("qsw", q, CalculationUnit.KilonewtonPerMeter), ("W", wswy, CalculationUnit.SquareMeter), ("Mswy", d.Mswy, CalculationUnit.KilonewtonMeter)));
+        }
+        else
+        {
+            steps.Add(Step($"{p}.mswx", "(8.97), п. 8.1.52", "Punching_Trace_Mswx",
+                @"M_{swx,ult} = 0{,}8\,\frac{q_{sw,x} I_{swx,x} + q_{sw,y} I_{swx,y}}{y_{max}}",
+                @"0{,}8 \cdot \frac{{qx} \cdot {Ix} + {qy} \cdot {Iy}}{{ymax}}", "{Mswx}",
+                ("qx", sw.QY, CalculationUnit.KilonewtonPerMeter), ("Ix", a.IbxY, CalculationUnit.CubicMeter),
+                ("qy", sw.QX, CalculationUnit.KilonewtonPerMeter), ("Iy", a.IbxX, CalculationUnit.CubicMeter),
+                ("ymax", sw.YMax, CalculationUnit.Meter), ("Mswx", d.Mswx, CalculationUnit.KilonewtonMeter)));
+            steps.Add(Step($"{p}.mswy", "(8.97), п. 8.1.52", "Punching_Trace_Mswy",
+                @"M_{swy,ult} = 0{,}8\,\frac{q_{sw,x} I_{swy,x} + q_{sw,y} I_{swy,y}}{x_{max}}",
+                @"0{,}8 \cdot \frac{{qx} \cdot {Ix} + {qy} \cdot {Iy}}{{xmax}}", "{Mswy}",
+                ("qx", sw.QY, CalculationUnit.KilonewtonPerMeter), ("Ix", a.IbyY, CalculationUnit.CubicMeter),
+                ("qy", sw.QX, CalculationUnit.KilonewtonPerMeter), ("Iy", a.IbyX, CalculationUnit.CubicMeter),
+                ("xmax", sw.XMax, CalculationUnit.Meter), ("Mswy", d.Mswy, CalculationUnit.KilonewtonMeter)));
+        }
     }
 
     /// <summary>M* по режиму учёта эксцентриситета; <paramref name="sign"/> — знак F·e в статике.</summary>

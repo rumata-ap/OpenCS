@@ -32,11 +32,30 @@ public sealed record PunchingVariantResult(
     double KF, double KMRaw, double KM, double Utilization,
     double UtilizationConcreteOnly, double UtilizationMaxReinforcement,
     bool Governs,
-    IReadOnlyList<CalculationTraceStep> Trace)
+    IReadOnlyList<CalculationTraceStep> Trace,
+    PunchingSwDetail? Sw = null)
 {
     /// <summary>Условие прочности выполнено.</summary>
     public bool Passed => Utilization <= 1.0;
 }
+
+/// <summary>Поперечная арматура в варианте контура (пп. 8.1.48, 8.1.50, 8.1.52). Значения — до порога 0,25Fb и предела 2Fb.</summary>
+/// <param name="Cross">Крестообразная раскладка.</param>
+/// <param name="AswLine">Площадь стержней одной линии в полосе ±0,5h0, м².</param>
+/// <param name="Qsw">qsw равномерной раскладки, кН/м (у креста — 0).</param>
+/// <param name="QX">qsw лучей вдоль X, кН/м.</param>
+/// <param name="QY">qsw лучей вдоль Y, кН/м.</param>
+/// <param name="Usw">Длина армированной части контура, м (у равномерной — u).</param>
+/// <param name="FswRaw">0,8·Σqsw·L, кН.</param>
+/// <param name="MswxRaw">0,8·qsw·Wswx (у креста — по участкам), кН·м.</param>
+/// <param name="MswyRaw">То же относительно оси Y.</param>
+/// <param name="YMax">Делитель Wbx (расстояние до волокна), м.</param>
+/// <param name="XMax">Делитель Wby, м.</param>
+/// <param name="Armed">Участки под лучами креста; null — равномерная.</param>
+public sealed record PunchingSwDetail(
+    bool Cross, double AswLine, double Qsw, double QX, double QY, double Usw,
+    double FswRaw, double MswxRaw, double MswyRaw, double YMax, double XMax,
+    PunchingArmedSegments? Armed);
 
 /// <summary>Результат расчёта на продавливание.</summary>
 /// <param name="Variants">Все варианты контура.</param>
@@ -68,9 +87,10 @@ public sealed record PunchingResult(
 /// </summary>
 public sealed class PunchingGeometryCache
 {
-    PunchingGeometryCache(PunchingContourBuilder.BuildResult build, double baseArea, IReadOnlyDictionary<string, ContourProperties> props)
+    PunchingGeometryCache(PunchingContourBuilder.BuildResult build, double baseArea, IReadOnlyDictionary<string, ContourProperties> props,
+        IReadOnlyDictionary<string, PunchingArmedSegments> armed)
     {
-        Build = build; BaseArea = baseArea; Properties = props;
+        Build = build; BaseArea = baseArea; Properties = props; Armed = armed;
     }
 
     /// <summary>Варианты контура и предупреждения построения.</summary>
@@ -79,6 +99,8 @@ public sealed class PunchingGeometryCache
     public double BaseArea { get; }
     /// <summary>Характеристики контура по id варианта.</summary>
     public IReadOnlyDictionary<string, ContourProperties> Properties { get; }
+    /// <summary>Участки под лучами креста по id варианта основной зоны (пусто — не крест).</summary>
+    public IReadOnlyDictionary<string, PunchingArmedSegments> Armed { get; }
 
     /// <summary>Строит геометрию по исходным данным (усилия не используются).</summary>
     public static PunchingGeometryCache Prepare(PunchingInput input)
@@ -88,7 +110,14 @@ public sealed class PunchingGeometryCache
         var props = build.Variants.Where(v => v.Kind != PunchingVariantKind.PylonReduced)
             .ToDictionary(v => v.Id, v => ContourProperties.Compute(v.Contour), StringComparer.Ordinal);
         double baseArea = PunchingContourBuilder.PyramidBaseArea(input.LoadArea, input.H0, input.Edges ?? Array.Empty<PunchingSlabEdge>());
-        return new PunchingGeometryCache(build, baseArea, props);
+        var armed = new Dictionary<string, PunchingArmedSegments>(StringComparer.Ordinal);
+        if (input.Reinforcement?.Cross is { } cross)
+            foreach (var v in build.Variants.Where(v => v.Zone == PunchingZone.Main && props.ContainsKey(v.Id)))
+            {
+                var g = props[v.Id];
+                armed[v.Id] = PunchingSwLayout.Armed(v.Contour, input.LoadArea, cross, new PlanPoint(g.Xc, g.Yc));
+            }
+        return new PunchingGeometryCache(build, baseArea, props, armed);
     }
 }
 
@@ -100,13 +129,16 @@ public static class PunchingChecker
     /// <param name="includeTrace">false — без пошаговой трассировки (пакет по тысячам строк); числа те же.</param>
     /// <param name="geometry">Готовая геометрия того же узла (пакет); null — строится здесь.</param>
     public static PunchingResult Check(PunchingInput input, bool includeTrace = true, PunchingGeometryCache? geometry = null)
+        => Check(input, includeTrace, geometry, 1.0);
+
+    /// <summary>Расчёт с qsw раскладки, умноженным на <paramref name="swScale"/> (подбор).</summary>
+    internal static PunchingResult Check(PunchingInput input, bool includeTrace, PunchingGeometryCache? geometry, double swScale)
     {
         ArgumentNullException.ThrowIfNull(input);
         if (!(input.H0 > 0)) throw new ArgumentException("Рабочая высота h0 должна быть больше нуля.", nameof(input));
         if (!(input.Rbt > 0)) throw new ArgumentException("Rbt должно быть больше нуля.", nameof(input));
         if (input.Forces.F < 0) throw new ArgumentException("Продавливающая сила F задаётся модулем (≥ 0).", nameof(input));
-        if (input.Reinforcement is { } rr && (rr.Sw <= 0 || rr.Asw < 0 || rr.Rsw < 0))
-            throw new ArgumentException("Шаг поперечной арматуры должен быть > 0, площадь и Rsw — ≥ 0.", nameof(input));
+        if (input.Reinforcement is { } rr) ValidateReinforcement(rr);
 
         var options = input.Options ?? new PunchingOptions();
         var edges = input.Edges ?? Array.Empty<PunchingSlabEdge>();
@@ -119,11 +151,9 @@ public static class PunchingChecker
         if (f.CounterPressure != 0 && fred <= 0)
             warnings.Add(new("fred_nonpositive",
                 "Нагрузка в основании пирамиды не меньше продавливающей силы — продавливания нет (Кисп = 0)."));
-        if (input.Reinforcement is { } r0 && r0.Qsw > 0)
-            warnings.Add(new("sw_detailing_not_checked",
-                "Конструктивные требования п. 10.3 к поперечной арматуре не проверяются."));
+        var sw = SwSetup.From(input, warnings);
 
-        var ctx = new Context(input, options, fred, baseArea, warnings, includeTrace, geometry);
+        var ctx = new Context(input, options, fred, baseArea, warnings, includeTrace, geometry, sw, swScale);
         var results = build.Variants.Select(v => Evaluate(ctx, v)).ToList();
 
         int gov = -1;
@@ -153,7 +183,48 @@ public static class PunchingChecker
         => v.Kind != PunchingVariantKind.PylonReduced || o.PylonReducedGoverns;
 
     sealed record Context(PunchingInput Input, PunchingOptions Options, double Fred, double BaseArea,
-        List<PunchingWarning> Warnings, bool IncludeTrace, PunchingGeometryCache? Geometry);
+        List<PunchingWarning> Warnings, bool IncludeTrace, PunchingGeometryCache? Geometry, SwSetup Sw, double SwScale);
+
+    /// <summary>qsw раскладки, общие для всех вариантов.</summary>
+    internal sealed record SwSetup(PunchingShearReinforcement? R, double AswLine, double Q, double QX, double QY, PunchingRowCount? Rows)
+    {
+        public bool Any => R is not null && (Q > 0 || QX > 0 || QY > 0);
+
+        public static SwSetup From(PunchingInput input, List<PunchingWarning> warnings)
+        {
+            var r = input.Reinforcement;
+            if (r is null) return new SwSetup(null, 0, 0, 0, 0, null);
+            double h0 = input.H0;
+            PunchingRowCount? rc = r.Rows is { } rows ? PunchingSwLayout.CountRows(rows, h0) : null;
+            if (rc is { NearFace: > 0 })
+                warnings.Add(new("sw_rows_near_face",
+                    $"Ряды поперечной арматуры ближе h0/3 к грани площади ({rc.NearFace} шт.) в расчёте не учитываются.",
+                    [rc.NearFace.ToString(System.Globalization.CultureInfo.InvariantCulture)]));
+            double asw = PunchingSwLayout.AswPerLine(r, h0);
+            if (r.Rows is null && (r.Asw > 0 || r.Cross is not null))
+                warnings.Add(new("sw_detailing_not_checked",
+                    "Конструктивные требования п. 10.3 к поперечной арматуре не проверяются (ряды не заданы)."));
+            if (r.Cross is not null)
+            {
+                var (qx, qy) = PunchingSwLayout.QCross(r, h0);
+                return new SwSetup(r, asw, 0, qx, qy, rc);
+            }
+            return new SwSetup(r, asw, PunchingSwLayout.QUniform(r, h0), 0, 0, rc);
+        }
+    }
+
+    static void ValidateReinforcement(PunchingShearReinforcement r)
+    {
+        if (r.Asw < 0 || r.Rsw < 0)
+            throw new ArgumentException("Площадь поперечной арматуры и Rsw должны быть ≥ 0.", nameof(r));
+        if (r.Cross is null && !(r.Sw > 0))
+            throw new ArgumentException("Шаг поперечной арматуры вдоль контура должен быть > 0.", nameof(r));
+        if (r.Rows is { } rows && (rows.Count < 1 || rows.BarArea < 0 || rows.FirstRow < 0 || (rows.Count > 1 && !(rows.Step > 0))))
+            throw new ArgumentException("Ряды поперечной арматуры: число ≥ 1, расстояние до первого ряда ≥ 0, шаг > 0.", nameof(r));
+        foreach (var a in new[] { r.Cross?.AlongX, r.Cross?.AlongY })
+            if (a is not null && (a.Width < 0 || (a.Width > 0 && !(a.Sw > 0))))
+                throw new ArgumentException("Лучи креста: ширина ≥ 0, шаг линий > 0.", nameof(r));
+    }
 
     static PunchingVariantResult Evaluate(Context ctx, PunchingVariant v)
         => v.Kind == PunchingVariantKind.PylonReduced ? EvaluateReduced(ctx, v) : EvaluateContour(ctx, v);
@@ -202,14 +273,15 @@ public static class PunchingChecker
         double fb = rbt * g.U * h0;                     // (8.88), (8.89)
         double mbx = rbt * wbx * h0, mby = rbt * wby * h0; // (8.94)
 
-        double qsw = v.Zone == PunchingZone.Main ? input.Reinforcement?.Qsw ?? 0 : 0;
-        double fswRaw = 0.8 * qsw * g.U;               // (8.91)
-        bool counted = qsw > 0 && fswRaw >= 0.25 * fb * (1 - 1e-12);
-        if (qsw > 0 && !counted)
+        var swd = v.Zone == PunchingZone.Main ? SwDetail(ctx, v, g, wbx, wby) : null;
+        double fswRaw = swd?.FswRaw ?? 0;
+        bool counted = fswRaw > 0 && fswRaw >= 0.25 * fb * (1 - 1e-12);
+        if (fswRaw > 0 && !counted && ctx.SwScale == 1.0)
             ctx.Warnings.Add(new("sw_not_counted",
                 $"Контур «{v.Id}»: Fsw,ult < 0,25·Fb,ult — поперечная арматура не учитывается (п. 8.1.48).", [v.Id]));
         double fsw = counted ? fswRaw : 0;
-        double mswx = counted ? 0.8 * qsw * wbx : 0, mswy = counted ? 0.8 * qsw * wby : 0; // (8.97), Wsw = Wb (8.1.52)
+        double mswx = counted ? swd!.MswxRaw : 0, mswy = counted ? swd!.MswyRaw : 0;
+        double qsw = swd?.Qsw ?? 0;
 
         double fult = Math.Min(fb + fsw, 2 * fb);
         double mxult = Math.Min(mbx + mswx, 2 * mbx), myult = Math.Min(mby + mswy, 2 * mby);
@@ -223,10 +295,35 @@ public static class PunchingChecker
 
         IReadOnlyList<CalculationTraceStep> trace = !ctx.IncludeTrace ? [] : PunchingTrace.Build(new PunchingTraceData(v, g, wbx, wby, h0, rbt, input.Reinforcement,
             qsw, fswRaw, fsw, counted, fb, mbx, mby, mswx, mswy, fult, mxult, myult, F, ctx.Fred, mx0, my0,
-            o, ex, ey, s, ctx.Options.EccentricityX, ctx.Options.EccentricityY, mxStar, myStar, kF, kMRaw, kM, k));
+            o, ex, ey, s, ctx.Options.EccentricityX, ctx.Options.EccentricityY, mxStar, myStar, kF, kMRaw, kM, k, swd, ctx.Sw.Rows));
 
         return new PunchingVariantResult(v, g, wbx, wby, fb, fsw, counted, mbx, mby, mswx, mswy,
-            fult, mxult, myult, ctx.Fred, mxStar, myStar, kF, kMRaw, kM, k, kb, kmax, false, trace);
+            fult, mxult, myult, ctx.Fred, mxStar, myStar, kF, kMRaw, kM, k, kb, kmax, false, trace, swd);
+    }
+
+    /// <summary>
+    /// Fsw, Msw варианта основной зоны. Равномерная: (8.91), (8.97) с Wsw = Wb. Крест: по участкам под лучами,
+    /// Wsw — по тем же правилам, что Wb (относительно центра тяжести контура бетона, тот же делитель).
+    /// </summary>
+    static PunchingSwDetail? SwDetail(Context ctx, PunchingVariant v, ContourProperties g, double wbx, double wby)
+    {
+        var sw = ctx.Sw;
+        if (!sw.Any) return null;
+        double s = ctx.SwScale;
+        double ymax = wbx > 0 ? g.Ibx / wbx : 0, xmax = wby > 0 ? g.Iby / wby : 0;
+        if (sw.R!.Cross is not { } cross)
+        {
+            double q = s * sw.Q;
+            return new PunchingSwDetail(false, s * sw.AswLine, q, 0, 0, g.U,
+                0.8 * q * g.U, 0.8 * q * wbx, 0.8 * q * wby, ymax, xmax, null);   // (8.91), (8.97), п. 8.1.52
+        }
+        var armed = ctx.Geometry?.Armed.GetValueOrDefault(v.Id)
+            ?? PunchingSwLayout.Armed(v.Contour, ctx.Input.LoadArea, cross, new PlanPoint(g.Xc, g.Yc));
+        double qx = s * sw.QX, qy = s * sw.QY;
+        double fsw = 0.8 * (qx * armed.LX + qy * armed.LY);
+        double mswx = ymax > 0 ? 0.8 * (qx * armed.IbxX + qy * armed.IbxY) / ymax : 0;
+        double mswy = xmax > 0 ? 0.8 * (qx * armed.IbyX + qy * armed.IbyY) / xmax : 0;
+        return new PunchingSwDetail(true, s * sw.AswLine, 0, qx, qy, armed.LX + armed.LY, fsw, mswx, mswy, ymax, xmax, armed);
     }
 
     static PunchingVariantResult EvaluateReduced(Context ctx, PunchingVariant v)
@@ -236,7 +333,10 @@ public static class PunchingChecker
         var gp = GalyautdinovPerimeter.Compute(rect.Bx, rect.By, input.H0);
         double factor = GalyautdinovPerimeter.ReinforcementFactor(ctx.Options.LongitudinalRatio);
         double fb = input.Rbt * gp.URed * input.H0 * factor;   // (5.34), (5.35)
-        double qsw = input.Reinforcement?.Qsw ?? 0;
+        double qsw = ctx.SwScale * ctx.Sw.Q;
+        if (ctx.Sw.R?.Cross is not null && ctx.Sw.Any)
+            ctx.Warnings.Add(new("sw_cross_reduced_ignored",
+                "Приведённый периметр пилона: крестообразная арматура не учитывается (только равномерная вдоль контура)."));
         double fswRaw = 0.8 * qsw * gp.URed;
         bool counted = qsw > 0 && fswRaw >= 0.25 * fb;
         double fsw = counted ? fswRaw : 0;

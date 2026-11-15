@@ -65,10 +65,16 @@ public static class PunchingContourBuilder
             warnings.Add(new("concave_area_hull",
                 "Грузовая площадь невыпуклая — контур построен по выпуклой оболочке."));
 
-        AddZone(input, PunchingZone.Main, h0 / 2, variants, warnings);
+        AddZone(input, PunchingZone.Main, ClosedBoundary(input.LoadArea, h0 / 2), variants, warnings);
 
-        if (input.Reinforcement is { ZoneExtent: double ext } && ext > 0)
-            AddZone(input, PunchingZone.BeyondReinforcement, ext + h0 / 2, variants, warnings);
+        if (input.Reinforcement is { } rf && rf.EffectiveZoneExtent is double ext && ext > 0)
+        {
+            // За крестом — по диагоналям от концов лучей (п. 8.1.48, рис. 8.11г), иначе — на h0/2 за зоной (рис. 8.13).
+            var outer = rf.Cross is { } cross && (cross.AlongX is { Any: true } || cross.AlongY is { Any: true })
+                ? Lines(PunchingSwLayout.CrossBeyondPolygon(input.LoadArea, cross, ext, h0))
+                : ClosedBoundary(input.LoadArea, ext + h0 / 2);
+            AddZone(input, PunchingZone.BeyondReinforcement, outer, variants, warnings);
+        }
 
         if (options.Pylon == PylonMode.Auto && input.LoadArea is PunchingLoadArea.Rectangle rect)
         {
@@ -110,12 +116,11 @@ public static class PunchingContourBuilder
         return new BuildResult(variants, warnings);
     }
 
-    static void AddZone(PunchingInput input, PunchingZone zone, double offset,
+    static void AddZone(PunchingInput input, PunchingZone zone, List<ContourElement> boundary,
         List<PunchingVariant> variants, List<PunchingWarning> warnings)
     {
         var edges = input.Edges ?? Array.Empty<PunchingSlabEdge>();
         string prefix = zone == PunchingZone.Main ? "" : "outer_";
-        var boundary = ClosedBoundary(input.LoadArea, offset);
 
         // Замкнутый — если целиком в плите.
         var closed = PunchingContour.FromElements(boundary);
@@ -173,6 +178,20 @@ public static class PunchingContourBuilder
                 return els;
         }
     }
+
+    static List<ContourElement> Lines(List<PlanPoint> pts)
+    {
+        var els = new List<ContourElement>();
+        for (int i = 0; i < pts.Count; i++)
+            els.Add(new LineElement(pts[i], pts[(i + 1) % pts.Count]));
+        return els;
+    }
+
+    /// <summary>Многоугольник площади, смещённый наружу на d с острыми углами (круг — 720-угольник).</summary>
+    public static List<PlanPoint> OffsetAreaPolygon(PunchingLoadArea area, double d) => OffsetPolygon(AreaPolygon(area), d);
+
+    /// <summary>Выпуклая оболочка точек против часовой стрелки.</summary>
+    public static List<PlanPoint> ConvexHullCcw(IReadOnlyList<PlanPoint> points) => ConvexHull(points);
 
     /// <summary>Выпуклый многоугольник площади против часовой стрелки.</summary>
     public static List<PlanPoint> AreaPolygon(PunchingLoadArea area) => area switch

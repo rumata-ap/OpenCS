@@ -75,15 +75,58 @@ public sealed record PunchingForces(
     PunchingLoadSide LoadSide = PunchingLoadSide.FromBelow,
     double CounterPressure = 0.0);
 
-/// <summary>Равномерная поперечная арматура вдоль контура (пп. 8.1.48, 8.1.52).</summary>
-/// <param name="Rsw">Расчётное сопротивление, кПа.</param>
-/// <param name="Asw">Площадь в одном ряду вдоль контура на длине Sw, м².</param>
-/// <param name="Sw">Шаг вдоль контура, м.</param>
-/// <param name="ZoneExtent">От грани грузовой площади до внешнего ряда, м; null — контур за зоной не проверять.</param>
-public sealed record PunchingShearReinforcement(double Rsw, double Asw, double Sw, double? ZoneExtent = null)
+/// <summary>
+/// Ряды поперечной арматуры поперёк сторон контура, считая от грани грузовой площади (п. 10.3.17, рис. 8.13).
+/// </summary>
+/// <param name="BarArea">Площадь одного стержня, м².</param>
+/// <param name="FirstRow">Расстояние от грани площади до первого ряда s1, м.</param>
+/// <param name="Step">Шаг рядов sd, м.</param>
+/// <param name="Count">Число рядов nr ≥ 1.</param>
+public sealed record PunchingStirrupRows(double BarArea, double FirstRow, double Step, int Count)
 {
-    /// <summary>qsw = Rsw·Asw/sw (8.92), кН/м.</summary>
+    /// <summary>От грани площади до внешнего ряда: s1 + (nr − 1)·sd, м.</summary>
+    public double Extent => FirstRow + Math.Max(0, Count - 1) * Step;
+
+    /// <summary>Расстояния рядов от грани площади, м.</summary>
+    public IEnumerable<double> Positions => Enumerable.Range(0, Math.Max(0, Count)).Select(i => FirstRow + i * Step);
+}
+
+/// <summary>
+/// Лучи крестообразной арматуры вдоль одной оси площадки (рис. 8.11г): полоса шириной <paramref name="Width"/>
+/// поперёк луча, линии стержней с шагом <paramref name="Sw"/> вдоль контура.
+/// </summary>
+/// <param name="Width">Ширина луча Lsw (между крайними линиями стержней), м.</param>
+/// <param name="Sw">Шаг линий стержней вдоль контура, м.</param>
+/// <param name="Positive">Луч в сторону + оси есть.</param>
+/// <param name="Negative">Луч в сторону − оси есть.</param>
+public sealed record PunchingCrossArm(double Width, double Sw, bool Positive = true, bool Negative = true)
+{
+    /// <summary>Есть хотя бы один луч.</summary>
+    public bool Any => Width > 0 && Sw > 0 && (Positive || Negative);
+}
+
+/// <summary>Крестообразная арматура: лучи вдоль X (у граней ±x) и вдоль Y (у граней ±y).</summary>
+public sealed record PunchingCrossArms(PunchingCrossArm? AlongX, PunchingCrossArm? AlongY);
+
+/// <summary>Поперечная арматура при продавливании (пп. 8.1.48, 8.1.50, 8.1.52).</summary>
+/// <param name="Rsw">Расчётное сопротивление, кПа.</param>
+/// <param name="Asw">Площадь в одной линии вдоль контура на длине Sw, м² (без <paramref name="Rows"/>).</param>
+/// <param name="Sw">Шаг линий вдоль контура при равномерной раскладке, м.</param>
+/// <param name="ZoneExtent">От грани грузовой площади до внешнего ряда, м; null — контур за зоной не проверять
+/// (с <paramref name="Rows"/> берётся из рядов).</param>
+/// <param name="Rows">Ряды поперёк контура: Asw в линии считается по рядам в полосе ±0,5h0, проверяется п. 10.3.17.</param>
+/// <param name="Cross">Крестообразная раскладка; null — равномерная вдоль контура.</param>
+public sealed record PunchingShearReinforcement(double Rsw, double Asw, double Sw, double? ZoneExtent = null,
+    PunchingStirrupRows? Rows = null, PunchingCrossArms? Cross = null)
+{
+    /// <summary>qsw = Rsw·Asw/sw (8.92) при заданной Asw, кН/м (равномерная раскладка без рядов).</summary>
     public double Qsw => Sw > 0 ? Rsw * Asw / Sw : 0;
+
+    /// <summary>Крестообразная раскладка.</summary>
+    public bool IsCross => Cross is not null;
+
+    /// <summary>Граница армированной зоны от грани площади, м; null — не задана.</summary>
+    public double? EffectiveZoneExtent => Rows is { Count: > 0 } r ? r.Extent : ZoneExtent;
 }
 
 /// <summary>Свободный край плиты — прямая; плита лежит со стороны внутренней нормали.</summary>

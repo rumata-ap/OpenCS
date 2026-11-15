@@ -17,10 +17,11 @@ public sealed record PunchingSceneHoleRays(int HoleIndex, PlanPoint Lo, PlanPoin
 /// <param name="Centroid">Центр тяжести контура, м.</param>
 /// <param name="Utilization">Кисп варианта.</param>
 /// <param name="Governs">Определяющий вариант.</param>
+/// <param name="Armed">Участки контура под лучами креста (п. 8.1.48, рис. 8.11г); null — нет.</param>
 public sealed record PunchingSceneVariant(
     string Id, PunchingVariantKind Kind, PunchingZone Zone,
     IReadOnlyList<IReadOnlyList<ContourElement>> Pieces, IReadOnlyList<ContourElement> Excluded,
-    PlanPoint Centroid, double Utilization, bool Governs);
+    PlanPoint Centroid, double Utilization, bool Governs, IReadOnlyList<ContourElement>? Armed = null);
 
 /// <summary>
 /// Рисунок узла продавливания: грузовая площадь, края плиты, отверстия и варианты контура.
@@ -36,10 +37,13 @@ public sealed record PunchingSceneVariant(
 /// <param name="H0">Рабочая высота, м (для подписи h0/2).</param>
 /// <param name="Variants">Варианты контура.</param>
 /// <param name="HoleRays">Касательные к отверстиям, вырезающим часть контура.</param>
+/// <param name="SwBars">Стержни поперечной арматуры в плане (по рядам); null — не заданы.</param>
+/// <param name="SwCross">Раскладка — крест.</param>
 public sealed record PunchingScene(
     IReadOnlyList<PlanPoint> AreaPolygon, double? AreaDiameter, double? AreaInnerDiameter, PlanPoint AreaCentroid,
     IReadOnlyList<PunchingSceneEdge> Edges, IReadOnlyList<IReadOnlyList<PlanPoint>> Holes, double H0,
-    IReadOnlyList<PunchingSceneVariant> Variants, IReadOnlyList<PunchingSceneHoleRays>? HoleRays = null)
+    IReadOnlyList<PunchingSceneVariant> Variants, IReadOnlyList<PunchingSceneHoleRays>? HoleRays = null,
+    IReadOnlyList<PlanPoint>? SwBars = null, bool SwCross = false)
 {
     /// <summary>Сцена без вариантов — только исходные данные (для рисунка до расчёта).</summary>
     public static PunchingScene FromInput(PunchingInput input) => From(input, null);
@@ -71,13 +75,15 @@ public sealed record PunchingScene(
                 v.Variant.Id, v.Variant.Kind, v.Variant.Zone,
                 v.Variant.Contour.Pieces.Select(p => p.Elements).ToList(),
                 v.Variant.Excluded.ToList(),
-                new PlanPoint(v.Geometry.Xc, v.Geometry.Yc), v.Utilization, v.Governs)).ToList();
+                new PlanPoint(v.Geometry.Xc, v.Geometry.Yc), v.Utilization, v.Governs,
+                v.Sw?.Armed is { } am ? am.ElementsX.Concat(am.ElementsY).ToList() : null)).ToList();
         var rays = new List<PunchingSceneHoleRays>();
         for (int i = 0; i < holes.Count; i++)
             if (PunchingContourBuilder.HoleTangents(input, holes[i]) is { } tg)
                 rays.Add(new PunchingSceneHoleRays(i, tg.Lo, tg.Hi));
+        var bars = PunchingSwLayout.BarPoints(input);
         return new PunchingScene(polygon, d, di, PunchingContourBuilder.AreaCentroid(input.LoadArea),
-            edges, holes, input.H0, variants, rays);
+            edges, holes, input.H0, variants, rays, bars.Count > 0 ? bars : null, input.Reinforcement?.Cross is not null);
     }
 
     /// <summary>Точки элемента контура для рисования: отрезок — концы, дуга — ломаная с шагом не больше 3°.</summary>
@@ -119,6 +125,7 @@ public sealed record PunchingScene(
             Add(AreaCentroid.X + d / 2, AreaCentroid.Y + d / 2);
         }
         foreach (var h in Holes) foreach (var p in h) Add(p.X, p.Y);
+        foreach (var p in SwBars ?? []) Add(p.X, p.Y);
         foreach (var v in Variants)
             foreach (var e in v.Pieces.SelectMany(x => x).Concat(v.Excluded))
             {
@@ -189,9 +196,16 @@ public static class PunchingSceneJson
             w.WriteEndArray();
             w.WritePropertyName("excluded");
             WriteElements(w, v.Excluded);
+            if (v.Armed is { Count: > 0 } armed)
+            {
+                w.WritePropertyName("armed");
+                WriteElements(w, armed);
+            }
             w.WriteEndObject();
         }
         w.WriteEndArray();
+        if (s.SwBars is { Count: > 0 } bars) WritePoints(w, "sw_bars", bars);
+        if (s.SwCross) w.WriteBoolean("sw_cross", true);
         w.WriteEndObject();
     }
 
@@ -237,13 +251,16 @@ public static class PunchingSceneJson
                     Enum.TryParse<PunchingVariantKind>(Str(v, "kind"), out var k) ? k : PunchingVariantKind.Custom,
                     Enum.TryParse<PunchingZone>(Str(v, "zone"), out var z) ? z : PunchingZone.Main,
                     pieces, excluded, new PlanPoint(Num(v, "xc"), Num(v, "yc")), ratio,
-                    v.TryGetProperty("governs", out var g) && g.ValueKind == JsonValueKind.True));
+                    v.TryGetProperty("governs", out var g) && g.ValueKind == JsonValueKind.True,
+                    v.TryGetProperty("armed", out var am) ? ReadElements(am) : null));
             }
         var rays = new List<PunchingSceneHoleRays>();
         if (e.TryGetProperty("hole_rays", out var ra) && ra.ValueKind == JsonValueKind.Array)
             foreach (var r in ra.EnumerateArray())
                 rays.Add(new PunchingSceneHoleRays((int)Num(r, "hole"), new PlanPoint(Num(r, "lox"), Num(r, "loy")), new PlanPoint(Num(r, "hix"), Num(r, "hiy"))));
-        return new PunchingScene(polygon, d, di, centroid, edges, holes, Num(e, "h0"), variants, rays);
+        var bars = ReadPoints(e, "sw_bars");
+        return new PunchingScene(polygon, d, di, centroid, edges, holes, Num(e, "h0"), variants, rays,
+            bars.Count > 0 ? bars : null, e.TryGetProperty("sw_cross", out var sc) && sc.ValueKind == JsonValueKind.True);
     }
 
     static void WritePoints(Utf8JsonWriter w, string name, IReadOnlyList<PlanPoint> pts)
