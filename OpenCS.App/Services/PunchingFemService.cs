@@ -23,6 +23,9 @@ public sealed class PunchingFemSchemaData
     public required IReadOnlyDictionary<string, FemElement> ElementsByTag { get; init; }
     /// <summary>Пластины каждой плиты по её индексу.</summary>
     public required IReadOnlyList<IReadOnlySet<string>> SlabShells { get; init; }
+    /// <summary>Геометрия КЭ и КЭ у узлов для разреза основания — одна на схему (строится при первом разрезе).</summary>
+    public PunchingFemCut.MeshIndex CutIndex => _cutIndex ??= new PunchingFemCut.MeshIndex(Model.Nodes, Model.Elements);
+    PunchingFemCut.MeshIndex? _cutIndex;
 }
 
 /// <summary>
@@ -213,6 +216,8 @@ public static class PunchingFemService
             : null;
         var loadsModel = parent.Adapted.HasErrors ? StoreyFragmentMaskService.ParentModelOf(db, schema.Id, setup, sections: false) : parent;
         bool loadsKnown = loadsModel.Adapted.Model.LoadCases.Count > 0;
+        // Разбор нагрузок готовится один раз на источник: на узел — только отсечение по основанию.
+        var preparedLoads = new Lazy<FragmentBandLoads.Prepared>(() => new FragmentBandLoads.Prepared(loadsModel.Input, loadsModel.Loads));
 
         return new PunchingFemSource
         {
@@ -224,7 +229,7 @@ public static class PunchingFemService
             NodalUnavailable = unavailable,
             BaseLoads = !loadsKnown ? null : (bounds, origin) =>
             {
-                var perCase = FragmentBandLoads.Compute(loadsModel.Input, loadsModel.Loads, bounds, origin);
+                var perCase = preparedLoads.Value.Compute(bounds, origin);
                 var byKey = new Dictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>();
                 foreach (var (key, fields, _) in steps)
                 {
@@ -310,10 +315,11 @@ public static class PunchingFemService
         try
         {
             var model = StoreyFragmentMaskService.ParentModelOf(db, schema.Id, new FemCsfeaSetup(), sections: false);
+            var prepared = new Lazy<FragmentBandLoads.Prepared>(() => new FragmentBandLoads.Prepared(model.Input, model.Loads));
             if (model.Adapted.Model.LoadCases.Count > 0)
                 baseLoads = (bounds, origin) =>
                 {
-                    var perCase = FragmentBandLoads.Compute(model.Input, model.Loads, bounds, origin);
+                    var perCase = prepared.Value.Compute(bounds, origin);
                     var byKey = new Dictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>();
                     foreach (var (key, _) in keys)
                     {
@@ -385,7 +391,7 @@ public static class PunchingFemService
         string? cutFailure = null;
         if (source.Nodal != null)
         {
-            cut = PunchingFemCut.Compute(joint, data.Model.Nodes, data.Model.Elements, data.SlabShells[joint.SlabIndex], keys, source.Nodal);
+            cut = PunchingFemCut.Compute(joint, data.Model.Nodes, data.CutIndex, data.SlabShells[joint.SlabIndex], keys, source.Nodal);
             cutFailure = cut.Failure;
         }
         else if (main == PunchingFemForceMethod.Contour && !source.ShellCut)

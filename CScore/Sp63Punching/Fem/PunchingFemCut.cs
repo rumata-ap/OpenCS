@@ -48,35 +48,57 @@ public static class PunchingFemCut
             values.Where(kv => keep(kv.Key)).ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
     }
 
+    /// <summary>
+    /// Геометрия КЭ схемы и КЭ у каждого узла — строятся один раз на схему и служат всем её узлам продавливания
+    /// (без индекса каждый узел перебирал бы все КЭ схемы).
+    /// </summary>
+    public sealed class MeshIndex
+    {
+        public MeshIndex(IReadOnlyDictionary<string, FemMeshNode> nodes, IReadOnlyList<FemElement> elements)
+        {
+            ArgumentNullException.ThrowIfNull(nodes);
+            ArgumentNullException.ThrowIfNull(elements);
+            foreach (var e in elements)
+            {
+                if (FemElementGeometry.Of(e, nodes) is not { } g) continue;
+                Ordered.Add((e, g));
+                foreach (var t in g.NodeTags)
+                {
+                    if (!At.TryGetValue(t, out var l)) At[t] = l = [];
+                    l.Add(e);
+                }
+            }
+        }
+
+        /// <summary>КЭ с геометрией в порядке схемы.</summary>
+        internal List<(FemElement Element, FemElementGeometry Geometry)> Ordered { get; } = [];
+        /// <summary>КЭ у узла.</summary>
+        internal Dictionary<string, List<FemElement>> At { get; } = new(StringComparer.Ordinal);
+    }
+
     public static PunchingFemCutResult Compute(PunchingFemJoint joint, IReadOnlyDictionary<string, FemMeshNode> nodes,
         IReadOnlyList<FemElement> elements, IReadOnlySet<string> slabShells, IReadOnlyList<FragmentMaskKey> keys,
+        IFragmentParentNodalForces source) =>
+        Compute(joint, nodes, new MeshIndex(nodes, elements), slabShells, keys, source);
+
+    public static PunchingFemCutResult Compute(PunchingFemJoint joint, IReadOnlyDictionary<string, FemMeshNode> nodes,
+        MeshIndex index, IReadOnlySet<string> slabShells, IReadOnlyList<FragmentMaskKey> keys,
         IFragmentParentNodalForces source)
     {
         ArgumentNullException.ThrowIfNull(joint);
+        ArgumentNullException.ThrowIfNull(index);
         ArgumentNullException.ThrowIfNull(source);
         var faces = PunchingFemColumnAction.BaseFaces(joint);
         var bounds = PunchingFemColumnAction.BaseBounds(joint);
 
         // КЭ плиты у основания: центр в основании (тело) и все КЭ у узлов тела.
-        var geometry = new Dictionary<string, FemElementGeometry>(StringComparer.Ordinal);
-        var at = new Dictionary<string, List<FemElement>>(StringComparer.Ordinal);
-        foreach (var e in elements)
-        {
-            if (FemElementGeometry.Of(e, nodes) is not { } g) continue;
-            geometry[e.ElemTag] = g;
-            foreach (var t in g.NodeTags)
-            {
-                if (!at.TryGetValue(t, out var l)) at[t] = l = [];
-                l.Add(e);
-            }
-        }
         var bodyNodes = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var e in elements)
-            if (slabShells.Contains(e.ElemTag) && geometry.TryGetValue(e.ElemTag, out var g) && bounds.InBox(g.Centroid))
+        foreach (var (e, g) in index.Ordered)
+            if (slabShells.Contains(e.ElemTag) && bounds.InBox(g.Centroid))
                 bodyNodes.UnionWith(g.NodeTags);
         var selected = new Dictionary<string, FemElement>(StringComparer.Ordinal);
         foreach (var n in bodyNodes)
-            if (at.TryGetValue(n, out var es))
+            if (index.At.TryGetValue(n, out var es))
                 foreach (var e in es) selected.TryAdd(e.ElemTag, e);
         var list = selected.Values.ToList();
         var others = list.Where(e => !slabShells.Contains(e.ElemTag)).Select(e => e.ElemTag).ToHashSet(StringComparer.Ordinal);
