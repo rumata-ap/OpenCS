@@ -39,6 +39,8 @@
                        Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}"/>
             <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" Margin="0,2,0,0"/>
             <TextBlock Text="{Binding RatiosText}" TextWrapping="Wrap" Margin="0,2,0,0" Foreground="#555"/>
+            <TextBlock Text="{Binding DesignText}" TextWrapping="Wrap" Margin="0,4,0,0" FontWeight="SemiBold" Foreground="#1E3A8A"
+                       Visibility="{Binding HasDesign, Converter={StaticResource BoolToVisibility}}"/>
             <TextBlock Text="{Binding CountsText}" TextWrapping="Wrap" Margin="0,2,0,0" Foreground="#555"/>
          </StackPanel>
       </Border>

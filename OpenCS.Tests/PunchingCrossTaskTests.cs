@@ -118,4 +118,31 @@ public sealed class PunchingCrossTaskTests
         Assert.Contains(steps, s => s.EndsWith(".wswy"));
         Assert.Contains(doc.Blocks.OfType<ReportParagraph>(), p => p.Text.Contains("Ø10"));
     }
+
+    [Fact]
+    public void Batch_DesignByWorstRow()
+    {
+        var p = Posobie();
+        var s = new PunchingStrengths(1050, 300_000, "", "", []);
+        LoadItem[] items =
+        [
+            new() { Id = 1, Num = 1, Label = "малое", N = -1500, Mx = 0, My = 0 },
+            new() { Id = 2, Num = 2, Label = "Пособие", N = -286 * Tf, Mx = 1.56 * Tf, My = 2.34 * Tf },
+            new() { Id = 3, Num = 3, Label = "большое", N = -3300, Mx = 0, My = 0 },
+        ];
+        var o = PunchingBatchRunner.Evaluate(p, s, items);
+        Assert.Null(o.Rows[0].Design);                       // бетона хватает
+        Assert.NotNull(o.Rows[2].Design);
+        Assert.True(o.Rows[2].Design!.Lambda > o.Rows[1].Design!.Lambda);
+        var task = new CalcTask { Id = 9, Tag = "Пакет", Kind = PunchingBatchRunner.Kind, CalcType = CalcType.C, ParamsJson = p.ToJson() };
+        var json = PunchingBatchRunner.Serialize(task, "набор", p, s, o);
+        var data = PunchingBatchReportData.Parse(json);
+        Assert.Equal(3, data.DesignNum);
+        Assert.Equal(2, data.DesignRows);
+        Assert.NotNull(data.Design);
+        using var doc = JsonDocument.Parse(json);
+        var rows = doc.RootElement.GetProperty("rows");
+        Assert.Equal(JsonValueKind.Null, rows[0].GetProperty("qsw_x_req").ValueKind);
+        Assert.True(rows[2].GetProperty("qsw_x_req").GetDouble() > 0);
+    }
 }

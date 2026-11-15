@@ -297,6 +297,13 @@ public sealed class PunchingBatchResultVM : ViewModelBase
     /// <summary>Оценка узла по набору.</summary>
     public string StatusText => HasError ? "" : Loc.S("PunchingStatus_" + Data.Status, Data.Status);
 
+    /// <summary>Подбор поперечной арматуры по строке с наибольшим требованием; пусто — не требовался.</summary>
+    public string DesignText => HasError || Data.Design is not { } d ? ""
+        : string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingBatchDesignRow", "Строка № {0} «{1}» (наибольшее требование из {2}): "),
+            Data.DesignNum, Data.DesignLabel, Data.DesignRows) + PunchingResultVM.DesignLine(d);
+    /// <summary>Есть подбор.</summary>
+    public bool HasDesign => DesignText.Length > 0;
+
     /// <summary>Наибольшие Кисп без арматуры и с предельной арматурой.</summary>
     public string RatiosText => HasError ? "" : string.Format(CultureInfo.CurrentCulture,
         Loc.S("PunchingRatiosLine", "Кисп без поперечной арматуры: {0}; с предельной арматурой (2Fb, 2Mb): {1}"),

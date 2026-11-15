@@ -20,7 +20,8 @@ public sealed record PunchingBatchReportData(
     string GoverningVariant, string Status, double? RatioConcrete, double? RatioMaxSw,
     IReadOnlyList<PunchingBatchReportVariant> Variants, IReadOnlyList<PunchingBatchReportRow> Rows,
     IReadOnlyList<PunchingReportWarning> Warnings, IReadOnlyList<PunchingReportStep> CommonTrace,
-    PunchingScene? Scene, JsonElement? Inputs, string? GoverningDetailJson, string? Error)
+    PunchingScene? Scene, JsonElement? Inputs, string? GoverningDetailJson, string? Error,
+    PunchingReportDesign? Design = null, int? DesignNum = null, string DesignLabel = "", int DesignRows = 0)
 {
     /// <summary>Число краёв плиты (для названий вариантов).</summary>
     public int EdgeCount => Scene?.Edges.Count ?? 2;
@@ -81,7 +82,10 @@ public sealed record PunchingBatchReportData(
             r.TryGetProperty("scene", out var s) && s.ValueKind == JsonValueKind.Object ? PunchingSceneJson.Read(s) : null,
             r.TryGetProperty("inputs", out var inp) && inp.ValueKind == JsonValueKind.Object ? inp.Clone() : null,
             r.TryGetProperty("governing_detail", out var gd) && gd.ValueKind == JsonValueKind.Object ? gd.GetRawText() : null,
-            null);
+            null,
+            r.TryGetProperty("design", out var dz) && dz.ValueKind == JsonValueKind.Object
+                ? PunchingReportData.Parse($$"""{"design":{{dz.GetRawText()}}}""").Design : null,
+            Int(r, "design_num"), Str(r, "design_label"), Int(r, "design_rows") ?? 0);
     }
 
     static string Str(JsonElement e, string n) => e.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
@@ -257,6 +261,12 @@ public sealed class PunchingBatchReportProvider : IReportProvider
             ("K с предельной арматурой (Fult = 2Fb, Mult = 2Mb)", data.RatioMaxSw is double km ? K(km) : "—"),
             ("Оценка узла", PunchingReportText.Status(data.Status))
         ], "Показатель", "Значение"));
+        if (data.Design is { } d)
+        {
+            PunchingReportProvider.AddDesign(doc, d, $"по строке № {data.DesignNum} «{data.DesignLabel}»");
+            doc.Add(new ReportParagraph($"Подбор выполнен по каждой из {data.DesignRows} строк, где бетона недостаточно; "
+                + "показана строка с наибольшим требуемым армированием, ширина зоны — по ней же."));
+        }
     }
 
     static string Readable(string text, PunchingBatchReportData data, int edges)

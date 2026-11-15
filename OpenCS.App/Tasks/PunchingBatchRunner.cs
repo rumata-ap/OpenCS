@@ -14,7 +14,8 @@ namespace OpenCS.Tasks;
 /// <param name="Result">Результат ядра (без трассировки).</param>
 /// <param name="Reversed">N другого знака, чем преобладающий в наборе.</param>
 /// <param name="Verdict">Причина строки: наибольший Кисп по вариантам контура.</param>
-public sealed record PunchingBatchRow(LoadItem Item, PunchingResult Result, bool Reversed, BatchRowVerdict Verdict);
+public sealed record PunchingBatchRow(LoadItem Item, PunchingResult Result, bool Reversed, BatchRowVerdict Verdict,
+    PunchingDesignResult? Design = null);
 
 /// <summary>Огибающая варианта контура по строкам набора.</summary>
 /// <param name="Id">Идентификатор варианта.</param>
@@ -114,12 +115,25 @@ public static class PunchingBatchRunner
         else if (items.Count > 256) Parallel.For(0, items.Count, Body);
         else for (int i = 0; i < items.Count; i++) Body(i);
 
+        // Подбор qsw по строкам, где бетона не хватает (без ширины зоны — она ищется по худшей строке при сериализации).
+        var designs = new PunchingDesignResult?[items.Count];
+        void DesignBody(int i)
+        {
+            if (results[i].UtilizationConcreteOnly <= 1.0) return;
+            designs[i] = PunchingDesign.Solve(baseInput with
+            {
+                Forces = baseInput.Forces with { F = Math.Abs(items[i].N), Mx = items[i].Mx, My = items[i].My }
+            }, includeZone: false, geometry);
+        }
+        if (items.Count > 64) Parallel.For(0, items.Count, DesignBody);
+        else for (int i = 0; i < items.Count; i++) DesignBody(i);
+
         int edgeCount = p.Edges.Count;
         var rows = new List<PunchingBatchRow>(items.Count);
         for (int i = 0; i < items.Count; i++)
         {
             bool reversed = Math.Sign(items[i].N) == -sign;
-            rows.Add(new PunchingBatchRow(items[i], results[i], reversed, RowVerdict(results[i], reversed, edgeCount)));
+            rows.Add(new PunchingBatchRow(items[i], results[i], reversed, RowVerdict(results[i], reversed, edgeCount), designs[i]));
         }
         int? governing = BatchVerdictSummary.GoverningIndex(rows.Select(r => r.Verdict).ToList());
 
@@ -242,6 +256,18 @@ public static class PunchingBatchRunner
                     .Select(n => n!.DeepClone()).ToArray());
         }
 
+        // Подбор — по строке с наибольшим требованием (∞ — «не обеспечить» / «раскладка не работает»), с шириной зоны.
+        var worst = o.Rows.Where(r => r.Design is not null).MaxBy(r => r.Design!.Lambda);
+        if (worst is not null)
+        {
+            var wp = RowParams(p, worst.Item);
+            var wd = PunchingDesign.Solve(wp.ToInput(s.Rbt, s.Rsw));
+            root["design"] = JsonNode.Parse(PunchingResultJson.WriteDesign(wd));
+            root["design_num"] = worst.Item.Num;
+            root["design_label"] = worst.Item.Label;
+            root["design_rows"] = o.Rows.Count(r => r.Design is not null);
+        }
+
         var g = o.Governing;
         double? util = g?.Verdict.Util;
         root["passed"] = g is not null && g.Verdict.IsPassed && o.Rows.All(r => r.Verdict.IsPassed);
@@ -279,6 +305,10 @@ public static class PunchingBatchRunner
                 ["ratio_concrete"] = Finite(r.Result.UtilizationConcreteOnly),
                 ["ratio_max_sw"] = Finite(r.Result.UtilizationMaxReinforcement),
                 ["node_status"] = StatusCode(r.Result.Status),
+                ["design_state"] = r.Design is { } rd ? DesignCode(rd.State) : null,
+                ["qsw_req"] = r.Design is { Cross: false } du ? Finite(du.QswReq) : null,
+                ["qsw_x_req"] = r.Design is { Cross: true } dx ? Finite(dx.QswYReq) : null,
+                ["qsw_y_req"] = r.Design is { Cross: true } dy ? Finite(dy.QswXReq) : null,
                 ["reversed"] = r.Reversed,
                 ["status"] = r.Verdict.Status,
                 ["verdict"] = JsonSerializer.SerializeToNode(r.Verdict.ToJson())
@@ -300,6 +330,15 @@ public static class PunchingBatchRunner
     }
 
     static JsonNode? Finite(double? v) => v is double x && double.IsFinite(x) ? JsonValue.Create(x) : null;
+
+    static string DesignCode(PunchingDesignState s) => s switch
+    {
+        PunchingDesignState.NotRequired => "not_required",
+        PunchingDesignState.ByCalculation => "by_calculation",
+        PunchingDesignState.ByThreshold => "by_threshold",
+        PunchingDesignState.NotEnsured => "not_ensured",
+        _ => "layout_ineffective"
+    };
 }
 
 /// <summary>Обработчик вида «punching_batch».</summary>

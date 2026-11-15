@@ -235,8 +235,13 @@ public sealed class PunchingReportProvider : IReportProvider
     /// <summary>Подбор поперечной арматуры.</summary>
     internal static void AddDesign(ReportDocument doc, PunchingReportData data)
     {
-        if (data.Design is not { } d) return;
-        doc.Add(new ReportHeading(1, "Подбор поперечной арматуры"));
+        if (data.Design is { } d) AddDesign(doc, d, null);
+    }
+
+    /// <summary>Подбор поперечной арматуры; <paramref name="where"/> — пояснение к заголовку (строка пакета).</summary>
+    internal static void AddDesign(ReportDocument doc, PunchingReportDesign d, string? where)
+    {
+        doc.Add(new ReportHeading(1, "Подбор поперечной арматуры" + (where is null ? "" : " — " + where)));
         doc.Add(new ReportParagraph(PunchingReportText.DesignSentence(d)));
         var rows = new List<(string, string)>();
         if (d.Cross)
