@@ -93,6 +93,8 @@ public sealed record PunchingFemCheckData
     public string SourceKind { get; init; } = "";
     public bool Passed { get; init; }
     public double Ratio { get; init; }
+    /// <summary>Наибольший Кисп под общим именем (его читает консоль: <c>run checks</c>).</summary>
+    public double Utilization => Ratio;
     public int TotalJoints { get; init; }
     public int PassedJoints { get; init; }
     public int FailedJoints { get; init; }

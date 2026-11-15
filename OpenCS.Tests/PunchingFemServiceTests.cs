@@ -400,7 +400,8 @@ public sealed class PunchingFemServiceTests : IDisposable
         Assert.Equal(row.Ratio, PunchingChecker.Check(tp.ToInput(st.Rbt, st.Rsw)).Utilization, 12);
         Assert.Equal("Пост.", tp.Source!.Key);
 
-        // Круговой проход JSON.
+        // Круговой проход JSON; Кисп — и под общим ключом utilization (консоль).
+        Assert.Contains("\"utilization\":", data.ToJson());
         var back = PunchingFemCheckData.Parse(data.ToJson())!;
         Assert.Equal(data.Ratio, back.Ratio);
         Assert.Equal(row.F, back.Joints[0].Rows.Single(r => r.Key == "Пост.").F);
