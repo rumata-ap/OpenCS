@@ -1298,6 +1298,22 @@
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext.GroupKey,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <!-- Продавливание по МКЭ попадает в «1-я ГПС» — там же и создаётся. -->
+                              <MenuItem helpers:CommandIcons.Header="PunchingFemCheckAdd"
+                                        Command="{Binding PlacementTarget.Tag.AddPunchingFemCheckCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                 <MenuItem.Style>
+                                    <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                                       <Setter Property="Visibility" Value="Collapsed"/>
+                                       <Style.Triggers>
+                                          <DataTrigger Binding="{Binding PlacementTarget.DataContext.GroupKey,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}" Value="uls">
+                                             <Setter Property="Visibility" Value="Visible"/>
+                                          </DataTrigger>
+                                       </Style.Triggers>
+                                    </Style>
+                                 </MenuItem.Style>
+                              </MenuItem>
                            </ContextMenu>
                         </StackPanel.ContextMenu>
                         <Image>
