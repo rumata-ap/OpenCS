@@ -1598,6 +1598,10 @@ namespace OpenCS
          }
          Application.Current.Resources.MergedDictionaries.Add(dict);
          Loc.SetLanguage(lang == 1 ? Loc.English : Loc.Russian);
+         // Подписи деревьев, собранные из строк при построении, на DynamicResource не подписаны — перечитываются явно.
+         femChecksRoot?.RefreshLanguage();
+         femSchemasGroup?.RefreshLanguage();
+         if (activeFemSchemaEditor?.Session is { } session) OverlayFemEditorSupports(session.Schema.Id);
          LangID = lang;
       }
 

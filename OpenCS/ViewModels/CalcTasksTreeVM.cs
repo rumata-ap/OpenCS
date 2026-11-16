@@ -1,21 +1,29 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using CScore;
 using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
 
-/// <summary>Подгруппа расчётных задач по типу.</summary>
-class CalcTasksSubGroupNode
+/// <summary>Подгруппа расчётных задач по типу; подпись — по ключу строки, перечитывается при смене языка.</summary>
+public class CalcTasksSubGroupNode : INotifyPropertyChanged
 {
+    public event PropertyChangedEventHandler? PropertyChanged;
+
     public string                           GroupKey { get; }
-    public string                           Label    { get; }
+    /// <summary>Ключ строки подписи.</summary>
+    public string                           LabelKey { get; }
+    public string                           Label    => Loc.S(LabelKey);
     public ObservableCollection<CalcTaskVM> Tasks    { get; } = [];
 
-    public CalcTasksSubGroupNode(string groupKey, string label)
+    public CalcTasksSubGroupNode(string groupKey, string labelKey)
     {
         GroupKey = groupKey;
-        Label    = label;
+        LabelKey = labelKey;
     }
+
+    /// <summary>Перечитывает подпись после смены языка.</summary>
+    public void RefreshLabel() => PropertyChanged?.Invoke(this, new(nameof(Label)));
 }
 
 /// <summary>
@@ -33,17 +41,23 @@ class CalcTasksRootNode
     public CalcTasksRootNode(AppViewModel app)
     {
         _app   = app;
-        _nds   = new(CalcTaskGroups.Nds,   Loc.S("CalcTaskGroupNds"));
-        _uls   = new(CalcTaskGroups.Uls,   Loc.S("CalcTaskGroupUls"));
-        _sls   = new(CalcTaskGroups.Sls,   Loc.S("CalcTaskGroupSls"));
-        _fire  = new(CalcTaskGroups.Fire,  Loc.S("CalcTaskGroupFire"));
-        _other = new(CalcTaskGroups.Other, Loc.S("CalcTaskGroupOther"));
+        _nds   = new(CalcTaskGroups.Nds,   "CalcTaskGroupNds");
+        _uls   = new(CalcTaskGroups.Uls,   "CalcTaskGroupUls");
+        _sls   = new(CalcTaskGroups.Sls,   "CalcTaskGroupSls");
+        _fire  = new(CalcTaskGroups.Fire,  "CalcTaskGroupFire");
+        _other = new(CalcTaskGroups.Other, "CalcTaskGroupOther");
         Groups = [_nds, _uls, _sls, _fire, _other];
 
         Rebuild();
 
         app.CalcTasks.CollectionChanged   += (_, _) => Rebuild();
         app.CalcResults.CollectionChanged += (_, _) => RefreshResults();
+    }
+
+    /// <summary>Подписи подгрупп — на текущем языке.</summary>
+    public void RefreshLanguage()
+    {
+        foreach (var g in Groups) g.RefreshLabel();
     }
 
     public void Rebuild()

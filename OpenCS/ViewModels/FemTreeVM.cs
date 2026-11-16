@@ -43,6 +43,12 @@ class FemSchemasGroupNode
     public void SetActiveLoadCase(int schemaId, string? tag)
         => Schemas.FirstOrDefault(schema => schema.Schema.Id == schemaId)?.LoadCasesSubNode.SetActive(tag);
 
+    /// <summary>Подписи схем, собранные из строк (ГУ, поля, загружения и комбинации), — на текущем языке.</summary>
+    public void RefreshLanguage()
+    {
+        foreach (var s in Schemas) s.RefreshLanguage();
+    }
+
     /// <summary>Перечитывает загружения и комбинации схемы.</summary>
     public void ReloadLoads(int schemaId)
         => Schemas.FirstOrDefault(schema => schema.Schema.Id == schemaId)?.ReloadLoads();
@@ -56,22 +62,29 @@ class FemSchemasGroupNode
         => Schemas.FirstOrDefault(schema => schema.Schema.Id == session.Schema.Id)?.ReloadSupports(session);
 }
 
-/// <summary>Подгруппа проверок по типу предельного состояния.</summary>
-class FemChecksSubGroupNode
+/// <summary>Подгруппа проверок по типу предельного состояния; подпись перечитывается при смене языка.</summary>
+public class FemChecksSubGroupNode : System.ComponentModel.INotifyPropertyChanged
 {
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
     public string                         GroupKey { get; }
-    public string                         Label    { get; }
+    /// <summary>Ключ строки подписи.</summary>
+    public string                         LabelKey { get; }
+    public string                         Label    => Loc.S(LabelKey);
     public ObservableCollection<FemCheck> Checks   { get; } = [];
 
-    public FemChecksSubGroupNode(string groupKey, string label)
+    public FemChecksSubGroupNode(string groupKey, string labelKey)
     {
         GroupKey = groupKey;
-        Label    = label;
+        LabelKey = labelKey;
     }
+
+    /// <summary>Перечитывает подпись после смены языка.</summary>
+    public void RefreshLabel() => PropertyChanged?.Invoke(this, new(nameof(Label)));
 }
 
 /// <summary>Корневой узел «МКЭ-проверки» — содержит 4 подгруппы (uls/sls/fire/other).</summary>
-class FemChecksRootNode
+public class FemChecksRootNode
 {
     public FemChecksSubGroupNode[] Groups { get; }
 
@@ -79,10 +92,10 @@ class FemChecksRootNode
 
     public FemChecksRootNode(ObservableCollection<FemCheck> source)
     {
-        _uls   = new("uls",   Loc.S("FemGroupUls"));
-        _sls   = new("sls",   Loc.S("FemGroupSls"));
-        _fire  = new("fire",  Loc.S("FemGroupFire"));
-        _other = new("other", Loc.S("FemGroupOther"));
+        _uls   = new("uls",   "FemGroupUls");
+        _sls   = new("sls",   "FemGroupSls");
+        _fire  = new("fire",  "FemGroupFire");
+        _other = new("other", "FemGroupOther");
         Groups = [_uls, _sls, _fire, _other];
 
         foreach (var c in source) Route(c);
@@ -99,6 +112,12 @@ class FemChecksRootNode
             if (e.OldItems != null)
                 foreach (FemCheck c in e.OldItems) Unroute(c);
         };
+    }
+
+    /// <summary>Подписи подгрупп — на текущем языке.</summary>
+    public void RefreshLanguage()
+    {
+        foreach (var g in Groups) g.RefreshLabel();
     }
 
     void Route(FemCheck c) => SubGroupFor(Classify(c)).Checks.Add(c);
@@ -267,6 +286,17 @@ class FemSchemaTreeVM : System.ComponentModel.INotifyPropertyChanged
 
     /// <summary>Перечитывает элементы несовершенств загружений.</summary>
     public void ReloadImperfections() => LoadCasesSubNode.ReloadImperfections(_db);
+
+    /// <summary>
+    /// После смены языка: ветки, подписи которых собираются из строк при чтении (граничные условия, поля из таблиц,
+    /// загружения и комбинации), перечитываются; топология и КонЭ не трогаются.
+    /// </summary>
+    public void RefreshLanguage()
+    {
+        BoundarySubNode.Reload(_db, _nodes);
+        FieldsSubNode.Reload(_db);
+        ReloadLoads();
+    }
 
     /// <summary>Какие узлы групп показывать у схемы без групп: «Группы КЭ» — при импортированной сетке,
     /// «Группы КонЭ» — если есть КонЭ или схема не чистый импорт сетки (КонЭ можно построить).</summary>

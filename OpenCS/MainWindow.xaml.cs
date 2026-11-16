@@ -47,6 +47,8 @@ namespace OpenCS
          {
             if (e2.PropertyName == nameof(AppViewModel.CalcTasks))
                RebuildTasksRoot();
+            else if (e2.PropertyName == nameof(AppViewModel.LangID))
+               _tasksRoot?.RefreshLanguage();
          };
       }
 
