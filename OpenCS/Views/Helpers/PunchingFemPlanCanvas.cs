@@ -8,8 +8,9 @@ using OpenCS.ViewModels;
 namespace OpenCS.Views.Helpers;
 
 /// <summary>
-/// План перекрытия проверки продавливания по МКЭ: плиты одной отметки (контур и отверстия), узлы — грузовые площади
-/// цветом статуса с подписью Кисп; выбранный узел обведён. Щелчок по узлу — <see cref="NodeClicked"/>; колесо —
+/// План перекрытия проверки продавливания по МКЭ: плиты одной отметки (контур и отверстия), стены — полосой по всей
+/// длине, узлы — грузовые площади колонн, у стен значки (торец — квадрат, угол — ромб) цветом статуса с подписью Кисп;
+/// выбранный узел обведён. Щелчок по узлу — <see cref="NodeClicked"/>; колесо —
 /// масштаб у курсора, правая кнопка — сдвиг, двойной щелчок правой — вписать.
 /// </summary>
 public sealed class PunchingFemPlanCanvas : FrameworkElement
@@ -49,6 +50,7 @@ public sealed class PunchingFemPlanCanvas : FrameworkElement
     static readonly Pen SlabPen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0x44, 0x55, 0x66)), 1.2));
     static readonly Pen SelectPen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0x1F, 0x4E, 0xD8)), 2.5));
     static readonly Brush TextBrush = Frozen(new SolidColorBrush(Color.FromRgb(0x11, 0x18, 0x27)));
+    static readonly Brush WallBrush = Frozen(new SolidColorBrush(Color.FromRgb(0x9A, 0xA4, 0xB1)));
 
     static T Frozen<T>(T f) where T : Freezable { f.Freeze(); return f; }
 
@@ -106,6 +108,14 @@ public sealed class PunchingFemPlanCanvas : FrameworkElement
             dc.DrawGeometry(SlabFill, SlabPen, geo);
         }
 
+        // Стены — полосой толщины стены (не тоньше 3 px) по всей длине примыкания.
+        foreach (var w in d.Walls.Where(w => OnLevel(w.Z) && w.A.Length == 2 && w.B.Length == 2))
+        {
+            var pen = new Pen(WallBrush, Math.Max(3, w.T * _scale)) { StartLineCap = PenLineCap.Flat, EndLineCap = PenLineCap.Flat };
+            pen.Freeze();
+            dc.DrawLine(pen, P(w.A[0], w.A[1]), P(w.B[0], w.B[1]));
+        }
+
         // Box — экранная рамка значка узла: у стен кусок стены не центрирован на узле (торец, наружный угол), подпись — справа от рамки.
         var labels = new List<(PunchingFemJointResult J, Rect Box)>();
         foreach (var j in d.Joints.Where(j => j.Origin.Length == 3 && OnLevel(j.Origin[2])))
@@ -114,7 +124,16 @@ public sealed class PunchingFemPlanCanvas : FrameworkElement
             var at = P(j.Origin[0], j.Origin[1]);
             double r = 7;
             var box = new Rect(at.X - r, at.Y - r, 2 * r, 2 * r);
-            if (j.Area.Count >= 3)
+            if (j.Kind is "wall_end" or "wall_corner")
+            {
+                // Узел стены — значок: торец у середины торцевой грани, угол — в пересечении осей стен (середина между
+                // наружным и внутренним углом куска стены).
+                if (j.Kind == "wall_corner" && j.Area.Count == 6)
+                    at = P((j.Area[0][0] + j.Area[3][0]) / 2, (j.Area[0][1] + j.Area[3][1]) / 2);
+                box = new Rect(at.X - r, at.Y - r, 2 * r, 2 * r);
+                DrawWallMarker(dc, brush, at, r, j.Kind == "wall_corner", j.Node == SelectedNode);
+            }
+            else if (j.Area.Count >= 3)
             {
                 var pts = j.Area.Select(p => P(p[0], p[1])).ToList();
                 double size = Math.Max(pts.Max(p => p.X) - pts.Min(p => p.X), pts.Max(p => p.Y) - pts.Min(p => p.Y));
@@ -166,6 +185,28 @@ public sealed class PunchingFemPlanCanvas : FrameworkElement
 
     static void DrawMarker(DrawingContext dc, Brush brush, Point at, double r, bool selected) =>
         dc.DrawEllipse(brush, selected ? SelectPen : null, at, r, r);
+
+    static readonly Pen MarkerPen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0x33, 0x41, 0x55)), 1));
+
+    /// <summary>Значок узла стены: торец — квадрат, угол — ромб; обводка тонкая, у выбранного — как у выбора.</summary>
+    static void DrawWallMarker(DrawingContext dc, Brush brush, Point at, double r, bool corner, bool selected)
+    {
+        var pen = selected ? SelectPen : MarkerPen;
+        if (!corner)
+        {
+            dc.DrawRectangle(brush, pen, new Rect(at.X - r, at.Y - r, 2 * r, 2 * r));
+            return;
+        }
+        double k = r * 1.3;
+        var geo = new StreamGeometry();
+        using (var g = geo.Open())
+        {
+            g.BeginFigure(new Point(at.X, at.Y - k), true, true);
+            g.PolyLineTo([new Point(at.X + k, at.Y), new Point(at.X, at.Y + k), new Point(at.X - k, at.Y)], true, false);
+        }
+        geo.Freeze();
+        dc.DrawGeometry(brush, pen, geo);
+    }
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {

@@ -24,6 +24,14 @@ public static class PunchingFemJointFinder
 
     /// <summary>Узлы продавливания и плиты схемы (<see cref="PunchingFemJoint.SlabIndex"/> — индекс в <paramref name="slabs"/>).</summary>
     public static List<PunchingFemJoint> Find(PunchingFemModel model, PunchingFemOptions? options, out IReadOnlyList<PunchingFemSlab> slabs)
+        => Find(model, options, out slabs, out _);
+
+    /// <summary>
+    /// Узлы продавливания, плиты схемы и линии стен у плит (стены из пластин — по примыканию целиком, стержни-стены — по
+    /// длине сечения) — для плана перекрытия.
+    /// </summary>
+    public static List<PunchingFemJoint> Find(PunchingFemModel model, PunchingFemOptions? options, out IReadOnlyList<PunchingFemSlab> slabs,
+        out IReadOnlyList<PunchingFemWallLine> walls)
     {
         ArgumentNullException.ThrowIfNull(model);
         options ??= new PunchingFemOptions();
@@ -40,6 +48,7 @@ public static class PunchingFemJointFinder
         joints.AddRange(ctx.ShellPylons());
         joints.AddRange(ctx.ShellWalls());
         slabs = ctx.Slabs;
+        walls = ctx.WallLines;
         return joints.OrderBy(j => j.NodeTag, FemNodeRigidBodies.TagComparer).ToList();
     }
 
@@ -48,6 +57,8 @@ public static class PunchingFemJointFinder
         public PunchingFemModel Model { get; }
         public PunchingFemOptions Options { get; }
         public List<PunchingFemSlab> Slabs { get; }
+        /// <summary>Линии стен у плит для плана.</summary>
+        public List<PunchingFemWallLine> WallLines { get; } = [];
         readonly Dictionary<string, List<PunchingFemSlab>> _nodeSlabs = new(StringComparer.Ordinal);
         readonly Dictionary<string, List<(FemElement E, FemElementGeometry G)>> _at = new(StringComparer.Ordinal);
         readonly Dictionary<string, int> _slabOfShell = new(StringComparer.Ordinal);
@@ -392,6 +403,7 @@ public static class PunchingFemJointFinder
             double len = Math.Max(r.Bx, r.By), t = Math.Min(r.Bx, r.By);
             var axis = alongX ? j.AxisX : j.AxisY;
             var own = j.Bars.Select(b => b.ElemTag).ToHashSet(StringComparer.Ordinal);
+            WallLines.Add(new PunchingFemWallLine(slab.Index, j.Origin - axis * (len / 2), j.Origin + axis * (len / 2), t));
             int k = 0;
             foreach (int s in new[] { 1, -1 })
             {
@@ -478,6 +490,7 @@ public static class PunchingFemJointFinder
                     }
                 }
                 segs = MergeWallSegs(segs);
+                WallLines.AddRange(segs.Select(s => new PunchingFemWallLine(slab.Index, s.PA, s.PB, s.T)));
                 joints.AddRange(WallNodes(slab, segs));
             }
             return joints;
@@ -582,7 +595,7 @@ public static class PunchingFemJointFinder
                 var o = origin - ax * (a2 / 2) - ay * (a1 / 2);
                 if (Math.Abs(a1 - a2) > 1e-6)
                     warnings.Add(new("fem_wall_corner_thickness", string.Create(Ru, $"Стены угла разной толщины: a1 = {a1 * 1000:0} мм (вдоль x), a2 = {a2 * 1000:0} мм (вдоль y).")));
-                var cj = Base(PunchingFemJointKind.WallCorner, ax, o, new PunchingWall(PunchingWallKind.Corner, a1, a2),
+                var cj = Base(PunchingFemJointKind.WallCorner, ax, o, new PunchingWall(PunchingWallKind.Corner, a1, a2, Options.WallFigure),
                     string.Create(Ru, $"угол стен {a1 * 1000:0}/{a2 * 1000:0} ({sx.Label})"));
                 yield return Complete(cj, slab, null, !below, warnings, shells.ToHashSet(StringComparer.Ordinal));
             }

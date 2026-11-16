@@ -186,6 +186,7 @@ public static class PunchingRunner
         {
             ["wall"] = p.Wall.IsWall ? p.Wall.Kind : null,
             ["a1"] = p.Wall.IsWall ? p.Wall.A1 : null, ["a2"] = p.Wall.IsCorner ? p.Wall.A2 : null,
+            ["wallFigure"] = p.Wall.IsCorner ? (p.Options.WallFigure == "amd2" ? "amd2" : "amd1") : null,
             ["shape"] = p.Area.Shape, ["bx"] = p.Area.Bx, ["by"] = p.Area.By, ["d"] = p.Area.D, ["t"] = p.Area.T,
             ["h"] = p.Slab.H, ["ax"] = p.Slab.Ax, ["ay"] = p.Slab.Ay,
             ["h0x"] = p.H0x, ["h0y"] = p.H0y, ["h0"] = p.H0,

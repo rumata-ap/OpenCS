@@ -69,7 +69,7 @@ public sealed class PunchingFemCheckReportProvider : IReportProvider
         foreach (var j in joints)
             if (j.TryGetProperty("warnings", out var jw) && jw.ValueKind == JsonValueKind.Array)
                 foreach (var x in jw.EnumerateArray())
-                    if (S(x, "code") is "punching_fem_mismatch" or "punching_fem_wall_mismatch" or "punching_fem_wall_shell_cut" or "punching_fem_cut_failed" or "punching_fem_base_load_unknown" or "fem_beam_in_base"
+                    if (S(x, "code") is "punching_fem_mismatch" or "punching_fem_wall_mismatch" or "punching_fem_wall_dm_mismatch" or "punching_fem_wall_shell_cut" or "punching_fem_cut_failed" or "punching_fem_base_load_unknown" or "fem_beam_in_base"
                         && S(x, "text") is { Length: > 0 } t)
                         doc.Add(new ReportWarning($"Узел {S(j, "node")}: {t}"));
 

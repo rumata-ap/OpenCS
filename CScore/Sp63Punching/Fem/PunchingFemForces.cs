@@ -42,6 +42,13 @@ public sealed record PunchingFemForces(
     /// </summary>
     public double? WallExcluded { get; init; }
 
+    /// <summary>
+    /// Торец стены, CSfea: самопроверка ΔM на П-контуре h0/2 — по моментам пластин в центрах КЭ (Plate, тем же способом,
+    /// что ΔM) и по узловым силам разреза тела внутри П (Nodal), кН·м; Scale — Σ|m|·ds по контуру, кН·м. null — не торец
+    /// или у источника нет узловых сил.
+    /// </summary>
+    public (double Plate, double Nodal, double Scale)? WallDeltaMCheck { get; init; }
+
     /// <summary>Сила по стержням со знаком: действие стержней плюс нагрузка основания, кН; null — нет данных.</summary>
     public double? ColumnForce => ColumnAction is double a ? a + (BaseLoad ?? 0) : null;
 

@@ -287,7 +287,7 @@ public static class PunchingSwLayout
             if (r.Sw <= 0) return list;
             var edges = input.Edges ?? Array.Empty<PunchingSlabEdge>();
             foreach (var t in rows.Positions)
-                foreach (var e in PunchingWallGeometry.Lines(wall, t))
+                foreach (var e in PunchingWallGeometry.Lines(wall, t, input.H0))
                 {
                     double len = e.Length;
                     if (len / r.Sw > 2000) continue;

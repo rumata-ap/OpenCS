@@ -133,7 +133,7 @@ public static class PunchingBatchRunner
         for (int i = 0; i < items.Count; i++)
         {
             bool reversed = Math.Sign(items[i].N) == -sign;
-            rows.Add(new PunchingBatchRow(items[i], results[i], reversed, RowVerdict(results[i], reversed, edgeCount), designs[i]));
+            rows.Add(new PunchingBatchRow(items[i], results[i], reversed, RowVerdict(results[i], reversed, edgeCount, p.Options.WallFigure == "amd2"), designs[i]));
         }
         int? governing = BatchVerdictSummary.GoverningIndex(rows.Select(r => r.Verdict).ToList());
 
@@ -179,7 +179,7 @@ public static class PunchingBatchRunner
     }
 
     /// <summary>Причина строки: наибольший Кисп по вариантам, участвующим в выборе определяющего.</summary>
-    public static BatchRowVerdict RowVerdict(PunchingResult r, bool reversed, int edgeCount)
+    public static BatchRowVerdict RowVerdict(PunchingResult r, bool reversed, int edgeCount, bool amd2 = false)
     {
         var criteria = r.Variants
             .Where(v => v.Variant.Kind != PunchingVariantKind.PylonReduced)
@@ -187,7 +187,7 @@ public static class PunchingBatchRunner
             {
                 string title = PunchingReportText.VariantTitle(v.Variant.Kind, v.Variant.Zone, v.Variant.Id, edgeCount);
                 string text = $"{title}: Кисп = {K(v.Utilization)}" + (reversed ? "; N другого знака" : "");
-                return new BatchCriterion(v.Variant.Id, v.Utilization, Reference(v.Variant.Kind, v.Variant.Zone), text);
+                return new BatchCriterion(v.Variant.Id, v.Utilization, Reference(v.Variant.Kind, v.Variant.Zone, amd2), text);
             })
             .ToArray();
         return criteria.Length == 0
@@ -199,7 +199,7 @@ public static class PunchingBatchRunner
     static string K(double k) => double.IsFinite(k) ? ReportNumberFormatter.FormatUtilization(k).Replace('.', ',') : "∞";
 
     /// <summary>Пункт и рисунок нормы для варианта контура.</summary>
-    public static string Reference(PunchingVariantKind kind, PunchingZone zone)
+    public static string Reference(PunchingVariantKind kind, PunchingZone zone, bool amd2 = false)
     {
         if (zone == PunchingZone.BeyondReinforcement) return "СП 63.13330.2018, п. 8.1.48, рис. 8.13";
         return kind switch
@@ -210,7 +210,7 @@ public static class PunchingBatchRunner
             PunchingVariantKind.PylonBroken => "СП 430.1325800, п. 6.3.8, рис. 6.1а",
             PunchingVariantKind.WallEnd => "СП 430.1325800, п. 6.3.8, рис. 6.1а",
             PunchingVariantKind.WallEndEdge => "СП 430.1325800, п. 6.3.8, рис. 6.1б",
-            PunchingVariantKind.WallCorner => "СП 430.1325800, п. 6.3.8, рис. 6.2 (ред. с Изм. № 1)",
+            PunchingVariantKind.WallCorner => "СП 430.1325800, п. 6.3.8, рис. 6.2 " + (amd2 ? "(проект Изм. № 2)" : "(ред. с Изм. № 1)"),
             _ => "СП 63.13330.2018, п. 8.1.46"
         };
     }

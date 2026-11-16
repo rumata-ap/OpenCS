@@ -83,7 +83,8 @@ public sealed record PunchingFemCheckParams
     /// <summary>Настройки поиска узлов.</summary>
     [JsonIgnore]
     public PunchingFemOptions FinderOptions => new(AngleDeg: AngleDeg, EdgeInfluence: EdgeInfluence,
-        HoleInfluence: Options.HoleInfluence, WallRatio: WallRatio, DefaultCover: new PunchingFemCover(DefaultAx, DefaultAy));
+        HoleInfluence: Options.HoleInfluence, WallRatio: WallRatio, DefaultCover: new PunchingFemCover(DefaultAx, DefaultAy),
+        WallFigure: PunchingOptionParams.ParseWallFigure(Options.WallFigure));
 
     /// <summary>Главный способ ядра; null — по источнику.</summary>
     [JsonIgnore]

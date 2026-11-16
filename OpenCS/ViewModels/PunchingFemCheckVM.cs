@@ -169,6 +169,7 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         EccentricityY = opt.EccentricityY;
         Wb = opt.Wb;
         Pylon = opt.Pylon;
+        WallFigure = opt.WallFigure == "amd2" ? "amd2" : "amd1";
         HoleInfluence = opt.HoleInfluence;
         PylonReduced = opt.PylonReduced;
         AngleDeg = p.AngleDeg;
@@ -206,10 +207,16 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         [new("minimum", Loc.S("PunchingWb_minimum", "наименьший")), new("stress_side", Loc.S("PunchingWb_stress_side", "по стороне напряжений"))];
     public IReadOnlyList<PunchingChoice> PylonModes { get; } =
         [new("auto", Loc.S("PunchingPylon_auto", "автоматически (Lmax > 2Lmin + h0)")), new("off", Loc.S("PunchingPylon_off", "не рассматривать"))];
+    /// <summary>Редакция рис. 6.2 СП 430 для углов стен.</summary>
+    public IReadOnlyList<PunchingChoice> WallFigures { get; } =
+    [
+        new("amd1", Loc.S("PunchingWallFigure_amd1", "СП 430 с Изм. № 1 (действующая)")),
+        new("amd2", Loc.S("PunchingWallFigure_amd2", "проект Изм. № 2 (справочно)"))
+    ];
 
     // ── Поля ───────────────────────────────────────────────────────────────
 
-    string _tag = "", _method = "auto", _eccX = "loading", _eccY = "loading", _wb = "minimum", _pylon = "auto";
+    string _tag = "", _method = "auto", _eccX = "loading", _eccY = "loading", _wb = "minimum", _pylon = "auto", _wallFigure = "amd1";
     bool _mloc = true, _concreteFromSchema = true, _rbtManual, _swEnabled, _zoneEnabled, _rswManual, _pylonReduced;
     double _rbtManualValue, _defaultAx, _defaultAy, _diameter, _step, _zone, _rswManualValue, _holeInfluence = 6, _angle = 10, _edgeInfluence = 6, _wallRatio = 4;
     int _count = 2;
@@ -300,6 +307,8 @@ public sealed class PunchingFemCheckVM : ViewModelBase
     public string EccentricityY { get => _eccY; set => SetField(ref _eccY, value); }
     public string Wb { get => _wb; set => SetField(ref _wb, value); }
     public string Pylon { get => _pylon; set { if (SetField(ref _pylon, value)) Preview(); } }
+    /// <summary>Редакция рис. 6.2 у углов стен: "amd1" | "amd2"; меняет основание пирамиды узла — поиск заново.</summary>
+    public string WallFigure { get => _wallFigure; set { if (SetField(ref _wallFigure, value)) Refind(); } }
     public double HoleInfluence { get => _holeInfluence; set { if (SetField(ref _holeInfluence, value)) Refind(); } }
     public bool PylonReduced { get => _pylonReduced; set => SetField(ref _pylonReduced, value); }
     public double AngleDeg { get => _angle; set { if (SetField(ref _angle, value)) Refind(); } }
@@ -406,7 +415,7 @@ public sealed class PunchingFemCheckVM : ViewModelBase
             Options = new PunchingOptionParams
             {
                 EccentricityX = EccentricityX, EccentricityY = EccentricityY, Wb = Wb, Pylon = Pylon, HoleInfluence = HoleInfluence,
-                PylonReduced = PylonReduced,
+                PylonReduced = PylonReduced, WallFigure = WallFigure,
             },
             AngleDeg = AngleDeg, EdgeInfluence = EdgeInfluence, WallRatio = WallRatio,
             Overrides = overrides.Values.OrderBy(o => o.Node, FemNodeRigidBodies.TagComparer).ToList(),

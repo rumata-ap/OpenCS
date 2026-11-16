@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using CScore.Sp63Punching;
 
 namespace OpenCS.Reporting;
@@ -60,8 +61,18 @@ public static class PunchingReportText
     public static bool IsWall(PunchingVariantKind kind)
         => kind is PunchingVariantKind.WallEnd or PunchingVariantKind.WallEndEdge or PunchingVariantKind.WallCorner;
 
+    /// <summary>Расчёт угла стен по проекту Изменения № 2 (поле «wallFigure» исходных данных результата).</summary>
+    public static bool IsAmd2(JsonElement? inputs)
+        => inputs is { ValueKind: JsonValueKind.Object } i && i.TryGetProperty("wallFigure", out var f)
+            && f.ValueKind == JsonValueKind.String && f.GetString() == "amd2";
+
+    /// <summary>Нормативная база узла стены для таблицы «Идентификация»: редакция СП 430 по рис. 6.2.</summary>
+    public static string WallBasis(bool amd2) => amd2
+        ? "; узел стены — СП 430.1325800.2018, п. 6.3.8 (угол стен — по проекту Изм. № 2, не утверждён)"
+        : "; узел стены — СП 430.1325800.2018 (ред. с Изм. № 1), п. 6.3.8";
+
     /// <summary>Пояснение к варианту узла стены для отчёта; null — не стена.</summary>
-    public static string? WallExplanation(PunchingVariantKind kind) => kind switch
+    public static string? WallExplanation(PunchingVariantKind kind, bool amd2 = false) => kind switch
     {
         PunchingVariantKind.WallEnd => "Плита у торца стены (СП 430.1325800, п. 6.3.8, рис. 6.1а): контур на расстоянии h0/2 от граней стены "
             + "из торцевого участка длиной a1 + h0 и двух участков вдоль стены той же длины. Сила F — равнодействующая поперечных сил по "
@@ -70,9 +81,14 @@ public static class PunchingReportText
         PunchingVariantKind.WallEndEdge => "Торец стены у края плиты (СП 430.1325800, п. 6.3.8, рис. 6.1б): помимо П-образного контура "
             + "рассматривается контур 1′ — два участка от края плиты на расстоянии h0/2 от граней стены вдоль её длины на расстояние a1 от "
             + "торца; в расчёт принимается контур с меньшей несущей способностью.",
-        PunchingVariantKind.WallCorner => "Плита у угла стен (СП 430.1325800, п. 6.3.8, рис. 6.2 в редакции с Изменением № 1): наружный "
-            + "контур на расстоянии h0/2 от наружных граней с участками h0/2 + a1 + a2 и диагональ у внутреннего угла длиной √(a1² + a2²). "
-            + "Учитывается только сила F — равнодействующая поперечных сил по всем участкам контура, моменты не учитываются.",
+        PunchingVariantKind.WallCorner => amd2
+            ? "Плита у угла стен (СП 430.1325800, п. 6.3.8, рис. 6.2 по проекту Изменения № 2 — не утверждён, расчёт справочный): "
+              + "наружный контур на расстоянии h0/2 от наружных граней с участками до a1 + a2 от граней (длиной h0/2 + a1 + a2) и диагональ "
+              + "у внутреннего угла между точками на a1 и a2 от внутренних граней (длиной √((a1 − h0/2)² + (a2 − h0/2)²)). Учитывается только "
+              + "сила F — равнодействующая поперечных сил по всем участкам контура, моменты не учитываются."
+            : "Плита у угла стен (СП 430.1325800, п. 6.3.8, рис. 6.2 в редакции с Изменением № 1): наружный контур на расстоянии h0/2 от "
+              + "наружных граней с участками длиной a1 + a2 от угла контура и диагональ у внутреннего угла длиной √(a1² + a2²). Учитывается "
+              + "только сила F — равнодействующая поперечных сил по всем участкам контура, моменты не учитываются.",
         _ => null
     };
 

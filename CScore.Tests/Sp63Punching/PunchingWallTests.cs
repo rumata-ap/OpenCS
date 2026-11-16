@@ -20,9 +20,10 @@ public class PunchingWallTests
         => new(new PunchingLoadArea.Rectangle(1, 1), H0, Rbt, new PunchingForces(f, dM, my, CounterPressure: q), sw, edges, holes,
             Wall: new PunchingWall(PunchingWallKind.End, A1));
 
-    static PunchingInput Corner(double f, double a2, double mx = 0, double my = 0, double q = 0)
+    static PunchingInput Corner(double f, double a2, double mx = 0, double my = 0, double q = 0,
+        PunchingWallFigure figure = PunchingWallFigure.Sp430Amd1)
         => new(new PunchingLoadArea.Rectangle(1, 1), H0, Rbt, new PunchingForces(f, mx, my, CounterPressure: q),
-            Wall: new PunchingWall(PunchingWallKind.Corner, A1, a2));
+            Wall: new PunchingWall(PunchingWallKind.Corner, A1, a2, figure));
 
     static PunchingVariantResult V(PunchingResult r, string id) => r.Variants.Single(v => v.Variant.Id == id);
 
@@ -66,18 +67,55 @@ public class PunchingWallTests
     [Fact]
     public void CornerContour_LengthAndCentroid()
     {
-        // Рис. 6.2 (ред. с Изм. № 1): наружный Г с ветвями h0/2 + a1 + a2, диагональ длиной √(a1² + a2²).
-        double a2 = 0.25, leg = A1 + a2;
+        // Рис. 6.2 (ред. с Изм. № 1): наружный Г с ветвями a1 + a2 от угла контура (размер на рисунке — от линии h0/2),
+        // диагональ — от точек на a1 и a2 от угла контура (a2 + h0/2; a1 + h0/2), длина √(a1² + a2²).
+        double a2 = 0.25, legEnd = A1 + a2 - D;
         var g = V(PunchingChecker.Check(Corner(100, a2)), "wall_corner").Geometry;
         double diag = Math.Sqrt(A1 * A1 + a2 * a2);
-        Assert.Equal(2 * (D + leg) + diag, g.U, 12);
+        Assert.Equal(2 * (A1 + a2) + diag, g.U, 12);
 
-        // Центр тяжести вручную: ветвь x = −d (середина y = (leg − d)/2), ветвь y = −d, диагональ — середина концов.
-        double lLeg = leg + D, mid = (leg - D) / 2;
+        // Центр тяжести вручную: ветвь x = −d (середина y = (legEnd − d)/2), ветвь y = −d, диагональ — середина концов.
+        double lLeg = legEnd + D, mid = (legEnd - D) / 2;
         double dx = (a2 + D + (a2 + D + A1)) / 2, dy = (A1 + D + a2 + (A1 + D)) / 2;
         double u = 2 * lLeg + diag;
         Assert.Equal((lLeg * -D + lLeg * mid + diag * dx) / u, g.Xc, 12);
         Assert.Equal((lLeg * mid + lLeg * -D + diag * dy) / u, g.Yc, 12);
+    }
+
+    [Fact]
+    public void CornerContour_Amd2Draft_LegsFromFaces_DiagonalFromInnerFaces()
+    {
+        // Проект Изм. № 2, рис. 6.2 (он же — Пособие ППКЗД 2025, рис. 4.11): ветви Г — до a1 + a2 от наружных граней
+        // (длина h0/2 + a1 + a2), диагональ — от (a2 + a1; a1 + h0/2) до (a2 + h0/2; a1 + a2), то есть на a1 и a2 от
+        // внутренних граней. a1 = 0,2, a2 = 0,25, h0/2 = 0,09: ветви 2·0,54 = 1,08, диагональ √(0,11² + 0,16²) = 0,194165.
+        double a2 = 0.25;
+        var v = V(PunchingChecker.Check(Corner(100, a2, figure: PunchingWallFigure.Sp430Amd2Draft)), "wall_corner");
+        var segs = v.Variant.Contour.Elements.Select(Seg).ToList();
+        Assert.Equal(3, segs.Count);
+        var diag = segs.Single(s => Math.Abs(s.A.X - s.B.X) > 1e-9 && Math.Abs(s.A.Y - s.B.Y) > 1e-9);
+        var ends = new[] { diag.A, diag.B }.OrderByDescending(p => p.X).ToList();
+        Assert.Equal(a2 + A1, ends[0].X, 12);
+        Assert.Equal(A1 + D, ends[0].Y, 12);
+        Assert.Equal(a2 + D, ends[1].X, 12);
+        Assert.Equal(A1 + a2, ends[1].Y, 12);
+        double u = 2 * (D + A1 + a2) + Math.Sqrt(Math.Pow(A1 - D, 2) + Math.Pow(a2 - D, 2));
+        Assert.Equal(u, v.Geometry.U, 12);
+        Assert.Equal(1.274165, v.Geometry.U, 6);
+        // Трассировка ссылается на редакцию рисунка.
+        var r = PunchingChecker.Check(Corner(100, a2, figure: PunchingWallFigure.Sp430Amd2Draft));
+        Assert.Contains("проект Изм. № 2", r.Variants[0].Trace.Single(s => s.StepId.EndsWith(".wall")).CodeReference);
+        Assert.Contains("ред. с Изм. № 1", PunchingChecker.Check(Corner(100, a2)).Variants[0].Trace.Single(s => s.StepId.EndsWith(".wall")).CodeReference);
+    }
+
+    [Fact]
+    public void CornerContour_Amd2Draft_ThinWalls_DiagonalVanishes()
+    {
+        // a1, a2 ≤ h0/2: концы диагонали на a1, a2 от внутренних граней лежат ближе линии h0/2 — диагональ вырождается.
+        var input = new PunchingInput(new PunchingLoadArea.Rectangle(1, 1), H0, Rbt, new PunchingForces(100, 0, 0),
+            Wall: new PunchingWall(PunchingWallKind.Corner, 0.08, 0.08, PunchingWallFigure.Sp430Amd2Draft));
+        var v = V(PunchingChecker.Check(input), "wall_corner");
+        Assert.Equal(2, v.Variant.Contour.Elements.Count());
+        Assert.Equal(2 * (D + 0.16), v.Geometry.U, 12);
     }
 
     [Fact]
@@ -170,16 +208,19 @@ public class PunchingWallTests
     [Fact]
     public void Corner_HandCalc_ForceOnly()
     {
-        // a1 = 0,2, a2 = 0,25: u = 2(0,09 + 0,45) + √(0,04 + 0,0625) = 1,08 + 0,320156 = 1,400156 м.
-        // Fb = 1050·1,400156·0,18 = 264,63 кН; K = F/Fb = 200/264,63 = 0,7558; моменты не учитываются.
+        // a1 = 0,2, a2 = 0,25 (Изм. № 1): u = 2·0,45 + √(0,04 + 0,0625) = 0,9 + 0,320156 = 1,220156 м.
+        // Fb = 1050·1,220156·0,18 = 230,61 кН; K = F/Fb = 200/230,61 = 0,8673; моменты не учитываются.
         var r = PunchingChecker.Check(Corner(200, 0.25, mx: 40, my: 30));
         var v = V(r, "wall_corner");
-        double u = 2 * (D + A1 + 0.25) + Math.Sqrt(A1 * A1 + 0.25 * 0.25);
+        double u = 2 * (A1 + 0.25) + Math.Sqrt(A1 * A1 + 0.25 * 0.25);
         Assert.Equal(Rbt * u * H0, v.Fb, 9);
         Assert.Equal(0, v.MxStar, 12);
         Assert.Equal(0, v.MyStar, 12);
         Assert.Equal(200 / (Rbt * u * H0), v.Utilization, 12);
-        Assert.Equal(0.7558, v.Utilization, 4);
+        Assert.Equal(0.8673, v.Utilization, 4);
+        // Проект Изм. № 2: u = 2(0,09 + 0,45) + √(0,11² + 0,16²) = 1,274165 м; Fb = 240,82 кН; K = 0,8305.
+        var v2 = V(PunchingChecker.Check(Corner(200, 0.25, figure: PunchingWallFigure.Sp430Amd2Draft)), "wall_corner");
+        Assert.Equal(0.8305, v2.Utilization, 4);
     }
 
     [Fact]
@@ -238,6 +279,9 @@ public class PunchingWallTests
         Assert.Equal(150 - q * e.BaseArea, e.Fred, 12);
         var c = PunchingChecker.Check(Corner(150, 0.25, q: q));
         Assert.Equal(Math.Pow(A1 + 0.25 + 2 * H0, 2) - A1 * 0.25 / 2, c.BaseArea, 12);
+        // Проект Изм. № 2: стороны a1 + a2 + 1,5h0, срезанный угол — катеты a1 − h0/2 и a2 − h0/2.
+        var c2 = PunchingChecker.Check(Corner(150, 0.25, q: q, figure: PunchingWallFigure.Sp430Amd2Draft));
+        Assert.Equal(Math.Pow(A1 + 0.25 + 1.5 * H0, 2) - (A1 - D) * (0.25 - D) / 2, c2.BaseArea, 12);
         // Край за торцом обрезает основание.
         var cut = PunchingChecker.Check(End(150, q: q, edges: [new PunchingSlabEdge(new PlanPoint(0.05, 0), new PlanPoint(-1, 0))]));
         Assert.Equal((A1 + H0 + 0.05) * (A1 + 2 * H0), cut.BaseArea, 12);

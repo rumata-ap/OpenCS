@@ -104,10 +104,35 @@ public sealed class PunchingWallTaskTests
         var result = PunchingRunner.Run(task, CalcSettings.Default, null);
         using var doc = JsonDocument.Parse(result.DataJson);
         var detail = doc.RootElement.GetProperty("details").EnumerateArray().Single(d => d.GetProperty("id").GetString() == "wall_corner");
-        double u = 2 * (0.09 + 0.45) + Math.Sqrt(0.2 * 0.2 + 0.25 * 0.25);
+        // Изм. № 1: ветви Г — a1 + a2 от угла контура.
+        double u = 2 * 0.45 + Math.Sqrt(0.2 * 0.2 + 0.25 * 0.25);
         Assert.Equal(200 / (1050 * u * 0.18), detail.GetProperty("ratio").GetDouble(), 9);
         var report = new PunchingReportProvider().Build(new ReportContext(task, result));
         Assert.Contains(report.Blocks.OfType<ReportHeading>(), h => h.Text.StartsWith("Контур у угла стен (СП 430, рис. 6.2)", StringComparison.Ordinal));
+        Assert.Contains(report.Blocks.OfType<ReportParagraph>(), b => b.Text.Contains("в редакции с Изменением № 1", StringComparison.Ordinal));
+    }
+
+    /// <summary>Проект Изм. № 2: выбор в параметрах (старый JSON — Изм. № 1), контур, ссылки отчёта и пакета, предупреждение.</summary>
+    [Fact]
+    public void Run_Corner_Amd2Draft_ByOption()
+    {
+        Assert.Equal("amd1", PunchingTaskParams.Parse(Corner().ToJson()).Options.WallFigure);
+        var p = Corner() with { Options = Corner().Options with { WallFigure = "amd2" } };
+        Assert.Equal("amd2", PunchingTaskParams.Parse(p.ToJson()).Options.WallFigure);
+        var task = Task(p);
+        var result = PunchingRunner.Run(task, CalcSettings.Default, null);
+        using var doc = JsonDocument.Parse(result.DataJson);
+        var detail = doc.RootElement.GetProperty("details").EnumerateArray().Single(d => d.GetProperty("id").GetString() == "wall_corner");
+        // Ветви до a1 + a2 от граней (h0/2 + a1 + a2), диагональ — на a1, a2 от внутренних граней.
+        double u = 2 * (0.09 + 0.45) + Math.Sqrt(0.11 * 0.11 + 0.16 * 0.16);
+        Assert.Equal(200 / (1050 * u * 0.18), detail.GetProperty("ratio").GetDouble(), 9);
+        Assert.Equal("amd2", doc.RootElement.GetProperty("inputs").GetProperty("wallFigure").GetString());
+        var report = new PunchingReportProvider().Build(new ReportContext(task, result));
+        Assert.Contains(report.Blocks.OfType<ReportParagraph>(), b => b.Text.Contains("по проекту Изменения № 2", StringComparison.Ordinal));
+        Assert.Equal("СП 430.1325800, п. 6.3.8, рис. 6.2 (проект Изм. № 2)",
+            PunchingBatchRunner.Reference(PunchingVariantKind.WallCorner, PunchingZone.Main, amd2: true));
+        var check = PunchingChecker.Check(p.ToInput(1050, 0), includeTrace: false);
+        Assert.Contains(check.Warnings, w => w.Code == "wall_corner_amd2_draft");
     }
 
     [Fact]

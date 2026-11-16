@@ -161,6 +161,12 @@ public sealed class PunchingParamsVM : ViewModelBase
         new("end", Loc.S("PunchingNodeKind_end", "торец стены (СП 430, рис. 6.1)")),
         new("corner", Loc.S("PunchingNodeKind_corner", "угол стен 90° (СП 430, рис. 6.2)"))
     ];
+    /// <summary>Редакция рис. 6.2 СП 430 для угла стен.</summary>
+    public IReadOnlyList<PunchingChoice> WallFigures { get; } =
+    [
+        new("amd1", Loc.S("PunchingWallFigure_amd1", "СП 430 с Изм. № 1 (действующая)")),
+        new("amd2", Loc.S("PunchingWallFigure_amd2", "проект Изм. № 2 (справочно)"))
+    ];
     /// <summary>Формы отверстий.</summary>
     public IReadOnlyList<PunchingChoice> HoleShapes { get; } =
         [new("rectangle", Loc.S("PunchingShape_rectangle", "прямоугольник")), new("circle", Loc.S("PunchingShape_circle", "круг")),
@@ -202,7 +208,7 @@ public sealed class PunchingParamsVM : ViewModelBase
     bool _rbtManual, _swEnabled, _zoneEnabled, _rswManual, _mloc, _pylonReduced, _muEnabled;
     string _position = "inside", _edge1Side = "+y", _edge2Side = "+x", _loadSide = "from_below";
     double _edge1C, _edge1Angle, _edge2C, _edge2Angle;
-    string _eccX = "loading", _eccY = "loading", _wb = "minimum", _pylon = "auto";
+    string _eccX = "loading", _eccY = "loading", _wb = "minimum", _pylon = "auto", _wallFigure = "amd1";
     Material? _concrete, _rebar;
     PlateSection? _plateSection;
     PunchingHoleRowVM? _selectedHole;
@@ -460,6 +466,8 @@ public sealed class PunchingParamsVM : ViewModelBase
     public string EccentricityY { get => _eccY; set => SetField(ref _eccY, value); }
     public string Wb { get => _wb; set => SetField(ref _wb, value); }
     public string Pylon { get => _pylon; set => SetField(ref _pylon, value); }
+    /// <summary>Редакция рис. 6.2 у угла стен: "amd1" | "amd2".</summary>
+    public string WallFigure { get => _wallFigure; set => SetField(ref _wallFigure, value); }
     public double HoleInfluence { get => _holeInfluence; set => SetField(ref _holeInfluence, value); }
     public bool PylonReduced { get => _pylonReduced; set => SetField(ref _pylonReduced, value); }
     public bool MuEnabled { get => _muEnabled; set => SetField(ref _muEnabled, value); }
@@ -564,6 +572,7 @@ public sealed class PunchingParamsVM : ViewModelBase
 
             EccentricityX = p.Options.EccentricityX; EccentricityY = p.Options.EccentricityY;
             Wb = p.Options.Wb; Pylon = p.Options.Pylon; HoleInfluence = p.Options.HoleInfluence;
+            WallFigure = p.Options.WallFigure == "amd2" ? "amd2" : "amd1";
             PylonReduced = p.Options.PylonReduced;
             MuEnabled = p.Options.Mu is not null; MuPercent = 100 * (p.Options.Mu ?? 0.01);
         }
@@ -607,7 +616,7 @@ public sealed class PunchingParamsVM : ViewModelBase
             },
             Options = new PunchingOptionParams
             {
-                EccentricityX = EccentricityX, EccentricityY = EccentricityY, Wb = Wb, Pylon = Pylon,
+                EccentricityX = EccentricityX, EccentricityY = EccentricityY, Wb = Wb, Pylon = Pylon, WallFigure = WallFigure,
                 HoleInfluence = HoleInfluence, PylonReduced = PylonReduced, Mu = MuEnabled ? MuPercent / 100 : null
             },
             CustomContours = _customContours,

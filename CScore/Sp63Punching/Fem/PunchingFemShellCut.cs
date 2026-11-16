@@ -24,6 +24,31 @@ public static class PunchingFemShellCut
         IReadOnlyDictionary<string, FemElement> elements, IFragmentParentResult result, FragmentMaskKey key)
     {
         ArgumentNullException.ThrowIfNull(joint);
+        return Integrate(joint, joint.PyramidBase, nodes, elements, result, key) is { } r ? r.Force : null;
+    }
+
+    /// <summary>
+    /// Самопроверка ΔM торца (спека среза 5, 4.3): момент относительно оси вдоль стены по граням многоугольника
+    /// <paramref name="poly"/> (в осях узла), кроме граней поперёк стены, по усилиям пластин в центре КЭ — тем же способом,
+    /// что и <see cref="WallDeltaM"/>. Plate — в знаке ΔM (−Σ, кН·м), Scale — Σ|m|·ds, кН·м (масштаб для допуска).
+    /// null — у пластины на гранях нет усилий.
+    /// </summary>
+    public static (double Plate, double Scale)? WallMoment(PunchingFemJoint joint, IReadOnlyList<PlanPoint> poly,
+        IReadOnlyDictionary<string, FemMeshNode> nodes, IReadOnlyDictionary<string, FemElement> elements,
+        IFragmentParentResult result, FragmentMaskKey key)
+    {
+        ArgumentNullException.ThrowIfNull(joint);
+        return Integrate(joint, poly, nodes, elements, result, key) is { } r ? (-r.Moment / 1e3, r.AbsMoment / 1e3) : null;
+    }
+
+    /// <summary>
+    /// Интеграл действия внешней части плиты на тело по граням многоугольника (кроме граней поперёк стены): сила по
+    /// нормали плиты, кН (со знаком силы продавливания), момент относительно оси x узла и его модуль, Н·м.
+    /// </summary>
+    static (double Force, double Moment, double AbsMoment)? Integrate(PunchingFemJoint joint, IReadOnlyList<PlanPoint> basePoly,
+        IReadOnlyDictionary<string, FemMeshNode> nodes, IReadOnlyDictionary<string, FemElement> elements,
+        IFragmentParentResult result, FragmentMaskKey key)
+    {
         // Пластины основания в осях узла.
         var shells = new List<(string Tag, List<PlanPoint> Poly, double Size)>();
         foreach (var tag in joint.BaseShells)
@@ -45,8 +70,7 @@ public static class PunchingFemShellCut
             return f;
         }
 
-        var basePoly = joint.PyramidBase;
-        double total = 0;
+        double total = 0, moment = 0, absMoment = 0;
         for (int i = 0; i < basePoly.Count; i++)
         {
             var a = basePoly[i];
@@ -68,10 +92,13 @@ public static class PunchingFemShellCut
                 if (Forces(hit.Tag) is not { } f) return null;
                 var t = FragmentShellForceRecovery.Traction(f, nGlobal);
                 total += t.Force.Dot(joint.Normal) * ds;
+                double mx = t.Moment.Dot(joint.AxisX) * ds;
+                moment += mx;
+                absMoment += Math.Abs(mx);
             }
         }
         // Действие внешней части на основание; сила продавливания — обратная по нормали, кН.
-        return -total / 1e3;
+        return (-total / 1e3, moment, absMoment);
     }
 
     /// <summary>

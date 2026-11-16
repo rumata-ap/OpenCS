@@ -85,6 +85,11 @@
                      </WrapPanel>
                      <TextBlock Text="{DynamicResource PunchingWallEndHint}" Style="{StaticResource Hint}"
                                 Visibility="{Binding IsWallEnd, Converter={StaticResource BoolToVisibility}}"/>
+                     <StackPanel Orientation="Horizontal" Visibility="{Binding IsWallCorner, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="{DynamicResource PunchingWallFigure}" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingWallFigureHint}"/>
+                        <ComboBox Width="250" ItemsSource="{Binding WallFigures}" DisplayMemberPath="Label" SelectedValuePath="Id"
+                                  SelectedValue="{Binding WallFigure}" ToolTip="{DynamicResource PunchingWallFigureHint}"/>
+                     </StackPanel>
                      <TextBlock Text="{DynamicResource PunchingWallCornerHint}" Style="{StaticResource Hint}"
                                 Visibility="{Binding IsWallCorner, Converter={StaticResource BoolToVisibility}}"/>
                   </StackPanel>

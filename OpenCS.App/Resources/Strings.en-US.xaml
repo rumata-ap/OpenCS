@@ -6759,7 +6759,11 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingWallA1Hint">Wall thickness (at a corner — of the wall along X)</system:String>
    <system:String x:Key="PunchingWallA2Hint">Thickness of the wall along Y</system:String>
    <system:String x:Key="PunchingWallEndHint">Joint axes: origin at the centre of the wall end, the wall runs towards −X. A slab edge beyond the end is side +X (contour 1′ is also checked, Fig. 6.1b); along the wall — ±Y.</system:String>
-   <system:String x:Key="PunchingWallCornerHint">Joint axes: origin at the outer corner, wall a1 runs along +X, wall a2 along +Y. Slab edges — outside, sides −X and −Y. Contour per Fig. 6.2, edition with Amendment 1.</system:String>
+   <system:String x:Key="PunchingWallCornerHint">Joint axes: origin at the outer corner, wall a1 runs along +X, wall a2 along +Y. Slab edges — outside, sides −X and −Y. Contour per Fig. 6.2 of the selected edition.</system:String>
+   <system:String x:Key="PunchingWallFigure">Fig. 6.2</system:String>
+   <system:String x:Key="PunchingWallFigure_amd1">SP 430 with Amendment 1 (in force)</system:String>
+   <system:String x:Key="PunchingWallFigure_amd2">draft Amendment 2 (for reference)</system:String>
+   <system:String x:Key="PunchingWallFigureHint">Edition of SP 430 Fig. 6.2 for the wall corner contour. Amendment 1: L legs a1 + a2 long from the contour corner, the diagonal at a1 and a2 from the h0/2 line. Draft Amendment 2 (not approved; same as the 2025 punching manual): legs up to a1 + a2 from the outer faces, the diagonal at a1 and a2 from the inner faces.</system:String>
    <system:String x:Key="PunchingWallRatioHint">The long side exceeds 4 short sides — per cl. 5.1.8 of SP 430 this is a wall: check its ends (joint "wall end").</system:String>
    <system:String x:Key="PunchingDeltaMHint">Difference of slab bending moments on both sides of the wall (out-of-plane moment); ½ΔM is used (SP 430, cl. 6.3.8).</system:String>
    <system:String x:Key="PunchingDeltaMShortHint">ΔM — difference of slab bending moments on both sides of the wall; ½ΔM is used, out of the wall plane only (SP 430, cl. 6.3.8).</system:String>
@@ -6779,6 +6783,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingWarn_wall_sw_cross_ignored">Cross-shaped shear reinforcement is not applicable at a wall — reinforcement is ignored. Use uniform reinforcement in rows.</system:String>
    <system:String x:Key="PunchingWarn_wall_end_clipped">The slab edge is closer than h0/2 to the wall end or faces — the U-contour is clipped, only the part within the slab is used.</system:String>
    <system:String x:Key="PunchingWarn_wall_corner_clipped">The slab edge crosses the wall corner contour — only the part within the slab is used.</system:String>
+   <system:String x:Key="PunchingWarn_wall_corner_amd2_draft">The wall corner contour follows Fig. 6.2 of draft Amendment 2 to SP 430 (not approved) — for reference only.</system:String>
    <system:String x:Key="PunchingWarn_wall_batch_end_moments">Wall end: row Mx is taken as the difference ΔM of slab moments on both sides of the wall (½ΔM is used), row My is ignored (SP 430, cl. 6.3.8).</system:String>
    <system:String x:Key="PunchingWarn_wall_batch_corner_moments">Wall corner: only F = |N| of the row is used, Mx and My are ignored (SP 430, cl. 6.3.8).</system:String>
    <system:String x:Key="PunchingErr_wall_size">Wall thickness a1 (and a2 at a corner) must be greater than zero.</system:String>

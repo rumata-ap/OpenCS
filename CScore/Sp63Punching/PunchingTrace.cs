@@ -69,7 +69,7 @@ internal static class PunchingTrace
         bool corner = wallNode && d.Wall!.Kind == PunchingWallKind.Corner;
         if (wallNode)
             steps.Add(corner
-                ? Step($"{p}.wall", "СП 430 п. 6.3.8, рис. 6.2", "Punching_Trace_WallCorner", @"M_x = M_y = 0", "", "", ("F", d.F, CalculationUnit.Kilonewton))
+                ? Step($"{p}.wall", "СП 430 п. 6.3.8, рис. 6.2 " + PunchingWallGeometry.FigureEdition(d.Wall!), "Punching_Trace_WallCorner", @"M_x = M_y = 0", "", "", ("F", d.F, CalculationUnit.Kilonewton))
                 : Step($"{p}.wall", "СП 430 п. 6.3.8, рис. 6.1", "Punching_Trace_WallEnd",
                     @"M_x = \frac{\Delta M}{2},\ M_y = 0,\ e_x = 0", @"{dM} / 2", "{Mx}",
                     ("dM", 2 * d.Mx0, CalculationUnit.KilonewtonMeter), ("Mx", d.Mx0, CalculationUnit.KilonewtonMeter)));

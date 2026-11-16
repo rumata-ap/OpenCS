@@ -218,7 +218,7 @@
                      <ColumnDefinition Width="*"/>
                   </Grid.ColumnDefinitions>
                   <Grid.RowDefinitions>
-                     <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                     <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
                   </Grid.RowDefinitions>
                   <TextBlock Grid.Row="0" Text="{DynamicResource PunchingEccX}" Style="{StaticResource Lbl}"/>
                   <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding EccentricityModes}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding EccentricityX}"/>
@@ -234,6 +234,9 @@
                      <TextBlock Text="h0" Style="{StaticResource Unit}"/>
                   </StackPanel>
                   <CheckBox Grid.Row="5" Grid.ColumnSpan="2" Content="{DynamicResource PunchingPylonReduced}" IsChecked="{Binding PylonReduced}"/>
+                  <TextBlock Grid.Row="6" Text="{DynamicResource PunchingWallFigure}" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingWallFigureHint}"/>
+                  <ComboBox Grid.Row="6" Grid.Column="1" ItemsSource="{Binding WallFigures}" DisplayMemberPath="Label" SelectedValuePath="Id"
+                            SelectedValue="{Binding WallFigure}" ToolTip="{DynamicResource PunchingWallFigureHint}"/>
                </Grid>
             </Expander>
 

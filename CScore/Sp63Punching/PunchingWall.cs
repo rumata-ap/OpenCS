@@ -13,8 +13,17 @@ public enum PunchingWallKind
 /// <summary>Редакция рисунка 6.2 (угол стены).</summary>
 public enum PunchingWallFigure
 {
-    /// <summary>СП 430.1325800.2018 с Изменением № 1 (действующая редакция).</summary>
-    Sp430Amd1
+    /// <summary>
+    /// СП 430.1325800.2018 с Изменением № 1 (действующая редакция): наружные ветви Г — длиной a1 + a2 от угла контура,
+    /// диагональ — от точек на a1 и a2 от угла контура у внутреннего угла (обе отложены от линии h0/2).
+    /// </summary>
+    Sp430Amd1,
+
+    /// <summary>
+    /// Проект Изменения № 2 к СП 430 (публичное обсуждение завершено 07.09.2026, не утверждён): наружные ветви — до a1 + a2
+    /// от наружных граней стен, диагональ — от точек на a1 и a2 от внутренних граней стен.
+    /// </summary>
+    Sp430Amd2Draft
 }
 
 /// <summary>
@@ -31,6 +40,9 @@ public sealed record PunchingWall(PunchingWallKind Kind, double A1, double? A2 =
 {
     /// <summary>Толщина второй стены угла (по умолчанию — как первой), м.</summary>
     public double T2 => A2 ?? A1;
+
+    /// <summary>Расчёт по проекту Изменения № 2 (рис. 6.2 новой редакции).</summary>
+    public bool IsAmd2 => Figure == PunchingWallFigure.Sp430Amd2Draft;
 }
 
 /// <summary>Геометрия узлов стены: кусок стены, контуры на отступе от граней, основание пирамиды.</summary>
@@ -64,9 +76,10 @@ public static class PunchingWallGeometry
     /// <summary>
     /// Контур узла на отступе <paramref name="d"/> от граней стены (при d = h0/2 — рис. 6.1, а и 6.2 СП 430). Торец —
     /// П: торцевой отрезок x = d, |y| ≤ a1/2 + d и две ветви той же длины a1 + 2d назад вдоль стены. Угол — наружный Г
-    /// (ветви до a1 + a2 от наружных граней) и диагональ у внутреннего угла (рис. 6.2 ред. с Изм. № 1).
+    /// и диагональ у внутреннего угла по редакции рис. 6.2 (<see cref="CornerLegEnd"/>, <see cref="CornerDiagonalLegs"/>).
+    /// На отступе d &gt; h0/2 (ряды арматуры, контур за ней) концы ветвей Г остаются на месте, диагональ сдвигается на d.
     /// </summary>
-    public static List<ContourElement> Lines(PunchingWall wall, double d)
+    public static List<ContourElement> Lines(PunchingWall wall, double d, double h0)
     {
         double a1 = wall.A1;
         if (wall.Kind == PunchingWallKind.End)
@@ -75,14 +88,33 @@ public static class PunchingWallGeometry
             // Обход против часовой стрелки: нижняя ветвь к торцу, торцевой отрезок, верхняя ветвь назад.
             return [new LineElement(new(x0, -w), new(d, -w)), new LineElement(new(d, -w), new(d, w)), new LineElement(new(d, w), new(x0, w))];
         }
-        double a2 = wall.T2, leg = a1 + a2;
-        return
-        [
+        double a2 = wall.T2, leg = CornerLegEnd(wall, h0);
+        var (k1, k2) = CornerDiagonalLegs(wall, h0);
+        var list = new List<ContourElement>
+        {
             new LineElement(new(-d, leg), new(-d, -d)),
             new LineElement(new(-d, -d), new(leg, -d)),
-            new LineElement(new(a2 + d + a1, a1 + d), new(a2 + d, a1 + d + a2)),
-        ];
+        };
+        if (k1 + k2 > Tol) list.Add(new LineElement(new(a2 + d + k1, a1 + d), new(a2 + d, a1 + d + k2)));
+        return list;
     }
+
+    /// <summary>
+    /// Конец наружных ветвей Г угла от наружных граней стен, м: Изм. № 1 — a1 + a2 от угла контура (a1 + a2 − h0/2 от
+    /// граней), проект Изм. № 2 — a1 + a2 от граней.
+    /// </summary>
+    public static double CornerLegEnd(PunchingWall wall, double h0)
+        => wall.A1 + wall.T2 - (wall.IsAmd2 ? 0 : h0 / 2);
+
+    /// <summary>
+    /// Катеты диагонали угла от угла контура у внутреннего угла стен (точка (a2 + h0/2; a1 + h0/2)), м: вдоль X и вдоль Y.
+    /// Изм. № 1 — a1 и a2; проект Изм. № 2 — a1 − h0/2 и a2 − h0/2 (концы на a1 и a2 от внутренних граней), не меньше 0.
+    /// </summary>
+    public static (double AlongX, double AlongY) CornerDiagonalLegs(PunchingWall wall, double h0)
+        => wall.IsAmd2 ? (Math.Max(0, wall.A1 - h0 / 2), Math.Max(0, wall.T2 - h0 / 2)) : (wall.A1, wall.T2);
+
+    /// <summary>Редакция рис. 6.2 для ссылок отчёта: «(ред. с Изм. № 1)» или «(проект Изм. № 2)».</summary>
+    public static string FigureEdition(PunchingWall wall) => wall.IsAmd2 ? "(проект Изм. № 2)" : "(ред. с Изм. № 1)";
 
     /// <summary>
     /// Контур 1′ у торца стены возле края плиты (рис. 6.1, б): два отрезка на отступе <paramref name="d"/> (по норме
@@ -141,7 +173,8 @@ public static class PunchingWallGeometry
 
     /// <summary>
     /// Основание пирамиды узла (контур на отступе h0, замкнутый поперёк стены), обрезанное краями; против часовой
-    /// стрелки. Торец — прямоугольник от начала ветвей до h0 за торцом; угол — пятиугольник по наружному Г и диагонали.
+    /// стрелки. Торец — прямоугольник от начала ветвей до h0 за торцом; угол — пятиугольник по наружному Г и диагонали
+    /// редакции рис. 6.2, сдвинутой на h0 от граней (наружные стороны — до концов диагонали).
     /// </summary>
     public static List<PlanPoint> BasePolygon(PunchingWall wall, double h0, IReadOnlyList<PunchingSlabEdge> edges)
     {
@@ -155,7 +188,9 @@ public static class PunchingWallGeometry
         else
         {
             double a2 = wall.T2;
-            pts = [new(-h0, -h0), new(a1 + a2 + h0, -h0), new(a1 + a2 + h0, a1 + h0), new(a2 + h0, a1 + a2 + h0), new(-h0, a1 + a2 + h0)];
+            var (k1, k2) = CornerDiagonalLegs(wall, h0);
+            double x1 = a2 + h0 + k1, y1 = a1 + h0 + k2;
+            pts = [new(-h0, -h0), new(x1, -h0), new(x1, a1 + h0), new(a2 + h0, y1), new(-h0, y1)];
         }
         foreach (var e in edges)
         {

@@ -407,6 +407,10 @@ public sealed class PunchingFemServiceTests : IDisposable
             Assert.Equal(f.ColumnForce!.Value, f.ContourForce!.Value + f.WallExcluded!.Value, 3);
             // Симметрия относительно оси стены: моменты плиты по сторонам равны.
             Assert.True(Math.Abs(f.Mx) < 1e-3 * f.F, $"ΔM = {f.Mx}");
+            // Самопроверка ΔM: оба способа на П-контуре h0/2 дают ≈ 0.
+            var c = f.WallDeltaMCheck!.Value;
+            Assert.True(Math.Abs(c.Plate) < 0.01 * c.Scale + 1e-6 && Math.Abs(c.Nodal) < 0.01 * c.Scale + 1e-6,
+                $"ΔM пластины {c.Plate}, узловые {c.Nodal}, Σ|m| {c.Scale}");
         }
         Assert.True(Math.Abs(ends[0].Forces.F - ends[1].Forces.F) < 1e-4 * ends[0].Forces.F);   // симметрия торцов
 
@@ -436,8 +440,18 @@ public sealed class PunchingFemServiceTests : IDisposable
             // Нагружена сторона общей +Y: опорный момент плиты у стены с этой стороны (растяжение верха, M > 0 в конвенции
             // OpenCS) больше, чем с ненагруженной. ΔM = M(+y) − M(−y) в осях узла: у торца x = −1 ось y узла смотрит в −Y.
             Assert.True(f.Mx * Math.Sign(joint.AxisY.Y) > 0.05 * f.F * 0.3, $"ΔM = {f.Mx}, F = {f.F}");
+            // Самопроверка ΔM (спека среза 5, 4.3): на П-контуре h0/2 моменты по пластинам в центрах КЭ и по узловым силам
+            // разреза одного знака и в пределах допуска окна (10 %).
+            var c = f.WallDeltaMCheck!.Value;
+            Assert.True(Math.Sign(c.Plate) == Math.Sign(c.Nodal) && Math.Abs(c.Nodal) > 0.01 * c.Scale,
+                $"ΔM пластины {c.Plate}, узловые {c.Nodal}, Σ|m| {c.Scale}");
+            Assert.True(Math.Abs(c.Plate - c.Nodal) <= 0.10 * Math.Max(Math.Max(Math.Abs(c.Plate), Math.Abs(c.Nodal)), 0.1 * c.Scale) + 0.5,
+                $"ΔM пластины {c.Plate}, узловые {c.Nodal}, Σ|m| {c.Scale}");
         }
         Assert.Equal(Math.Abs(ends[0].Forces.Mx), Math.Abs(ends[1].Forces.Mx), 2);
+        var data = PunchingFemCheckRunner.Compute(db, s.Schema.Id,
+            new PunchingFemCheckParams { SourceRef = s.Analysis.Id.ToString(CultureInfo.InvariantCulture) }, CalcType.C);
+        Assert.All(data.Joints, j => Assert.DoesNotContain(j.Warnings, w => w.Code == "punching_fem_wall_dm_mismatch"));
     }
 
     [Fact]
@@ -460,6 +474,10 @@ public sealed class PunchingFemServiceTests : IDisposable
         // План: кусок стены у угла — Г из 6 точек (не выпуклая оболочка).
         var cj = data.Joints.Single(j => j.Kind == "wall_corner");
         Assert.Equal(6, cj.Area.Count);
+        // План: стены W1 и W2 — линиями по всей длине (2 м), толщина 0,3 м.
+        Assert.Equal(2, data.Walls.Count);
+        Assert.All(data.Walls, w => Assert.Equal(2, Math.Sqrt(Math.Pow(w.B[0] - w.A[0], 2) + Math.Pow(w.B[1] - w.A[1], 2)), 6));
+        Assert.All(data.Walls, w => Assert.Equal(0.3, w.T, 9));
         Assert.All(data.Joints, j => Assert.All(j.Rows, r => Assert.NotNull(r.WallExcluded)));
 
         // Окно результата: у стен «Стена в основании», «Грани поперёк стены» (= WallExcluded), без торцов пилона, неучтённые моменты — «—».

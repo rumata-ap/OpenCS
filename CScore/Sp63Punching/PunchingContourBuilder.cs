@@ -166,7 +166,10 @@ public static class PunchingContourBuilder
         var edges = input.Edges ?? Array.Empty<PunchingSlabEdge>();
         string prefix = zone == PunchingZone.Main ? "" : "outer_";
         bool end = wall.Kind == PunchingWallKind.End;
-        var lines = PunchingWallGeometry.Lines(wall, d);
+        var lines = PunchingWallGeometry.Lines(wall, d, input.H0);
+        if (!end && wall.IsAmd2 && zone == PunchingZone.Main)
+            warnings.Add(new("wall_corner_amd2_draft",
+                "Контур у угла стен построен по рис. 6.2 проекта Изменения № 2 к СП 430 (не утверждён) — расчёт справочный."));
         var kept = edges.Aggregate((IEnumerable<ContourElement>)lines, (acc, e) => ClipBy(acc, e)).ToList();
         double full = lines.Sum(x => x.Length), left = kept.Sum(x => x.Length);
         if (left > Tol)

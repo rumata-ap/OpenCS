@@ -41,11 +41,11 @@ public sealed record PunchingWallParams
     /// <summary>Угол стен.</summary>
     [JsonIgnore] public bool IsCorner => Kind == "corner";
 
-    /// <summary>Узел ядра; null — не стена.</summary>
-    public PunchingWall? ToCore() => Kind switch
+    /// <summary>Узел ядра; null — не стена. <paramref name="figure"/> — редакция рис. 6.2 (<see cref="PunchingOptionParams.WallFigure"/>).</summary>
+    public PunchingWall? ToCore(string? figure = null) => Kind switch
     {
         "end" => new PunchingWall(PunchingWallKind.End, A1),
-        "corner" => new PunchingWall(PunchingWallKind.Corner, A1, A2),
+        "corner" => new PunchingWall(PunchingWallKind.Corner, A1, A2, PunchingOptionParams.ParseWallFigure(figure)),
         _ => null
     };
 
@@ -222,6 +222,15 @@ public sealed record PunchingOptionParams
     public bool PylonReduced { get; init; }
     /// <summary>μ продольного армирования, доля; null — множитель 1.</summary>
     public double? Mu { get; init; }
+    /// <summary>
+    /// Редакция рис. 6.2 СП 430 (контур у угла стен): "amd1" — с Изменением № 1 (действующая), "amd2" — проект
+    /// Изменения № 2. Старые задачи без поля — "amd1".
+    /// </summary>
+    public string WallFigure { get; init; } = "amd1";
+
+    /// <summary>Код редакции → редакция ядра; неизвестный — действующая.</summary>
+    public static PunchingWallFigure ParseWallFigure(string? code)
+        => code == "amd2" ? PunchingWallFigure.Sp430Amd2Draft : PunchingWallFigure.Sp430Amd1;
 }
 
 /// <summary>Контур пользователя.</summary>
@@ -287,7 +296,7 @@ public sealed record PunchingTaskParams
     [JsonIgnore] public double H0 => 0.5 * (H0x + H0y);
 
     /// <summary>Грузовая площадь ядра; у узла стены — кусок стены в зоне контура (<see cref="PunchingWallGeometry.AreaPolygon"/>).</summary>
-    public PunchingLoadArea BuildArea() => Wall.ToCore() is { } wall
+    public PunchingLoadArea BuildArea() => Wall.ToCore(Options.WallFigure) is { } wall
         ? new PunchingLoadArea.Polygon(PunchingWallGeometry.AreaPolygon(wall, H0))
         : Area.Shape switch
     {
@@ -476,7 +485,7 @@ public sealed record PunchingTaskParams
                 Options.HoleInfluence,
                 Options.Wb == "stress_side" ? SectionModulusMode.StressSide : SectionModulusMode.Minimum,
                 Options.PylonReduced, false, Options.Mu),
-            Wall.ToCore());
+            Wall.ToCore(Options.WallFigure));
     }
 
     static EccentricityMode Eccentricity(string mode) => mode switch

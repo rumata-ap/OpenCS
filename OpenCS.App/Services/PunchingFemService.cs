@@ -20,6 +20,8 @@ public sealed class PunchingFemSchemaData
     public required PunchingFemModel Model { get; init; }
     public required IReadOnlyList<PunchingFemJoint> Joints { get; init; }
     public required IReadOnlyList<PunchingFemSlab> Slabs { get; init; }
+    /// <summary>Линии стен у плит (для плана перекрытия).</summary>
+    public IReadOnlyList<PunchingFemWallLine> Walls { get; init; } = [];
     public required IReadOnlyDictionary<string, FemElement> ElementsByTag { get; init; }
     /// <summary>Пластины каждой плиты по её индексу.</summary>
     public required IReadOnlyList<IReadOnlySet<string>> SlabShells { get; init; }
@@ -78,10 +80,10 @@ public static class PunchingFemService
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(schema);
         var model = BuildModel(db, schema.Id);
-        var joints = PunchingFemJointFinder.Find(model, options, out var slabs);
+        var joints = PunchingFemJointFinder.Find(model, options, out var slabs, out var walls);
         return new PunchingFemSchemaData
         {
-            Schema = schema, Model = model, Joints = joints, Slabs = slabs,
+            Schema = schema, Model = model, Joints = joints, Slabs = slabs, Walls = walls,
             ElementsByTag = model.Elements.GroupBy(e => e.ElemTag, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal),
             SlabShells = slabs.Select(s => (IReadOnlySet<string>)s.Shells.Select(x => x.Element.ElemTag).ToHashSet(StringComparer.Ordinal)).ToList(),
         };
@@ -404,6 +406,20 @@ public static class PunchingFemService
             // Торец или угол стены (СП 430 п. 6.3.8): сила — только по разрезу плиты по длине контура (стена продолжается,
             // её сила на торец и середину не делится); ΔM у торца — по моментам плиты на ветвях П-контура.
             bool shellsWall = joint.Bars.Count == 0;
+            // Самопроверка ΔM у торца (CSfea): тело — П-контур h0/2, замкнутый поперёк стены; моменты на его гранях по
+            // узловым силам против тех же моментов по пластинам в центрах КЭ.
+            PunchingFemCutResult? dmCut = null;
+            IReadOnlyList<PlanPoint> dmPoly = [];
+            if (joint.Wall is { Kind: PunchingWallKind.End } endWall && source.Nodal != null)
+            {
+                dmPoly = PunchingWallGeometry.BasePolygon(endWall, joint.H0 / 2, joint.Edges);
+                if (dmPoly.Count >= 3)
+                {
+                    dmCut = PunchingFemCut.Compute(joint with { PyramidBase = dmPoly }, data.Model.Nodes, data.CutIndex,
+                        data.SlabShells[joint.SlabIndex], keys, source.Nodal);
+                    if (dmCut.Failure != null) dmCut = null;
+                }
+            }
             foreach (var key in keys)
             {
                 double? contour = cut?.Failure == null && cut?.ByKey.TryGetValue(key, out var cf) == true ? cf.Force
@@ -427,6 +443,9 @@ public static class PunchingFemService
                     dm ?? 0, 0, PunchingFemForceMethod.Contour, action, baseLoad, c)
                 {
                     WallExcluded = cut?.Failure == null && cut?.ByKey.TryGetValue(key, out var ce) == true ? ce.WallExcluded : null,
+                    WallDeltaMCheck = dmCut != null && dmCut.ByKey.TryGetValue(key, out var dk)
+                        && PunchingFemShellCut.WallMoment(joint, dmPoly, data.Model.Nodes, data.ElementsByTag, source.Result, key) is var (pl, sc)
+                        ? (pl, -dk.Terms.Sum(t => t.M.Dot(joint.AxisX)) / 1e3, sc) : null,
                 };
                 if (dm == null) missing ??= "нет усилий пластин на ветвях П-контура (ΔM)";
             }

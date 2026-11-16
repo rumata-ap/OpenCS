@@ -141,7 +141,7 @@ public sealed class PunchingReportProvider : IReportProvider
                 ("Результат получен", string.IsNullOrWhiteSpace(context.Result.Created) ? "—" : context.Result.Created),
                 ("Статус результата", ReportNames.Status(context.Result.Status)),
                 ("Нормативная база", "СП 63.13330.2018, пп. 8.1.46–8.1.52" + (pylon ? "; контур пилона — СП 430.1325800, п. 6.3.8" : "")
-                    + (wall ? "; узел стены — СП 430.1325800.2018 (ред. с Изм. № 1), п. 6.3.8" : "")),
+                    + (wall ? PunchingReportText.WallBasis(PunchingReportText.IsAmd2(data.Inputs)) : "")),
                 ("Единицы", "длины — м, силы — кН, моменты — кН·м, напряжения — кПа")
             ], "Параметр", "Значение"));
 
@@ -184,7 +184,7 @@ public sealed class PunchingReportProvider : IReportProvider
                 doc.Add(new ReportParagraph("Для вытянутой площади (Lmax > 2Lmin + h0) у каждого торца пилона проверяется "
                     + "П-образный контур по СП 430.1325800, п. 6.3.8, рис. 6.1а (методика книги «Продавливание» Г. Гоши). "
                     + "Обоснование концентрации поперечной силы у торцов — Галяутдинов З. Ш., дис. … канд. техн. наук, СамГТУ, 2022."));
-            if (PunchingReportText.WallExplanation(v.Kind) is { } wallText)
+            if (PunchingReportText.WallExplanation(v.Kind, PunchingReportText.IsAmd2(data.Inputs)) is { } wallText)
                 doc.Add(new ReportParagraph(wallText));
             if (v.Kind == PunchingVariantKind.PylonReduced)
                 doc.Add(new ReportParagraph("Справочно, не нормативно: приведённый периметр по Галяутдинову З. Ш. «Влияние "
@@ -298,7 +298,7 @@ public sealed class PunchingReportProvider : IReportProvider
         }
         else if (wallKind == "corner")
         {
-            Text("—", "угол стен под 90° (СП 430, п. 6.3.8, рис. 6.2 ред. с Изм. № 1)", "узел");
+            Text("—", "угол стен под 90° (СП 430, п. 6.3.8, рис. 6.2 " + (PunchingReportText.IsAmd2(i) ? "по проекту Изм. № 2)" : "ред. с Изм. № 1)"), "узел");
             Row("a_1", N(i, "a1"), "м", "толщина стены вдоль X");
             Row("a_2", N(i, "a2"), "м", "толщина стены вдоль Y");
         }

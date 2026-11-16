@@ -101,6 +101,16 @@ public sealed record PunchingFemSlabOutline
     public List<List<double[]>> Loops { get; init; } = [];
 }
 
+/// <summary>Стена у плиты для плана перекрытия: ось примыкания в плане (общие X, Y), м, толщина, м, отметка плиты, м.</summary>
+public sealed record PunchingFemWallOutline
+{
+    public int Slab { get; init; }
+    public double Z { get; init; }
+    public double[] A { get; init; } = [];
+    public double[] B { get; init; } = [];
+    public double T { get; init; }
+}
+
 /// <summary>Сводка результата проверки продавливания по МКЭ (<see cref="CalcResult.DataJson"/>).</summary>
 public sealed record PunchingFemCheckData
 {
@@ -122,6 +132,8 @@ public sealed record PunchingFemCheckData
     public List<PunchingFemJointResult> Joints { get; init; } = [];
     /// <summary>Плиты с узлами — для плана перекрытия.</summary>
     public List<PunchingFemSlabOutline> Slabs { get; init; } = [];
+    /// <summary>Стены у плит с узлами — линией по всей длине на плане (старые результаты — без них).</summary>
+    public List<PunchingFemWallOutline> Walls { get; init; } = [];
     /// <summary>Определяющий узел (наибольший Кисп).</summary>
     public string? GoverningNode { get; init; }
     /// <summary>DataJson одиночной задачи по определяющей строке определяющего узла (с ходом вычислений) — для отчёта.</summary>
@@ -155,6 +167,8 @@ public static class PunchingFemCheckRunner
 
     /// <summary>Допуск невязки способов: доля |F| и абсолютный, кН.</summary>
     const double MismatchShare = 0.01, MismatchAbs = 0.5;
+    /// <summary>Допуск самопроверки ΔM торца: доля от ΔM (не меньше этой же доли от Σ|m| по контуру).</summary>
+    const double DeltaMShare = 0.10;
 
     public static CalcResult Run(DatabaseService db, FemCheck check, IProgress<double>? progress = null, CancellationToken token = default)
     {
@@ -244,6 +258,11 @@ public static class PunchingFemCheckRunner
             TotalJoints = results.Count, PassedJoints = results.Count(r => r.Passed), FailedJoints = failed, NoCheckJoints = noCheck,
             Keys = source.Keys.Count, Warnings = warnings, Joints = results,
             Slabs = Outlines(schemaData, results.Select(r => r.Slab).ToHashSet()),
+            Walls = schemaData.Walls.Where(w => results.Any(r => r.Slab == w.SlabIndex))
+                .Select(w => new PunchingFemWallOutline
+                {
+                    Slab = w.SlabIndex, Z = schemaData.Slabs[w.SlabIndex].Point.Z, A = [w.A.X, w.A.Y], B = [w.B.X, w.B.Y], T = w.T,
+                }).ToList(),
         };
     }
 
@@ -342,6 +361,8 @@ public static class PunchingFemCheckRunner
         double worst = double.NegativeInfinity;
         double mismatchWorst = 0;
         string mismatchKey = "";
+        (double Plate, double Nodal, string Key)? dmWorst = null;
+        double dmWorstExcess = 0;
         bool baseUnknown = false;
         PunchingDesignResult? design = null;
         string? designKey = null;
@@ -355,6 +376,17 @@ public static class PunchingFemCheckRunner
             {
                 mismatchWorst = Math.Abs(wf - wc - wx);
                 mismatchKey = label;
+            }
+            // Торец стены: ΔM по пластинам в центрах КЭ против узловых сил на П-контуре h0/2 (10 % по спеке среза 5).
+            if (f.WallDeltaMCheck is var (dmPlate, dmNodal, dmScale))
+            {
+                double tol = DeltaMShare * Math.Max(Math.Max(Math.Abs(dmPlate), Math.Abs(dmNodal)), DeltaMShare * dmScale) + MismatchAbs;
+                double excess = Math.Abs(dmPlate - dmNodal) - tol;
+                if (excess > 0 && excess > dmWorstExcess)
+                {
+                    dmWorstExcess = excess;
+                    dmWorst = (dmPlate, dmNodal, label);
+                }
             }
             if (!joint.IsWall && !joint.Ribs && f.Mismatch is double mm && Math.Abs(mm) > MismatchShare * Math.Abs(f.F) + MismatchAbs && Math.Abs(mm) > mismatchWorst)
             {
@@ -434,6 +466,9 @@ public static class PunchingFemCheckRunner
         }
         if (baseUnknown)
             warnings.Add(new("punching_fem_base_load_unknown", "Нагрузки схемы в основании пирамиды неизвестны — сила по стержням без вычета (в запас)."));
+        if (dmWorst is var (wp, wn, wk))
+            warnings.Add(new("punching_fem_wall_dm_mismatch", string.Create(Ru,
+                $"ΔM торца по моментам пластин в центрах КЭ и по узловым силам на П-контуре h0/2 расходятся: {wp:0.##} против {wn:0.##} кН·м («{wk}»). Сетка у торца груба для ΔM — сгустите её у стены или проверьте ΔM вручную.")));
         if (mismatchWorst > 0 && joint.IsWall)
             warnings.Add(new("punching_fem_wall_mismatch", string.Create(Ru,
                 $"Равновесие разреза у стены не сходится до {mismatchWorst:0.##} кН («{mismatchKey}»): действие стены в основании не равно силе по контуру и граням поперёк стены — проверьте связи и опоры у узла.")));

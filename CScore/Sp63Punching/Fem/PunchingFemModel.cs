@@ -51,14 +51,22 @@ public sealed class PunchingFemModel
 /// <param name="HoleInfluence">Отверстия ближе этого числа h0 учитываются (п. 8.1.46: 6h0).</param>
 /// <param name="WallRatio">Площадь с Lmax &gt; WallRatio·Lmin — стена, а не пилон (срез 5).</param>
 /// <param name="DefaultCover">Привязки, если у сечения пластины их нет.</param>
+/// <param name="WallFigure">Редакция рис. 6.2 СП 430 для углов стен.</param>
 public sealed record PunchingFemOptions(
     double AngleDeg = 10, double HorizontalTolDeg = 3, double PlaneTolM = 1e-3,
     double EdgeInfluence = 6, double HoleInfluence = 6, double WallRatio = 4,
-    PunchingFemCover? DefaultCover = null)
+    PunchingFemCover? DefaultCover = null, PunchingWallFigure WallFigure = PunchingWallFigure.Sp430Amd1)
 {
     /// <summary>Привязки по умолчанию, м (как у одиночной задачи).</summary>
     public static readonly PunchingFemCover StandardCover = new(0.035, 0.045);
 }
+
+/// <summary>Линия стены у плиты (ось примыкания) для плана перекрытия.</summary>
+/// <param name="SlabIndex">Плита, к которой примыкает стена.</param>
+/// <param name="A">Начало линии в общих осях, м.</param>
+/// <param name="B">Конец линии, м.</param>
+/// <param name="T">Толщина стены, м.</param>
+public sealed record PunchingFemWallLine(int SlabIndex, PlanarVector3 A, PlanarVector3 B, double T);
 
 /// <summary>Вид узла продавливания.</summary>
 public enum PunchingFemJointKind
