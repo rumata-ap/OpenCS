@@ -3152,6 +3152,7 @@
     <system:String x:Key="FemSlsDlgLtFraction">Доля длительности</system:String>
     <system:String x:Key="FemSlsDlgPhi2Label">φ2 (профиль арм.)</system:String>
     <system:String x:Key="RunFemCheck">Запустить проверку</system:String>
+    <system:String x:Key="FemCheckPendingText">Проверка ещё не рассчитана. Запустите её кнопкой ниже или из контекстного меню проверки в дереве. Двойной щелчок по нерассчитанной проверке открывает её параметры.</system:String>
     <system:String x:Key="FemCheckEdit">Редактировать...</system:String>
     <!-- FemCheck результат -->
     <system:String x:Key="FemCheckResultSummary">{0} прошло / {1} не прошло из {2}</system:String>
@@ -6782,8 +6783,8 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingVariantShort_WallCorner">угол стен</system:String>
    <system:String x:Key="PunchingWarn_wall_sw_cross_ignored">У стены крестообразная поперечная арматура не применяется — арматура не учитывается. Задайте равномерную раскладку рядами.</system:String>
    <system:String x:Key="PunchingWarn_wall_end_clipped">Край плиты ближе h0/2 к торцу или граням стены — П-контур обрезан краем, учитывается часть в пределах плиты.</system:String>
-   <system:String x:Key="PunchingWarn_wall_corner_clipped">Край плиты пересекает контур у угла стен — учитывается часть контура в пределах плиты.</system:String>
    <system:String x:Key="PunchingWarn_wall_corner_amd2_draft">Контур у угла стен построен по рис. 6.2 проекта Изменения № 2 к СП 430 (не утверждён) — расчёт справочный.</system:String>
+   <system:String x:Key="PunchingWarn_wall_corner_clipped">Край плиты пересекает контур у угла стен — учитывается часть контура в пределах плиты.</system:String>
    <system:String x:Key="PunchingWarn_wall_batch_end_moments">Торец стены: Mx строки принимается как разность моментов плиты по сторонам стены ΔM (в расчёт — ½ΔM), My строки не учитывается (СП 430, п. 6.3.8).</system:String>
    <system:String x:Key="PunchingWarn_wall_batch_corner_moments">Угол стен: учитывается только F = |N| строки, моменты Mx и My не учитываются (СП 430, п. 6.3.8).</system:String>
    <system:String x:Key="PunchingErr_wall_size">Толщина стены a1 (и a2 у угла) должна быть больше нуля.</system:String>

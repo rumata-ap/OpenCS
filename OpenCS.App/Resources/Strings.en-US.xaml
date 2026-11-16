@@ -3152,6 +3152,7 @@
     <system:String x:Key="FemSlsDlgLtFraction">Long-term fraction</system:String>
     <system:String x:Key="FemSlsDlgPhi2Label">φ2 (rebar profile)</system:String>
     <system:String x:Key="RunFemCheck">Run check</system:String>
+    <system:String x:Key="FemCheckPendingText">The check has not been run yet. Run it with the button below or from the check context menu in the tree. Double-clicking a check that has not been run opens its parameters.</system:String>
     <system:String x:Key="FemCheckEdit">Edit...</system:String>
     <!-- FemCheck result -->
     <system:String x:Key="FemCheckResultSummary">{0} passed / {1} failed of {2}</system:String>
@@ -6782,8 +6783,8 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingVariantShort_WallCorner">wall corner</system:String>
    <system:String x:Key="PunchingWarn_wall_sw_cross_ignored">Cross-shaped shear reinforcement is not applicable at a wall — reinforcement is ignored. Use uniform reinforcement in rows.</system:String>
    <system:String x:Key="PunchingWarn_wall_end_clipped">The slab edge is closer than h0/2 to the wall end or faces — the U-contour is clipped, only the part within the slab is used.</system:String>
-   <system:String x:Key="PunchingWarn_wall_corner_clipped">The slab edge crosses the wall corner contour — only the part within the slab is used.</system:String>
    <system:String x:Key="PunchingWarn_wall_corner_amd2_draft">The wall corner contour follows Fig. 6.2 of draft Amendment 2 to SP 430 (not approved) — for reference only.</system:String>
+   <system:String x:Key="PunchingWarn_wall_corner_clipped">The slab edge crosses the wall corner contour — only the part within the slab is used.</system:String>
    <system:String x:Key="PunchingWarn_wall_batch_end_moments">Wall end: row Mx is taken as the difference ΔM of slab moments on both sides of the wall (½ΔM is used), row My is ignored (SP 430, cl. 6.3.8).</system:String>
    <system:String x:Key="PunchingWarn_wall_batch_corner_moments">Wall corner: only F = |N| of the row is used, Mx and My are ignored (SP 430, cl. 6.3.8).</system:String>
    <system:String x:Key="PunchingErr_wall_size">Wall thickness a1 (and a2 at a corner) must be greater than zero.</system:String>

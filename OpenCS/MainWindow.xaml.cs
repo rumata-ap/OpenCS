@@ -312,9 +312,21 @@ namespace OpenCS
              }
              else
              {
-                vm.CurrentPage = null!;
+                // Не рассчитана — пояснение с кнопками «Запустить проверку» и «Редактировать…», а не пустая панель.
+                vm.CurrentPage = new Views.FemCheckPendingView(femCheckItem, vm);
              }
           }
+      }
+
+      /// <summary>
+      /// Двойной щелчок по проверке МКЭ в дереве: рассчитанная уже открыта щелчком (результат), нерассчитанная —
+      /// «Редактировать…» (окно параметров с «Сохранить и рассчитать»), как двойной щелчок по загружению.
+      /// </summary>
+      void FemCheckTreeItem_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+      {
+         if (e.ClickCount != 2 || sender is not FrameworkElement { DataContext: CScore.Fem.FemCheck check }) return;
+         if (check.ResultId == null) vm.EditFemCheckCommand.Execute(check);
+         e.Handled = true;
       }
 
       /// <summary>Двойной щелчок по загружению или комбинации в дереве — «Изменить…».</summary>
