@@ -22,6 +22,16 @@
          <Setter Property="Margin" Value="4,0"/>
          <Setter Property="VerticalAlignment" Value="Center"/>
       </Style>
+      <!-- Выделенная строка — светлый фон: цветной текст статуса остаётся читаемым (на системном синем он пропадал). -->
+      <Style TargetType="DataGridCell">
+         <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+               <Setter Property="Background" Value="#DBEAFE"/>
+               <Setter Property="BorderBrush" Value="#DBEAFE"/>
+               <Setter Property="Foreground" Value="#111827"/>
+            </Trigger>
+         </Style.Triggers>
+      </Style>
    </UserControl.Resources>
    <Grid Margin="8">
       <Grid.RowDefinitions>

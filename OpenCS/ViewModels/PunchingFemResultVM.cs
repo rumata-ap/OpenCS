@@ -51,7 +51,7 @@ public sealed class PunchingFemJointRowVM
         Node = data.Node;
         Section = data.Section;
         Slab = data.SlabSection.Length > 0
-            ? string.Format(c, "{0}; h0 = {1:0} мм", data.SlabSection, data.H0 * 1000)
+            ? string.Format(c, "{0}; h0 = {1:0} " + Loc.S("UnitMm", "мм"), data.SlabSection, data.H0 * 1000)
             : "";
         Position = data.Edges switch
         {

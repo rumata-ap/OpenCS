@@ -32,7 +32,7 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
         var c = CultureInfo.CurrentCulture;
         Node = joint.NodeTag;
         Section = joint.SectionLabel;
-        Slab = joint.SlabLabel.Length > 0 ? string.Format(c, "{0}; h0 = {1:0} мм", joint.SlabLabel, joint.H0 * 1000) : "";
+        Slab = joint.SlabLabel.Length > 0 ? string.Format(c, "{0}; h0 = {1:0} " + Loc.S("UnitMm", "мм"), joint.SlabLabel, joint.H0 * 1000) : "";
         Position = (joint.Edges.Count switch
         {
             0 => Loc.S("PunchingPosition_inside", "внутри плиты"),

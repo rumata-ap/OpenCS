@@ -47,6 +47,16 @@
          <Setter Property="Margin" Value="0,4,0,2"/>
          <Setter Property="VerticalContentAlignment" Value="Center"/>
       </Style>
+      <!-- Выделенная строка — светлый фон: цветной текст статуса остаётся читаемым (на системном синем он пропадал). -->
+      <Style TargetType="DataGridCell">
+         <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+               <Setter Property="Background" Value="#DBEAFE"/>
+               <Setter Property="BorderBrush" Value="#DBEAFE"/>
+               <Setter Property="Foreground" Value="#111827"/>
+            </Trigger>
+         </Style.Triggers>
+      </Style>
    </Window.Resources>
 
    <Grid Margin="10">
@@ -272,7 +282,14 @@
                    CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" SelectionMode="Single"
                    GridLinesVisibility="Horizontal">
             <DataGrid.Columns>
-               <DataGridCheckBoxColumn Header="{DynamicResource PunchingFemColInclude}" Binding="{Binding Include, UpdateSourceTrigger=PropertyChanged}" Width="Auto"/>
+               <DataGridTemplateColumn Header="{DynamicResource PunchingFemColInclude}" Width="Auto" SortMemberPath="Include">
+                  <DataGridTemplateColumn.CellTemplate>
+                     <DataTemplate>
+                        <!-- Флажок в шаблоне ячейки переключается первым щелчком (у DataGridCheckBoxColumn первый щелчок только выделяет ячейку). -->
+                        <CheckBox IsChecked="{Binding Include, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="4,0"/>
+                     </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+               </DataGridTemplateColumn>
                <DataGridTextColumn Header="{DynamicResource PunchingFemColNode}" Binding="{Binding Node}" IsReadOnly="True" Width="Auto"/>
                <DataGridTextColumn Header="{DynamicResource PunchingFemColSection}" Binding="{Binding Section}" IsReadOnly="True" Width="Auto"/>
                <DataGridTextColumn Header="{DynamicResource PunchingFemColSlab}" Binding="{Binding Slab}" IsReadOnly="True" Width="Auto"/>
@@ -283,7 +300,14 @@
                   </DataGridTextColumn.HeaderStyle>
                </DataGridTextColumn>
                <DataGridTextColumn Header="ay, мм" Binding="{Binding Ay, Converter={StaticResource AnyDoubleConv}, TargetNullValue=''}" Width="Auto"/>
-               <DataGridCheckBoxColumn Header="{DynamicResource PunchingFemColOwnSw}" Binding="{Binding OwnSw, UpdateSourceTrigger=PropertyChanged}" Width="Auto"/>
+               <DataGridTemplateColumn Header="{DynamicResource PunchingFemColOwnSw}" Width="Auto" SortMemberPath="OwnSw">
+                  <DataGridTemplateColumn.CellTemplate>
+                     <DataTemplate>
+                        <!-- Флажок в шаблоне ячейки переключается первым щелчком (у DataGridCheckBoxColumn первый щелчок только выделяет ячейку). -->
+                        <CheckBox IsChecked="{Binding OwnSw, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="4,0"/>
+                     </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+               </DataGridTemplateColumn>
                <DataGridTextColumn Header="d, мм" Binding="{Binding SwDiameter, Converter={StaticResource AnyDoubleConv}}" Width="Auto"/>
                <DataGridTextColumn Header="n" Binding="{Binding SwCount}" Width="Auto"/>
                <DataGridTextColumn Header="sw, мм" Binding="{Binding SwStep, Converter={StaticResource AnyDoubleConv}}" Width="Auto"/>
