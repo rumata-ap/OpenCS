@@ -30,8 +30,15 @@ public static class PunchingFemJointFinder
         var ctx = new Context(model, options);
         var joints = new List<PunchingFemJoint>();
         foreach (var ((node, slab), bars) in ctx.Candidates())
-            joints.Add(ctx.Build(node, ctx.Slabs[slab], bars));
+        {
+            var joint = ctx.Build(node, ctx.Slabs[slab], bars);
+            // Стержень-стена (b/a > 4): два торца по СП 430 п. 6.3.8.
+            if (joint.NoCheck == PunchingFemNoCheck.Wall && joint.Area is PunchingLoadArea.Rectangle wr)
+                joints.AddRange(ctx.BarWallEnds(joint, ctx.Slabs[slab], wr));
+            else joints.Add(joint);
+        }
         joints.AddRange(ctx.ShellPylons());
+        joints.AddRange(ctx.ShellWalls());
         slabs = ctx.Slabs;
         return joints.OrderBy(j => j.NodeTag, FemNodeRigidBodies.TagComparer).ToList();
     }
@@ -195,9 +202,10 @@ public static class PunchingFemJointFinder
         /// Общая часть узла после грузовой площади: свойства плиты, привязки (по стороне растяжения), края и отверстия,
         /// основание пирамиды, КЭ основания, сечения в основании и прочие опоры (<paramref name="own"/> — свои КЭ узла).
         /// </summary>
-        PunchingFemJoint Complete(PunchingFemJoint joint, PunchingFemSlab slab, PunchingLoadArea area, bool onlyAbove,
+        PunchingFemJoint Complete(PunchingFemJoint joint, PunchingFemSlab slab, PunchingLoadArea? area, bool onlyAbove,
             List<PunchingWarning> warnings, IReadOnlySet<string> own)
         {
+            var wall = joint.Wall;
             string node = joint.NodeTag;
             var n = joint.Normal;
             var origin = joint.Origin;
@@ -223,14 +231,27 @@ public static class PunchingFemJointFinder
             double h0 = joint.H0;
             if (!(h0 > 0))
                 return Partial(PunchingFemNoCheck.H0NonPositive, $"Рабочая высота h0 = h − 0,5(ax + ay) ≤ 0 у сечения «{props.Label}».");
+            // Узел стены: грузовая площадь — кусок стены в зоне контура (длина зависит от h0).
+            if (wall != null)
+            {
+                area = new PunchingLoadArea.Polygon(PunchingWallGeometry.AreaPolygon(wall, h0));
+                joint = joint with { Area = area };
+            }
 
             // Края и отверстия плиты.
-            var (edges, holes) = EdgesAndHoles(slab, joint, area, h0, warnings);
+            var (edges, holes) = EdgesAndHoles(slab, joint, area!, h0, warnings);
             joint = joint with { Edges = edges, Holes = holes };
-            var basePoly = PunchingContourBuilder.PyramidBasePolygon(area, h0, edges);
+            var basePoly = wall != null ? PunchingWallGeometry.BasePolygon(wall, h0, edges) : PunchingContourBuilder.PyramidBasePolygon(area!, h0, edges);
             if (basePoly.Count < 3)
                 return joint with { NoCheck = PunchingFemNoCheck.BaseOutside, NoCheckText = "Основание пирамиды продавливания вне плиты.", Warnings = warnings };
             joint = joint with { PyramidBase = basePoly };
+            if (wall != null)
+            {
+                // Узлы линии стены — только в основании: дальние узлы длинной стены к узлу не относятся.
+                junction = junction.Where(t => Position(t) is { } p && Contains(basePoly, joint.ToLocal(p), 1e-6)).ToList();
+                if (junction.Count == 0) junction = [node];
+                joint = joint with { JunctionNodes = junction };
+            }
 
             // КЭ основания: центр внутри основания; окружение — КЭ с общим узлом.
             var inside = slab.Shells.Where(s => Contains(basePoly, joint.ToLocal(s.Centroid), 1e-9)).ToList();
@@ -361,6 +382,229 @@ public static class PunchingFemJointFinder
             return joints;
         }
 
+        /// <summary>
+        /// Стержень с сечением b/a &gt; <see cref="PunchingFemOptions.WallRatio"/> — стена (п. 5.1.8 СП 430): два торца, каждый
+        /// по рис. 6.1 с осью x наружу от стены. Сила торца — по разрезу плиты (сила стержня на торцы не делится).
+        /// </summary>
+        public IEnumerable<PunchingFemJoint> BarWallEnds(PunchingFemJoint j, PunchingFemSlab slab, PunchingLoadArea.Rectangle r)
+        {
+            bool alongX = r.Bx >= r.By;
+            double len = Math.Max(r.Bx, r.By), t = Math.Min(r.Bx, r.By);
+            var axis = alongX ? j.AxisX : j.AxisY;
+            var own = j.Bars.Select(b => b.ElemTag).ToHashSet(StringComparer.Ordinal);
+            int k = 0;
+            foreach (int s in new[] { 1, -1 })
+            {
+                k++;
+                var x = axis * s;
+                var end = j with
+                {
+                    NodeTag = $"{j.NodeTag}/{k}", Origin = j.Origin + axis * (s * len / 2), AxisX = x, AxisY = j.Normal.Cross(x).Normalize(),
+                    Kind = PunchingFemJointKind.WallEnd, Wall = new PunchingWall(PunchingWallKind.End, t), NoCheck = null, NoCheckText = null,
+                    SectionLabel = string.Create(Ru, $"торец {k} стены {len * 1000:0}×{t * 1000:0} ({j.SectionLabel})"),
+                };
+                var warnings = new List<PunchingWarning>(j.Warnings)
+                {
+                    new("fem_wall_bar", "Стена задана стержнем (b/a > 4): каждый торец проверяется по СП 430 п. 6.3.8 с силой по разрезу плиты у торца."),
+                };
+                yield return Complete(end, slab, null, j.Bars.All(b => !b.Below), warnings, own);
+            }
+        }
+
+        /// <summary>Отрезок примыкания стены из пластин к плите (между проёмами).</summary>
+        sealed record WallSeg(string A, string B, PlanarVector3 PA, PlanarVector3 PB, double T, bool Mixed, bool Below,
+            IReadOnlyList<string> Nodes, IReadOnlyList<string> Shells, string Label)
+        {
+            public PlanarVector3 Dir => (PB - PA).Normalize();
+            public double Length => (PB - PA).Length;
+            public string Other(string end) => end == A ? B : A;
+            public PlanarVector3 At(string end) => end == A ? PA : PB;
+        }
+
+        /// <summary>
+        /// Торцы и углы стен из пластин (СП 430 п. 6.3.8): вертикальные плиты, примыкающие к горизонтальной по линии
+        /// длиннее <see cref="PunchingFemOptions.WallRatio"/>·t. Отрезки примыкания (между проёмами) снизу и сверху по одной
+        /// линии и продолжающие друг друга сливаются. Свободный конец — торец, два конца под 90° ± 10° — угол, прочие
+        /// примыкания (Т, крест, другой угол, разная толщина) — узел «нет проверки» с причиной. Середина стены не проверяется.
+        /// </summary>
+        public List<PunchingFemJoint> ShellWalls()
+        {
+            var joints = new List<PunchingFemJoint>();
+            foreach (var slab in Slabs.Where(s => s.TiltDeg <= Options.HorizontalTolDeg))
+            {
+                var segs = new List<WallSeg>();
+                foreach (var wall in Slabs.Where(s => s.TiltDeg >= 80))
+                {
+                    var shared = wall.NodeTags.Where(slab.NodeTags.Contains).ToList();
+                    if (shared.Count < 2) continue;
+                    var pts = shared.Select(t => Position(t)!.Value).ToList();
+                    var (a, b) = Farthest(pts);
+                    var d = b - a;
+                    if (d.Length < 1e-6) continue;
+                    var dir = d.Normalize();
+                    if (pts.Any(p => ((p - a) - dir * (p - a).Dot(dir)).Length > Options.PlaneTolM)) continue;
+                    var touching = wall.Shells.Where(s => s.Geometry.NodeTags.Any(shared.Contains)).ToList();
+                    var props = touching.Select(s => Model.ShellProps(s.Element)).ToList();
+                    if (props.Count == 0 || props[0] is not { H: > 0 } p0) continue;
+                    if (d.Length <= Options.WallRatio * p0.H) continue;     // пилон из пластин
+                    bool mixed = props.Any(p => p is null || Math.Abs(p.H - p0.H) > 1e-6);
+                    bool below = touching.Any(s => slab.Distance(s.Centroid) < 0);
+                    // Рёбра пластин стены у плиты: соседние по длине узлы примыкания без ребра — проём.
+                    var ribs = new HashSet<(string, string)>();
+                    foreach (var s in touching)
+                    {
+                        var g = s.Geometry;
+                        for (int i = 0; i < g.Contour.Count; i++)
+                        {
+                            string u = g.NodeTags[g.Contour[i]], v = g.NodeTags[g.Contour[(i + 1) % g.Contour.Count]];
+                            ribs.Add(string.CompareOrdinal(u, v) < 0 ? (u, v) : (v, u));
+                        }
+                    }
+                    var order = shared.OrderBy(t => (Position(t)!.Value - a).Dot(dir)).ToList();
+                    int start = 0;
+                    for (int i = 1; i <= order.Count; i++)
+                    {
+                        bool linked = i < order.Count && ribs.Contains(string.CompareOrdinal(order[i - 1], order[i]) < 0
+                            ? (order[i - 1], order[i]) : (order[i], order[i - 1]));
+                        if (linked) continue;
+                        if (i - 1 > start)
+                        {
+                            var run = order.GetRange(start, i - start);
+                            var runShells = touching.Where(s => s.Geometry.NodeTags.Any(run.Contains)).Select(s => s.Element.ElemTag).ToList();
+                            segs.Add(new WallSeg(run[0], run[^1], Position(run[0])!.Value, Position(run[^1])!.Value, p0.H, mixed, below,
+                                run, runShells, p0.Label));
+                        }
+                        start = i;
+                    }
+                }
+                segs = MergeWallSegs(segs);
+                joints.AddRange(WallNodes(slab, segs));
+            }
+            return joints;
+        }
+
+        /// <summary>Слияние отрезков стен: совпадающие (снизу и сверху) и продолжающие друг друга по одной прямой.</summary>
+        List<WallSeg> MergeWallSegs(List<WallSeg> segs)
+        {
+            bool changed = true;
+            while (changed)
+            {
+                changed = false;
+                for (int i = 0; i < segs.Count && !changed; i++)
+                    for (int j = i + 1; j < segs.Count && !changed; j++)
+                    {
+                        var s = segs[i];
+                        var q = segs[j];
+                        if (Math.Abs(Math.Abs(s.Dir.Dot(q.Dir)) - 1) > 1e-6) continue;
+                        string? common = s.A == q.A || s.A == q.B ? s.A : s.B == q.A || s.B == q.B ? s.B : null;
+                        bool same = (s.A == q.A && s.B == q.B) || (s.A == q.B && s.B == q.A);
+                        if (!same && common == null) continue;
+                        string a = same ? s.A : s.Other(common!), b = same ? s.B : q.Other(common!);
+                        segs[i] = new WallSeg(a, b, Position(a)!.Value, Position(b)!.Value, s.T,
+                            s.Mixed || q.Mixed || Math.Abs(s.T - q.T) > 1e-6, s.Below || q.Below,
+                            s.Nodes.Union(q.Nodes).ToList(), s.Shells.Union(q.Shells).ToList(), s.Label);
+                        segs.RemoveAt(j);
+                        changed = true;
+                    }
+            }
+            return segs;
+        }
+
+        /// <summary>Узлы стен по концам отрезков: торцы, углы и примыкания «нет проверки».</summary>
+        IEnumerable<PunchingFemJoint> WallNodes(PunchingFemSlab slab, List<WallSeg> segs)
+        {
+            var n = slab.Normal;
+            double tol = Math.Max(Options.PlaneTolM, 1e-6);
+            foreach (string p in segs.SelectMany(s => new[] { s.A, s.B }).Distinct(StringComparer.Ordinal))
+            {
+                var at = Position(p)!.Value;
+                var inc = segs.Where(s => s.A == p || s.B == p).ToList();
+                // Конец, лежащий внутри другого отрезка: по той же прямой — стена продолжается (узла нет), поперёк — Т-примыкание.
+                var through = segs.Where(s => s.A != p && s.B != p && OnSegment(at, s.PA, s.PB, tol)).ToList();
+                if (through.Count > 0 && through.All(s => inc.All(c => Math.Abs(Math.Abs(s.Dir.Dot(c.Dir)) - 1) < 1e-6))) continue;
+                var origin = at - n * slab.Distance(at);
+                var nodes = inc.SelectMany(s => s.Nodes).Concat(through.SelectMany(s => s.Nodes)).Distinct(StringComparer.Ordinal).ToList();
+                var shells = inc.Concat(through).SelectMany(s => s.Shells).Distinct(StringComparer.Ordinal).ToList();
+                var (bx, by) = Basis(n);
+                PunchingFemJoint Base(PunchingFemJointKind kind, PlanarVector3 x, PlanarVector3 o, PunchingWall? wall, string label) => new()
+                {
+                    NodeTag = p, SlabIndex = slab.Index, Origin = o, AxisX = x, AxisY = n.Cross(x).Normalize(), Normal = n,
+                    Kind = kind, Wall = wall, WallShells = shells, JunctionNodes = nodes, SectionLabel = label,
+                };
+                PunchingFemJoint NoCheck(string code, string text) =>
+                    Base(PunchingFemJointKind.WallEnd, bx, origin, null, "стены") with { NoCheck = code, NoCheckText = text };
+
+                if (through.Count > 0 || inc.Count >= 3)
+                {
+                    yield return NoCheck(PunchingFemNoCheck.WallTee,
+                        $"В узле {p} сходятся три стены и больше (Т- или крестовое примыкание) — по п. 6.3.8 СП 430 такой узел не рассматривается.");
+                    continue;
+                }
+                bool below = inc.Any(s => s.Below);
+                var warnings = new List<PunchingWarning>();
+                if (inc.Count == 1)
+                {
+                    var s = inc[0];
+                    if (s.Mixed)
+                    {
+                        yield return NoCheck(PunchingFemNoCheck.WallThicknessMixed,
+                            $"У торца стены в узле {p} пластины стены разной толщины (снизу и сверху или по длине) — толщину стены не выбрать.");
+                        continue;
+                    }
+                    var x = (at - s.At(s.Other(p)));
+                    x = (x - n * x.Dot(n)).Normalize();
+                    var wall = new PunchingWall(PunchingWallKind.End, s.T);
+                    var j = Base(PunchingFemJointKind.WallEnd, x, origin, wall, string.Create(Ru, $"торец стены t = {s.T * 1000:0} ({s.Label})"));
+                    yield return Complete(j, slab, null, !below, warnings, shells.ToHashSet(StringComparer.Ordinal));
+                    continue;
+                }
+                // Два отрезка: угол.
+                var u1 = Away(inc[0], p, n);
+                var u2 = Away(inc[1], p, n);
+                double angle = Math.Acos(Math.Clamp(u1.Dot(u2), -1, 1)) * 180 / Math.PI;
+                if (Math.Abs(angle - 90) > 10)
+                {
+                    yield return NoCheck(PunchingFemNoCheck.WallAngle, string.Create(Ru,
+                        $"Стены в узле {p} сходятся под углом {angle:0.#}° — по п. 6.3.8 СП 430 рассматривается угол 90°."));
+                    continue;
+                }
+                if (inc[0].Mixed || inc[1].Mixed)
+                {
+                    yield return NoCheck(PunchingFemNoCheck.WallThicknessMixed,
+                        $"У угла стен в узле {p} пластины стены разной толщины (снизу и сверху или по длине) — толщину стены не выбрать.");
+                    continue;
+                }
+                // Ось x — вдоль стены a1, y = n × x — вдоль стены a2 (правая тройка с нормалью вверх).
+                var (sx, sy) = n.Cross(u1).Dot(u2) >= 0 ? (inc[0], inc[1]) : (inc[1], inc[0]);
+                var ax = Away(sx, p, n);
+                var ay = n.Cross(ax).Normalize();
+                double a1 = sx.T, a2 = sy.T;
+                var o = origin - ax * (a2 / 2) - ay * (a1 / 2);
+                if (Math.Abs(a1 - a2) > 1e-6)
+                    warnings.Add(new("fem_wall_corner_thickness", string.Create(Ru, $"Стены угла разной толщины: a1 = {a1 * 1000:0} мм (вдоль x), a2 = {a2 * 1000:0} мм (вдоль y).")));
+                var cj = Base(PunchingFemJointKind.WallCorner, ax, o, new PunchingWall(PunchingWallKind.Corner, a1, a2),
+                    string.Create(Ru, $"угол стен {a1 * 1000:0}/{a2 * 1000:0} ({sx.Label})"));
+                yield return Complete(cj, slab, null, !below, warnings, shells.ToHashSet(StringComparer.Ordinal));
+            }
+        }
+
+        /// <summary>Единичное направление вдоль стены от конца <paramref name="end"/> внутрь отрезка, в плоскости плиты.</summary>
+        static PlanarVector3 Away(WallSeg s, string end, PlanarVector3 n)
+        {
+            var d = s.At(s.Other(end)) - s.At(end);
+            return (d - n * d.Dot(n)).Normalize();
+        }
+
+        static bool OnSegment(PlanarVector3 p, PlanarVector3 a, PlanarVector3 b, double tol)
+        {
+            var ab = b - a;
+            double l2 = ab.Dot(ab);
+            if (l2 < 1e-18) return false;
+            double t = (p - a).Dot(ab) / l2;
+            if (t <= 0 || t >= 1) return false;
+            return (p - (a + ab * t)).Length <= tol;
+        }
+
         static (PlanarVector3 A, PlanarVector3 B) Farthest(IReadOnlyList<PlanarVector3> pts)
         {
             var a = pts[0];
@@ -375,6 +619,8 @@ public static class PunchingFemJointFinder
             PunchingFemSlab slab, PunchingFemJoint joint, PunchingLoadArea area, double h0, List<PunchingWarning> warnings)
         {
             var areaPoly = PunchingContourBuilder.AreaPolygon(area);
+            // Внутренняя точка площади: у стены — центр площадки передачи нагрузки (край может проходить через начало осей).
+            var inner = joint.Wall is { } jw ? PunchingWallGeometry.LoadCenter(jw) : default;
             var loops = slab.Loops
                 .Select(l => l.Select(t => Position(t)).Where(p => p != null).Select(p => joint.ToLocal(p!.Value)).ToList())
                 .Where(l => l.Count >= 3).ToList();
@@ -397,7 +643,10 @@ public static class PunchingFemJointFinder
                     var dir = (b - a).Normalized();
                     var inward = new PlanPoint(-dir.Y, dir.X);
                     var edge = new PunchingSlabEdge(a, inward);
-                    if (edge.SignedDistance(default) <= 0) continue;
+                    if (edge.SignedDistance(inner) <= 0) continue;
+                    // У стены края — только со сторон, где их допускает п. 6.3.8: у торца — за торцом и вдоль стены,
+                    // у угла — снаружи (с прочих сторон край отделён стеной и на контур не влияет).
+                    if (joint.Wall is { } w && !WallEdgeSide(w, SideOf(edge.InwardNormal))) continue;
                     candidates.Add((edge, dist));
                 }
             }
@@ -418,6 +667,10 @@ public static class PunchingFemJointFinder
             return (chosen, holes);
         }
     }
+
+    /// <summary>Край с этой стороны узла стены учитывается: у торца — кроме −x (за стеной), у угла — только −x и −y.</summary>
+    static bool WallEdgeSide(PunchingWall wall, PlanPoint side)
+        => wall.Kind == PunchingWallKind.End ? side.X > -0.5 : side.X < -0.5 || side.Y < -0.5;
 
     /// <summary>Сторона площади (±x, ±y), на которой лежит край с внутренней нормалью <paramref name="inward"/>.</summary>
     public static PlanPoint SideOf(PlanPoint inward)

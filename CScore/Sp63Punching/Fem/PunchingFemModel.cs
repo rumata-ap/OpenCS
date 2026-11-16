@@ -67,6 +67,10 @@ public enum PunchingFemJointKind
     Bar,
     /// <summary>Пилон из пластин: вертикальные пластины примыкают к плите по короткой линии.</summary>
     PylonShells,
+    /// <summary>Торец стены (СП 430 п. 6.3.8, рис. 6.1): свободный конец стены из пластин или торец стержня с b/a &gt; 4.</summary>
+    WallEnd,
+    /// <summary>Угол двух стен под 90° (рис. 6.2).</summary>
+    WallCorner,
 }
 
 /// <summary>Стержень, примыкающий к плите в узле: КЭ, конец у плиты и сторона.</summary>
@@ -92,6 +96,14 @@ public static class PunchingFemNoCheck
     public const string NodalSelfCheck = "nodal_selfcheck_failed";
     public const string NoForces = "no_forces";
     public const string PylonShellsNoNodal = "pylon_shells_no_nodal";
+    /// <summary>Т- или крестовое примыкание стен — по п. 6.3.8 СП 430 не рассматривается.</summary>
+    public const string WallTee = "wall_tee";
+    /// <summary>Стены сходятся не под прямым углом.</summary>
+    public const string WallAngle = "wall_angle";
+    /// <summary>В узле стены разной толщины снизу и сверху (или по длине у узла).</summary>
+    public const string WallThicknessMixed = "wall_thickness_mixed";
+    /// <summary>Силу у торца или угла стены даёт только разрез плиты, а он недоступен.</summary>
+    public const string WallNoCut = "wall_no_cut";
 }
 
 /// <summary>
@@ -112,8 +124,12 @@ public sealed record PunchingFemJoint
     public required PlanarVector3 Normal { get; init; }
     public IReadOnlyList<PunchingFemBar> Bars { get; init; } = [];
     public PunchingFemJointKind Kind { get; init; } = PunchingFemJointKind.Bar;
-    /// <summary>Пластины пилона, примыкающие к плите (у <see cref="PunchingFemJointKind.PylonShells"/>).</summary>
+    /// <summary>Пластины пилона или стены, примыкающие к плите (у <see cref="PunchingFemJointKind.PylonShells"/>, торцов и углов стен).</summary>
     public IReadOnlyList<string> WallShells { get; init; } = [];
+    /// <summary>Узел стены (торец или угол) в осях узла: начало в центре торца / наружном углу; null — колонна или пилон.</summary>
+    public PunchingWall? Wall { get; init; }
+    /// <summary>Узел стены.</summary>
+    public bool IsWall => Wall is not null;
     /// <summary>Подпись сечения стержня, по которому взята грузовая площадь.</summary>
     public string SectionLabel { get; init; } = "";
     public PunchingLoadArea? Area { get; init; }

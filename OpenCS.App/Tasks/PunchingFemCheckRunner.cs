@@ -307,6 +307,12 @@ public static class PunchingFemCheckRunner
                     : joint.NoCheckText,
             };
 
+        if (joint.IsWall)
+            return baseResult with
+            {
+                Status = "no_check", NoCheck = PunchingFemNoCheck.WallNoCut,
+                NoCheckText = "Торцы и углы стен найдены; сила по разрезу плиты у стены пока не считается.",
+            };
         var forces = PunchingFemService.Evaluate(data, source, joint, p.MainMethod);
         if (forces.CutFailure != null && source.Nodal != null)
             warnings.Add(new("punching_fem_cut_failed", $"Разрез основания пирамиды не удался ({forces.CutFailure}) — сила по стержням колонн."));

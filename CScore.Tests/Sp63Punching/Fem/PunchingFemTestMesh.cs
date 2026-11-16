@@ -66,6 +66,18 @@ sealed class PunchingFemTestMesh
             }
     }
 
+    /// <summary>Вертикальная стенка из квадратов в плоскости YZ (x = const) от z0 до z1.</summary>
+    public void WallYZ(double x, double y0, double y1, double z0, double z1, double step, double h = 0.2)
+    {
+        int ny = (int)Math.Round((y1 - y0) / step), nz = (int)Math.Round((z1 - z0) / step);
+        for (int j = 0; j < ny; j++)
+            for (int k = 0; k < nz; k++)
+            {
+                double ya = y0 + j * step, za = z0 + k * step;
+                Quad(Node(x, ya, za), Node(x, ya + step, za), Node(x, ya + step, za + step), Node(x, ya, za + step), h);
+            }
+    }
+
     public FemElement Bar(string a, string b, double rotationDeg = 0)
     {
         var e = new FemElement { ElemTag = S(_elem++), ElemType = "beam", NodeIdsJson = $"[{a},{b}]", BeamRotationDeg = rotationDeg };

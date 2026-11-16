@@ -149,12 +149,15 @@ public class PunchingFemJointFinderTests
     }
 
     [Fact]
-    public void LongSection_IsWall()
+    public void LongSection_IsWall_TwoEnds()
     {
         var m = Plate();
         m.Bar(m.Node(3, 3, 0), m.Node(3, 3, Z));
-        var j = Single(m, Rect(0.2, 1.0));
-        Assert.Equal(PunchingFemNoCheck.Wall, j.NoCheck);
+        // Стержень 200×1000 (b/a = 5 > 4) — стена по п. 5.1.8 СП 430: два торца по рис. 6.1.
+        var ends = PunchingFemJointFinder.Find(m.Model(Rect(0.2, 1.0)));
+        Assert.Equal(2, ends.Count);
+        Assert.All(ends, j => Assert.Equal(PunchingFemJointKind.WallEnd, j.Kind));
+        Assert.All(ends, j => Assert.Equal(0.2, j.Wall!.A1, 9));
         // Пилон 0,25×0,8 (отношение 3,2) — проверяется.
         Assert.Null(Single(m, Rect(0.25, 0.8)).NoCheck);
     }
@@ -186,7 +189,8 @@ public class PunchingFemJointFinderTests
         m.WallXZ(3.2, 4.4, 3.0, 0, Z, 0.2);   // 1,2 м при t = 0,2 — стена, а не пилон
         var slaves = m.NodesIn(2.8, 2.8, 3.2, 3.2, Z).Where(t => t != master).ToList();
         m.Body(master, slaves);
-        Assert.Equal(PunchingFemNoCheck.JunctionWallAndColumn, Single(m).NoCheck);
+        var joints = PunchingFemJointFinder.Find(m.Model());
+        Assert.Equal(PunchingFemNoCheck.JunctionWallAndColumn, joints.Single(j => j.Kind == PunchingFemJointKind.Bar).NoCheck);
     }
 
     [Fact]
@@ -244,7 +248,7 @@ public class PunchingFemJointFinderTests
     }
 
     [Fact]
-    public void ShellPylon_ShortWall_IsJoint_LongWall_Skipped()
+    public void ShellPylon_ShortWall_IsJoint_LongWall_Ends()
     {
         var m = Plate();
         // Пилон 0,8 × 0,25 из пластин под плитой: стенка по y = 3 от x = 2,6 до 3,4 (шаг 0,2 совпадает с сеткой плиты).
@@ -252,8 +256,8 @@ public class PunchingFemJointFinderTests
         // Длинная стена 2 м × 0,2 — не пилон.
         m.WallXZ(0.4, 2.4, 1.0, 0, Z, 0.2, h: 0.2);
         var joints = PunchingFemJointFinder.Find(m.Model());
-        var j = Assert.Single(joints);
-        Assert.Equal(PunchingFemJointKind.PylonShells, j.Kind);
+        Assert.Equal(2, joints.Count(x => x.Kind == PunchingFemJointKind.WallEnd));
+        var j = Assert.Single(joints, x => x.Kind == PunchingFemJointKind.PylonShells);
         Assert.Null(j.NoCheck);
         var r = Assert.IsType<PunchingLoadArea.Rectangle>(j.Area);
         Assert.Equal(0.8, r.Bx, 9);
