@@ -46,12 +46,35 @@ public static class PunchingReportText
             PunchingVariantKind.OpenCorner => "Незамкнутый контур у угла (рис. 8.11в)",
             PunchingVariantKind.PylonBroken => "Разорванный контур у торцов пилона (СП 430, п. 6.3.8)",
             PunchingVariantKind.PylonReduced => "Приведённый периметр пилона — справочно (Галяутдинов, 2022)",
+            PunchingVariantKind.WallEnd => "П-образный контур у торца стены (СП 430, рис. 6.1а)",
+            PunchingVariantKind.WallEndEdge => $"Контур 1′ у торца стены возле края{edgeNo} (СП 430, рис. 6.1б)",
+            PunchingVariantKind.WallCorner => "Контур у угла стен (СП 430, рис. 6.2)",
             _ => "Контур пользователя"
         };
         return zone == PunchingZone.BeyondReinforcement
             ? name + " — за зоной поперечной арматуры (п. 8.1.48, рис. 8.13)"
             : name;
     }
+
+    /// <summary>Вариант узла стены (СП 430 п. 6.3.8).</summary>
+    public static bool IsWall(PunchingVariantKind kind)
+        => kind is PunchingVariantKind.WallEnd or PunchingVariantKind.WallEndEdge or PunchingVariantKind.WallCorner;
+
+    /// <summary>Пояснение к варианту узла стены для отчёта; null — не стена.</summary>
+    public static string? WallExplanation(PunchingVariantKind kind) => kind switch
+    {
+        PunchingVariantKind.WallEnd => "Плита у торца стены (СП 430.1325800, п. 6.3.8, рис. 6.1а): контур на расстоянии h0/2 от граней стены "
+            + "из торцевого участка длиной a1 + h0 и двух участков вдоль стены той же длины. Сила F — равнодействующая поперечных сил по "
+            + "длине контура; момент — только из плоскости стены, равный половине разности изгибающих моментов плиты по обе стороны "
+            + "стены (½ΔM). Эксцентриситет силы вдоль стены не учитывается.",
+        PunchingVariantKind.WallEndEdge => "Торец стены у края плиты (СП 430.1325800, п. 6.3.8, рис. 6.1б): помимо П-образного контура "
+            + "рассматривается контур 1′ — два участка от края плиты на расстоянии h0/2 от граней стены вдоль её длины на расстояние a1 от "
+            + "торца; в расчёт принимается контур с меньшей несущей способностью.",
+        PunchingVariantKind.WallCorner => "Плита у угла стен (СП 430.1325800, п. 6.3.8, рис. 6.2 в редакции с Изменением № 1): наружный "
+            + "контур на расстоянии h0/2 от наружных граней с участками h0/2 + a1 + a2 и диагональ у внутреннего угла длиной √(a1² + a2²). "
+            + "Учитывается только сила F — равнодействующая поперечных сил по всем участкам контура, моменты не учитываются.",
+        _ => null
+    };
 
     /// <summary>Краткое название варианта — заголовок столбца таблиц пакета.</summary>
     public static string ShortTitle(PunchingVariantKind kind, PunchingZone zone, string id, int edgeCount = 2)
@@ -63,6 +86,9 @@ public static class PunchingReportText
             PunchingVariantKind.OpenCorner => "у угла",
             PunchingVariantKind.PylonBroken => "пилон",
             PunchingVariantKind.PylonReduced => "пилон, справочно",
+            PunchingVariantKind.WallEnd => "торец, П",
+            PunchingVariantKind.WallEndEdge => "торец, 1′" + (edgeCount > 1 ? EdgeNumber(id) : ""),
+            PunchingVariantKind.WallCorner => "угол стен",
             _ => "пользователя " + CustomNumber(id)
         };
         return zone == PunchingZone.BeyondReinforcement ? name + ", за арматурой" : name;
@@ -77,7 +103,7 @@ public static class PunchingReportText
     static string EdgeNumber(string id)
     {
         int i = id.LastIndexOf('_');
-        return id.Contains("open_edge", StringComparison.Ordinal) && i >= 0 && int.TryParse(id[(i + 1)..], out int n)
+        return (id.Contains("open_edge", StringComparison.Ordinal) || id.Contains("wall_end_edge", StringComparison.Ordinal)) && i >= 0 && int.TryParse(id[(i + 1)..], out int n)
             ? $" {n + 1}" : "";
     }
 

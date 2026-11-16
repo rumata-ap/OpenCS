@@ -172,9 +172,9 @@ public static class PunchingContourBuilder
         if (left > Tol)
         {
             if (zone == PunchingZone.Main && full - left > 1e-9)
-                warnings.Add(new("wall_contour_clipped", end
-                    ? "Край плиты ближе h0/2 к торцу или граням стены — П-контур обрезан краем (проверяется и контур 1′)."
-                    : "Край плиты пересекает контур у угла стены — учитывается часть контура в пределах плиты."));
+                warnings.Add(end
+                    ? new("wall_end_clipped", "Край плиты ближе h0/2 к торцу или граням стены — П-контур обрезан краем, учитывается часть в пределах плиты.")
+                    : new("wall_corner_clipped", "Край плиты пересекает контур у угла стен — учитывается часть контура в пределах плиты."));
             variants.Add(ApplyHoles(input, new PunchingVariant(prefix + (end ? "wall_end" : "wall_corner"),
                 end ? PunchingVariantKind.WallEnd : PunchingVariantKind.WallCorner, zone,
                 PunchingContour.FromElements(kept), Array.Empty<ContourElement>(), Array.Empty<int>()), warnings));

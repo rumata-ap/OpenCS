@@ -131,6 +131,7 @@ public sealed class PunchingReportProvider : IReportProvider
         string tag = string.IsNullOrWhiteSpace(context.Task.Tag) ? $"№ {context.Task.Num}" : context.Task.Tag;
         var doc = new ReportDocument($"Расчёт плиты на продавливание — {tag}");
         bool pylon = data.Variants.Any(v => v.Kind is PunchingVariantKind.PylonBroken or PunchingVariantKind.PylonReduced);
+        bool wall = data.Variants.Any(v => PunchingReportText.IsWall(v.Kind));
 
         doc.Add(new ReportHeading(1, "Идентификация и единицы"))
             .Add(new ReportKeyValueTable(
@@ -139,7 +140,8 @@ public sealed class PunchingReportProvider : IReportProvider
                 ("Вид расчёта", ReportNames.Calc(context.Task.CalcType)),
                 ("Результат получен", string.IsNullOrWhiteSpace(context.Result.Created) ? "—" : context.Result.Created),
                 ("Статус результата", ReportNames.Status(context.Result.Status)),
-                ("Нормативная база", "СП 63.13330.2018, пп. 8.1.46–8.1.52" + (pylon ? "; контур пилона — СП 430.1325800, п. 6.3.8" : "")),
+                ("Нормативная база", "СП 63.13330.2018, пп. 8.1.46–8.1.52" + (pylon ? "; контур пилона — СП 430.1325800, п. 6.3.8" : "")
+                    + (wall ? "; узел стены — СП 430.1325800.2018 (ред. с Изм. № 1), п. 6.3.8" : "")),
                 ("Единицы", "длины — м, силы — кН, моменты — кН·м, напряжения — кПа")
             ], "Параметр", "Значение"));
 
@@ -165,9 +167,12 @@ public sealed class PunchingReportProvider : IReportProvider
             doc.Add(new ReportHeading(1, "Общие величины"));
             foreach (var s in data.CommonTrace) doc.Add(StepBlock(s));
         }
+        bool wallNode = data.Variants.Any(v => PunchingReportText.IsWall(v.Kind));
         if (data.Scene is { } scene)
             doc.Add(new ReportHeading(1, "Расчётная схема"))
-               .Add(new ReportParagraph("Контуры проведены на расстоянии h0/2 от грузовой площади (п. 8.1.46). "
+               .Add(new ReportParagraph((wallNode
+                       ? "Контуры проведены на расстоянии h0/2 от граней стены по СП 430.1325800, п. 6.3.8; показан участок стены в зоне контура. "
+                       : "Контуры проведены на расстоянии h0/2 от грузовой площади (п. 8.1.46). ")
                    + "Определяющий контур — сплошная линия, прочие — штриховая; цвет — по коэффициенту использования."))
                .Add(new ReportImage("Расчётные контуры продавливания", new PunchingPlanSvgRenderer().Render(scene)));
 
@@ -179,6 +184,8 @@ public sealed class PunchingReportProvider : IReportProvider
                 doc.Add(new ReportParagraph("Для вытянутой площади (Lmax > 2Lmin + h0) у каждого торца пилона проверяется "
                     + "П-образный контур по СП 430.1325800, п. 6.3.8, рис. 6.1а (методика книги «Продавливание» Г. Гоши). "
                     + "Обоснование концентрации поперечной силы у торцов — Галяутдинов З. Ш., дис. … канд. техн. наук, СамГТУ, 2022."));
+            if (PunchingReportText.WallExplanation(v.Kind) is { } wallText)
+                doc.Add(new ReportParagraph(wallText));
             if (v.Kind == PunchingVariantKind.PylonReduced)
                 doc.Add(new ReportParagraph("Справочно, не нормативно: приведённый периметр по Галяутдинову З. Ш. «Влияние "
                     + "конструктивных параметров узла сопряжения плиты и колонны на прочность железобетонных плит при "
@@ -283,6 +290,19 @@ public sealed class PunchingReportProvider : IReportProvider
         void Text(string sym, string v, string name) => rows.Add([sym, v, "", name]);
 
         string shape = S(i, "shape");
+        string wallKind = S(i, "wall");
+        if (wallKind == "end")
+        {
+            Text("—", "торец стены (СП 430, п. 6.3.8, рис. 6.1)", "узел");
+            Row("a_1", N(i, "a1"), "м", "толщина стены");
+        }
+        else if (wallKind == "corner")
+        {
+            Text("—", "угол стен под 90° (СП 430, п. 6.3.8, рис. 6.2 ред. с Изм. № 1)", "узел");
+            Row("a_1", N(i, "a1"), "м", "толщина стены вдоль X");
+            Row("a_2", N(i, "a2"), "м", "толщина стены вдоль Y");
+        }
+        else
         switch (shape)
         {
             case "circle": Row("D", N(i, "d"), "м", "диаметр круглой грузовой площади"); break;
@@ -330,7 +350,18 @@ public sealed class PunchingReportProvider : IReportProvider
         }
         else Text("—", "нет", "поперечная арматура");
         bool mloc = i.TryGetProperty("momentsAreMloc", out var ml) && ml.ValueKind == JsonValueKind.True;
-        if (i.TryGetProperty("F", out _))
+        if (wallKind is "end" or "corner")
+        {
+            bool single = i.TryGetProperty("F", out _);
+            if (single) Row("F", N(i, "F"), "кН", "продавливающая сила (равнодействующая поперечных сил по контуру)");
+            if (wallKind == "end")
+            {
+                if (single) Row("ΔM", N(i, "Mx"), "кН·м", "разность изгибающих моментов плиты по сторонам стены (в расчёт — ½ΔM)");
+                else Text("F, ΔM", "строки набора", "усилия: F = |N|, ΔM = Mx строки (в расчёт — ½ΔM), My не учитывается");
+            }
+            else if (!single) Text("F", "строки набора", "усилия: F = |N| строки, моменты не учитываются");
+        }
+        else if (i.TryGetProperty("F", out _))
         {
             Row("F", N(i, "F"), "кН", "продавливающая сила");
             Row(mloc ? "M_loc,x" : "M_x", N(i, "Mx"), "кН·м", mloc ? "полный момент узла (в расчёт — половина)" : "момент относительно оси X");
@@ -523,6 +554,7 @@ public sealed class PunchingReportProvider : IReportProvider
             "km" => "Доля моментов",
             "ured" => "Приведённый периметр (справочно)",
             "check" => "Условие прочности",
+            "wall" => "Усилия у узла стены (СП 430, п. 6.3.8)",
             _ => "Расчётная величина"
         };
     }

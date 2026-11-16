@@ -333,6 +333,10 @@ public sealed class PunchingBatchResultVM : ViewModelBase
             ? string.Format(c, Loc.S("PunchingSummarySw", "поперечная арматура {0}×Ø{1:0} шаг {2:0}, Rsw = {3:0.#} МПа"),
                 D("swCount"), D("swDiameter") * 1000, D("swStep") * 1000, D("rsw") / 1000)
             : Loc.S("PunchingSummaryNoSw", "без поперечной арматуры");
+        if (PunchingResultVM.WallText(S("wall"), D("a1"), D("a2"), c) is { } wall)
+            return string.Format(c, Loc.S("PunchingBatchSummaryWall",
+                    "Набор «{0}», строк: {1}. Узел: {2} мм; h = {3:0} мм, h0 = {4:0.#} мм; бетон {5}, Rbt = {6:0.###} МПа; {7}"),
+                data.ForceSetTag, data.Rows.Count, wall, D("h") * 1000, D("h0") * 1000, concrete, D("rbt") / 1000, sw);
         return string.Format(c, Loc.S("PunchingBatchSummary",
                 "Набор «{0}», строк: {1}. Площадь {2} мм; h = {3:0} мм, h0 = {4:0.#} мм; бетон {5}, Rbt = {6:0.###} МПа; {7}"),
             data.ForceSetTag, data.Rows.Count, area, D("h") * 1000, D("h0") * 1000, concrete, D("rbt") / 1000, sw);

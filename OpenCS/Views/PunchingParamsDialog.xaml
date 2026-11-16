@@ -64,6 +64,31 @@
             <!-- Площадь -->
             <Expander Header="{DynamicResource PunchingGroupArea}">
                <StackPanel>
+                  <!-- Вид узла: колонна или пилон, торец стены, угол стен (СП 430 п. 6.3.8) -->
+                  <StackPanel Orientation="Horizontal">
+                     <TextBlock Text="{DynamicResource PunchingNodeKind}" Style="{StaticResource Lbl}"/>
+                     <ComboBox Width="280" ItemsSource="{Binding NodeKinds}" DisplayMemberPath="Label"
+                               SelectedValuePath="Id" SelectedValue="{Binding NodeKind}"/>
+                  </StackPanel>
+                  <StackPanel Visibility="{Binding IsWallNode, Converter={StaticResource BoolToVisibility}}">
+                     <WrapPanel>
+                        <TextBlock Text="a1" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingWallA1Hint}"/>
+                        <TextBox Style="{StaticResource Num}" ToolTip="{DynamicResource PunchingWallA1Hint}"
+                                 Text="{Binding WallA1, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        <StackPanel Orientation="Horizontal" Visibility="{Binding IsWallCorner, Converter={StaticResource BoolToVisibility}}">
+                           <TextBlock Text="a2" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingWallA2Hint}"/>
+                           <TextBox Style="{StaticResource Num}" ToolTip="{DynamicResource PunchingWallA2Hint}"
+                                    Text="{Binding WallA2, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                           <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        </StackPanel>
+                     </WrapPanel>
+                     <TextBlock Text="{DynamicResource PunchingWallEndHint}" Style="{StaticResource Hint}"
+                                Visibility="{Binding IsWallEnd, Converter={StaticResource BoolToVisibility}}"/>
+                     <TextBlock Text="{DynamicResource PunchingWallCornerHint}" Style="{StaticResource Hint}"
+                                Visibility="{Binding IsWallCorner, Converter={StaticResource BoolToVisibility}}"/>
+                  </StackPanel>
+                  <StackPanel Visibility="{Binding IsColumnNode, Converter={StaticResource BoolToVisibility}}">
                   <StackPanel Orientation="Horizontal">
                      <TextBlock Text="{DynamicResource PunchingAreaShape}" Style="{StaticResource Lbl}"/>
                      <ComboBox Width="180" ItemsSource="{Binding AreaShapes}" DisplayMemberPath="Label"
@@ -99,6 +124,9 @@
                         <Button Content="{DynamicResource PunchingAdd}" Command="{Binding AddPointCommand}" Padding="10,2" Margin="0,2,6,2"/>
                         <Button Content="{DynamicResource PunchingRemove}" Command="{Binding RemovePointCommand}" Padding="10,2" Margin="0,2"/>
                      </StackPanel>
+                  </StackPanel>
+                  <TextBlock Text="{DynamicResource PunchingWallRatioHint}" Style="{StaticResource Hint}" Foreground="#9A5B00"
+                             Visibility="{Binding ShowWallHint, Converter={StaticResource BoolToVisibility}}"/>
                   </StackPanel>
                </StackPanel>
             </Expander>
@@ -310,14 +338,42 @@
                      <TextBlock Text="F" Style="{StaticResource Lbl}"/>
                      <TextBox Style="{StaticResource Num}" Text="{Binding F, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
                      <TextBlock Text="кН" Style="{StaticResource Unit}"/>
-                     <TextBlock Text="Mx" Style="{StaticResource Lbl}"/>
-                     <TextBox Style="{StaticResource Num}" Width="64" Text="{Binding Mx, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                     <TextBlock Text="кН·м" Style="{StaticResource Unit}"/>
-                     <TextBlock Text="My" Style="{StaticResource Lbl}"/>
-                     <TextBox Style="{StaticResource Num}" Width="64" Text="{Binding My, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                     <TextBlock Text="кН·м" Style="{StaticResource Unit}"/>
+                     <StackPanel Orientation="Horizontal" Visibility="{Binding ShowMx, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="{Binding MxLabel}" Style="{StaticResource Lbl}" ToolTip="{Binding MxHint}"/>
+                        <TextBox Style="{StaticResource Num}" Width="64" ToolTip="{Binding MxHint}"
+                                 Text="{Binding Mx, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                        <TextBlock Text="кН·м" Style="{StaticResource Unit}"/>
+                     </StackPanel>
+                     <StackPanel Orientation="Horizontal" Visibility="{Binding ShowMy, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="My" Style="{StaticResource Lbl}"/>
+                        <TextBox Style="{StaticResource Num}" Width="64" Text="{Binding My, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                        <TextBlock Text="кН·м" Style="{StaticResource Unit}"/>
+                     </StackPanel>
                   </WrapPanel>
-                  <CheckBox Content="{DynamicResource PunchingMloc}" IsChecked="{Binding MomentsAreMloc}"/>
+                  <!-- Торец стены: ΔM и помощник по моментам с двух сторон стены -->
+                  <StackPanel Visibility="{Binding IsWallEnd, Converter={StaticResource BoolToVisibility}}">
+                     <TextBlock Text="{DynamicResource PunchingDeltaMShortHint}" Style="{StaticResource Hint}"/>
+                     <Expander Header="{DynamicResource PunchingWallMomentsBySides}" IsExpanded="False" Margin="0,0,0,2"
+                               Visibility="{Binding IsSingle, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel>
+                           <WrapPanel>
+                              <TextBlock Text="{DynamicResource PunchingWallMPlus}" Style="{StaticResource Lbl}"/>
+                              <TextBox Style="{StaticResource Num}" Width="64"
+                                       Text="{Binding WallMPlus, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                              <TextBlock Text="кН·м" Style="{StaticResource Unit}"/>
+                              <TextBlock Text="{DynamicResource PunchingWallMMinus}" Style="{StaticResource Lbl}"/>
+                              <TextBox Style="{StaticResource Num}" Width="64"
+                                       Text="{Binding WallMMinus, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                              <TextBlock Text="кН·м" Style="{StaticResource Unit}"/>
+                           </WrapPanel>
+                           <TextBlock Text="{DynamicResource PunchingWallMomentsBySidesHint}" Style="{StaticResource Hint}"/>
+                        </StackPanel>
+                     </Expander>
+                  </StackPanel>
+                  <TextBlock Text="{DynamicResource PunchingWallCornerForcesHint}" Style="{StaticResource Hint}"
+                             Visibility="{Binding IsWallCorner, Converter={StaticResource BoolToVisibility}}"/>
+                  <CheckBox Content="{DynamicResource PunchingMloc}" IsChecked="{Binding MomentsAreMloc}"
+                            Visibility="{Binding ShowMlocOption, Converter={StaticResource BoolToVisibility}}"/>
                   <StackPanel Orientation="Horizontal">
                      <TextBlock Text="{DynamicResource PunchingLoadSide}" Style="{StaticResource Lbl}"/>
                      <ComboBox Width="290" ItemsSource="{Binding LoadSides}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding LoadSide}"/>
@@ -352,13 +408,15 @@
                   <TextBlock Grid.Row="2" Text="{DynamicResource PunchingWb}" Style="{StaticResource Lbl}"/>
                   <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding WbModes}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding Wb}"/>
                   <TextBlock Grid.Row="3" Text="{DynamicResource PunchingPylon}" Style="{StaticResource Lbl}"/>
-                  <ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{Binding PylonModes}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding Pylon}"/>
+                  <ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{Binding PylonModes}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding Pylon}"
+                            IsEnabled="{Binding IsColumnNode}"/>
                   <TextBlock Grid.Row="4" Text="{DynamicResource PunchingHoleInfluence}" Style="{StaticResource Lbl}"/>
                   <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal">
                      <TextBox Style="{StaticResource Num}" Width="50" Text="{Binding HoleInfluence, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
                      <TextBlock Text="h0" Style="{StaticResource Unit}"/>
                   </StackPanel>
-                  <CheckBox Grid.Row="5" Grid.ColumnSpan="2" Content="{DynamicResource PunchingPylonReduced}" IsChecked="{Binding PylonReduced}"/>
+                  <CheckBox Grid.Row="5" Grid.ColumnSpan="2" Content="{DynamicResource PunchingPylonReduced}" IsChecked="{Binding PylonReduced}"
+                            IsEnabled="{Binding IsColumnNode}"/>
                   <StackPanel Grid.Row="6" Grid.ColumnSpan="2" Orientation="Horizontal">
                      <CheckBox Content="{DynamicResource PunchingMu}" IsChecked="{Binding MuEnabled}" Margin="0,4,8,2"/>
                      <TextBox Style="{StaticResource Num}" Width="50" IsEnabled="{Binding MuEnabled}"

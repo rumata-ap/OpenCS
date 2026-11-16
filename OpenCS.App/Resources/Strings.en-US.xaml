@@ -6752,6 +6752,42 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingVariantShort_PylonBroken">pylon</system:String>
    <system:String x:Key="PunchingVariantShort_PylonReduced">pylon, reference</system:String>
    <system:String x:Key="PunchingVariantShort_Custom">custom</system:String>
+   <system:String x:Key="PunchingNodeKind">Joint</system:String>
+   <system:String x:Key="PunchingNodeKind_none">column / pylon</system:String>
+   <system:String x:Key="PunchingNodeKind_end">wall end (SP 430, Fig. 6.1)</system:String>
+   <system:String x:Key="PunchingNodeKind_corner">90° wall corner (SP 430, Fig. 6.2)</system:String>
+   <system:String x:Key="PunchingWallA1Hint">Wall thickness (at a corner — of the wall along X)</system:String>
+   <system:String x:Key="PunchingWallA2Hint">Thickness of the wall along Y</system:String>
+   <system:String x:Key="PunchingWallEndHint">Joint axes: origin at the centre of the wall end, the wall runs towards −X. A slab edge beyond the end is side +X (contour 1′ is also checked, Fig. 6.1b); along the wall — ±Y.</system:String>
+   <system:String x:Key="PunchingWallCornerHint">Joint axes: origin at the outer corner, wall a1 runs along +X, wall a2 along +Y. Slab edges — outside, sides −X and −Y. Contour per Fig. 6.2, edition with Amendment 1.</system:String>
+   <system:String x:Key="PunchingWallRatioHint">The long side exceeds 4 short sides — per cl. 5.1.8 of SP 430 this is a wall: check its ends (joint "wall end").</system:String>
+   <system:String x:Key="PunchingDeltaMHint">Difference of slab bending moments on both sides of the wall (out-of-plane moment); ½ΔM is used (SP 430, cl. 6.3.8).</system:String>
+   <system:String x:Key="PunchingDeltaMShortHint">ΔM — difference of slab bending moments on both sides of the wall; ½ΔM is used, out of the wall plane only (SP 430, cl. 6.3.8).</system:String>
+   <system:String x:Key="PunchingWallMomentsBySides">Enter slab moments on each side of the wall</system:String>
+   <system:String x:Key="PunchingWallMPlus">M on side +Y</system:String>
+   <system:String x:Key="PunchingWallMMinus">M on side −Y</system:String>
+   <system:String x:Key="PunchingWallMomentsBySidesHint">Slab bending moments at the contour segments along the wall; ΔM = M(+Y) − M(−Y) is entered in the field above.</system:String>
+   <system:String x:Key="PunchingWallCornerForcesHint">At a wall corner only the force F is taken into account — moments are ignored (SP 430, cl. 6.3.8).</system:String>
+   <system:String x:Key="PunchingBatchForcesLineWallEnd">Forces — all {0} rows of the set "{1}": F = |N|, ΔM = row Mx (½ΔM is used), My is ignored.</system:String>
+   <system:String x:Key="PunchingBatchForcesLineWallCorner">Forces — all {0} rows of the set "{1}": F = |N|, moments are ignored.</system:String>
+   <system:String x:Key="PunchingVariant_WallEnd">U-contour at the wall end (SP 430, Fig. 6.1a)</system:String>
+   <system:String x:Key="PunchingVariant_WallEndEdge">Contour 1′ at the wall end near the edge (SP 430, Fig. 6.1b)</system:String>
+   <system:String x:Key="PunchingVariant_WallCorner">Contour at the wall corner (SP 430, Fig. 6.2)</system:String>
+   <system:String x:Key="PunchingVariantShort_WallEnd">wall end, U</system:String>
+   <system:String x:Key="PunchingVariantShort_WallEndEdge">wall end, 1′</system:String>
+   <system:String x:Key="PunchingVariantShort_WallCorner">wall corner</system:String>
+   <system:String x:Key="PunchingWarn_wall_sw_cross_ignored">Cross-shaped shear reinforcement is not applicable at a wall — reinforcement is ignored. Use uniform reinforcement in rows.</system:String>
+   <system:String x:Key="PunchingWarn_wall_end_clipped">The slab edge is closer than h0/2 to the wall end or faces — the U-contour is clipped, only the part within the slab is used.</system:String>
+   <system:String x:Key="PunchingWarn_wall_corner_clipped">The slab edge crosses the wall corner contour — only the part within the slab is used.</system:String>
+   <system:String x:Key="PunchingWarn_wall_batch_end_moments">Wall end: row Mx is taken as the difference ΔM of slab moments on both sides of the wall (½ΔM is used), row My is ignored (SP 430, cl. 6.3.8).</system:String>
+   <system:String x:Key="PunchingWarn_wall_batch_corner_moments">Wall corner: only F = |N| of the row is used, Mx and My are ignored (SP 430, cl. 6.3.8).</system:String>
+   <system:String x:Key="PunchingErr_wall_size">Wall thickness a1 (and a2 at a corner) must be greater than zero.</system:String>
+   <system:String x:Key="PunchingErr_wall_edge_side">Slab edge at a wall end — on side +X (beyond the end) or ±Y (along the wall); at a wall corner — outside, on side −X or −Y.</system:String>
+   <system:String x:Key="PunchingErr_wall_kind">Unknown joint type.</system:String>
+   <system:String x:Key="PunchingSummaryWall">Joint: {0} mm; h = {1:0} mm, h0 = {2:0.#} mm; concrete {3}, Rbt = {4:0.###} MPa; {5}; F = {6:0.#} kN{7}</system:String>
+   <system:String x:Key="PunchingSummaryWallEnd">wall end, a1 = {0:0}</system:String>
+   <system:String x:Key="PunchingSummaryWallCorner">wall corner, a1 = {0:0}, a2 = {1:0}</system:String>
+   <system:String x:Key="PunchingBatchSummaryWall">Set "{0}", rows: {1}. Joint: {2} mm; h = {3:0} mm, h0 = {4:0.#} mm; concrete {5}, Rbt = {6:0.###} MPa; {7}</system:String>
    <system:String x:Key="PunchingVariantShortOuterSuffix">, beyond reinforcement</system:String>
    <system:String x:Key="PunchingInvalidNumber">A field contains an unrecognized number. Correct the value outlined in red.</system:String>
 

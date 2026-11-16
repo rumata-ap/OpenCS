@@ -293,7 +293,7 @@ public static class Variants
     public static string Title(PunchingVariantKind kind, PunchingZone zone, string id, int edgeCount)
     {
         string name = Utilites.Loc.S("PunchingVariant_" + kind, kind.ToString());
-        if (kind == PunchingVariantKind.OpenEdge && edgeCount > 1)
+        if (kind is PunchingVariantKind.OpenEdge or PunchingVariantKind.WallEndEdge && edgeCount > 1)
         {
             int i = id.LastIndexOf('_');
             if (i >= 0 && int.TryParse(id[(i + 1)..], out int n)) name += $" {n + 1}";
@@ -306,7 +306,7 @@ public static class Variants
     {
         string name = Utilites.Loc.S("PunchingVariantShort_" + kind, kind.ToString());
         int i = id.LastIndexOf('_');
-        bool numbered = (kind == PunchingVariantKind.OpenEdge && edgeCount > 1) || kind == PunchingVariantKind.Custom;
+        bool numbered = (kind is PunchingVariantKind.OpenEdge or PunchingVariantKind.WallEndEdge && edgeCount > 1) || kind == PunchingVariantKind.Custom;
         if (numbered && i >= 0 && int.TryParse(id[(i + 1)..], out int n)) name += $" {n + 1}";
         return zone == PunchingZone.BeyondReinforcement ? name + Utilites.Loc.S("PunchingVariantShortOuterSuffix", ", за арматурой") : name;
     }

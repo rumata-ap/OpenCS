@@ -135,7 +135,8 @@ public static class PunchingRunner
             steps.Add(Step("sp63.punching.rsw", "табл. 6.15", "Punching_Trace_Rsw", @"R_{sw}", "", "{Rsw}",
                 ("Rsw", s.Rsw, CalculationUnit.Kilopascal)));
         }
-        if (p.Forces.MomentsAreMloc)
+        // У узла стены моменты задаются по п. 6.3.8 СП 430 (½ΔM у торца — шаг варианта), флажок Mloc не действует.
+        if (p.Forces.MomentsAreMloc && !p.Wall.IsWall)
         {
             steps.Add(Step("sp63.punching.mloc_x", "п. 8.1.46", "Punching_Trace_MlocX", @"M_x = 0{,}5\,M_{loc,x}", @"0{,}5 \cdot {Mloc}", "{M}",
                 ("Mloc", p.Forces.Mx, CalculationUnit.KilonewtonMeter), ("M", 0.5 * p.Forces.Mx, CalculationUnit.KilonewtonMeter)));
@@ -183,6 +184,8 @@ public static class PunchingRunner
         root["calcType"] = task.CalcType.ToString();
         root["inputs"] = JsonSerializer.SerializeToNode(new Dictionary<string, object?>
         {
+            ["wall"] = p.Wall.IsWall ? p.Wall.Kind : null,
+            ["a1"] = p.Wall.IsWall ? p.Wall.A1 : null, ["a2"] = p.Wall.IsCorner ? p.Wall.A2 : null,
             ["shape"] = p.Area.Shape, ["bx"] = p.Area.Bx, ["by"] = p.Area.By, ["d"] = p.Area.D, ["t"] = p.Area.T,
             ["h"] = p.Slab.H, ["ax"] = p.Slab.Ax, ["ay"] = p.Slab.Ay,
             ["h0x"] = p.H0x, ["h0y"] = p.H0y, ["h0"] = p.H0,

@@ -21,6 +21,43 @@ public sealed record PunchingAreaParams
     public List<double[]> Points { get; init; } = [];
 }
 
+/// <summary>
+/// Узел стены по СП 430.1325800, п. 6.3.8: торец (рис. 6.1) или угол двух стен под 90° (рис. 6.2). Оси узла: у торца —
+/// начало в центре торца, стена идёт в −X; у угла — начало в наружном углу, стена a1 — вдоль +X, стена a2 — вдоль +Y.
+/// </summary>
+public sealed record PunchingWallParams
+{
+    /// <summary>"none" — колонна или пилон | "end" — торец стены | "corner" — угол стен.</summary>
+    public string Kind { get; init; } = "none";
+    /// <summary>Толщина стены (у угла — стены вдоль X), м.</summary>
+    public double A1 { get; init; } = 0.2;
+    /// <summary>У угла — толщина стены вдоль Y, м.</summary>
+    public double A2 { get; init; } = 0.2;
+
+    /// <summary>Узел стены (торец или угол).</summary>
+    [JsonIgnore] public bool IsWall => Kind is "end" or "corner";
+    /// <summary>Торец стены.</summary>
+    [JsonIgnore] public bool IsEnd => Kind == "end";
+    /// <summary>Угол стен.</summary>
+    [JsonIgnore] public bool IsCorner => Kind == "corner";
+
+    /// <summary>Узел ядра; null — не стена.</summary>
+    public PunchingWall? ToCore() => Kind switch
+    {
+        "end" => new PunchingWall(PunchingWallKind.End, A1),
+        "corner" => new PunchingWall(PunchingWallKind.Corner, A1, A2),
+        _ => null
+    };
+
+    /// <summary>Стороны узла, у которых допустим край плиты: у торца — за торцом (+x) и вдоль стены (±y), у угла — снаружи (−x, −y).</summary>
+    public static IReadOnlyList<string> EdgeSides(string kind) => kind switch
+    {
+        "end" => ["+x", "+y", "-y"],
+        "corner" => ["-x", "-y"],
+        _ => ["+x", "-x", "+y", "-y"]
+    };
+}
+
 /// <summary>Плита: толщина, привязки арматуры к растянутой грани, бетон.</summary>
 public sealed record PunchingSlabParams
 {
@@ -158,6 +195,8 @@ public sealed record PunchingForceParams
 {
     /// <summary>Продавливающая сила, кН (модуль).</summary>
     public double F { get; init; }
+    /// <summary>Момент относительно оси X, кН·м; у торца стены — разность ΔM изгибающих моментов плиты по сторонам
+    /// стены (в расчёт идёт ½ΔM, СП 430 п. 6.3.8).</summary>
     public double Mx { get; init; }
     public double My { get; init; }
     /// <summary>Моменты — полные Mloc узла, в расчёт идёт половина (п. 8.1.46).</summary>
@@ -207,6 +246,8 @@ public sealed record PunchingTaskParams
     public PunchingForceParams Forces { get; init; } = new();
     public PunchingOptionParams Options { get; init; } = new();
     public List<PunchingCustomContourParams> CustomContours { get; init; } = [];
+    /// <summary>Узел стены (СП 430 п. 6.3.8); по умолчанию — колонна или пилон.</summary>
+    public PunchingWallParams Wall { get; init; } = new();
     /// <summary>Источник усилий (задача по строке проверки по МКЭ); null — усилия заданы вручную.</summary>
     public PunchingSourceParams? Source { get; init; }
 
@@ -233,7 +274,8 @@ public sealed record PunchingTaskParams
             Area = p.Area ?? new(), Slab = p.Slab ?? new(), Edges = p.Edges ?? [], Holes = p.Holes ?? [],
             Reinforcement = sw with { Layout = sw.Layout ?? "uniform", CrossX = sw.CrossX ?? new(), CrossY = sw.CrossY ?? new() },
             Forces = p.Forces ?? new(), Options = p.Options ?? new(),
-            CustomContours = p.CustomContours ?? []
+            CustomContours = p.CustomContours ?? [],
+            Wall = p.Wall ?? new()
         };
     }
 
@@ -244,8 +286,10 @@ public sealed record PunchingTaskParams
     /// <summary>Приведённая рабочая высота h0 = 0,5(h0x + h0y), м (п. 8.1.46).</summary>
     [JsonIgnore] public double H0 => 0.5 * (H0x + H0y);
 
-    /// <summary>Грузовая площадь ядра.</summary>
-    public PunchingLoadArea BuildArea() => Area.Shape switch
+    /// <summary>Грузовая площадь ядра; у узла стены — кусок стены в зоне контура (<see cref="PunchingWallGeometry.AreaPolygon"/>).</summary>
+    public PunchingLoadArea BuildArea() => Wall.ToCore() is { } wall
+        ? new PunchingLoadArea.Polygon(PunchingWallGeometry.AreaPolygon(wall, H0))
+        : Area.Shape switch
     {
         "circle" => new PunchingLoadArea.Circle(Area.D),
         "ring" => new PunchingLoadArea.Ring(Area.D, Area.T),
@@ -318,14 +362,16 @@ public sealed record PunchingTaskParams
         else if (!(H0x > 0) || !(H0y > 0) || Slab.Ax < 0 || Slab.Ay < 0) errors.Add("h0_nonpositive");
         if (Slab.RbtOverride is double rbt && !(rbt > 0)) errors.Add("rbt_nonpositive");
 
-        bool areaOk = Area.Shape switch
+        bool areaOk = Wall.IsWall ? Wall.A1 > 0 && double.IsFinite(Wall.A1) && (!Wall.IsCorner || Wall.A2 > 0 && double.IsFinite(Wall.A2))
+            : Area.Shape switch
         {
             "circle" => Area.D > 0,
             "ring" => Area.D > 0 && Area.T > 0 && 2 * Area.T <= Area.D,
             "polygon" => Area.Points.Count >= 3 && Area.Points.All(p => p.Length == 2 && p.All(double.IsFinite)) && PolygonArea() > 1e-12,
             _ => Area.Bx > 0 && Area.By > 0
         };
-        if (!areaOk) errors.Add(Area.Shape == "polygon" ? "polygon_points" : "area_size");
+        if (Wall.Kind is not ("none" or "end" or "corner")) errors.Add("wall_kind");
+        if (!areaOk) errors.Add(Wall.IsWall ? "wall_size" : Area.Shape == "polygon" ? "polygon_points" : "area_size");
 
         if (Edges.Count > 2) errors.Add("edges_too_many");
         if (Edges.Select(e => e.Side).Distinct().Count() < Edges.Count) errors.Add("edges_same_side");
@@ -333,6 +379,7 @@ public sealed record PunchingTaskParams
         if (Edges.Any(e => e.C < 0 || !double.IsFinite(e.C))) errors.Add("edge_c_negative");
         if (Edges.Any(e => Math.Abs(e.AngleDeg) > MaxEdgeAngleDeg)) errors.Add("edge_angle");
         if (Edges.Any(e => e.Side is not ("+x" or "-x" or "+y" or "-y"))) errors.Add("edge_side");
+        else if (Wall.IsWall && Edges.Any(e => !PunchingWallParams.EdgeSides(Wall.Kind).Contains(e.Side))) errors.Add("wall_edge_side");
 
         if (Holes.Any(h => h.Shape switch
             {
@@ -341,7 +388,7 @@ public sealed record PunchingTaskParams
                 _ => !(h.Bx > 0 && h.By > 0),
             })) errors.Add("hole_size");
         // Отверстие-многоугольник из схемы МКЭ бывает невыпуклым — проверка пересечения выпуклых к нему неприменима.
-        else if (areaOk && Holes.Any(h => h.Shape != "polygon" && ConvexOverlap(PunchingContourBuilder.AreaPolygon(BuildArea()), HolePolygon(h))))
+        else if (areaOk && H0 > 0 && Holes.Any(h => h.Shape != "polygon" && ConvexParts().Any(part => ConvexOverlap(part, HolePolygon(h)))))
             errors.Add("hole_overlaps_area");
 
         if (Reinforcement.Enabled)
@@ -366,6 +413,18 @@ public sealed record PunchingTaskParams
         if (!(Options.HoleInfluence >= 0)) errors.Add("hole_influence");
         if (Options.Mu is double mu && !(mu >= 0 && mu < 0.2)) errors.Add("mu_range");
         return errors;
+    }
+
+    /// <summary>Выпуклые части грузовой площади (у угла стен — две полки Г) для проверки пересечения с отверстиями.</summary>
+    IEnumerable<IReadOnlyList<PlanPoint>> ConvexParts()
+    {
+        if (Wall.ToCore() is { Kind: PunchingWallKind.Corner } w)
+        {
+            double ext = w.A1 + w.T2 + H0 / 2;
+            yield return [new(0, 0), new(ext, 0), new(ext, w.A1), new(0, w.A1)];
+            yield return [new(0, 0), new(w.T2, 0), new(w.T2, ext), new(0, ext)];
+        }
+        else yield return PunchingContourBuilder.AreaPolygon(BuildArea());
     }
 
     double PolygonArea()
@@ -416,7 +475,8 @@ public sealed record PunchingTaskParams
                 Options.Pylon == "off" ? PylonMode.Off : PylonMode.Auto,
                 Options.HoleInfluence,
                 Options.Wb == "stress_side" ? SectionModulusMode.StressSide : SectionModulusMode.Minimum,
-                Options.PylonReduced, false, Options.Mu));
+                Options.PylonReduced, false, Options.Mu),
+            Wall.ToCore());
     }
 
     static EccentricityMode Eccentricity(string mode) => mode switch

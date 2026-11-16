@@ -131,7 +131,8 @@ public sealed class PunchingBatchReportProvider : IReportProvider
                 ("Результат получен", string.IsNullOrWhiteSpace(context.Result.Created) ? "—" : context.Result.Created),
                 ("Статус результата", ReportNames.Status(context.Result.Status)),
                 ("Набор усилий", data.Error is null ? $"«{data.ForceSetTag}», строк: {data.Total}" : "—"),
-                ("Нормативная база", "СП 63.13330.2018, пп. 8.1.46–8.1.52" + (pylon ? "; контур пилона — СП 430.1325800, п. 6.3.8" : "")),
+                ("Нормативная база", "СП 63.13330.2018, пп. 8.1.46–8.1.52" + (pylon ? "; контур пилона — СП 430.1325800, п. 6.3.8" : "")
+                    + (data.Variants.Any(v => PunchingReportText.IsWall(v.Kind)) ? "; узел стены — СП 430.1325800.2018 (ред. с Изм. № 1), п. 6.3.8" : "")),
                 ("Единицы", "длины — м, силы — кН, моменты — кН·м, напряжения — кПа")
             ], "Параметр", "Значение"));
 

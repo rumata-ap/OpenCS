@@ -159,6 +159,13 @@ public static class PunchingBatchRunner
             : PunchingStatus.NotEnsured;
 
         var warnings = results.SelectMany(r => r.Warnings).DistinctBy(w => w.Code + "\u0001" + w.Text).ToList();
+        // Узел стены: из строки берутся не все усилия (СП 430 п. 6.3.8) — сказать один раз на пакет.
+        if (p.Wall.IsEnd && items.Any(i => i.My != 0))
+            warnings.Add(new PunchingWarning("wall_batch_end_moments",
+                "Торец стены: Mx строки принимается как разность моментов плиты по сторонам стены ΔM (в расчёт — ½ΔM), My строки не учитывается (СП 430, п. 6.3.8)."));
+        else if (p.Wall.IsCorner && items.Any(i => i.Mx != 0 || i.My != 0))
+            warnings.Add(new PunchingWarning("wall_batch_corner_moments",
+                "Угол стен: учитывается только F = |N| строки, моменты Mx и My не учитываются (СП 430, п. 6.3.8)."));
         var reversedNums = rows.Where(r => r.Reversed).Select(r => r.Item.Num).ToList();
         if (reversedNums.Count > 0)
         {
@@ -201,6 +208,9 @@ public static class PunchingBatchRunner
             PunchingVariantKind.OpenEdge => "СП 63.13330.2018, п. 8.1.46, рис. 8.11б",
             PunchingVariantKind.OpenCorner => "СП 63.13330.2018, п. 8.1.46, рис. 8.11в",
             PunchingVariantKind.PylonBroken => "СП 430.1325800, п. 6.3.8, рис. 6.1а",
+            PunchingVariantKind.WallEnd => "СП 430.1325800, п. 6.3.8, рис. 6.1а",
+            PunchingVariantKind.WallEndEdge => "СП 430.1325800, п. 6.3.8, рис. 6.1б",
+            PunchingVariantKind.WallCorner => "СП 430.1325800, п. 6.3.8, рис. 6.2 (ред. с Изм. № 1)",
             _ => "СП 63.13330.2018, п. 8.1.46"
         };
     }

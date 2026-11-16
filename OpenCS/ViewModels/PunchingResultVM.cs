@@ -257,8 +257,21 @@ public sealed class PunchingResultVM : ViewModelBase
                     D("swDiameter") * 1000, D("swStep") * 1000, D("swRowCount"), D("swRowStep") * 1000, D("rsw") / 1000)
                 : string.Format(c, Loc.S("PunchingSummarySw", "поперечная арматура {0}×Ø{1:0} шаг {2:0}, Rsw = {3:0.#} МПа"),
                     D("swCount"), D("swDiameter") * 1000, D("swStep") * 1000, D("rsw") / 1000);
+        if (WallText(S("wall"), D("a1"), D("a2"), c) is { } wall)
+            return string.Format(c, Loc.S("PunchingSummaryWall",
+                    "Узел: {0} мм; h = {1:0} мм, h0 = {2:0.#} мм; бетон {3}, Rbt = {4:0.###} МПа; {5}; F = {6:0.#} кН{7}"),
+                wall, D("h") * 1000, D("h0") * 1000, concrete, D("rbt") / 1000, sw, D("F"),
+                S("wall") == "end" ? string.Format(c, ", ΔM = {0:0.#} кН·м", D("Mx")) : "");
         return string.Format(c, Loc.S("PunchingSummary",
                 "Площадь {0} мм; h = {1:0} мм, h0 = {2:0.#} мм; бетон {3}, Rbt = {4:0.###} МПа; {5}; F = {6:0.#} кН, Mx = {7:0.#} кН·м, My = {8:0.#} кН·м"),
             area, D("h") * 1000, D("h0") * 1000, concrete, D("rbt") / 1000, sw, D("F"), D("Mx"), D("My"));
     }
+
+    /// <summary>Узел стены для сводки исходных данных («торец стены, a1 = 200»); null — не стена.</summary>
+    internal static string? WallText(string kind, double a1, double a2, CultureInfo c) => kind switch
+    {
+        "end" => string.Format(c, Loc.S("PunchingSummaryWallEnd", "торец стены, a1 = {0:0}"), a1 * 1000),
+        "corner" => string.Format(c, Loc.S("PunchingSummaryWallCorner", "угол стен, a1 = {0:0}, a2 = {1:0}"), a1 * 1000, a2 * 1000),
+        _ => null
+    };
 }

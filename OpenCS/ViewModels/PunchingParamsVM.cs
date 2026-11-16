@@ -154,6 +154,13 @@ public sealed class PunchingParamsVM : ViewModelBase
         new("rectangle", Loc.S("PunchingShape_rectangle", "прямоугольник")), new("circle", Loc.S("PunchingShape_circle", "круг")),
         new("ring", Loc.S("PunchingShape_ring", "кольцо")), new("polygon", Loc.S("PunchingShape_polygon", "многоугольник"))
     ];
+    /// <summary>Вид узла: колонна или пилон, торец стены, угол стен (СП 430 п. 6.3.8).</summary>
+    public IReadOnlyList<PunchingChoice> NodeKinds { get; } =
+    [
+        new("none", Loc.S("PunchingNodeKind_none", "колонна / пилон")),
+        new("end", Loc.S("PunchingNodeKind_end", "торец стены (СП 430, рис. 6.1)")),
+        new("corner", Loc.S("PunchingNodeKind_corner", "угол стен 90° (СП 430, рис. 6.2)"))
+    ];
     /// <summary>Формы отверстий.</summary>
     public IReadOnlyList<PunchingChoice> HoleShapes { get; } =
         [new("rectangle", Loc.S("PunchingShape_rectangle", "прямоугольник")), new("circle", Loc.S("PunchingShape_circle", "круг")),
@@ -164,8 +171,10 @@ public sealed class PunchingParamsVM : ViewModelBase
         new("inside", Loc.S("PunchingPosition_inside", "внутри плиты")), new("edge", Loc.S("PunchingPosition_edge", "у края")),
         new("corner", Loc.S("PunchingPosition_corner", "в углу"))
     ];
-    /// <summary>Стороны площади.</summary>
-    public IReadOnlyList<PunchingChoice> Sides { get; } = [new("+x", "+X"), new("-x", "−X"), new("+y", "+Y"), new("-y", "−Y")];
+    /// <summary>Все стороны площади.</summary>
+    static readonly PunchingChoice[] AllSides = [new("+x", "+X"), new("-x", "−X"), new("+y", "+Y"), new("-y", "−Y")];
+    /// <summary>Стороны, у которых можно задать край: у узла стены — только допустимые для торца или угла.</summary>
+    public IReadOnlyList<PunchingChoice> Sides => [.. AllSides.Where(s => PunchingWallParams.EdgeSides(NodeKind).Contains(s.Id))];
     /// <summary>Сторона приложения нагрузки.</summary>
     public IReadOnlyList<PunchingChoice> LoadSides { get; } =
     [
@@ -199,15 +208,83 @@ public sealed class PunchingParamsVM : ViewModelBase
     PunchingHoleRowVM? _selectedHole;
     PunchingPointRowVM? _selectedPoint;
 
+    string _nodeKind = "none";
+    double _wallA1, _wallA2, _wallMPlus, _wallMMinus;
+
+    /// <summary>Вид узла: "none" | "end" | "corner".</summary>
+    public string NodeKind
+    {
+        get => _nodeKind;
+        set
+        {
+            if (_nodeKind == value) return;
+            bool wasLoading = _loading;
+            _loading = true;
+            try
+            {
+                SetField(ref _nodeKind, value);
+                // Края — только с допустимых сторон узла: у торца по умолчанию за торцом (+X, контур 1′), у угла — снаружи.
+                var allowed = PunchingWallParams.EdgeSides(value);
+                if (!allowed.Contains(Edge1Side)) Edge1Side = value == "corner" ? "-x" : value == "end" ? "+x" : "+y";
+                if (!allowed.Contains(Edge2Side) || Edge2Side == Edge1Side)
+                    Edge2Side = allowed.FirstOrDefault(s => s != Edge1Side && SideOk(Edge1Side, s)) ?? Edge2Side;
+            }
+            finally { _loading = wasLoading; }
+            foreach (var n in new[] { nameof(IsWallNode), nameof(IsWallEnd), nameof(IsWallCorner), nameof(IsColumnNode), nameof(Sides),
+                         nameof(ShowMy), nameof(ShowMlocOption), nameof(MxLabel), nameof(MxHint), nameof(BatchForcesText), nameof(ShowWallHint),
+                         nameof(ShowMx), nameof(Edge1Side), nameof(Edge2Side) })
+                OnPropertyChanged(n);
+            if (!_loading) Recalculate();
+        }
+    }
+    /// <summary>Узел стены (торец или угол).</summary>
+    public bool IsWallNode => NodeKind is "end" or "corner";
+    public bool IsWallEnd => NodeKind == "end";
+    public bool IsWallCorner => NodeKind == "corner";
+    /// <summary>Колонна или пилон — форма площади и настройки пилона.</summary>
+    public bool IsColumnNode => !IsWallNode;
+    /// <summary>Толщина стены a1 (у угла — стены вдоль X), мм.</summary>
+    public double WallA1 { get => _wallA1; set => SetField(ref _wallA1, value); }
+    /// <summary>Толщина стены a2 вдоль Y (угол), мм.</summary>
+    public double WallA2 { get => _wallA2; set => SetField(ref _wallA2, value); }
+    /// <summary>Помощник ΔM: изгибающий момент плиты со стороны +Y от стены, кН·м (не сохраняется).</summary>
+    public double WallMPlus { get => _wallMPlus; set { if (SetMoment(ref _wallMPlus, value)) UpdateDeltaM(); } }
+    /// <summary>Помощник ΔM: момент со стороны −Y, кН·м (не сохраняется).</summary>
+    public double WallMMinus { get => _wallMMinus; set { if (SetMoment(ref _wallMMinus, value)) UpdateDeltaM(); } }
+    bool SetMoment(ref double field, double value, [CallerMemberName] string? name = null)
+    {
+        if (field == value) return false;
+        field = value;
+        OnPropertyChanged(name);
+        return true;
+    }
+    /// <summary>ΔM = M(+Y) − M(−Y) из помощника.</summary>
+    void UpdateDeltaM() { if (!_loading) Mx = _wallMPlus - _wallMMinus; }
+
+    /// <summary>Подпись поля Mx: у торца стены — ΔM.</summary>
+    public string MxLabel => IsWallEnd ? "ΔM" : "Mx";
+    /// <summary>Подсказка к полю Mx.</summary>
+    public string MxHint => IsWallEnd
+        ? Loc.S("PunchingDeltaMHint", "Разность изгибающих моментов плиты по обе стороны стены (момент из плоскости стены); в расчёт идёт ½ΔM (СП 430, п. 6.3.8).")
+        : "";
+    /// <summary>Поле Mx видно (у угла стен моменты не учитываются).</summary>
+    public bool ShowMx => !IsWallCorner;
+    /// <summary>Поле My видно только у колонны.</summary>
+    public bool ShowMy => IsColumnNode;
+    /// <summary>Флажок «полные Mloc» — только у колонны.</summary>
+    public bool ShowMlocOption => IsColumnNode;
+    /// <summary>Подсказка «это стена» у прямоугольной колонны с b/a &gt; 4 (п. 5.1.8 СП 430).</summary>
+    public bool ShowWallHint => IsColumnNode && IsRectangle && Math.Min(Bx, By) > 0 && Math.Max(Bx, By) / Math.Min(Bx, By) > 4 + 1e-9;
+
     /// <summary>Форма площади.</summary>
-    public string AreaShape { get => _areaShape; set { if (SetField(ref _areaShape, value)) { OnPropertyChanged(nameof(IsRectangle)); OnPropertyChanged(nameof(IsRound)); OnPropertyChanged(nameof(IsRing)); OnPropertyChanged(nameof(IsPolygon)); } } }
+    public string AreaShape { get => _areaShape; set { if (SetField(ref _areaShape, value)) { OnPropertyChanged(nameof(ShowWallHint)); OnPropertyChanged(nameof(IsRectangle)); OnPropertyChanged(nameof(IsRound)); OnPropertyChanged(nameof(IsRing)); OnPropertyChanged(nameof(IsPolygon)); } } }
     public bool IsRectangle => AreaShape == "rectangle";
     public bool IsRound => AreaShape is "circle" or "ring";
     public bool IsRing => AreaShape == "ring";
     public bool IsPolygon => AreaShape == "polygon";
     /// <summary>Размеры площади, мм.</summary>
-    public double Bx { get => _bx; set => SetField(ref _bx, value); }
-    public double By { get => _by; set => SetField(ref _by, value); }
+    public double Bx { get => _bx; set { if (SetField(ref _bx, value)) OnPropertyChanged(nameof(ShowWallHint)); } }
+    public double By { get => _by; set { if (SetField(ref _by, value)) OnPropertyChanged(nameof(ShowWallHint)); } }
     public double D { get => _d; set => SetField(ref _d, value); }
     public double T { get => _t; set => SetField(ref _t, value); }
     /// <summary>Вершины многоугольника, мм.</summary>
@@ -343,8 +420,12 @@ public sealed class PunchingParamsVM : ViewModelBase
     /// <summary>Подпись источника усилий пакета.</summary>
     public string BatchForcesText => !IsBatch ? ""
         : _batchRows is { Count: > 0 } rows
-            ? string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingBatchForcesLine",
-                "Усилия — все {0} строк набора «{1}»: F = |N|, Mx и My строки (оси колонны совпадают с осями плиты)."), rows.Count, _batchSetTag)
+            ? string.Format(CultureInfo.CurrentCulture, IsWallEnd
+                    ? Loc.S("PunchingBatchForcesLineWallEnd", "Усилия — все {0} строк набора «{1}»: F = |N|, ΔM = Mx строки (в расчёт — ½ΔM), My не учитывается.")
+                    : IsWallCorner
+                        ? Loc.S("PunchingBatchForcesLineWallCorner", "Усилия — все {0} строк набора «{1}»: F = |N|, моменты не учитываются.")
+                        : Loc.S("PunchingBatchForcesLine", "Усилия — все {0} строк набора «{1}»: F = |N|, Mx и My строки (оси колонны совпадают с осями плиты)."),
+                rows.Count, _batchSetTag)
             : Loc.S("PunchingBatchNoForceSet", "Набор усилий не выбран или пуст — выберите его в общем диалоге задачи.");
     /// <summary>Определяющая строка пакета — по ней рисунок и таблица.</summary>
     public string PreviewNote { get; private set; } = "";
@@ -415,6 +496,9 @@ public sealed class PunchingParamsVM : ViewModelBase
         _loading = true;
         try
         {
+            NodeKind = p.Wall.Kind is "end" or "corner" ? p.Wall.Kind : "none";
+            WallA1 = Mm(p.Wall.A1); WallA2 = Mm(p.Wall.A2);
+            WallMPlus = 0; WallMMinus = 0;
             AreaShape = p.Area.Shape;
             Bx = Mm(p.Area.Bx); By = Mm(p.Area.By); D = Mm(p.Area.D); T = Mm(p.Area.T);
             Points.Clear();
@@ -505,6 +589,7 @@ public sealed class PunchingParamsVM : ViewModelBase
                 HoleInfluence = HoleInfluence, PylonReduced = PylonReduced, Mu = MuEnabled ? MuPercent / 100 : null
             },
             CustomContours = _customContours,
+            Wall = new PunchingWallParams { Kind = NodeKind, A1 = M(WallA1), A2 = M(WallA2) },
             // Источник задачи по строке проверки по МКЭ (проверка, узел, ключ) в окне не правится, но хранится: по нему
             // «Создать задачу» находит прежнюю задачу строки, а отчёт показывает происхождение усилий.
             Source = _source,
@@ -726,7 +811,9 @@ public sealed class PunchingParamsVM : ViewModelBase
     }
 
     static string Perpendicular(string side) => side is "+y" or "-y" ? "+x" : "+y";
-    double MaxHalfSize() => AreaShape switch { "circle" or "ring" => M(D) / 2, "polygon" => 0.2, _ => M(Math.Max(Bx, By)) / 2 };
+    /// <summary>Два края с этих сторон допустимы (разные и не противоположные).</summary>
+    static bool SideOk(string a, string b) => a != b && PunchingTaskParams.SideVector(a).Dot(PunchingTaskParams.SideVector(b)) > -0.5;
+    double MaxHalfSize() => IsWallNode ? M(Math.Max(WallA1, WallA2)) / 2 : AreaShape switch { "circle" or "ring" => M(D) / 2, "polygon" => 0.2, _ => M(Math.Max(Bx, By)) / 2 };
     double H0Value() => M(H) - 0.5 * M(Ax + Ay);
     static double Mm(double m) => Math.Round(m * 1000, 6);
     static double M(double mm) => mm / 1000;

@@ -98,7 +98,7 @@ public class PunchingWallTests
         }
         // П без торцевого участка: ветви до края.
         Assert.Equal(2 * (A1 + H0 - (D - c)), V(r, "wall_end").Geometry.U, 12);
-        Assert.Contains(r.Warnings, w => w.Code == "wall_contour_clipped");
+        Assert.Contains(r.Warnings, w => w.Code == "wall_end_clipped");
         // 1′ короче — определяет он.
         Assert.Equal("wall_end_edge_0", r.Variants[r.GoverningIndex].Variant.Id);
     }
@@ -111,7 +111,7 @@ public class PunchingWallTests
         Assert.Equal(3 * (A1 + H0), V(r, "wall_end").Geometry.U, 12);
         Assert.Equal(2 * (A1 + 0.6), V(r, "wall_end_edge_0").Geometry.U, 12);
         Assert.Equal("wall_end", r.Variants[r.GoverningIndex].Variant.Id);
-        Assert.DoesNotContain(r.Warnings, w => w.Code == "wall_contour_clipped");
+        Assert.DoesNotContain(r.Warnings, w => w.Code == "wall_end_clipped");
     }
 
     [Fact]
