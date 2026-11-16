@@ -6706,6 +6706,14 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingDetailing_line_step_x">Line spacing of arms along X — not more than 1/4 of the perimeter side</system:String>
    <system:String x:Key="PunchingDetailing_line_step_y">Line spacing of arms along Y — not more than 1/4 of the perimeter side</system:String>
    <system:String x:Key="PunchingDetailing_anchorage">Anchorage of shear reinforcement is not checked</system:String>
+   <system:String x:Key="PunchingDetailingName_first_row_min">first row not closer than h0/3</system:String>
+   <system:String x:Key="PunchingDetailingName_first_row_max">first row not farther than h0/2</system:String>
+   <system:String x:Key="PunchingDetailingName_row_step">row spacing</system:String>
+   <system:String x:Key="PunchingDetailingName_zone_width">zone width</system:String>
+   <system:String x:Key="PunchingDetailingName_line_step">spacing along the perimeter</system:String>
+   <system:String x:Key="PunchingDetailingName_line_step_x">line spacing of arms along X</system:String>
+   <system:String x:Key="PunchingDetailingName_line_step_y">line spacing of arms along Y</system:String>
+   <system:String x:Key="PunchingDetailingName_anchorage">anchorage</system:String>
    <system:String x:Key="PunchingDetailingAllowed"> — allowed, pyramid bars counted</system:String>
    <system:String x:Key="PunchingDetailingOk">Detailing requirements of cl. 10.3.17 — met</system:String>
    <system:String x:Key="PunchingDetailingBad">Detailing requirements of cl. 10.3.17 — not met: {0}</system:String>

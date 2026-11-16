@@ -6706,6 +6706,14 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingDetailing_line_step_x">Шаг линий лучей вдоль X — не более 1/4 стороны контура</system:String>
    <system:String x:Key="PunchingDetailing_line_step_y">Шаг линий лучей вдоль Y — не более 1/4 стороны контура</system:String>
    <system:String x:Key="PunchingDetailing_anchorage">Анкеровка поперечной арматуры не проверяется</system:String>
+   <system:String x:Key="PunchingDetailingName_first_row_min">первый ряд не ближе h0/3</system:String>
+   <system:String x:Key="PunchingDetailingName_first_row_max">первый ряд не далее h0/2</system:String>
+   <system:String x:Key="PunchingDetailingName_row_step">шаг рядов</system:String>
+   <system:String x:Key="PunchingDetailingName_zone_width">ширина зоны</system:String>
+   <system:String x:Key="PunchingDetailingName_line_step">шаг вдоль контура</system:String>
+   <system:String x:Key="PunchingDetailingName_line_step_x">шаг линий лучей вдоль X</system:String>
+   <system:String x:Key="PunchingDetailingName_line_step_y">шаг линий лучей вдоль Y</system:String>
+   <system:String x:Key="PunchingDetailingName_anchorage">анкеровка</system:String>
    <system:String x:Key="PunchingDetailingAllowed"> — допускается, учтены стержни пирамиды</system:String>
    <system:String x:Key="PunchingDetailingOk">Конструктивные требования п. 10.3.17 — выполнены</system:String>
    <system:String x:Key="PunchingDetailingBad">Конструктивные требования п. 10.3.17 — не выполнено: {0}</system:String>

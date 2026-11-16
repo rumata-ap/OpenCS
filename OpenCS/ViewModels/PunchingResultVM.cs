@@ -138,7 +138,8 @@ public sealed class PunchingResultVM : ViewModelBase
         string text = Loc.S("PunchingDetailing_" + d.Code, d.Text);
         if (d.Code == "anchorage" || d.Value is not double v || d.Limit is not double lim) return $"{mark} {text}";
         string state = d.State == "allowed" ? Loc.S("PunchingDetailingAllowed", " — допускается, учтены стержни пирамиды") : "";
-        return string.Format(c, "{0} {1}: {2:0.#} мм {3} {4:0.#} мм{5}", mark, text, v * 1000, d.Relation, lim * 1000, state);
+        string mm = Loc.S("UnitMm", "мм");
+        return string.Format(c, "{0} {1}: {2:0.#} {6} {3} {4:0.#} {6}{5}", mark, text, v * 1000, d.Relation, lim * 1000, state, mm);
     }
 
     /// <summary>Результат.</summary>

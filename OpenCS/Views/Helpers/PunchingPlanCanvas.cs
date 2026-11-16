@@ -319,6 +319,11 @@ public static class Variants
         ? OpenCS.Reporting.ReportNumberFormatter.FormatUtilization(k).Replace(".", CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator)
         : "∞";
 
+    /// <summary>Перечень кодов требований п. 10.3.17 («row_step, zone_width») — локализованными названиями.</summary>
+    static string DetailingNames(string codes) => string.Join(", ", codes
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Select(c => Utilites.Loc.S("PunchingDetailingName_" + c, CScore.Sp63Punching.PunchingSwLayout.DetailingName(c))));
+
     /// <summary>
     /// Локализованный текст предупреждения: шаблон <c>PunchingWarn_{code}</c> с аргументами
     /// (id контуров заменяются названиями, числа — по культуре); без шаблона или аргументов — русский текст ядра.
@@ -333,6 +338,7 @@ public static class Variants
             {
                 var v = variants.FirstOrDefault(x => x.Id == a);
                 if (v is not null) return Title(v.Kind, v.Zone, v.Id, edgeCount);
+                if (w.Code == "sw_detailing_violated") return DetailingNames(a);
                 return double.TryParse(a, NumberStyles.Float, CultureInfo.InvariantCulture, out double d)
                     ? d.ToString("0.##", CultureInfo.CurrentCulture) : a;
             }).ToArray<object>();

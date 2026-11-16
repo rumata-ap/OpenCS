@@ -92,6 +92,30 @@ public sealed class PunchingCrossTaskTests
     }
 
     [Fact]
+    public void ParamsVM_Design_TextResetOnNextEdit()
+    {
+        var p = Posobie(diameter: 0.006) with { Reinforcement = Posobie().Reinforcement with { Diameter = 0.006, RowCount = 3 } };
+        var vm = new PunchingParamsVM(Task(p), [], [], null);
+        vm.ApplyDesign();
+        Assert.Contains("Ø10", vm.DesignApplyText);
+        vm.RowStep = 250;                      // ввод изменён — итог подбора к нему уже не относится
+        Assert.Equal("", vm.DesignApplyText);
+    }
+
+    [Fact]
+    public void Warning_DetailingViolated_NamesNotCodes()
+    {
+        var p = Posobie() with { Reinforcement = Posobie().Reinforcement with { RowStep = 0.25 } };
+        var res = PunchingRunner.Run(Task(p), CalcSettings.Default, null);
+        var vm = new PunchingResultVM(res, Task(p));
+        string text = string.Join(" | ", vm.Warnings);
+        Assert.Contains("10.3.17", text);
+        Assert.Contains("шаг рядов", text);
+        Assert.DoesNotContain("row_step", text);
+        Assert.DoesNotContain("zone_width", text);
+    }
+
+    [Fact]
     public void ParamsVM_EnableRows_DefaultsFromH0()
     {
         var p = Posobie() with { Reinforcement = Posobie().Reinforcement with { Layout = "uniform", FirstRow = null, Step = 0.1, Count = 2 } };

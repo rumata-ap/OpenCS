@@ -309,6 +309,9 @@ public sealed class PunchingParamsVM : ViewModelBase
     public string CrossYWidthText => string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingCrossWidth", "Lsw = {0:0} мм"), Math.Max(0, CrossYLines - 1) * CrossYStep);
     /// <summary>Итог последнего подбора («Подобрать»).</summary>
     public string DesignApplyText { get; private set; } = "";
+
+    /// <summary>Следующий <see cref="Recalculate"/> — сразу после «Подобрать»: итог подбора не сбрасывать.</summary>
+    bool _keepDesignText;
     public Material? Rebar { get => _rebar; set => SetField(ref _rebar, value); }
     /// <summary>Диаметр, мм.</summary>
     public double Diameter { get => _diameter; set => SetField(ref _diameter, value); }
@@ -519,6 +522,9 @@ public sealed class PunchingParamsVM : ViewModelBase
     public void Recalculate()
     {
         RecalcCount++;
+        // Итог «Подобрать» относится к вводу, который он сам записал: любая следующая правка его сбрасывает.
+        if (_keepDesignText) _keepDesignText = false;
+        else if (DesignApplyText.Length > 0) { DesignApplyText = ""; OnPropertyChanged(nameof(DesignApplyText)); }
         var p = ToParams();
         var c = CultureInfo.CurrentCulture;
         H0Text = string.Format(c, "h0x = {0:0.#} мм, h0y = {1:0.#} мм, h0 = {2:0.#} мм", p.H0x * 1000, p.H0y * 1000, p.H0 * 1000);
@@ -629,6 +635,7 @@ public sealed class PunchingParamsVM : ViewModelBase
         {
             DesignApplyText = Loc.S("PunchingDesignInputError", "Подбор невозможен: исправьте исходные данные.");
             OnPropertyChanged(nameof(DesignApplyText));
+            _keepDesignText = true;
             Recalculate();
             return;
         }
@@ -674,6 +681,7 @@ public sealed class PunchingParamsVM : ViewModelBase
         }
         finally { _loading = false; }
         OnPropertyChanged(nameof(DesignApplyText));
+        _keepDesignText = true;
         Recalculate();
     }
 

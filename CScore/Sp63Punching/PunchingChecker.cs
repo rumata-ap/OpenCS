@@ -160,7 +160,7 @@ public static class PunchingChecker
         var bad = detailing.Where(d => d.State is PunchingDetailingState.Violated or PunchingDetailingState.Allowed).ToList();
         if (bad.Count > 0)
             warnings.Add(new("sw_detailing_violated",
-                $"Требования п. 10.3.17 не выполнены ({string.Join(", ", bad.Select(b => b.Code))}): учитываются только стержни, " +
+                $"Требования п. 10.3.17 не выполнены ({string.Join(", ", bad.Select(b => PunchingSwLayout.DetailingName(b.Code)))}): учитываются только стержни, " +
                 "пересекающие пирамиду продавливания (п. 8.1.48), при условии их анкеровки — проверьте анкеровку.",
                 [string.Join(", ", bad.Select(b => b.Code))]));
 
