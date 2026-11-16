@@ -408,6 +408,56 @@ public sealed class PunchingFemServiceTests : IDisposable
     }
 
     [Fact]
+    public void CheckRunner_CrossLayout_DesignPerJoint()
+    {
+        var s = Create();
+        using var db = s.Db;
+        string src = s.Analysis.Id.ToString(CultureInfo.InvariantCulture);
+        // Rbt подбирается так, чтобы бетона не хватало (Кисп по бетону ≈ 1,3): Fb и Mb пропорциональны Rbt.
+        var bare = PunchingFemCheckRunner.Compute(db, s.Schema.Id,
+            new PunchingFemCheckParams { SourceRef = src, ConcreteFromSchema = false, RbtOverride = 1050 }, CalcType.C);
+        double k0 = Assert.Single(bare.Joints).Rows.Max(r => r.RatioConcrete);
+        Assert.True(k0 > 0.05, $"Кисп по бетону = {k0}");
+
+        // Крест 3 линии × 50 мм в обе стороны, ряды 60 + 4·50 мм (h0 ≈ 160 мм: h0/3 ≤ 60 ≤ h0/2, 50 ≤ h0/3).
+        var p = new PunchingFemCheckParams
+        {
+            SourceRef = src, ConcreteFromSchema = false, RbtOverride = 1050 * k0 / 1.3,
+            Reinforcement = new PunchingReinforcementParams
+            {
+                Enabled = true, Diameter = 0.006, Layout = "cross", RswOverride = 300_000,
+                FirstRow = 0.06, RowStep = 0.05, RowCount = 5,
+                CrossX = new PunchingCrossArmParams { Lines = 3, Step = 0.05 },
+                CrossY = new PunchingCrossArmParams { Lines = 3, Step = 0.05 },
+            },
+        };
+        var data = PunchingFemCheckRunner.Compute(db, s.Schema.Id, p, CalcType.C);
+        Assert.Null(data.Error);
+        var j = Assert.Single(data.Joints);
+        Assert.True(j.Rows.Max(r => r.RatioConcrete) > 1.0);
+        Assert.Contains(j.DesignState, new[] { "by_calculation", "by_threshold" });
+        Assert.Equal("Пост.", j.DesignKey);
+        Assert.Null(j.QswReq);                       // у креста — требования по направлениям
+        Assert.True(j.QswXReq > 0 && j.QswYReq > 0, $"qsw,x = {j.QswXReq}, qsw,y = {j.QswYReq}");
+        Assert.NotNull(j.BarDiameter);
+        Assert.NotNull(j.DesignSufficient);
+
+        // Круговой проход JSON и строка таблицы узлов: «qsw,x / qsw,y», подбор в карточке.
+        var back = PunchingFemCheckData.Parse(data.ToJson())!.Joints.Single();
+        Assert.Equal(j.QswXReq, back.QswXReq);
+        Assert.Equal(j.DesignState, back.DesignState);
+        var row = new OpenCS.ViewModels.PunchingFemJointRowVM(back);
+        Assert.Contains("/", row.Qsw);
+        Assert.Contains("Пост.", row.DesignText);
+        Assert.Contains("qsw,x", row.DesignText);
+
+        // Задача по строке несёт ту же раскладку.
+        var tp = PunchingFemCheckRunner.RowParams(j, j.Rows.Single(r => r.Key == "Пост."))!;
+        Assert.Equal("cross", tp.Reinforcement.Layout);
+        Assert.Equal(5, tp.Reinforcement.RowCount);
+    }
+
+    [Fact]
     public void CheckRunner_ExcludedJoint_NoAnalysis_Error()
     {
         var s = Create();
