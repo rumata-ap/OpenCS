@@ -118,6 +118,15 @@ public sealed class PunchingFemCheckVM : ViewModelBase
     PunchingFemJointPickVM? _selectedJoint;
     bool _loading;
 
+    /// <summary>Имя новой проверки: «Продавливание», если свободно, иначе «Продавливание 2», «Продавливание 3»…</summary>
+    public static string UniqueTag(string baseTag, IEnumerable<string?> taken)
+    {
+        var used = taken.Where(t => !string.IsNullOrEmpty(t)).ToHashSet(StringComparer.CurrentCultureIgnoreCase);
+        if (!used.Contains(baseTag)) return baseTag;
+        for (int i = 2; ; i++)
+            if (!used.Contains($"{baseTag} {i}")) return $"{baseTag} {i}";
+    }
+
     public PunchingFemCheckVM(DatabaseService db, FemCheck? existing, FemSchema? schema = null)
     {
         _db = db;
@@ -137,7 +146,7 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         foreach (var o in p.Overrides) _overrides[o.Node] = o;
 
         _loading = true;
-        Tag = existing?.Tag is { Length: > 0 } t ? t : Loc.S("PunchingFemDefaultTag", "Продавливание");
+        Tag = existing?.Tag is { Length: > 0 } t ? t : UniqueTag(Loc.S("PunchingFemDefaultTag", "Продавливание"), db.FemChecks.Select(c => c.Tag));
         _schema = existing != null ? Schemas.FirstOrDefault(s => s.Id == existing.SchemaId) : schema ?? Schemas.FirstOrDefault();
         _keepKind = existing != null ? p.SourceKind : null;
         RefreshAnalyses(p.SourceRef);

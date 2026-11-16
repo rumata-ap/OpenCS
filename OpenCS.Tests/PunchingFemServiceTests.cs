@@ -391,6 +391,15 @@ public sealed class PunchingFemServiceTests : IDisposable
         return list;
     }
 
+    /// <summary>Новая проверка получает свободное имя: «Продавливание», затем «Продавливание 2», «… 3».</summary>
+    [Fact]
+    public void NewCheck_UniqueDefaultTag()
+    {
+        Assert.Equal("Продавливание", OpenCS.ViewModels.PunchingFemCheckVM.UniqueTag("Продавливание", ["Сталь", null]));
+        Assert.Equal("Продавливание 2", OpenCS.ViewModels.PunchingFemCheckVM.UniqueTag("Продавливание", ["продавливание"]));
+        Assert.Equal("Продавливание 3", OpenCS.ViewModels.PunchingFemCheckVM.UniqueTag("Продавливание", ["Продавливание", "Продавливание 2"]));
+    }
+
     [Fact]
     public void WallEnds_Symmetric_EquilibriumAndZeroDeltaM()
     {
