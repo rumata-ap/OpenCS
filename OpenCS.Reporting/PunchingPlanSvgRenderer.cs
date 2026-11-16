@@ -253,8 +253,14 @@ public sealed class PunchingPlanSvgRenderer
             $"<text x=\"{Width / 2}\" y=\"40\" text-anchor=\"middle\" font-family=\"Segoe UI,Arial,sans-serif\" font-size=\"12\" fill=\"#4b5563\">{E(head2)}</text>");
         svg.Append(CultureInfo.InvariantCulture,
             $"<text x=\"{Width / 2}\" y=\"{(head2.Length > 0 ? 60 : 44)}\" text-anchor=\"middle\" font-family=\"Segoe UI,Arial,sans-serif\" font-size=\"13\" fill=\"{subColor}\">{E(sub)}</text>");
+        // Пояснение арматуры — второй строкой: в одну строку шириной 640 оно не помещается.
+        string swNote = scene.SwCross ? "синим — стержни и участки контура под лучами креста"
+            : scene.SwBars is { Count: > 0 } ? "синим — стержни поперечной арматуры" : "";
         svg.Append(CultureInfo.InvariantCulture,
-            $"<text x=\"{Pad}\" y=\"{Height - 10}\" font-family=\"Segoe UI,Arial,sans-serif\" font-size=\"11\" fill=\"#6b7280\">{E($"h0 = {F(scene.H0 * 1000)} мм; + — центр тяжести контура; серым — вне плиты; серый пунктир — исключено у отверстий" + (scene.SwCross ? "; синим — стержни и участки под лучами креста" : scene.SwBars is { Count: > 0 } ? "; синим — стержни" : ""))}</text>");
+            $"<text x=\"{Pad}\" y=\"{Height - (swNote.Length > 0 ? 22 : 10)}\" font-family=\"Segoe UI,Arial,sans-serif\" font-size=\"11\" fill=\"#6b7280\">{E($"h0 = {F(scene.H0 * 1000)} мм; + — центр тяжести контура; серым — вне плиты; серый пунктир — исключено у отверстий")}</text>");
+        if (swNote.Length > 0)
+            svg.Append(CultureInfo.InvariantCulture,
+                $"<text x=\"{Pad}\" y=\"{Height - 8}\" font-family=\"Segoe UI,Arial,sans-serif\" font-size=\"11\" fill=\"#6b7280\">{E(swNote)}</text>");
         svg.AppendLine("</svg>");
         return svg.ToString();
     }
