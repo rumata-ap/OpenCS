@@ -178,7 +178,13 @@
                <DockPanel Grid.Row="0" Margin="0,0,0,3">
                   <Button x:Name="CreateTaskBtn" DockPanel.Dock="Right" Content="{DynamicResource PunchingFemCreateTask}" Click="CreateTask_Click"
                           Padding="10,3" Margin="6,0,0,0" VerticalAlignment="Top" ToolTip="{DynamicResource PunchingFemCreateTaskHint}"/>
-                  <TextBlock Text="{Binding JointHeader}" TextWrapping="Wrap" FontWeight="SemiBold" ToolTip="{Binding RowsHint}"/>
+                  <TextBlock Text="{Binding JointHeader}" TextWrapping="Wrap" FontWeight="SemiBold">
+                     <TextBlock.ToolTip>
+                        <ToolTip MaxWidth="480">
+                           <TextBlock Text="{Binding RowsHint}" TextWrapping="Wrap"/>
+                        </ToolTip>
+                     </TextBlock.ToolTip>
+                  </TextBlock>
                </DockPanel>
                <DataGrid Grid.Row="1" x:Name="RowsGrid" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" AutoGenerateColumns="False"
                          IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" SelectionMode="Single"
