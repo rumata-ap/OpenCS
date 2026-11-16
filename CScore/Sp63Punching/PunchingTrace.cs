@@ -11,7 +11,7 @@ internal sealed record PunchingTraceData(
     PlanPoint AreaCentroid, double Ex, double Ey, double SignLoad,
     EccentricityMode ModeX, EccentricityMode ModeY,
     double MxStar, double MyStar, double KF, double KMRaw, double KM, double K,
-    PunchingSwDetail? Sw = null, PunchingRowCount? Rows = null);
+    PunchingSwDetail? Sw = null, PunchingRowCount? Rows = null, PunchingWall? Wall = null);
 
 /// <summary>
 /// Пошаговая трассировка расчёта на продавливание для отчёта. Каждый шаг — одна величина в форме
@@ -64,15 +64,27 @@ internal static class PunchingTrace
             @"W_{by} = \frac{I_{by}}{x_{max}}", @"\frac{{Iby}}{{xmax}}", "{Wby}",
             ("Iby", g.Iby, CalculationUnit.CubicMeter), ("xmax", xmax, CalculationUnit.Meter), ("Wby", d.Wby, CalculationUnit.SquareMeter)));
 
+        // Узел стены (СП 430 п. 6.3.8): какие моменты учитываются.
+        bool wallNode = d.Wall is not null && v.Kind is PunchingVariantKind.WallEnd or PunchingVariantKind.WallEndEdge or PunchingVariantKind.WallCorner;
+        bool corner = wallNode && d.Wall!.Kind == PunchingWallKind.Corner;
+        if (wallNode)
+            steps.Add(corner
+                ? Step($"{p}.wall", "СП 430 п. 6.3.8, рис. 6.2", "Punching_Trace_WallCorner", @"M_x = M_y = 0", "", "", ("F", d.F, CalculationUnit.Kilonewton))
+                : Step($"{p}.wall", "СП 430 п. 6.3.8, рис. 6.1", "Punching_Trace_WallEnd",
+                    @"M_x = \frac{\Delta M}{2},\ M_y = 0,\ e_x = 0", @"{dM} / 2", "{Mx}",
+                    ("dM", 2 * d.Mx0, CalculationUnit.KilonewtonMeter), ("Mx", d.Mx0, CalculationUnit.KilonewtonMeter)));
+
         // Эксцентриситет и моменты относительно центра тяжести контура (п. 8.1.46)
+        if (!wallNode)
         steps.Add(Step($"{p}.ex", "п. 8.1.46", "Punching_Trace_Ex",
             @"e_x = x_c - x_0", @"{xc} - {x0}", "{ex}",
             ("xc", g.Xc, CalculationUnit.Meter), ("x0", d.AreaCentroid.X, CalculationUnit.Meter), ("ex", d.Ex, CalculationUnit.Meter)));
+        if (!corner)
         steps.Add(Step($"{p}.ey", "п. 8.1.46", "Punching_Trace_Ey",
             @"e_y = y_c - y_0", @"{yc} - {y0}", "{ey}",
             ("yc", g.Yc, CalculationUnit.Meter), ("y0", d.AreaCentroid.Y, CalculationUnit.Meter), ("ey", d.Ey, CalculationUnit.Meter)));
-        steps.Add(MomentStep($"{p}.mx", "x", d.ModeX, d.Mx0, d.F, d.Ey, +d.SignLoad, d.MxStar));
-        steps.Add(MomentStep($"{p}.my", "y", d.ModeY, d.My0, d.F, d.Ex, -d.SignLoad, d.MyStar));
+        if (!corner) steps.Add(MomentStep($"{p}.mx", "x", d.ModeX, d.Mx0, d.F, d.Ey, +d.SignLoad, d.MxStar));
+        if (!wallNode) steps.Add(MomentStep($"{p}.my", "y", d.ModeY, d.My0, d.F, d.Ex, -d.SignLoad, d.MyStar));
 
         // Бетон (8.88), (8.89), (8.94)
         steps.Add(Step($"{p}.fb", "(8.88), (8.89)", "Punching_Trace_Fb",

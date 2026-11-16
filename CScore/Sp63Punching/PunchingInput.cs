@@ -174,6 +174,10 @@ public sealed record PunchingOptions(
 /// <param name="Holes">Отверстия.</param>
 /// <param name="CustomContours">Контуры пользователя — дополнительные варианты.</param>
 /// <param name="Options">Настройки.</param>
+/// <param name="Wall">Узел стены по СП 430 п. 6.3.8 (торец или угол); null — колонна или пилон. У узла стены
+/// грузовая площадь задаётся ядром (<see cref="PunchingWallGeometry.AreaPolygon"/>), переданная игнорируется;
+/// оси — оси узла стены; <see cref="PunchingForces.Mx"/> у торца — разность ΔM изгибающих моментов плиты по сторонам стены
+/// (вектор вдоль стены), в расчёт идёт ½ΔM; у угла моменты не учитываются.</param>
 public sealed record PunchingInput(
     PunchingLoadArea LoadArea,
     double H0,
@@ -183,4 +187,26 @@ public sealed record PunchingInput(
     IReadOnlyList<PunchingSlabEdge>? Edges = null,
     IReadOnlyList<PunchingHole>? Holes = null,
     IReadOnlyList<PunchingCustomContour>? CustomContours = null,
-    PunchingOptions? Options = null);
+    PunchingOptions? Options = null,
+    PunchingWall? Wall = null)
+{
+    /// <summary>
+    /// Вход в форме, с которой работает ядро: у узла стены — грузовая площадь по стене, без пилона и справочного
+    /// варианта; крестообразная арматура у стены не учитывается (предупреждение <c>wall_sw_cross_ignored</c>).
+    /// Повторный вызов ничего не меняет.
+    /// </summary>
+    public PunchingInput Normalized()
+    {
+        if (Wall is not { } w || !(H0 > 0)) return this;
+        var poly = PunchingWallGeometry.AreaPolygon(w, H0);
+        var o = Options ?? new PunchingOptions();
+        return this with
+        {
+            LoadArea = LoadArea is PunchingLoadArea.Polygon p && p.Points.SequenceEqual(poly) ? LoadArea : new PunchingLoadArea.Polygon(poly),
+            Reinforcement = Reinforcement is { Cross: not null } ? null : Reinforcement,
+            // У торца Mx — разность моментов плиты по сторонам стены ΔM, в расчёт идёт ½ΔM (п. 6.3.8).
+            Forces = w.Kind == PunchingWallKind.End && !Forces.MomentsAreMloc ? Forces with { MomentsAreMloc = true } : Forces,
+            Options = o.Pylon == PylonMode.Off && !o.PylonReducedPerimeter ? Options : o with { Pylon = PylonMode.Off, PylonReducedPerimeter = false, PylonReducedGoverns = false },
+        };
+    }
+}

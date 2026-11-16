@@ -52,6 +52,7 @@ public sealed record PunchingScene(
     public static PunchingScene From(PunchingInput input, PunchingResult? result)
     {
         ArgumentNullException.ThrowIfNull(input);
+        input = input.Normalized();
         IReadOnlyList<PlanPoint> polygon = input.LoadArea switch
         {
             PunchingLoadArea.Circle or PunchingLoadArea.Ring => Array.Empty<PlanPoint>(),
@@ -82,7 +83,7 @@ public sealed record PunchingScene(
             if (PunchingContourBuilder.HoleTangents(input, holes[i]) is { } tg)
                 rays.Add(new PunchingSceneHoleRays(i, tg.Lo, tg.Hi));
         var bars = PunchingSwLayout.BarPoints(input);
-        return new PunchingScene(polygon, d, di, PunchingContourBuilder.AreaCentroid(input.LoadArea),
+        return new PunchingScene(polygon, d, di, PunchingContourBuilder.LoadCenter(input),
             edges, holes, input.H0, variants, rays, bars.Count > 0 ? bars : null, input.Reinforcement?.Cross is not null);
     }
 

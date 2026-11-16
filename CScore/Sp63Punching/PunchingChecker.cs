@@ -110,10 +110,11 @@ public sealed class PunchingGeometryCache
     public static PunchingGeometryCache Prepare(PunchingInput input)
     {
         ArgumentNullException.ThrowIfNull(input);
+        input = input.Normalized();
         var build = PunchingContourBuilder.Build(input);
         var props = build.Variants.Where(v => v.Kind != PunchingVariantKind.PylonReduced)
             .ToDictionary(v => v.Id, v => ContourProperties.Compute(v.Contour), StringComparer.Ordinal);
-        double baseArea = PunchingContourBuilder.PyramidBaseArea(input.LoadArea, input.H0, input.Edges ?? Array.Empty<PunchingSlabEdge>());
+        double baseArea = PunchingContourBuilder.PyramidBaseArea(input);
         var armed = new Dictionary<string, PunchingArmedSegments>(StringComparer.Ordinal);
         if (input.Reinforcement?.Cross is { } cross)
             foreach (var v in build.Variants.Where(v => v.Zone == PunchingZone.Main && props.ContainsKey(v.Id)))
@@ -143,14 +144,19 @@ public static class PunchingChecker
         if (!(input.Rbt > 0)) throw new ArgumentException("Rbt должно быть больше нуля.", nameof(input));
         if (input.Forces.F < 0) throw new ArgumentException("Продавливающая сила F задаётся модулем (≥ 0).", nameof(input));
         if (input.Reinforcement is { } rr) ValidateReinforcement(rr);
+        if (input.Wall is { } wl && (!(wl.A1 > 0) || wl.A2 is <= 0))
+            throw new ArgumentException("Толщина стены должна быть больше нуля.", nameof(input));
+        bool wallCrossIgnored = input.Wall is not null && input.Reinforcement?.Cross is not null;
+        input = input.Normalized();
 
         var options = input.Options ?? new PunchingOptions();
         var edges = input.Edges ?? Array.Empty<PunchingSlabEdge>();
         var build = geometry?.Build ?? PunchingContourBuilder.Build(input);
         var warnings = new List<PunchingWarning>(build.Warnings);
+        if (wallCrossIgnored) warnings.Add(PunchingContourBuilder.WallCrossIgnoredWarning);
 
         var f = input.Forces;
-        double baseArea = geometry?.BaseArea ?? PunchingContourBuilder.PyramidBaseArea(input.LoadArea, input.H0, edges);
+        double baseArea = geometry?.BaseArea ?? PunchingContourBuilder.PyramidBaseArea(input);
         double fred = f.F - f.CounterPressure * baseArea;
         if (f.CounterPressure != 0 && fred <= 0)
             warnings.Add(new("fred_nonpositive",
@@ -246,10 +252,19 @@ public static class PunchingChecker
         var f = input.Forces;
         double h0 = input.H0, rbt = input.Rbt, F = f.F;
         var g = ctx.Geometry?.Properties.GetValueOrDefault(v.Id) ?? ContourProperties.Compute(v.Contour);
-        var o = PunchingContourBuilder.AreaCentroid(input.LoadArea);
+        var o = PunchingContourBuilder.LoadCenter(input);
         double ex = g.Xc - o.X, ey = g.Yc - o.Y;
         double share = f.MomentsAreMloc ? 0.5 : 1.0;
         double mx0 = share * f.Mx, my0 = share * f.My;
+        // СП 430 п. 6.3.8: у торца стены — момент только из плоскости стены (Mx, вектор вдоль стены), эксцентриситет
+        // вдоль стены не учитывается; у угла — только сила.
+        var wall = input.Wall;
+        bool wallNode = wall is not null && v.Kind is PunchingVariantKind.WallEnd or PunchingVariantKind.WallEndEdge or PunchingVariantKind.WallCorner;
+        if (wallNode)
+        {
+            my0 = 0; ex = 0;
+            if (wall!.Kind == PunchingWallKind.Corner) { mx0 = 0; ey = 0; }
+        }
         double s = f.LoadSide == PunchingLoadSide.FromAbove ? 1.0 : -1.0;
 
         // Момент относительно центра тяжести контура (п. 8.1.46).
@@ -306,7 +321,7 @@ public static class PunchingChecker
 
         IReadOnlyList<CalculationTraceStep> trace = !ctx.IncludeTrace ? [] : PunchingTrace.Build(new PunchingTraceData(v, g, wbx, wby, h0, rbt, input.Reinforcement,
             qsw, fswRaw, fsw, counted, fb, mbx, mby, mswx, mswy, fult, mxult, myult, F, ctx.Fred, mx0, my0,
-            o, ex, ey, s, ctx.Options.EccentricityX, ctx.Options.EccentricityY, mxStar, myStar, kF, kMRaw, kM, k, swd, ctx.Sw.Rows));
+            o, ex, ey, s, ctx.Options.EccentricityX, ctx.Options.EccentricityY, mxStar, myStar, kF, kMRaw, kM, k, swd, ctx.Sw.Rows, wallNode ? wall : null));
 
         return new PunchingVariantResult(v, g, wbx, wby, fb, fsw, counted, mbx, mby, mswx, mswy,
             fult, mxult, myult, ctx.Fred, mxStar, myStar, kF, kMRaw, kM, k, kb, kmax, false, trace, swd);

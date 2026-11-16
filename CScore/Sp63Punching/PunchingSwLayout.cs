@@ -223,6 +223,7 @@ public static class PunchingSwLayout
     /// </summary>
     public static List<PunchingDetailingCheck> Detailing(PunchingInput input)
     {
+        input = input.Normalized();
         var list = new List<PunchingDetailingCheck>();
         var r = input.Reinforcement;
         if (r?.Rows is not { } rows) return list;
@@ -276,9 +277,28 @@ public static class PunchingSwLayout
     /// <summary>Стержни для рисунка: центры в плане, м. Без рядов — пусто.</summary>
     public static List<PlanPoint> BarPoints(PunchingInput input)
     {
+        input = input.Normalized();
         var r = input.Reinforcement;
         var list = new List<PlanPoint>();
         if (r?.Rows is not { Count: > 0 } rows) return list;
+        if (input.Wall is { } wall)
+        {
+            // У стены — вдоль контура узла на отступе ряда (П у торца, Г и диагональ у угла), в пределах плиты.
+            if (r.Sw <= 0) return list;
+            var edges = input.Edges ?? Array.Empty<PunchingSlabEdge>();
+            foreach (var t in rows.Positions)
+                foreach (var e in PunchingWallGeometry.Lines(wall, t))
+                {
+                    double len = e.Length;
+                    if (len / r.Sw > 2000) continue;
+                    for (double sPos = 0; sPos <= len + Tol; sPos += r.Sw)
+                    {
+                        var pt = e.Start + sPos / len * (e.End - e.Start);
+                        if (edges.All(ed => ed.SignedDistance(pt) >= -Tol)) list.Add(pt);
+                    }
+                }
+            return list;
+        }
         if (r.Cross is { } cross)
         {
             var ex = Extents(input.LoadArea);

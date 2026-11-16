@@ -19,7 +19,16 @@ public enum PunchingVariantKind
     PylonReduced,
 
     /// <summary>Контур пользователя.</summary>
-    Custom
+    Custom,
+
+    /// <summary>П-контур у торца стены (СП 430 п. 6.3.8, рис. 6.1, а).</summary>
+    WallEnd,
+
+    /// <summary>Контур 1′ у торца стены возле края плиты (рис. 6.1, б).</summary>
+    WallEndEdge,
+
+    /// <summary>Контур у угла стены (рис. 6.2): наружный Г и диагональ у внутреннего угла.</summary>
+    WallCorner
 }
 
 /// <summary>Где проверяется контур.</summary>
@@ -55,6 +64,9 @@ public static class PunchingContourBuilder
     /// <summary>Строит все применимые варианты.</summary>
     public static BuildResult Build(PunchingInput input)
     {
+        bool wallCrossIgnored = input.Wall is not null && input.Reinforcement?.Cross is not null;
+        input = input.Normalized();
+        if (input.Wall is { } wall) return BuildWall(input, wall, wallCrossIgnored);
         var warnings = new List<PunchingWarning>();
         var variants = new List<PunchingVariant>();
         var options = input.Options ?? new PunchingOptions();
@@ -114,6 +126,91 @@ public static class PunchingContourBuilder
         }
 
         return new BuildResult(variants, warnings);
+    }
+
+    /// <summary>
+    /// Узел стены (СП 430 п. 6.3.8): торец — П-контур и контуры 1′ у краёв за торцом; угол — наружный Г и диагональ.
+    /// Замкнутый контур СП 63 не строится (стена продолжается); края обрезают контур, отверстия — по п. 8.1.46.
+    /// </summary>
+    /// <summary>Предупреждение: у стены крестообразная арматура не применяется.</summary>
+    internal static PunchingWarning WallCrossIgnoredWarning => new("wall_sw_cross_ignored",
+        "У стены крестообразная поперечная арматура не применяется — арматура не учитывается. Задайте равномерную раскладку рядами.");
+
+    static BuildResult BuildWall(PunchingInput input, PunchingWall wall, bool crossIgnored)
+    {
+        var warnings = new List<PunchingWarning>();
+        var variants = new List<PunchingVariant>();
+        if (crossIgnored) warnings.Add(WallCrossIgnoredWarning);
+        double h0 = input.H0;
+        AddWallZone(input, wall, PunchingZone.Main, h0 / 2, variants, warnings);
+        if (input.Reinforcement is { } rf && rf.EffectiveZoneExtent is double ext && ext > 0)
+            AddWallZone(input, wall, PunchingZone.BeyondReinforcement, ext + h0 / 2, variants, warnings);
+
+        var customs = input.CustomContours ?? Array.Empty<PunchingCustomContour>();
+        for (int i = 0; i < customs.Count; i++)
+        {
+            var c = customs[i];
+            var els = new List<ContourElement>();
+            for (int k = 0; k < c.Polygon.Count; k++)
+                if (!c.InactiveEdges.Contains(k))
+                    els.Add(new LineElement(c.Polygon[k], c.Polygon[(k + 1) % c.Polygon.Count]));
+            variants.Add(ApplyHoles(input, new PunchingVariant($"custom_{i}", PunchingVariantKind.Custom, PunchingZone.Main,
+                PunchingContour.FromElements(els), Array.Empty<ContourElement>(), Array.Empty<int>()), warnings));
+        }
+        return new BuildResult(variants, warnings);
+    }
+
+    static void AddWallZone(PunchingInput input, PunchingWall wall, PunchingZone zone, double d,
+        List<PunchingVariant> variants, List<PunchingWarning> warnings)
+    {
+        var edges = input.Edges ?? Array.Empty<PunchingSlabEdge>();
+        string prefix = zone == PunchingZone.Main ? "" : "outer_";
+        bool end = wall.Kind == PunchingWallKind.End;
+        var lines = PunchingWallGeometry.Lines(wall, d);
+        var kept = edges.Aggregate((IEnumerable<ContourElement>)lines, (acc, e) => ClipBy(acc, e)).ToList();
+        double full = lines.Sum(x => x.Length), left = kept.Sum(x => x.Length);
+        if (left > Tol)
+        {
+            if (zone == PunchingZone.Main && full - left > 1e-9)
+                warnings.Add(new("wall_contour_clipped", end
+                    ? "Край плиты ближе h0/2 к торцу или граням стены — П-контур обрезан краем (проверяется и контур 1′)."
+                    : "Край плиты пересекает контур у угла стены — учитывается часть контура в пределах плиты."));
+            variants.Add(ApplyHoles(input, new PunchingVariant(prefix + (end ? "wall_end" : "wall_corner"),
+                end ? PunchingVariantKind.WallEnd : PunchingVariantKind.WallCorner, zone,
+                PunchingContour.FromElements(kept), Array.Empty<ContourElement>(), Array.Empty<int>()), warnings));
+        }
+        if (!end) return;
+        for (int i = 0; i < edges.Count; i++)
+        {
+            if (PunchingWallGeometry.EdgeLines(wall, edges[i], d) is not { } els) continue;
+            var clipped = Enumerable.Range(0, edges.Count).Where(j => j != i)
+                .Aggregate((IEnumerable<ContourElement>)els, (acc, j) => ClipBy(acc, edges[j])).ToList();
+            if (clipped.Sum(x => x.Length) <= Tol) continue;
+            variants.Add(ApplyHoles(input, new PunchingVariant($"{prefix}wall_end_edge_{i}", PunchingVariantKind.WallEndEdge, zone,
+                PunchingContour.FromElements(clipped), Array.Empty<ContourElement>(), new[] { i }), warnings));
+        }
+    }
+
+    /// <summary>Центр, из которого проводятся касательные к отверстиям и считается эксцентриситет: центр тяжести площади
+    /// или центр площадки передачи нагрузки узла стены.</summary>
+    public static PlanPoint LoadCenter(PunchingInput input)
+        => input.Wall is { } w ? PunchingWallGeometry.LoadCenter(w) : AreaCentroid(input.LoadArea);
+
+    /// <summary>Основание пирамиды узла (колонна — площадь, смещённая на h0; стена — по <see cref="PunchingWallGeometry.BasePolygon"/>).</summary>
+    public static List<PlanPoint> PyramidBasePolygon(PunchingInput input)
+    {
+        input = input.Normalized();
+        var edges = input.Edges ?? Array.Empty<PunchingSlabEdge>();
+        return input.Wall is { } w ? PunchingWallGeometry.BasePolygon(w, input.H0, edges) : PyramidBasePolygon(input.LoadArea, input.H0, edges);
+    }
+
+    /// <summary>Площадь основания пирамиды узла, м².</summary>
+    public static double PyramidBaseArea(PunchingInput input)
+    {
+        var pts = PyramidBasePolygon(input);
+        double a = 0;
+        for (int i = 0; i < pts.Count; i++) a += pts[i].Cross(pts[(i + 1) % pts.Count]);
+        return Math.Abs(a) / 2;
     }
 
     static void AddZone(PunchingInput input, PunchingZone zone, List<ContourElement> boundary,
@@ -321,9 +418,10 @@ public static class PunchingContourBuilder
     /// </summary>
     public static (PlanPoint Lo, PlanPoint Hi)? HoleTangents(PunchingInput input, IReadOnlyList<PlanPoint> hole)
     {
+        input = input.Normalized();
         var options = input.Options ?? new PunchingOptions();
-        if (hole.Count < 3 || DistanceAreaToPolygon(input.LoadArea, hole) >= options.HoleInfluence * input.H0) return null;
-        var o = AreaCentroid(input.LoadArea);
+        if (hole.Count < 3 || DistanceToHole(input, hole) >= options.HoleInfluence * input.H0) return null;
+        var o = LoadCenter(input);
         var hc = new PlanPoint(hole.Average(p => p.X), hole.Average(p => p.Y));
         double refAng = Math.Atan2(hc.Y - o.Y, hc.X - o.X);
         var angs = hole.Select(p => Wrap(Math.Atan2(p.Y - o.Y, p.X - o.X) - refAng)).ToList();
@@ -337,14 +435,14 @@ public static class PunchingContourBuilder
         var holes = input.Holes ?? Array.Empty<PunchingHole>();
         if (holes.Count == 0 || v.Contour.Pieces.Count == 0) return v;
         var options = input.Options ?? new PunchingOptions();
-        var o = AreaCentroid(input.LoadArea);
+        var o = LoadCenter(input);
         var kept = v.Contour.Elements.ToList();
         var excluded = new List<ContourElement>(v.Excluded);
         for (int h = 0; h < holes.Count; h++)
         {
             var hole = holes[h].Polygon;
             if (hole.Count < 3) continue;
-            if (DistanceAreaToPolygon(input.LoadArea, hole) >= options.HoleInfluence * input.H0) continue;
+            if (DistanceToHole(input, hole) >= options.HoleInfluence * input.H0) continue;
             var hc = new PlanPoint(hole.Average(p => p.X), hole.Average(p => p.Y));
             double refAng = Math.Atan2(hc.Y - o.Y, hc.X - o.X);
             var angs = hole.Select(p => Wrap(Math.Atan2(p.Y - o.Y, p.X - o.X) - refAng)).ToList();
@@ -383,6 +481,22 @@ public static class PunchingContourBuilder
         LineElement l => parts.OrderBy(p => (p.Start - l.A).Length),
         _ => parts.OrderBy(p => p is ArcElement a ? a.Phi1 : 0)
     };
+
+    /// <summary>Расстояние от грузовой площади до отверстия; у узла стены — до фактического (возможно, вогнутого) куска стены.</summary>
+    static double DistanceToHole(PunchingInput input, IReadOnlyList<PlanPoint> hole)
+        => input.Wall is { } w ? PolygonDistance(PunchingWallGeometry.AreaPolygon(w, input.H0), hole) : DistanceAreaToPolygon(input.LoadArea, hole);
+
+    static double PolygonDistance(IReadOnlyList<PlanPoint> a, IReadOnlyList<PlanPoint> hole)
+    {
+        double d = double.MaxValue;
+        for (int i = 0; i < a.Count; i++)
+            for (int j = 0; j < hole.Count; j++)
+            {
+                d = Math.Min(d, PointSegment(a[i], hole[j], hole[(j + 1) % hole.Count]));
+                d = Math.Min(d, PointSegment(hole[j], a[i], a[(i + 1) % a.Count]));
+            }
+        return d;
+    }
 
     static double DistanceAreaToPolygon(PunchingLoadArea area, IReadOnlyList<PlanPoint> hole)
     {
