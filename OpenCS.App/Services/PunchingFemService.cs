@@ -399,6 +399,39 @@ public static class PunchingFemService
 
         var byKey = new Dictionary<FragmentMaskKey, PunchingFemForces>();
         string? missing = null;
+        if (joint.IsWall)
+        {
+            // Торец или угол стены (СП 430 п. 6.3.8): сила — только по разрезу плиты по длине контура (стена продолжается,
+            // её сила на торец и середину не делится); ΔM у торца — по моментам плиты на ветвях П-контура.
+            bool shellsWall = joint.Bars.Count == 0;
+            foreach (var key in keys)
+            {
+                double? contour = cut?.Failure == null && cut?.ByKey.TryGetValue(key, out var cf) == true ? cf.Force
+                    : cut == null && source.ShellCut ? PunchingFemShellCut.Compute(joint, data.Model.Nodes, data.ElementsByTag, source.Result, key)
+                    : null;
+                if (contour is not double c)
+                {
+                    missing ??= source.Nodal == null && !source.ShellCut
+                        ? "у торцов и углов стен сила определяется только разрезом плиты, а у источника нет узловых сил КЭ"
+                        : "разрез плиты у стены не удался";
+                    continue;
+                }
+                double? dm = joint.Wall!.Kind == PunchingWallKind.End
+                    ? PunchingFemShellCut.WallDeltaM(joint, data.Model.Nodes, data.ElementsByTag, source.Result, key)
+                    : 0;
+                // Действие стены в основании (CSfea, стена из пластин) — для самопроверки равновесия разреза.
+                double? action = shellsWall && source.Nodal is { } nd
+                    && PunchingFemColumnAction.ComputeShells(joint, data.Model.Nodes, nd, key) is var (af, _) ? af.Dot(joint.Normal) / 1e3 : null;
+                double? baseLoad = baseLoads != null && baseLoads.TryGetValue(key, out var bl) ? bl.F.Dot(joint.Normal) / 1e3 : null;
+                byKey[key] = new PunchingFemForces(Math.Abs(c), c >= 0 ? PunchingLoadSide.FromBelow : PunchingLoadSide.FromAbove,
+                    dm ?? 0, 0, PunchingFemForceMethod.Contour, action, baseLoad, c)
+                {
+                    WallExcluded = cut?.Failure == null && cut?.ByKey.TryGetValue(key, out var ce) == true ? ce.WallExcluded : null,
+                };
+                if (dm == null) missing ??= "нет усилий пластин на ветвях П-контура (ΔM)";
+            }
+            return new PunchingFemNodeForces(byKey, cutFailure, missing);
+        }
         foreach (var key in keys)
         {
             bool shells = joint.Kind == PunchingFemJointKind.PylonShells;
@@ -479,9 +512,13 @@ public static class PunchingFemService
         ArgumentNullException.ThrowIfNull(check);
         var o = check.Overrides.FirstOrDefault(x => x.Node == joint.NodeTag);
         var area = joint.Area ?? new PunchingLoadArea.Rectangle(0.4, 0.4);
+        var wall = joint.Wall is { } w
+            ? new PunchingWallParams { Kind = w.Kind == PunchingWallKind.End ? "end" : "corner", A1 = w.A1, A2 = w.T2 }
+            : new PunchingWallParams();
         return new PunchingTaskParams
         {
-            Area = AreaParams(area),
+            Wall = wall,
+            Area = wall.IsWall ? new PunchingAreaParams() : AreaParams(area),
             Slab = new PunchingSlabParams
             {
                 H = joint.H, Ax = o?.Ax ?? joint.Ax, Ay = o?.Ay ?? joint.Ay,

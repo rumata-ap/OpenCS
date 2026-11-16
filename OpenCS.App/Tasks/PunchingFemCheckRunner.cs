@@ -46,6 +46,8 @@ public sealed record PunchingFemRow
 public sealed record PunchingFemJointResult
 {
     public string Node { get; init; } = "";
+    /// <summary>Вид узла: "bar" | "pylon_shells" | "wall_end" | "wall_corner".</summary>
+    public string Kind { get; init; } = "bar";
     public int Slab { get; init; }
     /// <summary>Центр грузовой площади в общих осях, м.</summary>
     public double[] Origin { get; init; } = [];
@@ -290,6 +292,13 @@ public static class PunchingFemCheckRunner
         var baseResult = new PunchingFemJointResult
         {
             Node = joint.NodeTag, Slab = joint.SlabIndex,
+            Kind = joint.Kind switch
+            {
+                PunchingFemJointKind.PylonShells => "pylon_shells",
+                PunchingFemJointKind.WallEnd => "wall_end",
+                PunchingFemJointKind.WallCorner => "wall_corner",
+                _ => "bar",
+            },
             Origin = [joint.Origin.X, joint.Origin.Y, joint.Origin.Z], AxisX = [joint.AxisX.X, joint.AxisX.Y, joint.AxisX.Z],
             Section = joint.SectionLabel, SlabSection = joint.SlabLabel, H = joint.H, H0 = joint.H0,
             Edges = joint.Edges.Count, Holes = joint.Holes.Count, Bars = joint.Bars.Select(b => b.ElemTag).ToList(),
@@ -307,20 +316,19 @@ public static class PunchingFemCheckRunner
                     : joint.NoCheckText,
             };
 
-        if (joint.IsWall)
-            return baseResult with
-            {
-                Status = "no_check", NoCheck = PunchingFemNoCheck.WallNoCut,
-                NoCheckText = "Торцы и углы стен найдены; сила по разрезу плиты у стены пока не считается.",
-            };
         var forces = PunchingFemService.Evaluate(data, source, joint, p.MainMethod);
+        if (joint.IsWall && source.Nodal == null && source.ShellCut)
+            warnings.Add(new("punching_fem_wall_shell_cut",
+                "Узел стены: сила — по интегралу поперечных сил пластин по контуру, ΔM — по моментам пластин (импорт, справочно; поперечные силы программ и CSfea расходятся до четверти)."));
         if (forces.CutFailure != null && source.Nodal != null)
             warnings.Add(new("punching_fem_cut_failed", $"Разрез основания пирамиды не удался ({forces.CutFailure}) — сила по стержням колонн."));
         if (forces.ByKey.Count == 0)
             return baseResult with
             {
-                Status = "no_check", NoCheck = PunchingFemNoCheck.NoForces,
-                NoCheckText = $"Нет усилий колонн узла в результате «{source.Label}» ({forces.Missing ?? "нет ключей"}).",
+                Status = "no_check", NoCheck = joint.IsWall ? PunchingFemNoCheck.WallNoCut : PunchingFemNoCheck.NoForces,
+                NoCheckText = joint.IsWall
+                    ? $"Нет силы по разрезу плиты у стены в результате «{source.Label}» ({forces.Missing ?? forces.CutFailure ?? "нет ключей"})."
+                    : $"Нет усилий колонн узла в результате «{source.Label}» ({forces.Missing ?? "нет ключей"}).",
             };
 
         var rows = new List<PunchingFemRow>();
@@ -337,7 +345,14 @@ public static class PunchingFemCheckRunner
         {
             if (!forces.ByKey.TryGetValue(key, out var f)) continue;
             if (f.BaseLoad == null) baseUnknown = true;
-            if (!joint.Ribs && f.Mismatch is double mm && Math.Abs(mm) > MismatchShare * Math.Abs(f.F) + MismatchAbs && Math.Abs(mm) > mismatchWorst)
+            // Узел стены: самопроверка равновесия разреза — действие стены в основании = сила по контуру + грани поперёк стены.
+            if (joint.IsWall && f.ColumnForce is double wf && f.ContourForce is double wc && f.WallExcluded is double wx
+                && Math.Abs(wf - wc - wx) > MismatchShare * Math.Abs(wf) + MismatchAbs && Math.Abs(wf - wc - wx) > mismatchWorst)
+            {
+                mismatchWorst = Math.Abs(wf - wc - wx);
+                mismatchKey = label;
+            }
+            if (!joint.IsWall && !joint.Ribs && f.Mismatch is double mm && Math.Abs(mm) > MismatchShare * Math.Abs(f.F) + MismatchAbs && Math.Abs(mm) > mismatchWorst)
             {
                 mismatchWorst = Math.Abs(mm);
                 mismatchKey = label;
@@ -415,7 +430,10 @@ public static class PunchingFemCheckRunner
         }
         if (baseUnknown)
             warnings.Add(new("punching_fem_base_load_unknown", "Нагрузки схемы в основании пирамиды неизвестны — сила по стержням без вычета (в запас)."));
-        if (mismatchWorst > 0)
+        if (mismatchWorst > 0 && joint.IsWall)
+            warnings.Add(new("punching_fem_wall_mismatch", string.Create(Ru,
+                $"Равновесие разреза у стены не сходится до {mismatchWorst:0.##} кН («{mismatchKey}»): действие стены в основании не равно силе по контуру и граням поперёк стены — проверьте связи и опоры у узла.")));
+        else if (mismatchWorst > 0)
             warnings.Add(new("punching_fem_mismatch", string.Create(Ru,
                 $"Сила по стержням колонн и по разрезу основания расходятся до {mismatchWorst:0.##} кН («{mismatchKey}»): проверьте связи и опоры у узла.")));
 

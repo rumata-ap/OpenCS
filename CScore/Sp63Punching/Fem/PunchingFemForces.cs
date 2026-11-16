@@ -36,6 +36,12 @@ public sealed record PunchingFemForces(
     /// </summary>
     public (double Minus, double Plus, double Middle)? PylonParts { get; init; }
 
+    /// <summary>
+    /// Узел стены: сила по разрезу на гранях основания поперёк стены, кН (в силу продавливания не входит; для
+    /// самопроверки равновесия: <see cref="ColumnForce"/> = <see cref="ContourForce"/> + <see cref="WallExcluded"/>).
+    /// </summary>
+    public double? WallExcluded { get; init; }
+
     /// <summary>Сила по стержням со знаком: действие стержней плюс нагрузка основания, кН; null — нет данных.</summary>
     public double? ColumnForce => ColumnAction is double a ? a + (BaseLoad ?? 0) : null;
 

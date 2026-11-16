@@ -107,6 +107,39 @@ public static class PunchingWallGeometry
     }
 
     /// <summary>
+    /// Точка внутри стены узла (в зоне за началом осей, без торцевой грани): торец — x &lt; 0, |y| &lt; a1/2; угол — полки Г.
+    /// </summary>
+    public static bool InsideWall(PunchingWall wall, PlanPoint p, double tol = 1e-9)
+    {
+        double a1 = wall.A1;
+        if (wall.Kind == PunchingWallKind.End) return p.X < -tol && Math.Abs(p.Y) < a1 / 2 - tol;
+        double a2 = wall.T2;
+        return (p.X > tol && p.Y > tol && p.Y < a1 - tol) || (p.Y > tol && p.X > tol && p.X < a2 - tol);
+    }
+
+    /// <summary>
+    /// Отрезок пересекает стену узла: грань основания пирамиды поперёк стены (за ней стена продолжается). По норме контур
+    /// поперёк стены не проводится — силы на таких гранях в силу продавливания не входят.
+    /// </summary>
+    public static bool CrossesWall(PunchingWall wall, PlanPoint a, PlanPoint b)
+    {
+        const int n = 64;
+        for (int i = 1; i < n; i++)
+            if (InsideWall(wall, a + (double)i / n * (b - a), 1e-9)) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// Ветви П-контура торца, параллельные стене, на отступе <paramref name="d"/>: (−Y, +Y). На них п. 6.3.8 берёт
+    /// изгибающие моменты плиты по обе стороны стены (ΔM).
+    /// </summary>
+    public static (LineElement Minus, LineElement Plus) EndBranches(PunchingWall wall, double d)
+    {
+        double w = wall.A1 / 2 + d, x0 = d - (wall.A1 + 2 * d);
+        return (new LineElement(new(x0, -w), new(d, -w)), new LineElement(new(x0, w), new(d, w)));
+    }
+
+    /// <summary>
     /// Основание пирамиды узла (контур на отступе h0, замкнутый поперёк стены), обрезанное краями; против часовой
     /// стрелки. Торец — прямоугольник от начала ветвей до h0 за торцом; угол — пятиугольник по наружному Г и диагонали.
     /// </summary>

@@ -12,7 +12,8 @@ namespace CScore.Sp63Punching.Fem;
 /// <param name="Mx">Момент действия основания на внешнюю часть плиты относительно оси x узла, кН·м (справочно).</param>
 /// <param name="My">То же относительно оси y, кН·м.</param>
 /// <param name="Terms">Слагаемые разреза (точка, сила в общих осях, Н) — для рисунка и разбиения по кускам.</param>
-public sealed record PunchingFemCutForce(double Force, double Mx, double My, IReadOnlyList<FragmentNodalTerm> Terms);
+/// <param name="WallExcluded">Узел стены: сила на гранях основания поперёк стены, кН (в <paramref name="Force"/> не входит).</param>
+public sealed record PunchingFemCutForce(double Force, double Mx, double My, IReadOnlyList<FragmentNodalTerm> Terms, double WallExcluded = 0);
 
 /// <summary>Итог разреза узла: силы по ключам или причина отказа.</summary>
 public sealed record PunchingFemCutResult(
@@ -120,6 +121,16 @@ public static class PunchingFemCut
         foreach (var key in keys)
         {
             var terms = r.Terms.TryGetValue(key, out var map) ? map.Values.SelectMany(x => x).ToList() : [];
+            // Узел стены (СП 430 п. 6.3.8): сила — по длине контура, грани основания поперёк стены не входят.
+            double excluded = 0;
+            if (joint.Wall is { } wall)
+            {
+                var kept = new List<FragmentNodalTerm>(terms.Count);
+                foreach (var t in terms)
+                    if (WallCrossing(joint, wall, t.At)) excluded -= t.F.Dot(joint.Normal) / 1e3;
+                    else kept.Add(t);
+                terms = kept;
+            }
             var f = PlanarVector3.Zero;
             var m = PlanarVector3.Zero;
             foreach (var t in terms)
@@ -128,8 +139,27 @@ public static class PunchingFemCut
                 m += t.M + (t.At - joint.Origin).Cross(t.F);
             }
             // Термы — действие внешней части на тело; сила продавливания — обратная по нормали.
-            byKey[key] = new PunchingFemCutForce(-f.Dot(joint.Normal) / 1e3, -m.Dot(joint.AxisX) / 1e3, -m.Dot(joint.AxisY) / 1e3, terms);
+            byKey[key] = new PunchingFemCutForce(-f.Dot(joint.Normal) / 1e3, -m.Dot(joint.AxisX) / 1e3, -m.Dot(joint.AxisY) / 1e3, terms, excluded);
         }
         return new(byKey, null, r.Diagnostics);
+    }
+
+    /// <summary>Слагаемое разреза лежит у грани основания, пересекающей стену (ближайшая грань — поперёк стены).</summary>
+    static bool WallCrossing(PunchingFemJoint joint, PunchingWall wall, PlanarVector3 at)
+    {
+        var p = joint.ToLocal(at);
+        var poly = joint.PyramidBase;
+        int best = -1;
+        double dmin = double.MaxValue;
+        for (int i = 0; i < poly.Count; i++)
+        {
+            var a = poly[i];
+            var ab = poly[(i + 1) % poly.Count] - a;
+            double l2 = ab.Dot(ab);
+            double t = l2 > 0 ? Math.Clamp((p - a).Dot(ab) / l2, 0, 1) : 0;
+            double d = (p - (a + t * ab)).Length;
+            if (d < dmin) { dmin = d; best = i; }
+        }
+        return best >= 0 && PunchingWallGeometry.CrossesWall(wall, poly[best], poly[(best + 1) % poly.Count]);
     }
 }

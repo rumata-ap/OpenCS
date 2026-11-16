@@ -258,6 +258,204 @@ public sealed class PunchingFemServiceTests : IDisposable
         Assert.True(row.Ratio >= row.PylonEndRatio!.Value - 1e-12);
     }
 
+    /// <summary>
+    /// Та же плита на стене 2,0 × 0,3 м из пластин (W1 в плоскости y = 0 от x = −1 до 1, z 0…3, сетка 0,25), у Г — ещё стена
+    /// W2 в плоскости x = −1 от y = 0 до 2; низ стен заделан. «Пост.» — −10 кПа на всю плиту или (<paramref name="halfLoad"/>)
+    /// только на половину y &gt; 0.
+    /// </summary>
+    Setup CreateWalls(bool lShape = false, bool halfLoad = false)
+    {
+        var db = new DatabaseService(_path);
+        var schema = new FemSchema { Tag = "Плита на стенах" };
+        db.SaveFemSchema(schema);
+        var slabFrame = new Frame3D(new PlanarVector3(0, 0, Zs), new(1, 0, 0), new(0, 1, 0), new(0, 0, 1));
+        var slab = PlanarRegion.CreateFromContour(new Contour([-Half, Half, Half, -Half, -Half], [-Half, -Half, Half, Half, -Half], "S1"), [], slabFrame, "S1");
+        slab.MeshMaxElementSizeM = Step;
+        db.AddPlanarRegion(slab, schema.Id);
+        var w1Frame = new Frame3D(new PlanarVector3(-1, 0, 0), new(1, 0, 0), new(0, 0, 1), new(0, -1, 0));
+        var w1 = PlanarRegion.CreateFromContour(new Contour([0.0, 2, 2, 0, 0], [0.0, 0, Zs, Zs, 0], "W1"), [], w1Frame, "W1");
+        w1.MeshMaxElementSizeM = Step;
+        db.AddPlanarRegion(w1, schema.Id);
+        PlanarRegion? w2 = null;
+        if (lShape)
+        {
+            var w2Frame = new Frame3D(new PlanarVector3(-1, 0, 0), new(0, 1, 0), new(0, 0, 1), new(1, 0, 0));
+            w2 = PlanarRegion.CreateFromContour(new Contour([0.0, 2, 2, 0, 0], [0.0, 0, Zs, Zs, 0], "W2"), [], w2Frame, "W2");
+            w2.MeshMaxElementSizeM = Step;
+            db.AddPlanarRegion(w2, schema.Id);
+        }
+
+        var concrete = MaterialCatalog.CreateHeavyConcrete("B25", CatalogDirectory())!;
+        var rebar = MaterialCatalog.CreateRebar("А500С", CatalogDirectory())!;
+        db.AddMaterial(concrete);
+        db.AddMaterial(rebar);
+        PlateSection Plate(string tag, double h) => new()
+        {
+            Tag = tag, H = h, ConcreteMaterialId = concrete.Id, RebarMaterialId = rebar.Id,
+            RebarLayers =
+            [
+                new PlateRebarLayer { Name = "низ", InputMode = "direct", Asx = 5e-4, Asy = 5e-4, Zsx = -h / 2 + 0.03, Zsy = -h / 2 + 0.03, Face = RebarFace.MinusN },
+                new PlateRebarLayer { Name = "верх", InputMode = "direct", Asx = 5e-4, Asy = 5e-4, Zsx = h / 2 - 0.03, Zsy = h / 2 - 0.03, Face = RebarFace.PlusN },
+            ],
+        };
+        var p200 = Plate("П200", 0.2);
+        var p300 = Plate("С300", 0.3);
+        db.SavePlateSection(p200);
+        db.SavePlateSection(p300);
+
+        var nodes = new List<FemNode>();
+        for (int i = 0; i <= 8; i++)
+            nodes.Add(new FemNode { Id = -1 - i, NodeTag = S(1 + i), X = -1 + 0.25 * i, Y = 0, Z = 0, DofMask = 63 });
+        if (lShape)
+            for (int j = 1; j <= 8; j++)
+                nodes.Add(new FemNode { Id = -20 - j, NodeTag = S(20 + j), X = -1, Y = 0.25 * j, Z = 0, DofMask = 63 });
+        var members = new List<FemMember>
+        {
+            new() { Id = -10, ElemTag = "S1", ElemType = "shell", NodeIdsJson = "[]", PlanarRegionId = slab.Id, Kind = "plate", ThicknessM = 0.2, PlateSectionId = p200.Id },
+            new() { Id = -11, ElemTag = "W1", ElemType = "shell", NodeIdsJson = "[]", PlanarRegionId = w1.Id, Kind = "wall", ThicknessM = 0.3, PlateSectionId = p300.Id },
+        };
+        if (w2 != null)
+            members.Add(new() { Id = -12, ElemTag = "W2", ElemType = "shell", NodeIdsJson = "[]", PlanarRegionId = w2.Id, Kind = "wall", ThicknessM = 0.3, PlateSectionId = p300.Id });
+        var loadCases = new List<FemLoadCase> { new() { Id = -1, Tag = "Пост." } };
+        var load = new FemElementLoad { LoadCaseId = -1, LoadKind = FemElementLoadKinds.Uniform, Axis = "z", CoordinateSystem = "global" };
+        load.SetTargetTags(Enumerable.Range(0, N * N).Where(e => !halfLoad || e / N >= N / 2).Select(e => S(1 + e)).ToArray());
+        load.SetValues([Q]);
+        db.SaveFemSchemaEdit(schema.Id, nodes, members, [], loadCases, [], [], [], null, [load], []);
+
+        var meshNodes = new List<FemMeshNode>();
+        var meshElements = new List<FemElement>();
+        for (int j = 0; j <= N; j++)
+            for (int i = 0; i <= N; i++)
+                meshNodes.Add(new FemMeshNode { NodeTag = S(SlabNode(i, j)), X = -Half + Step * i, Y = -Half + Step * j, Z = Zs });
+        for (int j = 0; j < N; j++)
+            for (int i = 0; i < N; i++)
+                meshElements.Add(new FemElement
+                {
+                    ElemTag = S(1 + j * N + i), ElemType = "shell", SourceMemberTag = "S1", ThicknessM = 0.2,
+                    NodeIdsJson = $"[{SlabNode(i, j)},{SlabNode(i + 1, j)},{SlabNode(i, j + 1)},{SlabNode(i + 1, j + 1)}]",
+                });
+        // W1: 8 × 12 квадратов; верхний ряд узлов — узлы плиты на y = 0 (i = 8 … 16).
+        string W1(int i, int k) => k == 12 ? S(SlabNode(N / 2 - 4 + i, N / 2)) : S(20000 + k * 9 + i);
+        for (int k = 0; k < 12; k++)
+            for (int i = 0; i <= 8; i++)
+                meshNodes.Add(new FemMeshNode { NodeTag = W1(i, k), X = -1 + 0.25 * i, Y = 0, Z = 0.25 * k, SourceNodeTag = k == 0 ? S(1 + i) : null });
+        for (int k = 0; k < 12; k++)
+            for (int i = 0; i < 8; i++)
+                meshElements.Add(new FemElement
+                {
+                    ElemTag = S(7000 + k * 8 + i), ElemType = "shell", SourceMemberTag = "W1", ThicknessM = 0.3,
+                    NodeIdsJson = $"[{W1(i, k)},{W1(i + 1, k)},{W1(i, k + 1)},{W1(i + 1, k + 1)}]",
+                });
+        if (lShape)
+        {
+            // W2: в плоскости x = −1, y 0 … 2; узлы y = 0 — общие со стеной W1.
+            string W2(int j, int k) => j == 0 ? W1(0, k) : k == 12 ? S(SlabNode(N / 2 - 4, N / 2 + j)) : S(30000 + k * 9 + j);
+            for (int k = 0; k < 12; k++)
+                for (int j = 1; j <= 8; j++)
+                    meshNodes.Add(new FemMeshNode { NodeTag = W2(j, k), X = -1, Y = 0.25 * j, Z = 0.25 * k, SourceNodeTag = k == 0 ? S(20 + j) : null });
+            for (int k = 0; k < 12; k++)
+                for (int j = 0; j < 8; j++)
+                    meshElements.Add(new FemElement
+                    {
+                        ElemTag = S(8000 + k * 8 + j), ElemType = "shell", SourceMemberTag = "W2", ThicknessM = 0.3,
+                        NodeIdsJson = $"[{W2(j, k)},{W2(j + 1, k)},{W2(j, k + 1)},{W2(j + 1, k + 1)}]",
+                    });
+        }
+        db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
+        db.LoadAll();
+        var parent = db.FemSchemas.Single(s => s.Id == schema.Id);
+        var lc = db.GetFemLoadCases(parent.Id);
+        var stages = lc.Select(c => new FemAnalysisStage
+        {
+            Tag = c.Tag, LoadFactorStep = 1, MaxLoadFactor = 1,
+            LoadExpressionJson = new FemLoadExpression { Mode = FemLoadExpressionMode.Single, LoadCaseIds = [c.Id] }.ToJson(),
+        }).ToList();
+        return new Setup(db, parent, SaveLinear(db, parent, stages));
+    }
+
+    /// <summary>Узлы стен и их усилия по единственному ключу.</summary>
+    List<(PunchingFemJoint Joint, PunchingFemForces Forces)> EvaluateWalls(Setup s)
+    {
+        var data = PunchingFemService.Load(s.Db, s.Schema, new PunchingFemOptions());
+        var diag = new List<FemValidationDiagnostic>();
+        var source = PunchingFemService.OpenCsfea(s.Db, s.Schema, s.Analysis.Id, diag);
+        Assert.True(source?.Nodal != null, string.Join("; ", diag.Select(d => d.Message)));
+        var list = new List<(PunchingFemJoint, PunchingFemForces)>();
+        foreach (var joint in data.Joints)
+        {
+            Assert.True(joint.NoCheck == null, joint.NoCheckText);
+            var forces = PunchingFemService.Evaluate(data, source!, joint);
+            Assert.True(forces.CutFailure == null, forces.CutFailure);
+            list.Add((joint, forces.ByKey[source!.Keys.Single().Key]));
+        }
+        return list;
+    }
+
+    [Fact]
+    public void WallEnds_Symmetric_EquilibriumAndZeroDeltaM()
+    {
+        var s = CreateWalls();
+        using var db = s.Db;
+        var ends = EvaluateWalls(s);
+        Assert.Equal(2, ends.Count);
+        Assert.All(ends, e => Assert.Equal(PunchingFemJointKind.WallEnd, e.Joint.Kind));
+        foreach (var (_, f) in ends)
+        {
+            Assert.Equal(PunchingFemForceMethod.Contour, f.Method);
+            Assert.True(f.F > 0 && f.F < 360, $"F = {f.F}");
+            // Равновесие тела основания: действие стены в основании + нагрузка = сила по контуру + силы на гранях поперёк стены.
+            Assert.Equal(f.ColumnForce!.Value, f.ContourForce!.Value + f.WallExcluded!.Value, 3);
+            // Симметрия относительно оси стены: моменты плиты по сторонам равны.
+            Assert.True(Math.Abs(f.Mx) < 1e-3 * f.F, $"ΔM = {f.Mx}");
+        }
+        Assert.True(Math.Abs(ends[0].Forces.F - ends[1].Forces.F) < 1e-4 * ends[0].Forces.F);   // симметрия торцов
+
+        var data = PunchingFemCheckRunner.Compute(db, s.Schema.Id,
+            new PunchingFemCheckParams { SourceRef = s.Analysis.Id.ToString(CultureInfo.InvariantCulture) }, CalcType.C);
+        Assert.Equal(2, data.Joints.Count);
+        Assert.All(data.Joints, j => Assert.True(j.NoCheck == null, j.NoCheckText));
+        Assert.All(data.Joints, j => Assert.Equal("wall_end", j.Kind));
+        var row = data.Joints[0].Rows.Single();
+        var tp = PunchingFemCheckRunner.RowParams(data.Joints[0], row)!;
+        Assert.Equal("end", tp.Wall.Kind);
+        Assert.Equal(0.3, tp.Wall.A1, 9);
+        Assert.StartsWith("wall_end", row.Governing, StringComparison.Ordinal);
+        Assert.Empty(tp.Validate());
+    }
+
+    [Fact]
+    public void WallEnds_LoadOnOneSide_DeltaMFromSlabMoments()
+    {
+        var s = CreateWalls(halfLoad: true);
+        using var db = s.Db;
+        var ends = EvaluateWalls(s);
+        Assert.Equal(2, ends.Count);
+        foreach (var (joint, f) in ends)
+        {
+            Assert.Equal(f.ColumnForce!.Value, f.ContourForce!.Value + f.WallExcluded!.Value, 3);
+            // Нагружена сторона общей +Y: опорный момент плиты у стены с этой стороны (растяжение верха, M > 0 в конвенции
+            // OpenCS) больше, чем с ненагруженной. ΔM = M(+y) − M(−y) в осях узла: у торца x = −1 ось y узла смотрит в −Y.
+            Assert.True(f.Mx * Math.Sign(joint.AxisY.Y) > 0.05 * f.F * 0.3, $"ΔM = {f.Mx}, F = {f.F}");
+        }
+        Assert.Equal(Math.Abs(ends[0].Forces.Mx), Math.Abs(ends[1].Forces.Mx), 2);
+    }
+
+    [Fact]
+    public void LWall_CornerAndEnds_Equilibrium()
+    {
+        var s = CreateWalls(lShape: true);
+        using var db = s.Db;
+        var joints = EvaluateWalls(s);
+        Assert.Equal(3, joints.Count);
+        var (corner, cf) = joints.Single(j => j.Joint.Kind == PunchingFemJointKind.WallCorner);
+        Assert.Equal(0.3, corner.Wall!.A1, 9);
+        Assert.Equal(0.3, corner.Wall.T2, 9);
+        Assert.Equal(0, cf.Mx, 12);                  // у угла моментов нет
+        Assert.True(cf.F > 0);
+        foreach (var (_, f) in joints)
+            Assert.Equal(f.ColumnForce!.Value, f.ContourForce!.Value + f.WallExcluded!.Value, 3);
+    }
+
     static FemAnalysis SaveLinear(DatabaseService db, FemSchema schema, IReadOnlyList<FemAnalysisStage> stages)
     {
         var analysis = new FemAnalysis { SchemaId = schema.Id, Tag = "Линейный", Kind = FemCsfeaRunner.LinearAnalysisKind };

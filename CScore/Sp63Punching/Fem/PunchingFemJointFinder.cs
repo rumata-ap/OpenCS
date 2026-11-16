@@ -245,17 +245,17 @@ public static class PunchingFemJointFinder
             if (basePoly.Count < 3)
                 return joint with { NoCheck = PunchingFemNoCheck.BaseOutside, NoCheckText = "Основание пирамиды продавливания вне плиты.", Warnings = warnings };
             joint = joint with { PyramidBase = basePoly };
-            if (wall != null)
-            {
-                // Узлы линии стены — только в основании: дальние узлы длинной стены к узлу не относятся.
-                junction = junction.Where(t => Position(t) is { } p && Contains(basePoly, joint.ToLocal(p), 1e-6)).ToList();
-                if (junction.Count == 0) junction = [node];
-                joint = joint with { JunctionNodes = junction };
-            }
 
             // КЭ основания: центр внутри основания; окружение — КЭ с общим узлом.
             var inside = slab.Shells.Where(s => Contains(basePoly, joint.ToLocal(s.Centroid), 1e-9)).ToList();
             var insideNodes = inside.SelectMany(s => s.Geometry.NodeTags).ToHashSet(StringComparer.Ordinal);
+            if (wall != null)
+            {
+                // Узлы линии стены — только узлы КЭ основания (тело разреза): дальние узлы длинной стены к узлу не относятся.
+                junction = junction.Where(insideNodes.Contains).ToList();
+                if (junction.Count == 0) junction = [node];
+                joint = joint with { JunctionNodes = junction };
+            }
             var baseShells = slab.Shells.Where(s => s.Geometry.NodeTags.Any(insideNodes.Contains))
                 .Select(s => s.Element.ElemTag).ToList();
             joint = joint with { BaseShells = baseShells };

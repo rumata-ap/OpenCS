@@ -60,6 +60,7 @@ public sealed class PunchingFemCheckReportProvider : IReportProvider
         AddSummary(doc, r, joints);
         AddTable(doc, joints);
         AddPylons(doc, joints);
+        AddWalls(doc, joints);
         AddNoCheck(doc, joints);
         AddConclusion(doc, r, joints);
         if (r.TryGetProperty("warnings", out var w) && w.ValueKind == JsonValueKind.Array)
@@ -68,7 +69,7 @@ public sealed class PunchingFemCheckReportProvider : IReportProvider
         foreach (var j in joints)
             if (j.TryGetProperty("warnings", out var jw) && jw.ValueKind == JsonValueKind.Array)
                 foreach (var x in jw.EnumerateArray())
-                    if (S(x, "code") is "punching_fem_mismatch" or "punching_fem_cut_failed" or "punching_fem_base_load_unknown" or "fem_beam_in_base"
+                    if (S(x, "code") is "punching_fem_mismatch" or "punching_fem_wall_mismatch" or "punching_fem_wall_shell_cut" or "punching_fem_cut_failed" or "punching_fem_base_load_unknown" or "fem_beam_in_base"
                         && S(x, "text") is { Length: > 0 } t)
                         doc.Add(new ReportWarning($"Узел {S(j, "node")}: {t}"));
 
@@ -149,6 +150,18 @@ public sealed class PunchingFemCheckReportProvider : IReportProvider
                + "ветви П-контура (Lmin + h0), середина — остальное. Каждый торец проверен по своему П-контуру (СП 430, рис. 6.1а) с силой "
                + "торца, моменты не учитываются; Кисп узла — наибольший из всех вариантов, включая торцы (у плит перекрытий сила "
                + "собирается к торцам, у фундаментных плит — наоборот)."));
+    }
+
+    /// <summary>Торцы и углы стен (СП 430 п. 6.3.8): как получены сила и ΔM.</summary>
+    static void AddWalls(ReportDocument doc, IReadOnlyList<JsonElement> joints)
+    {
+        if (!joints.Any(j => S(j, "kind") is "wall_end" or "wall_corner")) return;
+        doc.Add(new ReportHeading(1, "Торцы и углы стен (СП 430, п. 6.3.8)"))
+           .Add(new ReportParagraph("Торец — свободный конец стены (из пластин длиннее 4t или стержня с b/a > 4), угол — две стены под 90° ± 10°; "
+               + "Т- и крестовые примыкания, иной угол и разная толщина в узле не проверяются (причина в таблице). Сила F — по разрезу плиты "
+               + "по граням основания пирамиды, кроме граней поперёк стены (норма учитывает поперечные силы по длине контура); ΔM у торца — "
+               + "интеграл изгибающего момента плиты относительно оси вдоль стены по ветвям П-контура (h0/2 от граней), в расчёт идёт ½ΔM. "
+               + "У угла учитывается только F. Самопроверка: действие стены в основании равно сумме сил по контуру и по граням поперёк стены."));
     }
 
     static void AddNoCheck(ReportDocument doc, IReadOnlyList<JsonElement> joints)
