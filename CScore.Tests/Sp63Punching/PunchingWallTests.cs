@@ -289,4 +289,23 @@ public class PunchingWallTests
         Assert.Equal(10, wall.Values["dM"].Value, 12);
         Assert.Equal(5, wall.Values["Mx"].Value, 12);
     }
+
+    /// <summary>Оси рисунка узла стены — через центр торца / наружный угол (0; 0), а не через центр куска стены.</summary>
+    [Fact]
+    public void Scene_WallAxesThroughNodeOrigin_JsonRoundTrip()
+    {
+        foreach (var input in new[] { End(100), Corner(100, 0.25) })
+        {
+            var scene = PunchingScene.From(input, PunchingChecker.Check(input, includeTrace: false));
+            Assert.NotEqual(new PlanPoint(0, 0), scene.AreaCentroid);
+            Assert.Equal(new PlanPoint(0, 0), scene.AxesCenter);
+            using var doc = JsonDocument.Parse(PunchingSceneJson.ToJson(scene));
+            Assert.Equal(new PlanPoint(0, 0), PunchingSceneJson.Read(doc.RootElement).AxesOrigin);
+        }
+        var column = new PunchingInput(new PunchingLoadArea.Rectangle(0.4, 0.4), H0, Rbt, new PunchingForces(100, 0, 0));
+        var cs = PunchingScene.FromInput(column);
+        Assert.Null(cs.AxesOrigin);
+        using var old = JsonDocument.Parse(PunchingSceneJson.ToJson(cs));
+        Assert.Null(PunchingSceneJson.Read(old.RootElement).AxesOrigin);   // старые сцены — оси через центр тяжести
+    }
 }

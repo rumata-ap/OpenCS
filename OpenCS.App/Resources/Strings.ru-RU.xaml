@@ -6848,5 +6848,46 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemColContour">Разрез, кН</system:String>
    <system:String x:Key="PunchingFemColMismatch">Невязка, кН</system:String>
    <system:String x:Key="PunchingFemColPylon">Торцы пилона</system:String>
+   <system:String x:Key="PunchingFemColWallBase">Стена в основании, кН</system:String>
+   <system:String x:Key="PunchingFemColWallFaces">Грани поперёк стены, кН</system:String>
+   <system:String x:Key="PunchingFemRowsHintWall">«Стена в основании» — действие стены на плиту, «Разрез» — сила продавливания по граням основания вдоль контура, «Грани поперёк стены» — сила на гранях основания, пересекающих стену (в силу продавливания не входит); стена ≈ разрез + грани поперёк. У торца Mx — разность моментов плиты ΔM по сторонам стены (в расчёт ½ΔM), My не учитывается; у угла моменты не учитываются (СП 430, п. 6.3.8). Ниже — полный расчёт строки.</system:String>
    <system:String x:Key="PunchingFemRowsHint">«Колонны» — действие стержней на плиту, «Основание» — нагрузка в основании пирамиды, «Разрез» — сила по границе основания из узловых сил КЭ; невязка = колонны + основание − разрез (≈ 0, если сила идёт только через плиту). Ниже — полный расчёт строки.</system:String>
+   <system:String x:Key="PunchingFemPylonParts">торцы {0:0.0} и {1:0.0}, середина {2:0.0} кН; Кисп торцов {3}</system:String>
+   <system:String x:Key="PunchingFemStatus_concrete">обеспечено по бетону</system:String>
+   <system:String x:Key="PunchingFemStatus_reinforcement">требуется армирование</system:String>
+   <system:String x:Key="PunchingFemStatus_not_ensured">прочность не обеспечена</system:String>
+   <system:String x:Key="PunchingFemStatus_no_check">нет проверки</system:String>
+   <system:String x:Key="PunchingFemHolesSuffix">, отверстий {0}</system:String>
+   <system:String x:Key="PunchingFemSideAbove">сверху</system:String>
+   <system:String x:Key="PunchingFemSideBelow">снизу</system:String>
+   <system:String x:Key="PunchingFemMethod_contour">по разрезу</system:String>
+   <system:String x:Key="PunchingFemMethod_column">по колоннам</system:String>
+   <system:String x:Key="PunchingFemResultBroken">Результат не читается.</system:String>
+   <system:String x:Key="PunchingFemTitle">Продавливание по МКЭ</system:String>
+   <system:String x:Key="PunchingFemSummary">Схема «{0}», расчёт «{1}»: узлов {2}, не прошли {3}, без проверки {4}; загружений и сочетаний {5}; Кисп max = {6}</system:String>
+   <system:String x:Key="PunchingFemVerdictError">Проверка не выполнена</system:String>
+   <system:String x:Key="PunchingFemVerdictOk">Прочность на продавливание обеспечена во всех узлах</system:String>
+   <system:String x:Key="PunchingFemVerdictFail">Прочность не обеспечена в узлах: {0}</system:String>
+   <system:String x:Key="PunchingFemVerdictNoCheck">Есть узлы без проверки — см. причины в таблице</system:String>
+   <system:String x:Key="PunchingFemJointHeader">Узел {0}: {1}</system:String>
+   <system:String x:Key="PunchingFemNode">узел</system:String>
+   <system:String x:Key="PunchingFemLevel">отм. {0:+0.000;−0.000;0.000}</system:String>
+   <system:String x:Key="PunchingFemPickReady">готов к проверке</system:String>
+   <system:String x:Key="PunchingFemMethodAuto">автоматически: по разрезу основания пирамиды у CSfea</system:String>
+   <system:String x:Key="PunchingFemMethodContour">по разрезу основания пирамиды (узловые силы КЭ)</system:String>
+   <system:String x:Key="PunchingFemMethodColumn">по стержням колонн минус нагрузка основания</system:String>
+   <system:String x:Key="PunchingFemDefaultTag">Продавливание</system:String>
+   <system:String x:Key="PunchingFemAnalysisNoResult">(не рассчитана)</system:String>
+   <system:String x:Key="PunchingFemLinear">линейный</system:String>
+   <system:String x:Key="PunchingFemSecant">секущий</system:String>
+   <system:String x:Key="PunchingFemNoJoints">Узлов «колонна — плита» не найдено: нужен стержень под углом к горизонтальной плите с концом в её узле или в теле АЖТ.</system:String>
+   <system:String x:Key="PunchingFemJointsFound">Найдено узлов: {0}, из них не проверяются по геометрии: {1}, плит: {2}. При расчёте без проверки останутся и узлы без усилий в результате.</system:String>
+   <system:String x:Key="PunchingFemErrNoSchema">Не выбрана схема.</system:String>
+   <system:String x:Key="PunchingFemErrNoAnalysis">Не выбран источник усилий: расчёт CSfea схемы или снимок результатов ЛИРА-САПР/SCAD.</system:String>
+   <system:String x:Key="PunchingFemPreview">Узел {0}: {1}, h = {2:0} мм, h0 = {3:0.#} мм, ax = {4:0}, ay = {5:0} мм{6}; бетон {7}. Усилия — из расчёта, Кисп — в результате проверки.</system:String>
+   <system:String x:Key="PunchingFemCoverDefault">(по умолчанию)</system:String>
+   <system:String x:Key="PunchingFemNoSchemas">В проекте нет МКЭ-схем.</system:String>
+   <system:String x:Key="PunchingFemSnapshotSource">Снимок результатов {0} ({1})</system:String>
+   <system:String x:Key="PunchingFemRowTaskTag">{0} — узел {1}, {2}</system:String>
+   <system:String x:Key="PunchingShape_hole_polygon">контур из схемы</system:String>
 </ResourceDictionary>

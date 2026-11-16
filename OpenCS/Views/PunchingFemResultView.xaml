@@ -178,7 +178,7 @@
                <DockPanel Grid.Row="0" Margin="0,0,0,3">
                   <Button x:Name="CreateTaskBtn" DockPanel.Dock="Right" Content="{DynamicResource PunchingFemCreateTask}" Click="CreateTask_Click"
                           Padding="10,3" Margin="6,0,0,0" VerticalAlignment="Top" ToolTip="{DynamicResource PunchingFemCreateTaskHint}"/>
-                  <TextBlock Text="{Binding JointHeader}" TextWrapping="Wrap" FontWeight="SemiBold" ToolTip="{DynamicResource PunchingFemRowsHint}"/>
+                  <TextBlock Text="{Binding JointHeader}" TextWrapping="Wrap" FontWeight="SemiBold" ToolTip="{Binding RowsHint}"/>
                </DockPanel>
                <DataGrid Grid.Row="1" x:Name="RowsGrid" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" AutoGenerateColumns="False"
                          IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" SelectionMode="Single"
@@ -186,14 +186,14 @@
                   <DataGrid.Columns>
                      <DataGridTextColumn Header="{DynamicResource PunchingFemColKey}" Binding="{Binding Key}" Width="*" MinWidth="120"/>
                      <DataGridTextColumn Header="F, кН" Binding="{Binding F}" Width="Auto"/>
-                     <DataGridTextColumn Header="Mx" Binding="{Binding Mx}" Width="Auto"/>
+                     <DataGridTextColumn x:Name="RowsMxCol" Header="Mx" Binding="{Binding Mx}" Width="Auto"/>
                      <DataGridTextColumn Header="My" Binding="{Binding My}" Width="Auto"/>
                      <DataGridTextColumn Header="{DynamicResource PunchingFemColSide}" Binding="{Binding Side}" Width="Auto"/>
-                     <DataGridTextColumn Header="{DynamicResource PunchingFemColColumn}" Binding="{Binding Column}" Width="Auto"/>
+                     <DataGridTextColumn x:Name="RowsColumnCol" Header="{DynamicResource PunchingFemColColumn}" Binding="{Binding Column}" Width="Auto"/>
                      <DataGridTextColumn Header="{DynamicResource PunchingFemColBase}" Binding="{Binding BaseLoad}" Width="Auto"/>
                      <DataGridTextColumn Header="{DynamicResource PunchingFemColContour}" Binding="{Binding Contour}" Width="Auto"/>
-                     <DataGridTextColumn Header="{DynamicResource PunchingFemColMismatch}" Binding="{Binding Mismatch}" Width="Auto"/>
-                     <DataGridTextColumn Header="{DynamicResource PunchingFemColPylon}" Binding="{Binding Pylon}" Width="Auto"/>
+                     <DataGridTextColumn x:Name="RowsMismatchCol" Header="{DynamicResource PunchingFemColMismatch}" Binding="{Binding Mismatch}" Width="Auto"/>
+                     <DataGridTextColumn x:Name="RowsPylonCol" Header="{DynamicResource PunchingFemColPylon}" Binding="{Binding Pylon}" Width="Auto"/>
                      <DataGridTextColumn Header="{DynamicResource PunchingKisp}" Binding="{Binding K}" SortMemberPath="KValue" Width="Auto">
                         <DataGridTextColumn.ElementStyle>
                            <Style TargetType="TextBlock" BasedOn="{StaticResource StatusCell}">

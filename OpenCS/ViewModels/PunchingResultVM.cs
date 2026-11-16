@@ -62,11 +62,16 @@ public sealed class PunchingResultVM : ViewModelBase
         {
             double k = v.Ratio ?? double.PositiveInfinity;
             string title = Variants.Title(v.Kind, v.Zone, v.Id, edgeCount);
+            // У торца стены My не участвует, у угла — моменты вовсе (СП 430, п. 6.3.8): «—», а не нули.
+            bool noMy = v.Kind is PunchingVariantKind.WallEnd or PunchingVariantKind.WallEndEdge or PunchingVariantKind.WallCorner;
+            bool noMx = v.Kind == PunchingVariantKind.WallCorner;
             Rows.Add(new PunchingVariantRowVM
             {
                 Id = v.Id, Title = title, Governs = v.Governs,
-                U = N(v, "u", "0.000"), F = N(v, "Fred", "0.0"), Fult = N(v, "Fult", "0.0"), Mxult = N(v, "Mxult", "0.0"), Myult = N(v, "Myult", "0.0"),
-                MxStar = N(v, "MxStar", "0.0"), MyStar = N(v, "MyStar", "0.0"), KF = N(v, "kF", "0.000"), KM = N(v, "kM", "0.000"),
+                U = N(v, "u", "0.000"), F = N(v, "Fred", "0.0"), Fult = N(v, "Fult", "0.0"),
+                Mxult = noMx ? "—" : N(v, "Mxult", "0.0"), Myult = noMy ? "—" : N(v, "Myult", "0.0"),
+                MxStar = noMx ? "—" : N(v, "MxStar", "0.0"), MyStar = noMy ? "—" : N(v, "MyStar", "0.0"),
+                KF = N(v, "kF", "0.000"), KM = noMx ? "—" : N(v, "kM", "0.000"),
                 K = Variants.K(k), KValue = double.IsFinite(k) ? k : double.MaxValue,
                 Sw = v.SwCounted ? Loc.S("PunchingSwCounted", "учтена") : "—",
                 Reason = new BatchVerdictView(new BatchRowVerdict(k > 1 ? BatchRowStatus.NotPassed : BatchRowStatus.Ok, k,

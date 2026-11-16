@@ -454,6 +454,30 @@ public sealed class PunchingFemServiceTests : IDisposable
         Assert.True(cf.F > 0);
         foreach (var (_, f) in joints)
             Assert.Equal(f.ColumnForce!.Value, f.ContourForce!.Value + f.WallExcluded!.Value, 3);
+
+        var data = PunchingFemCheckRunner.Compute(db, s.Schema.Id,
+            new PunchingFemCheckParams { SourceRef = s.Analysis.Id.ToString(CultureInfo.InvariantCulture) }, CalcType.C);
+        // План: кусок стены у угла — Г из 6 точек (не выпуклая оболочка).
+        var cj = data.Joints.Single(j => j.Kind == "wall_corner");
+        Assert.Equal(6, cj.Area.Count);
+        Assert.All(data.Joints, j => Assert.All(j.Rows, r => Assert.NotNull(r.WallExcluded)));
+
+        // Окно результата: у стен «Стена в основании», «Грани поперёк стены» (= WallExcluded), без торцов пилона, неучтённые моменты — «—».
+        var result = new CalcResult { TaskKind = PunchingFemCheckParams.NormCode, Status = "ok", DataJson = data.ToJson() };
+        var vm = new OpenCS.ViewModels.PunchingFemResultVM(result, null, db.Materials);
+        vm.SelectNode(cj.Node);
+        Assert.True(vm.IsWallJoint);
+        Assert.Equal(Loc.S("PunchingFemColWallBase", "Стена в основании, кН"), vm.RowsColumnHeader);
+        Assert.Equal(Loc.S("PunchingFemColWallFaces", "Грани поперёк стены, кН"), vm.RowsMismatchHeader);
+        var row = vm.Rows.First();
+        Assert.Equal("—", row.Mx);
+        Assert.Equal("—", row.My);
+        Assert.Equal(row.Row.WallExcluded!.Value.ToString("0.0", CultureInfo.CurrentCulture), row.Mismatch);
+        var ej = data.Joints.First(j => j.Kind == "wall_end");
+        vm.SelectNode(ej.Node);
+        Assert.Equal("ΔM", vm.RowsMxHeader);
+        Assert.Equal("—", vm.Rows.First().My);
+        Assert.NotEqual("—", vm.Rows.First().Mx);
     }
 
     static FemAnalysis SaveLinear(DatabaseService db, FemSchema schema, IReadOnlyList<FemAnalysisStage> stages)

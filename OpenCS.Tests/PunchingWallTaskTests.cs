@@ -168,4 +168,60 @@ public sealed class PunchingWallTaskTests
         Assert.Equal("-x", vm.Edge1Side);
         Assert.False(vm.HasErrors, vm.ErrorText);
     }
+
+    /// <summary>
+    /// Ручная проверка 16.11: у загруженного угла без краёв «Положение → у края» давало пустую сторону и неактивное
+    /// «Сохранить» — сторона по умолчанию (+Y) у угла недопустима. Стороны нормализуются при загрузке и смене положения.
+    /// </summary>
+    [Fact]
+    public void Vm_LoadedWallNode_EdgeSidesValidOnPositionChange()
+    {
+        var vm = new PunchingParamsVM(Task(Corner()), [], [], null);
+        Assert.Equal("inside", vm.Position);
+        vm.Position = "edge";
+        Assert.Equal("-x", vm.Edge1Side);
+        Assert.Contains(vm.Sides, s => s.Id == vm.Edge1Side);
+        vm.Edge1C = 50;
+        Assert.False(vm.HasErrors, vm.ErrorText);
+
+        vm.Position = "corner";
+        Assert.Equal("-y", vm.Edge2Side);
+        vm.Edge2C = 50;
+        Assert.False(vm.HasErrors, vm.ErrorText);
+        vm.Edge1Side = "-y";                   // второй край уходит на соседнюю допустимую сторону
+        Assert.Equal("-x", vm.Edge2Side);
+        Assert.False(vm.HasErrors, vm.ErrorText);
+        Assert.Equal(["-y", "-x"], vm.ToParams().Edges.Select(e => e.Side));
+
+        var end = new PunchingParamsVM(Task(End()), [], [], null);
+        end.Position = "corner";
+        Assert.Equal("+x", end.Edge1Side);     // у торца — край за торцом (контур 1′)
+        Assert.Contains(end.Edge2Side, new[] { "+y", "-y" });
+    }
+
+    /// <summary>У торца My не участвует, у угла — моменты вовсе: в таблице вариантов и сводке отчёта «—», а не нули.</summary>
+    [Fact]
+    public void ResultAndReport_WallVariants_DashForUnusedMoments()
+    {
+        foreach (var (p, noMx) in new[] { (End(), false), (Corner(), true) })
+        {
+            var task = Task(p);
+            var result = PunchingRunner.Run(task, CalcSettings.Default, null);
+            var vm = new PunchingResultVM(result, task);
+            Assert.NotEmpty(vm.Rows);
+            Assert.All(vm.Rows, r =>
+            {
+                Assert.Equal("—", r.Myult);
+                Assert.Equal("—", r.MyStar);
+                Assert.Equal(noMx, r.Mxult == "—");
+                Assert.Equal(noMx, r.MxStar == "—");
+                Assert.Equal(noMx, r.KM == "—");
+            });
+            var report = new PunchingReportProvider().Build(new ReportContext(task, result));
+            var summary = report.Blocks.OfType<ReportTable>().Single(t => t.Headers.Contains("M*y, кН·м"));
+            int my = summary.Headers.ToList().IndexOf("M*y, кН·м"), mx = summary.Headers.ToList().IndexOf("M*x, кН·м");
+            Assert.All(summary.Rows, r => Assert.Equal("—", r[my]));
+            Assert.All(summary.Rows, r => Assert.Equal(noMx, r[mx] == "—"));
+        }
+    }
 }

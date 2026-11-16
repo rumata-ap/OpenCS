@@ -190,6 +190,7 @@ public static class CommandIcons
         ["FemCheckAdd"] = "CmdIcon_CheckAdd",
         ["FemCheckAddUls"] = "CmdIcon_CheckUls",
         ["FemCheckAddSls"] = "CmdIcon_CheckSls",
+        ["PunchingFemCheckAdd"] = "CmdIcon_CheckUls",
         ["FemCheckEdit"] = "CmdIcon_Edit",
         ["RunFemCheck"] = "CmdIcon_Run",
         ["FemCheckDelete"] = "CmdIcon_Delete",

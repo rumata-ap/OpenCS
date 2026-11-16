@@ -6848,6 +6848,9 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemColContour">Cut, kN</system:String>
    <system:String x:Key="PunchingFemColMismatch">Mismatch, kN</system:String>
    <system:String x:Key="PunchingFemColPylon">Pylon ends</system:String>
+   <system:String x:Key="PunchingFemColWallBase">Wall at base, kN</system:String>
+   <system:String x:Key="PunchingFemColWallFaces">Faces across wall, kN</system:String>
+   <system:String x:Key="PunchingFemRowsHintWall">"Wall at base" — wall action on the slab, "Cut" — punching force on the base faces along the contour, "Faces across wall" — force on the base faces crossing the wall (not part of the punching force); wall ≈ cut + faces across. At a wall end Mx is the difference ΔM of slab moments on the two sides of the wall (½ΔM is used), My is ignored; at a wall corner moments are ignored (SP 430, cl. 6.3.8). Full calculation of the row is below.</system:String>
    <system:String x:Key="PunchingFemPylonParts">ends {0:0.0} and {1:0.0}, middle {2:0.0} kN; ends utilization {3}</system:String>
    <system:String x:Key="PunchingFemRowsHint">"Columns" — bar action on the slab, "Base" — load within the pyramid base, "Cut" — force across the base boundary from element nodal forces; mismatch = columns + base − cut (≈ 0 when the force goes through the slab only). Full calculation of the row is below.</system:String>
    <system:String x:Key="PunchingFemStatus_concrete">concrete sufficient</system:String>
@@ -6880,10 +6883,11 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemNoJoints">No column-to-slab joints found: a bar at an angle to a horizontal slab ending in its node or a rigid body is required.</system:String>
    <system:String x:Key="PunchingFemJointsFound">Joints found: {0}, not checkable by geometry: {1}, slabs: {2}. Joints without forces in the result also stay unchecked.</system:String>
    <system:String x:Key="PunchingFemErrNoSchema">No model selected.</system:String>
-   <system:String x:Key="PunchingFemErrNoAnalysis">No CSfea analysis selected as the force source (create and run an analysis of the model).</system:String>
+   <system:String x:Key="PunchingFemErrNoAnalysis">No force source selected: a CSfea analysis of the model or a LIRA-SAPR/SCAD results snapshot.</system:String>
    <system:String x:Key="PunchingFemPreview">Joint {0}: {1}, h = {2:0} mm, h0 = {3:0.#} mm, ax = {4:0}, ay = {5:0} mm{6}; concrete {7}. Forces come from the analysis, utilization — in the check result.</system:String>
    <system:String x:Key="PunchingFemCoverDefault">(default)</system:String>
    <system:String x:Key="PunchingFemNoSchemas">The project has no FE models.</system:String>
    <system:String x:Key="PunchingFemSnapshotSource">{0} results snapshot ({1})</system:String>
    <system:String x:Key="PunchingFemRowTaskTag">{0} — joint {1}, {2}</system:String>
+   <system:String x:Key="PunchingShape_hole_polygon">contour from model</system:String>
 </ResourceDictionary>

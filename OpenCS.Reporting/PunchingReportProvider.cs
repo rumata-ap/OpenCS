@@ -428,16 +428,23 @@ public sealed class PunchingReportProvider : IReportProvider
         doc.Add(new ReportHeading(1, "Сводка вариантов"))
             .Add(new ReportTable(
                 ["Контур", "u, м", "Fult, кН", "Mx,ult, кН·м", "My,ult, кН·м", "M*x, кН·м", "M*y, кН·м", "kF", "kM", "K", "Арматура"],
-                data.Variants.Select(v => (IReadOnlyList<string>)
+                data.Variants.Select(v =>
+                {
+                    // У торца стены My не участвует, у угла — моменты вовсе (СП 430, п. 6.3.8).
+                    bool noMy = v.Kind is PunchingVariantKind.WallEnd or PunchingVariantKind.WallEndEdge or PunchingVariantKind.WallCorner;
+                    bool noMx = v.Kind == PunchingVariantKind.WallCorner;
+                    string Num(string key, bool skip) => skip ? "—" : Sig(v.Numbers.GetValueOrDefault(key));
+                    return (IReadOnlyList<string>)
                 [
                     PunchingReportText.VariantTitle(v.Kind, v.Zone, v.Id, edgeCount) + (v.Governs ? " *" : ""),
                     Sig(v.Numbers.GetValueOrDefault("u")), Sig(v.Numbers.GetValueOrDefault("Fult")),
-                    Sig(v.Numbers.GetValueOrDefault("Mxult")), Sig(v.Numbers.GetValueOrDefault("Myult")),
-                    Sig(v.Numbers.GetValueOrDefault("MxStar")), Sig(v.Numbers.GetValueOrDefault("MyStar")),
-                    Sig(v.Numbers.GetValueOrDefault("kF")), Sig(v.Numbers.GetValueOrDefault("kM")),
+                    Num("Mxult", noMx), Num("Myult", noMy),
+                    Num("MxStar", noMx), Num("MyStar", noMy),
+                    Sig(v.Numbers.GetValueOrDefault("kF")), Num("kM", noMx),
                     v.Ratio is double k ? Ku(k) : "∞",
                     v.SwCounted ? "учтена" : "—"
-                ]).ToList()))
+                ];
+                }).ToList()))
             .Add(new ReportParagraph("* — определяющий контур (наибольший K, п. 8.1.46). "
                 + "K округлён в бо́льшую сторону, поэтому может на единицу последнего знака превышать сумму округлённых kF и kM."));
 

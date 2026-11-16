@@ -31,7 +31,21 @@ public partial class PunchingFemResultView : UserControl
         ReportButton.IsEnabled = app.ExportCalcResultReportCommand.CanExecute(result);
         ParamsButton.IsEnabled = RunButton.IsEnabled = check is not null;
         UpdateCreateTask();
-        _vm.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(PunchingFemResultVM.SelectedRow)) UpdateCreateTask(); };
+        UpdateRowsColumns();
+        _vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PunchingFemResultVM.SelectedRow)) UpdateCreateTask();
+            if (e.PropertyName == nameof(PunchingFemResultVM.SelectedJoint)) UpdateRowsColumns();
+        };
+    }
+
+    /// <summary>Столбцы таблицы ключей по виду узла: у стен — «Стена в основании», «Грани поперёк стены», без торцов пилона.</summary>
+    void UpdateRowsColumns()
+    {
+        RowsColumnCol.Header = _vm.RowsColumnHeader;
+        RowsMismatchCol.Header = _vm.RowsMismatchHeader;
+        RowsMxCol.Header = _vm.RowsMxHeader;
+        RowsPylonCol.Visibility = _vm.IsWallJoint ? Visibility.Collapsed : Visibility.Visible;
     }
 
     /// <summary>Окно по готовой VM без приложения — проверка разметки в тестах (кнопки выключены).</summary>
@@ -42,6 +56,8 @@ public partial class PunchingFemResultView : UserControl
         _result = vm.Result;
         _vm = vm;
         DataContext = vm;
+        UpdateRowsColumns();
+        vm.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(PunchingFemResultVM.SelectedJoint)) UpdateRowsColumns(); };
         CreateTaskBtn.IsEnabled = ReportButton.IsEnabled = ParamsButton.IsEnabled = RunButton.IsEnabled = false;
     }
 

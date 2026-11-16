@@ -117,8 +117,9 @@ public sealed class PunchingPlanCanvas : FrameworkElement
         }
 
         var c0 = scene.AreaCentroid;
-        dc.DrawLine(AxisPen, M(new PlanPoint(x0, c0.Y)), M(new PlanPoint(x1, c0.Y)));
-        dc.DrawLine(AxisPen, M(new PlanPoint(c0.X, y0)), M(new PlanPoint(c0.X, y1)));
+        var ax = scene.AxesCenter;
+        dc.DrawLine(AxisPen, M(new PlanPoint(x0, ax.Y)), M(new PlanPoint(x1, ax.Y)));
+        dc.DrawLine(AxisPen, M(new PlanPoint(ax.X, y0)), M(new PlanPoint(ax.X, y1)));
 
         double rayLen = 2 * (x1 - x0 + y1 - y0);
         foreach (var r in scene.HoleRays ?? [])

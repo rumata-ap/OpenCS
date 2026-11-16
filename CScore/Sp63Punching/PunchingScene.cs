@@ -39,12 +39,17 @@ public sealed record PunchingSceneVariant(
 /// <param name="HoleRays">Касательные к отверстиям, вырезающим часть контура.</param>
 /// <param name="SwBars">Стержни поперечной арматуры в плане (по рядам); null — не заданы.</param>
 /// <param name="SwCross">Раскладка — крест.</param>
+/// <param name="AxesOrigin">Начало осей рисунка, м; null — центр тяжести площади. У узла стены — (0; 0): центр торца
+/// или наружный угол (оси узла по СП 430, рис. 6.1, 6.2), а не центр куска стены.</param>
 public sealed record PunchingScene(
     IReadOnlyList<PlanPoint> AreaPolygon, double? AreaDiameter, double? AreaInnerDiameter, PlanPoint AreaCentroid,
     IReadOnlyList<PunchingSceneEdge> Edges, IReadOnlyList<IReadOnlyList<PlanPoint>> Holes, double H0,
     IReadOnlyList<PunchingSceneVariant> Variants, IReadOnlyList<PunchingSceneHoleRays>? HoleRays = null,
-    IReadOnlyList<PlanPoint>? SwBars = null, bool SwCross = false)
+    IReadOnlyList<PlanPoint>? SwBars = null, bool SwCross = false, PlanPoint? AxesOrigin = null)
 {
+    /// <summary>Точка, через которую рисуются оси X и Y.</summary>
+    public PlanPoint AxesCenter => AxesOrigin ?? AreaCentroid;
+
     /// <summary>Сцена без вариантов — только исходные данные (для рисунка до расчёта).</summary>
     public static PunchingScene FromInput(PunchingInput input) => From(input, null);
 
@@ -84,7 +89,8 @@ public sealed record PunchingScene(
                 rays.Add(new PunchingSceneHoleRays(i, tg.Lo, tg.Hi));
         var bars = PunchingSwLayout.BarPoints(input);
         return new PunchingScene(polygon, d, di, PunchingContourBuilder.LoadCenter(input),
-            edges, holes, input.H0, variants, rays, bars.Count > 0 ? bars : null, input.Reinforcement?.Cross is not null);
+            edges, holes, input.H0, variants, rays, bars.Count > 0 ? bars : null, input.Reinforcement?.Cross is not null,
+            input.Wall is not null ? new PlanPoint(0, 0) : null);
     }
 
     /// <summary>Точки элемента контура для рисования: отрезок — концы, дуга — ломаная с шагом не больше 3°.</summary>
@@ -152,6 +158,7 @@ public static class PunchingSceneJson
         if (s.AreaInnerDiameter is double di) w.WriteNumber("d_inner", di);
         w.WriteNumber("cx", s.AreaCentroid.X);
         w.WriteNumber("cy", s.AreaCentroid.Y);
+        if (s.AxesOrigin is PlanPoint o) { w.WriteNumber("axes_x", o.X); w.WriteNumber("axes_y", o.Y); }
         w.WriteEndObject();
         w.WriteNumber("h0", s.H0);
         w.WriteStartArray("edges");
@@ -226,6 +233,9 @@ public static class PunchingSceneJson
         double? d = area.ValueKind == JsonValueKind.Object && area.TryGetProperty("d", out var dv) && dv.ValueKind == JsonValueKind.Number ? dv.GetDouble() : null;
         double? di = area.ValueKind == JsonValueKind.Object && area.TryGetProperty("d_inner", out var div) && div.ValueKind == JsonValueKind.Number ? div.GetDouble() : null;
         var centroid = area.ValueKind == JsonValueKind.Object ? new PlanPoint(Num(area, "cx"), Num(area, "cy")) : default;
+        // Старые сцены без начала осей — оси через центр тяжести, как раньше.
+        PlanPoint? axes = area.ValueKind == JsonValueKind.Object && area.TryGetProperty("axes_x", out var axv) && axv.ValueKind == JsonValueKind.Number
+            ? new PlanPoint(axv.GetDouble(), Num(area, "axes_y")) : null;
 
         var edges = new List<PunchingSceneEdge>();
         if (e.TryGetProperty("edges", out var ea) && ea.ValueKind == JsonValueKind.Array)
@@ -261,7 +271,7 @@ public static class PunchingSceneJson
                 rays.Add(new PunchingSceneHoleRays((int)Num(r, "hole"), new PlanPoint(Num(r, "lox"), Num(r, "loy")), new PlanPoint(Num(r, "hix"), Num(r, "hiy"))));
         var bars = ReadPoints(e, "sw_bars");
         return new PunchingScene(polygon, d, di, centroid, edges, holes, Num(e, "h0"), variants, rays,
-            bars.Count > 0 ? bars : null, e.TryGetProperty("sw_cross", out var sc) && sc.ValueKind == JsonValueKind.True);
+            bars.Count > 0 ? bars : null, e.TryGetProperty("sw_cross", out var sc) && sc.ValueKind == JsonValueKind.True, axes);
     }
 
     static void WritePoints(Utf8JsonWriter w, string name, IReadOnlyList<PlanPoint> pts)

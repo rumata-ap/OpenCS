@@ -25,6 +25,8 @@ public sealed record PunchingFemRow
     public double? ColumnAction { get; init; }
     public double? BaseLoad { get; init; }
     public double? ContourForce { get; init; }
+    /// <summary>Узел стены: сила на гранях основания поперёк стены, кН (в силу продавливания не входит).</summary>
+    public double? WallExcluded { get; init; }
     public double Ratio { get; init; }
     public double RatioConcrete { get; init; }
     public double RatioMaxSw { get; init; }
@@ -303,7 +305,9 @@ public static class PunchingFemCheckRunner
             Section = joint.SectionLabel, SlabSection = joint.SlabLabel, H = joint.H, H0 = joint.H0,
             Edges = joint.Edges.Count, Holes = joint.Holes.Count, Bars = joint.Bars.Select(b => b.ElemTag).ToList(),
             Warnings = warnings,
-            Area = joint.Area == null ? [] : PunchingContourBuilder.AreaPolygon(joint.Area)
+            // Кусок стены у угла — Г-образный: точки многоугольника как есть, без выпуклой оболочки.
+            Area = joint.Area == null ? [] : (joint.IsWall && joint.Area is PunchingLoadArea.Polygon wallArea
+                    ? wallArea.Points.ToList() : PunchingContourBuilder.AreaPolygon(joint.Area))
                 .Where((_, i) => joint.Area is not (PunchingLoadArea.Circle or PunchingLoadArea.Ring) || i % 20 == 0)
                 .Select(q => joint.ToGlobal(q)).Select(g => new[] { g.X, g.Y }).ToList(),
         };
@@ -362,7 +366,7 @@ public static class PunchingFemCheckRunner
             {
                 Key = label, F = tp.Forces.F, Mx = tp.Forces.Mx, My = tp.Forces.My, Side = tp.Forces.LoadSide,
                 Method = f.Method == PunchingFemForceMethod.Contour ? "contour" : "column",
-                ColumnAction = f.ColumnAction, BaseLoad = f.BaseLoad, ContourForce = f.ContourForce,
+                ColumnAction = f.ColumnAction, BaseLoad = f.BaseLoad, ContourForce = f.ContourForce, WallExcluded = f.WallExcluded,
             };
             var errors = tp.Validate();
             if (errors.Count == 0 && strengths == null)

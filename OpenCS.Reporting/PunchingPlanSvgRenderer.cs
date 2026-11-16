@@ -180,11 +180,12 @@ public sealed class PunchingPlanSvgRenderer
             svg.Append("<polyline points=\"").Append(Pts([a, b], M)).AppendLine("\" fill=\"none\" stroke=\"#111827\" stroke-width=\"3\"/>");
         }
 
-        // Оси через центр тяжести площади.
+        // Оси через центр тяжести площади; у узла стены — через центр торца или наружный угол.
         var c0 = scene.AreaCentroid;
-        svg.Append("<polyline points=\"").Append(Pts([new(x0, c0.Y), new(x1, c0.Y)], M))
+        var ax = scene.AxesCenter;
+        svg.Append("<polyline points=\"").Append(Pts([new(x0, ax.Y), new(x1, ax.Y)], M))
             .AppendLine("\" fill=\"none\" stroke=\"#9ca3af\" stroke-width=\"0.8\" stroke-dasharray=\"10 3 2 3\"/>");
-        svg.Append("<polyline points=\"").Append(Pts([new(c0.X, y0), new(c0.X, y1)], M))
+        svg.Append("<polyline points=\"").Append(Pts([new(ax.X, y0), new(ax.X, y1)], M))
             .AppendLine("\" fill=\"none\" stroke=\"#9ca3af\" stroke-width=\"0.8\" stroke-dasharray=\"10 3 2 3\"/>");
 
         // Касательные к влияющим отверстиям: часть контура между ними не учитывается (п. 8.1.46).

@@ -223,11 +223,7 @@ public sealed class PunchingParamsVM : ViewModelBase
             try
             {
                 SetField(ref _nodeKind, value);
-                // Края — только с допустимых сторон узла: у торца по умолчанию за торцом (+X, контур 1′), у угла — снаружи.
-                var allowed = PunchingWallParams.EdgeSides(value);
-                if (!allowed.Contains(Edge1Side)) Edge1Side = value == "corner" ? "-x" : value == "end" ? "+x" : "+y";
-                if (!allowed.Contains(Edge2Side) || Edge2Side == Edge1Side)
-                    Edge2Side = allowed.FirstOrDefault(s => s != Edge1Side && SideOk(Edge1Side, s)) ?? Edge2Side;
+                NormalizeEdgeSides();
             }
             finally { _loading = wasLoading; }
             foreach (var n in new[] { nameof(IsWallNode), nameof(IsWallEnd), nameof(IsWallCorner), nameof(IsColumnNode), nameof(Sides),
@@ -308,10 +304,35 @@ public sealed class PunchingParamsVM : ViewModelBase
     public PlateSection? SelectedPlateSection { get => _plateSection; set { _plateSection = value; OnPropertyChanged(); } }
 
     /// <summary>Положение: "inside" | "edge" | "corner".</summary>
-    public string Position { get => _position; set { if (SetField(ref _position, value)) { OnPropertyChanged(nameof(HasEdge1)); OnPropertyChanged(nameof(HasEdge2)); } } }
+    public string Position
+    {
+        get => _position;
+        set
+        {
+            if (_position == value) return;
+            bool wasLoading = _loading;
+            _loading = true;
+            try { SetField(ref _position, value); NormalizeEdgeSides(); }
+            finally { _loading = wasLoading; }
+            OnPropertyChanged(nameof(HasEdge1)); OnPropertyChanged(nameof(HasEdge2));
+            if (!_loading) Recalculate();
+        }
+    }
     public bool HasEdge1 => Position is "edge" or "corner";
     public bool HasEdge2 => Position == "corner";
-    public string Edge1Side { get => _edge1Side; set => SetField(ref _edge1Side, value); }
+    public string Edge1Side
+    {
+        get => _edge1Side;
+        set
+        {
+            if (_edge1Side == value) return;
+            bool wasLoading = _loading;
+            _loading = true;
+            try { SetField(ref _edge1Side, value); NormalizeEdgeSides(); }
+            finally { _loading = wasLoading; }
+            if (!_loading) Recalculate();
+        }
+    }
     /// <summary>Расстояние от площади до края, мм.</summary>
     public double Edge1C { get => _edge1C; set => SetField(ref _edge1C, value); }
     public double Edge1Angle { get => _edge1Angle; set => SetField(ref _edge1Angle, value); }
@@ -509,10 +530,11 @@ public sealed class PunchingParamsVM : ViewModelBase
             RbtManualValue = (p.Slab.RbtOverride ?? 1050) / 1000;
 
             Position = p.Edges.Count switch { 0 => "inside", 1 => "edge", _ => "corner" };
-            var e1 = p.Edges.ElementAtOrDefault(0) ?? new PunchingEdgeParams { Side = "+y" };
+            var e1 = p.Edges.ElementAtOrDefault(0) ?? new PunchingEdgeParams { Side = DefaultEdge1Side(NodeKind) };
             var e2 = p.Edges.ElementAtOrDefault(1) ?? new PunchingEdgeParams { Side = Perpendicular(e1.Side) };
             Edge1Side = e1.Side; Edge1C = Mm(e1.C); Edge1Angle = e1.AngleDeg;
             Edge2Side = e2.Side; Edge2C = Mm(e2.C); Edge2Angle = e2.AngleDeg;
+            NormalizeEdgeSides();
 
             Holes.Clear();
             foreach (var h in p.Holes)
@@ -809,6 +831,22 @@ public sealed class PunchingParamsVM : ViewModelBase
         finally { _loading = false; }
         Recalculate();
     }
+
+    /// <summary>
+    /// Приводит стороны краёв к допустимым для вида узла (<see cref="PunchingWallParams.EdgeSides"/>): иначе список сторон
+    /// в окне отфильтрован, поле «Край» пустое и сохранить нельзя. Первый край по умолчанию: у торца — за торцом (+X,
+    /// контур 1′), у угла — снаружи (−X), у колонны — +Y; второй — соседняя допустимая сторона (не та же и не напротив).
+    /// </summary>
+    void NormalizeEdgeSides()
+    {
+        var allowed = PunchingWallParams.EdgeSides(NodeKind);
+        if (!allowed.Contains(_edge1Side))
+            SetField(ref _edge1Side, DefaultEdge1Side(NodeKind), nameof(Edge1Side));
+        if (!allowed.Contains(_edge2Side) || !SideOk(_edge1Side, _edge2Side))
+            SetField(ref _edge2Side, allowed.FirstOrDefault(s => SideOk(_edge1Side, s)) ?? _edge2Side, nameof(Edge2Side));
+    }
+
+    static string DefaultEdge1Side(string nodeKind) => nodeKind switch { "corner" => "-x", "end" => "+x", _ => "+y" };
 
     static string Perpendicular(string side) => side is "+y" or "-y" ? "+x" : "+y";
     /// <summary>Два края с этих сторон допустимы (разные и не противоположные).</summary>

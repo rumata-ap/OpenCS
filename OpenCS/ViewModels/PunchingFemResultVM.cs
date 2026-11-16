@@ -122,20 +122,25 @@ public sealed class PunchingFemJointRowVM
 /// <summary>Строка таблицы ключей узла.</summary>
 public sealed class PunchingFemKeyRowVM
 {
-    public PunchingFemKeyRowVM(PunchingFemRow row, bool governs)
+    /// <param name="jointKind">Вид узла (<see cref="PunchingFemJointResult.Kind"/>): у стен свои столбцы и моменты.</param>
+    public PunchingFemKeyRowVM(PunchingFemRow row, bool governs, string jointKind = "bar")
     {
+        bool wallEnd = jointKind == "wall_end", wallCorner = jointKind == "wall_corner";
         Row = row;
         var c = CultureInfo.CurrentCulture;
         Key = row.Key;
         Governs = governs;
         F = row.F.ToString("0.0", c);
-        Mx = row.Mx.ToString("0.0", c);
-        My = row.My.ToString("0.0", c);
+        // У торца стены Mx — ΔM (½ΔM берёт ядро), My не участвует; у угла моменты не учитываются (СП 430, п. 6.3.8).
+        Mx = wallCorner ? "—" : row.Mx.ToString("0.0", c);
+        My = wallEnd || wallCorner ? "—" : row.My.ToString("0.0", c);
         Side = row.Side == "from_above" ? Loc.S("PunchingFemSideAbove", "сверху") : Loc.S("PunchingFemSideBelow", "снизу");
         Column = Num(row.ColumnAction);
         BaseLoad = Num(row.BaseLoad);
         Contour = Num(row.ContourForce);
-        Mismatch = row.ColumnAction is double a && row.ContourForce is double cf ? (a + (row.BaseLoad ?? 0) - cf).ToString("0.00", c) : "";
+        // У стены вместо невязки — сила граней основания поперёк стены (самопроверка: стена ≈ разрез + грани поперёк).
+        Mismatch = wallEnd || wallCorner ? Num(row.WallExcluded)
+            : row.ColumnAction is double a && row.ContourForce is double cf ? (a + (row.BaseLoad ?? 0) - cf).ToString("0.00", c) : "";
         Method = MethodText(row.Method);
         K = row.Error != null ? "—" : Variants.K(row.Ratio);
         KValue = row.Ratio;
@@ -264,12 +269,14 @@ public sealed class PunchingFemResultVM : ViewModelBase
             Rows.Clear();
             if (value != null)
                 foreach (var r in value.Data.Rows.OrderByDescending(r => r.Ratio))
-                    Rows.Add(new PunchingFemKeyRowVM(r, r.Key == value.Data.GoverningKey));
+                    Rows.Add(new PunchingFemKeyRowVM(r, r.Key == value.Data.GoverningKey, value.Data.Kind));
             OnPropertyChanged(nameof(SelectedJointNode));
             OnPropertyChanged(nameof(JointHeader));
             OnPropertyChanged(nameof(JointCard));
             OnPropertyChanged(nameof(JointTabHeader));
             OnPropertyChanged(nameof(HasSelectedJoint));
+            foreach (var n in new[] { nameof(IsWallJoint), nameof(RowsColumnHeader), nameof(RowsMismatchHeader), nameof(RowsMxHeader), nameof(RowsHint) })
+                OnPropertyChanged(n);
             if (Levels != null) FollowLevel(value);
             SelectedRow = Rows.FirstOrDefault();
             if (Rows.Count == 0) { Detail = null; OnPropertyChanged(nameof(Detail)); }
@@ -284,6 +291,19 @@ public sealed class PunchingFemResultVM : ViewModelBase
           + (_selectedJoint.WarningsText.Length > 0 ? "\n" + _selectedJoint.WarningsText : "");
 
     public bool HasSelectedJoint => _selectedJoint != null;
+
+    /// <summary>Выбран узел стены (торец или угол): у таблицы ключей свои столбцы, «Торцы пилона» скрыты.</summary>
+    public bool IsWallJoint => _selectedJoint?.Data.Kind is "wall_end" or "wall_corner";
+    /// <summary>Столбец действия опоры: «Колонны» или «Стена в основании».</summary>
+    public string RowsColumnHeader => IsWallJoint ? Loc.S("PunchingFemColWallBase", "Стена в основании, кН") : Loc.S("PunchingFemColColumn", "Колонны, кН");
+    /// <summary>Столбец невязки; у стены — сила граней основания поперёк стены.</summary>
+    public string RowsMismatchHeader => IsWallJoint ? Loc.S("PunchingFemColWallFaces", "Грани поперёк стены, кН") : Loc.S("PunchingFemColMismatch", "Невязка, кН");
+    /// <summary>Столбец Mx; у торца стены — ΔM.</summary>
+    public string RowsMxHeader => _selectedJoint?.Data.Kind == "wall_end" ? "ΔM" : "Mx";
+    /// <summary>Подсказка к таблице ключей.</summary>
+    public string RowsHint => IsWallJoint
+        ? Loc.S("PunchingFemRowsHintWall", "«Стена в основании» — действие стены на плиту, «Разрез» — сила продавливания по граням основания вдоль контура, «Грани поперёк стены» — сила на гранях основания, пересекающих стену (в силу продавливания не входит); стена ≈ разрез + грани поперёк. У торца Mx — разность моментов плиты ΔM по сторонам стены (в расчёт ½ΔM), My не учитывается; у угла моменты не учитываются (СП 430, п. 6.3.8). Ниже — полный расчёт строки.")
+        : Loc.S("PunchingFemRowsHint", "");
 
     /// <summary>Вкладка расчёта узла: «Узел 47460».</summary>
     public string JointTabHeader => _selectedJoint == null ? Loc.S("PunchingFemJointTabEmpty", "Расчёт узла")

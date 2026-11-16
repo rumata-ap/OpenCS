@@ -106,12 +106,14 @@ public sealed class PunchingFemPlanCanvas : FrameworkElement
             dc.DrawGeometry(SlabFill, SlabPen, geo);
         }
 
-        var labels = new List<(PunchingFemJointResult J, Point At, double R)>();
+        // Box — экранная рамка значка узла: у стен кусок стены не центрирован на узле (торец, наружный угол), подпись — справа от рамки.
+        var labels = new List<(PunchingFemJointResult J, Rect Box)>();
         foreach (var j in d.Joints.Where(j => j.Origin.Length == 3 && OnLevel(j.Origin[2])))
         {
             var brush = PunchingFemStatus.Brush(j.Status, j.Passed);
             var at = P(j.Origin[0], j.Origin[1]);
             double r = 7;
+            var box = new Rect(at.X - r, at.Y - r, 2 * r, 2 * r);
             if (j.Area.Count >= 3)
             {
                 var pts = j.Area.Select(p => P(p[0], p[1])).ToList();
@@ -126,27 +128,29 @@ public sealed class PunchingFemPlanCanvas : FrameworkElement
                     }
                     geo.Freeze();
                     dc.DrawGeometry(brush, j.Node == SelectedNode ? SelectPen : null, geo);
+                    box = new Rect(new Point(pts.Min(p => p.X), pts.Min(p => p.Y)), new Point(pts.Max(p => p.X), pts.Max(p => p.Y)));
+                    at = new Point(box.X + box.Width / 2, box.Y + box.Height / 2);
                     r = size / 2;
                 }
                 else DrawMarker(dc, brush, at, r, j.Node == SelectedNode);
             }
             else DrawMarker(dc, brush, at, r, j.Node == SelectedNode);
             _hit.Add((j.Node, at, Math.Max(r, 8)));
-            labels.Add((j, at, r));
+            labels.Add((j, box));
         }
 
         // Подписи без наложений: выбранный узел, затем не прошедшие и с наибольшим Кисп; остальные — при увеличении.
-        var placed = new List<Rect>(labels.Select(l => new Rect(l.At.X - l.R, l.At.Y - l.R, 2 * l.R, 2 * l.R)));
+        var placed = new List<Rect>(labels.Select(l => l.Box));
         var order = labels
             .OrderByDescending(l => l.J.Node == SelectedNode)
             .ThenBy(l => l.J.Status == "no_check")
             .ThenBy(l => l.J.Passed)
             .ThenByDescending(l => l.J.Ratio);
-        foreach (var (j, at, r) in order)
+        foreach (var (j, box) in order)
         {
             string label = j.Status == "no_check" ? j.Node + " —" : j.Node + "  " + Variants.K(j.Ratio);
             var text = new FormattedText(label, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, Font, 11, TextBrush, dpi);
-            var rect = new Rect(at.X + r + 3, at.Y - text.Height / 2, text.Width, text.Height);
+            var rect = new Rect(box.Right + 3, box.Y + box.Height / 2 - text.Height / 2, text.Width, text.Height);
             bool selected = j.Node == SelectedNode;
             // Свой маркер (первые labels.Count прямоугольников — маркеры) пересечением не считается.
             if (!selected && placed.Where((p, i) => i >= labels.Count || labels[i].J != j).Any(p => p.IntersectsWith(rect))) continue;
