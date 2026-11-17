@@ -993,6 +993,40 @@ public sealed class PunchingFemServiceTests : IDisposable
         Assert.Contains("SCAD", check.Source);
     }
 
+    /// <summary>
+    /// Сочетание программы, разложенное на загружения (подбор коэффициентов строки РСУ/РСН ЛИРЫ): ключ по номерам
+    /// загружений снимка → усилия узла = суперпозиция загружений, включая нагрузку основания.
+    /// </summary>
+    [Fact]
+    public void Imported_WithKeys_ProgramCombination()
+    {
+        var s = Create();
+        using var db = s.Db;
+        var lc = db.GetFemLoadCases(s.Schema.Id);
+        ScadSnapshotFromCsfea(db, s.Schema, s.Analysis, lc);
+
+        var diag = new List<FemValidationDiagnostic>();
+        var source = PunchingFemService.OpenImported(db, s.Schema, CScore.Fem.Fragment.Masks.FragmentMaskSet.SourceScad, diag);
+        Assert.True(source != null, string.Join("; ", diag.Select(d => d.Message)));
+        Assert.NotNull(source!.ProgramLoadCases);
+        Assert.Equal(lc[0].Id, source.ProgramLoadCases![1]);
+        var data = PunchingFemService.Load(db, s.Schema, new PunchingFemOptions());
+        var joint = Assert.Single(data.Joints);
+        var perCase = PunchingFemService.Evaluate(data, source, joint);
+        var post = perCase.ByKey[source.Keys.Single(k => k.Label == "Пост.").Key];
+        var wind = perCase.ByKey[source.Keys.Single(k => k.Label == "Ветер").Key];
+
+        var key = CScore.Fem.Fragment.Masks.FragmentMaskKey.OfStageTerms(
+            [(source.ProgramLoadCases[1], 0.95), (source.ProgramLoadCases[2], -0.9)]);
+        var combined = source.WithKeys([(key, "РСУ э.1 с1 к18")]);
+        Assert.Equal("РСУ э.1 с1 к18", Assert.Single(combined.Keys).Label);
+        var f = PunchingFemService.Evaluate(data, combined, joint).ByKey[key];
+        Assert.Equal(0.95 * post.ColumnAction!.Value - 0.9 * wind.ColumnAction!.Value, f.ColumnAction!.Value, 3);
+        Assert.Equal(0.95 * post.BaseLoad!.Value - 0.9 * wind.BaseLoad!.Value, f.BaseLoad!.Value, 6);
+        Assert.Equal(0.95 * post.Mx - 0.9 * wind.Mx, f.Mx, 3);
+        Assert.Equal(0.95 * post.My - 0.9 * wind.My, f.My, 3);
+    }
+
     [Fact]
     public void TaskParams_RunCore()
     {

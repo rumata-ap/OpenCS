@@ -47,10 +47,33 @@ public sealed class PunchingFemSource
     /// <summary>Без узловых сил — справочный разрез по усилиям пластин (<see cref="PunchingFemShellCut"/>).</summary>
     public bool ShellCut { get; init; }
     /// <summary>
-    /// Нагрузки (и реакции опор у CSfea) внутри границ по ключам, Н и Н·м относительно точки; null — нагрузки схемы
-    /// неизвестны.
+    /// Нагрузки (и реакции опор у CSfea) внутри границ по заданным ключам, Н и Н·м относительно точки; ключ без данных
+    /// пропускается. null — нагрузки схемы неизвестны.
     /// </summary>
-    public Func<FragmentBounds, PlanarVector3, IReadOnlyDictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>>? BaseLoads { get; init; }
+    public Func<FragmentBounds, PlanarVector3, IReadOnlyList<FragmentMaskKey>, IReadOnlyDictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>>? BaseLoads { get; init; }
+
+    /// <summary>
+    /// Снимок импорта: номер загружения в программе → Id загружения схемы. У таких источников результат —
+    /// суперпозиция загружений, и годится любой ключ-сочетание (<see cref="WithKeys"/>). null — не снимок импорта.
+    /// </summary>
+    public IReadOnlyDictionary<int, int>? ProgramLoadCases { get; init; }
+
+    /// <summary>
+    /// Тот же снимок импорта с другими ключами — например, сочетаниями ЛИРЫ, разложенными на загружения
+    /// (<see cref="CScore.Import.LiraCombinationFit"/>). Только для снимков импорта (<see cref="ProgramLoadCases"/>).
+    /// </summary>
+    public PunchingFemSource WithKeys(IReadOnlyList<(FragmentMaskKey Key, string Label)> keys)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        if (ProgramLoadCases == null || Result is not PunchingFemCombinedResult combined)
+            throw new InvalidOperationException("Ключи-сочетания задаются только у снимка результатов импорта.");
+        return new PunchingFemSource
+        {
+            Kind = Kind, Label = Label, Keys = keys, Result = combined.WithKeys(keys.Select(k => k.Key).ToList()),
+            Nodal = Nodal, NodalUnavailable = NodalUnavailable, ShellCut = ShellCut, BaseLoads = BaseLoads,
+            ProgramLoadCases = ProgramLoadCases,
+        };
+    }
 }
 
 /// <summary>Усилия узла по ключам и сведения о разрезе.</summary>
@@ -255,12 +278,14 @@ public static class PunchingFemService
             Result = parentResult,
             Nodal = nodal,
             NodalUnavailable = unavailable,
-            BaseLoads = !loadsKnown ? null : (bounds, origin) =>
+            BaseLoads = !loadsKnown ? null : (bounds, origin, wanted) =>
             {
                 var perCase = preparedLoads.Value.Compute(bounds, origin);
                 var byKey = new Dictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>();
-                foreach (var (key, fields, _) in steps)
+                foreach (var key in wanted)
                 {
+                    // Реакции опор есть только у шагов расчёта.
+                    if (!fieldsByKey.TryGetValue(key, out var fields)) continue;
                     var f = PlanarVector3.Zero;
                     var m = PlanarVector3.Zero;
                     foreach (var (lc, k) in key.Terms())
@@ -339,17 +364,17 @@ public static class PunchingFemService
                 keys.Add((FragmentMaskKey.OfStageTerms([(id, 1.0)]), caseTag.GetValueOrDefault(id, $"#{id}")));
         }
 
-        Func<FragmentBounds, PlanarVector3, IReadOnlyDictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>>? baseLoads = null;
+        Func<FragmentBounds, PlanarVector3, IReadOnlyList<FragmentMaskKey>, IReadOnlyDictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>>? baseLoads = null;
         try
         {
             var model = StoreyFragmentMaskService.ParentModelOf(db, schema.Id, new FemCsfeaSetup(), sections: false);
             var prepared = new Lazy<FragmentBandLoads.Prepared>(() => new FragmentBandLoads.Prepared(model.Input, model.Loads));
             if (model.Adapted.Model.LoadCases.Count > 0)
-                baseLoads = (bounds, origin) =>
+                baseLoads = (bounds, origin, wanted) =>
                 {
                     var perCase = prepared.Value.Compute(bounds, origin);
                     var byKey = new Dictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>();
-                    foreach (var (key, _) in keys)
+                    foreach (var key in wanted)
                     {
                         var f = PlanarVector3.Zero;
                         var m = PlanarVector3.Zero;
@@ -375,6 +400,7 @@ public static class PunchingFemService
             NodalUnavailable = $"импорт {program} — узловых сил КЭ программы нет",
             ShellCut = true,
             BaseLoads = baseLoads,
+            ProgramLoadCases = byNum,
         };
     }
 
@@ -413,7 +439,7 @@ public static class PunchingFemService
 
         // Нагрузки основания: тонкая полоса у плиты (стержни колонн в неё почти не попадают).
         IReadOnlyDictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>? baseLoads =
-            source.BaseLoads?.Invoke(PunchingFemColumnAction.BaseBounds(joint, BaseLoadHalfBand), joint.Origin);
+            source.BaseLoads?.Invoke(PunchingFemColumnAction.BaseBounds(joint, BaseLoadHalfBand), joint.Origin, keys);
 
         PunchingFemCutResult? cut = null;
         string? cutFailure = null;

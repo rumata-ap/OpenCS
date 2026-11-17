@@ -12,6 +12,9 @@ public sealed class PunchingFemCombinedResult(IFragmentParentResult inner, IRead
 {
     public IReadOnlyList<FragmentMaskKey> Keys => keys;
 
+    /// <summary>Тот же исходный результат с другими ключами.</summary>
+    public PunchingFemCombinedResult WithKeys(IReadOnlyList<FragmentMaskKey> other) => new(inner, other);
+
     public bool KnowsBeamLoads => inner.KnowsBeamLoads;
 
     public bool TryNodeDisplacement(FragmentMaskKey key, string meshNodeTag, out Dof6 displacement)
