@@ -37,8 +37,11 @@ public sealed class PunchingPlanCanvas : FrameworkElement
     /// <summary>Тон вердикта: не проходит.</summary>
     public static readonly Color FailColor = Color.FromRgb(0xC0, 0x39, 0x2B);
 
-    /// <summary>Цвет по Кисп (пороги — как у пакетов).</summary>
-    public static Color VerdictColor(double k) =>
+    /// <summary>Тон контура без расчёта (геометрия до проверки по МКЭ).</summary>
+    public static readonly Color NeutralColor = Color.FromRgb(0x47, 0x55, 0x69);
+
+    /// <summary>Цвет по Кисп (пороги — как у пакетов); NaN — контур без расчёта, нейтральный.</summary>
+    public static Color VerdictColor(double k) => double.IsNaN(k) ? NeutralColor :
         !double.IsFinite(k) || k > 1.0 ? FailColor : k >= ViewModels.BatchVerdictView.NearLimitUtilization ? NearColor : OkColor;
 
     readonly List<(string Id, List<Point> Pts)> _hit = [];
@@ -268,7 +271,8 @@ public sealed class PunchingPlanCanvas : FrameworkElement
         _tip.IsOpen = false;
         if (v is not null)
         {
-            _tip.Content = $"{Variants.Title(v.Kind, v.Zone, v.Id, Scene!.Edges.Count)}\n{Utilites.Loc.S("PunchingKisp", "Кисп")} = {Variants.K(v.Utilization)}";
+            string title = Variants.Title(v.Kind, v.Zone, v.Id, Scene!.Edges.Count);
+            _tip.Content = double.IsNaN(v.Utilization) ? title : $"{title}\n{Utilites.Loc.S("PunchingKisp", "Кисп")} = {Variants.K(v.Utilization)}";
             _tip.IsOpen = true;
         }
         InvalidateVisual();

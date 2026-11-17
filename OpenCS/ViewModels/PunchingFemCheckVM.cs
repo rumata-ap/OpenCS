@@ -553,7 +553,9 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         try
         {
             var input = tp.ToInput(Math.Max(strengths.Rbt, 1), strengths.Rsw);
-            Scene = PunchingScene.FromInput(input);
+            // Контуры ядра по геометрии узла без усилий: Кисп неизвестен до проверки — NaN (нейтральный цвет, без Кисп в подсказке).
+            var geometryOnly = PunchingScene.From(input, PunchingChecker.Check(input, includeTrace: false));
+            Scene = geometryOnly with { Variants = geometryOnly.Variants.Select(v => v with { Utilization = double.NaN, Governs = false }).ToList() };
             var c = CultureInfo.CurrentCulture;
             PreviewText = string.Format(c, Loc.S("PunchingFemPreview",
                     "Узел {0}: {1}, h = {2:0} мм, h0 = {3:0.#} мм, ax = {4:0}, ay = {5:0} мм{6}; бетон {7}. Усилия — из расчёта, Кисп — в результате проверки."),
