@@ -288,6 +288,28 @@ public class PunchingCoreTests
     }
 
     [Fact]
+    public void Hole_FlushWithPylonFace_CutsContourBetweenTangents()
+    {
+        // Вопрос из чата 17.11: отверстие вплотную к грани пилона. Пилон 1,2×0,3, h0 = 0,2; отверстие 0,3×0,3
+        // у длинной грани (x = 0,2…0,5, y = 0,15…0,45) — касается площади, расстояние 0.
+        var hole = new PunchingHole(new PlanPoint[] { new(0.2, 0.15), new(0.5, 0.15), new(0.5, 0.45), new(0.2, 0.45) });
+        var r = PunchingChecker.Check(Rect(1.2, 0.3, 0.2, 300, holes: new[] { hole }));
+        var v = V(r, "closed");
+        // Контур 1,4×0,5. Касательные из центра: через (0,5; 0,15) — y = 0,3x, выходит на правую сторону x = 0,7 при
+        // y = 0,21; через (0,2; 0,45) — y = 2,25x, на верхнюю y = 0,25 при x = 1/9. Вычет: 0,7 − 1/9 сверху и 0,04 справа.
+        double cut = 0.7 - 1.0 / 9 + 0.04;
+        Assert.Equal(cut, v.Variant.Excluded.Sum(e => e.Length), 9);
+        Assert.Equal(2 * (1.4 + 0.5) - cut, v.Geometry.U, 9);
+        Assert.Contains(r.Warnings, w => w.Code == "hole_excluded");
+        // Остальные контуры у пилона (в т.ч. по СП 430) тоже теряют часть у отверстия, расчёт конечен.
+        Assert.All(r.Variants.Where(x => x.Variant.Zone == PunchingZone.Main), x =>
+        {
+            Assert.True(x.Variant.Excluded.Sum(e => e.Length) > 0, x.Variant.Id);
+            Assert.True(double.IsFinite(x.Utilization) && x.Utilization > 0, x.Variant.Id);
+        });
+    }
+
+    [Fact]
     public void Hole_InfluenceZoneIs6hFullThickness_Not6h0()
     {
         // П. 8.1.46: «на расстоянии менее 6h» — полная толщина. Отверстие на 1,4 м от грани: 7h0 при h0 = 0,2,

@@ -136,6 +136,11 @@ public sealed class PunchingTaskTests
         Assert.Contains("hole_overlaps_area", overlap.Validate());
         var near = Gosha() with { Holes = [new PunchingHoleParams { Cx = 0, Cy = 0.55, Bx = 0.2, By = 0.2 }] };
         Assert.DoesNotContain("hole_overlaps_area", near.Validate());
+        // Вплотную к грани (касание) — допускается: у торца пилона (y = 0,4) и у длинной грани (x = 0,125).
+        var flushEnd = Gosha() with { Holes = [new PunchingHoleParams { Cx = 0, Cy = 0.5, Bx = 0.2, By = 0.2 }] };
+        Assert.Empty(flushEnd.Validate());
+        var flushSide = Gosha() with { Holes = [new PunchingHoleParams { Cx = 0.225, Cy = 0, Bx = 0.2, By = 0.3 }] };
+        Assert.Empty(flushSide.Validate());
         Assert.Contains("edges_opposite", Gosha(new() { Side = "+x" }, new() { Side = "-x" }).Validate());
         Assert.Contains("edges_same_side", Gosha(new() { Side = "+x" }, new() { Side = "+x" }).Validate());
         Assert.Empty(Gosha(new() { Side = "+x" }, new() { Side = "-y" }).Validate());
