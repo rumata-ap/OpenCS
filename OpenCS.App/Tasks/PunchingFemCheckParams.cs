@@ -21,6 +21,8 @@ public sealed record PunchingFemJointOverride
     public string? Capital { get; init; }
     /// <summary>Капитель, заданная вручную (м).</summary>
     public PunchingCapitalParams? CapitalManual { get; init; }
+    /// <summary>Основной контур узла: null — по проверке (<see cref="PunchingFemCheckParams.LiraContour"/>), "opencs", "lira".</summary>
+    public string? Contour { get; init; }
 }
 
 /// <summary>
@@ -60,6 +62,18 @@ public sealed record PunchingFemCheckParams
     public double EdgeInfluence { get; init; } = 6;
     /// <summary>Вытянутость сечения, начиная с которой — стена, а не пилон.</summary>
     public double WallRatio { get; init; } = 4;
+    /// <summary>
+    /// Основной контур на h0/2 — контур ЛИРЫ из приложенного к схеме *.asp (для сверки с ЛИРОЙ по той же геометрии);
+    /// узел без записи ЛИРЫ — контур OpenCS. Узлу можно задать своё (<see cref="PunchingFemJointOverride.Contour"/>).
+    /// </summary>
+    public bool LiraContour { get; init; }
+    /// <summary>Основной контур узла — ЛИРЫ: по переопределению узла, иначе по проверке.</summary>
+    public bool UsesLiraContour(string node) => Overrides.FirstOrDefault(o => o.Node == node)?.Contour switch
+    {
+        "lira" => true,
+        "opencs" => false,
+        _ => LiraContour,
+    };
     /// <summary>Переопределения узлов (исключение, привязки, арматура).</summary>
     public List<PunchingFemJointOverride> Overrides { get; init; } = [];
 

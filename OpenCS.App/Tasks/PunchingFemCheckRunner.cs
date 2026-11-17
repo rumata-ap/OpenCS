@@ -94,6 +94,10 @@ public sealed record PunchingFemJointResult
     public bool? DesignSufficient { get; init; }
     /// <summary>Результат ЛИРЫ по этому узлу из приложенного к схеме *.asp; null — файла нет или узел ЛИРА не считала.</summary>
     public PunchingFemLiraJson? Lira { get; init; }
+    /// <summary>Основной контур на h0/2 — контур ЛИРЫ (а не OpenCS).</summary>
+    public bool LiraContour { get; init; }
+    /// <summary>При контуре ЛИРЫ — справочно u определяющего основного контура OpenCS, м.</summary>
+    public double? UOpenCs { get; init; }
 }
 
 /// <summary>Узел продавливания ЛИРЫ (таблица 47) для сверки: результат и расчётный контур.</summary>
@@ -258,14 +262,10 @@ public static class PunchingFemCheckRunner
         var materials = db.Materials.ToList();
         var excluded = p.Overrides.Where(o => o.Excluded).Select(o => o.Node).ToHashSet(StringComparer.Ordinal);
         var joints = schemaData.Joints.Where(j => !excluded.Contains(j.NodeTag)).ToList();
-        var results = new List<PunchingFemJointResult>();
-        for (int i = 0; i < joints.Count; i++)
-        {
-            token.ThrowIfCancellationRequested();
-            results.Add(Joint(schemaData, source, joints[i], p, materials, calcType));
-            progress?.Report((i + 1.0) / Math.Max(1, joints.Count));
-        }
+
+        // ЛИРА (*.asp схемы): сверка результата и, в режиме «контур ЛИРЫ», основной контур узла.
         string? aspName = null;
+        var liraByNode = new Dictionary<string, CScore.Import.LiraAspPunching>(StringComparer.Ordinal);
         if (PunchingFemService.LoadLiraAsp(db, schemaId) is { } asp)
         {
             aspName = asp.FileName;
@@ -274,15 +274,26 @@ public static class PunchingFemCheckRunner
             else if (asp.File is { Punching.Count: > 0 } file)
             {
                 var match = PunchingFemService.MatchLira(file, schemaData.Joints);
-                for (int i = 0; i < results.Count; i++)
-                    if (match.ByNode.TryGetValue(results[i].Node, out var rec))
-                        results[i] = results[i] with { Lira = PunchingFemLiraJson.From(rec) };
+                foreach (var (node, rec) in match.ByNode) liraByNode[node] = rec;
                 if (match.Unmatched.Count > 0)
                     warnings.Add(new("punching_fem_lira_unmatched", string.Create(CultureInfo.GetCultureInfo("ru-RU"),
                         $"Узлов продавливания ЛИРЫ ({asp.FileName}) без пары среди найденных узлов схемы: {match.Unmatched.Count} " +
                         $"({string.Join(", ", match.Unmatched.Take(12).Select(r => r.Node is int n ? $"узел {n}" : $"запись {r.Index}"))}" +
                         $"{(match.Unmatched.Count > 12 ? ", …" : "")}).")));
             }
+        }
+        if (aspName == null && (p.LiraContour || p.Overrides.Any(o => o.Contour == "lira")))
+            warnings.Add(new("punching_fem_lira_contour_no_asp",
+                "Задан основной контур по ЛИРЕ, но подбор ЛИРЫ (*.asp) к схеме не приложен — контуры OpenCS."));
+
+        var results = new List<PunchingFemJointResult>();
+        for (int i = 0; i < joints.Count; i++)
+        {
+            token.ThrowIfCancellationRequested();
+            var lira = liraByNode.GetValueOrDefault(joints[i].NodeTag);
+            var jr = Joint(schemaData, source, joints[i], p, materials, calcType, lira);
+            results.Add(lira != null ? jr with { Lira = PunchingFemLiraJson.From(lira) } : jr);
+            progress?.Report((i + 1.0) / Math.Max(1, joints.Count));
         }
         if (joints.Count == 0)
             warnings.Add(new("punching_fem_no_joints",
@@ -360,9 +371,25 @@ public static class PunchingFemCheckRunner
     }
 
     static PunchingFemJointResult Joint(PunchingFemSchemaData data, PunchingFemSource source, PunchingFemJoint joint,
-        PunchingFemCheckParams p, IReadOnlyList<Material> materials, CalcType calcType)
+        PunchingFemCheckParams p, IReadOnlyList<Material> materials, CalcType calcType, CScore.Import.LiraAspPunching? lira = null)
     {
         var warnings = joint.Warnings.Select(w => new PunchingWarningJson(w.Code, w.Text)).ToList();
+        // Основной контур по ЛИРЕ: её отрезки в осях узла — контур пользователя вместо контуров OpenCS на h0/2.
+        PunchingCustomContourParams? liraContour = null;
+        if (p.UsesLiraContour(joint.NodeTag) && joint.NoCheck == null)
+        {
+            if (joint.IsWall)
+                warnings.Add(new("punching_fem_lira_contour_wall", "Узел стены: контур ЛИРЫ не применяется — контуры по СП 430."));
+            else if (lira == null)
+                warnings.Add(new("punching_fem_lira_contour_missing", "ЛИРА этот узел не считала (нет записи в *.asp) — контур OpenCS."));
+            else if (PunchingFemLiraContour.ToLocal(joint, lira.Contour) is not var (pts, inactive))
+                warnings.Add(new("punching_fem_lira_contour_broken", "Отрезки контура ЛИРЫ не сцепляются в один контур — контур OpenCS."));
+            else
+                liraContour = new PunchingCustomContourParams
+                {
+                    Name = "ЛИРА", Points = pts.Select(q => new[] { q.X, q.Y }).ToList(), InactiveEdges = [.. inactive],
+                };
+        }
         var baseResult = new PunchingFemJointResult
         {
             Node = joint.NodeTag, Slab = joint.SlabIndex,
@@ -461,6 +488,8 @@ public static class PunchingFemCheckRunner
                 mismatchKey = label;
             }
             var tp = PunchingFemService.TaskParams(joint, f, p, data.Schema.Tag, label);
+            if (liraContour != null)
+                tp = tp with { CustomContours = [liraContour], Options = tp.Options with { CustomReplacesMain = true } };
             var row = new PunchingFemRow
             {
                 Key = label, F = tp.Forces.F, Mx = tp.Forces.Mx, My = tp.Forces.My, Side = tp.Forces.LoadSide,
@@ -545,8 +574,19 @@ public static class PunchingFemCheckRunner
 
         var gov = rows.MaxBy(r => r.Ratio)!;
         var status = rows.Select(r => r.Status).OrderByDescending(Rank).First();
+
+        // Справочно при контуре ЛИРЫ: u определяющего основного контура OpenCS при тех же усилиях.
+        double? uOpenCs = null;
+        if (liraContour != null && strengths != null)
+        {
+            var plain = governingParams! with { CustomContours = [], Options = governingParams.Options with { CustomReplacesMain = false } };
+            uOpenCs = PunchingChecker.Check(plain.ToInput(strengths.Rbt, strengths.Rsw), includeTrace: false).Variants
+                .Where(v => v.Variant.Zone == PunchingZone.Main && v.Variant.Kind != PunchingVariantKind.PylonReduced)
+                .MaxBy(v => v.Utilization)?.Geometry.U;
+        }
         return baseResult with
         {
+            LiraContour = liraContour != null, UOpenCs = uOpenCs,
             Status = status, Passed = rows.All(r => r.Passed), Ratio = gov.Ratio, GoverningKey = gov.Key,
             DesignState = design == null ? null : design.State switch
             {

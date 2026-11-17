@@ -642,6 +642,41 @@ public sealed class PunchingFemServiceTests : IDisposable
         Assert.Contains("6", row.LiraText);
     }
 
+    /// <summary>
+    /// Основной контур по ЛИРЕ: квадрат 0,74 м из *.asp вместо контура OpenCS 0,57 м (колонна 0,4 + h0 0,17); u OpenCS —
+    /// справочно; переопределение узла «opencs» возвращает контур OpenCS; узел без *.asp — предупреждение.
+    /// </summary>
+    [Fact]
+    public void LiraContour_ReplacesMainContour_NodeOverride()
+    {
+        var s = Create();
+        using var db = s.Db;
+        var joint = Assert.Single(PunchingFemService.Load(db, s.Schema, new PunchingFemOptions()).Joints);
+        var p = new PunchingFemCheckParams { SourceRef = s.Analysis.Id.ToString(CultureInfo.InvariantCulture), LiraContour = true };
+
+        // Без *.asp — контуры OpenCS и предупреждение.
+        var noAsp = PunchingFemCheckRunner.Compute(db, s.Schema.Id, p, CalcType.C);
+        Assert.False(Assert.Single(noAsp.Joints).LiraContour);
+        Assert.Contains(noAsp.Warnings, w => w.Code == "punching_fem_lira_contour_no_asp");
+
+        db.SaveFemSchemaSelectedReinforcementFile(s.Schema.Id, "plita.asp", LiraAsp((int.Parse(joint.NodeTag, CultureInfo.InvariantCulture), joint.Origin, 0f, 2f)));
+        var plain = Assert.Single(PunchingFemCheckRunner.Compute(db, s.Schema.Id, p with { LiraContour = false }, CalcType.C).Joints);
+        var lira = Assert.Single(PunchingFemCheckRunner.Compute(db, s.Schema.Id, p, CalcType.C).Joints);
+        Assert.False(plain.LiraContour);
+        Assert.True(lira.LiraContour);
+        Assert.Equal("custom_0", lira.Rows.Single(r => r.Key == lira.GoverningKey).Governing);
+        Assert.Equal(4 * (0.4 + joint.H0), lira.UOpenCs!.Value, 3);
+        // Без моментов Кисп обратно пропорционален u: 0,57/0,74.
+        Assert.Equal(plain.Ratio * (0.4 + joint.H0) / 0.74, lira.Ratio, 2);
+        // «Создать задачу» по строке — тот же контур ЛИРЫ.
+        var rp = PunchingFemCheckRunner.RowParams(lira, lira.Rows[0])!;
+        Assert.True(rp.Options.CustomReplacesMain);
+        Assert.Equal("ЛИРА", Assert.Single(rp.CustomContours).Name);
+
+        var over = p with { Overrides = [new PunchingFemJointOverride { Node = joint.NodeTag, Contour = "opencs" }] };
+        Assert.False(Assert.Single(PunchingFemCheckRunner.Compute(db, s.Schema.Id, over, CalcType.C).Joints).LiraContour);
+    }
+
     /// <summary>*.asp v6 без пластин и стержней: записи продавливания (узел, Asw, Ksw) и квадратные контуры 0,74 м.</summary>
     static byte[] LiraAsp(params (int Node, PlanarVector3 At, float Asw, float Ksw)[] recs)
     {
