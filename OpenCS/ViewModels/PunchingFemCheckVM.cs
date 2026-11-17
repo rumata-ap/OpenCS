@@ -98,7 +98,23 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
     public int SwRows { get => _swRows; set => Set(ref _swRows, value); }
 
     /// <summary>Капитель узла: "auto" — по схеме, "none" — без капители, "manual" — размеры строки.</summary>
-    public string CapitalMode { get => _capitalMode; set => Set(ref _capitalMode, value is "none" or "manual" ? value : "auto"); }
+    public string CapitalMode
+    {
+        get => _capitalMode;
+        set
+        {
+            string mode = value is "none" or "manual" ? value : "auto";
+            if (mode == _capitalMode) return;
+            // «По схеме» — размеры снова распознанные (правки «вручную» не остаются висеть в строке).
+            if (mode == "auto" && Joint.Capital is { Area: PunchingLoadArea.Rectangle cr } cap)
+            {
+                _capBx = cr.Bx * 1000; _capBy = cr.By * 1000; _capHc = cap.Hc * 1000;
+            }
+            Set(ref _capitalMode, mode);
+            foreach (var n in new[] { nameof(CapBx), nameof(CapBy), nameof(CapHc) })
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
+        }
+    }
     /// <summary>Режимы капители для списка.</summary>
     public static IReadOnlyList<PunchingChoice> CapitalModes { get; } =
     [
@@ -108,9 +124,23 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
     /// <summary>Что распознано в схеме (подсказка).</summary>
     public string CapitalAutoText { get; } = "";
     /// <summary>Размеры капители, мм; правка переводит узел в режим «вручную».</summary>
-    public double CapBx { get => _capBx; set { if (_capBx == value) return; Set(ref _capBx, value); CapitalMode = "manual"; } }
-    public double CapBy { get => _capBy; set { if (_capBy == value) return; Set(ref _capBy, value); CapitalMode = "manual"; } }
-    public double CapHc { get => _capHc; set { if (_capHc == value) return; Set(ref _capHc, value); CapitalMode = "manual"; } }
+    /// <remarks>Пусто, когда капители нет (режим «нет» или «по схеме» без капители в схеме); ввод любого числа, даже
+    /// прежнего, переводит узел в «вручную».</remarks>
+    public double? CapBx { get => ShowCapital ? _capBx : null; set => SetCapital(ref _capBx, value); }
+    public double? CapBy { get => ShowCapital ? _capBy : null; set => SetCapital(ref _capBy, value); }
+    public double? CapHc { get => ShowCapital ? _capHc : null; set => SetCapital(ref _capHc, value); }
+
+    /// <summary>Размеры капители видны: «вручную» или распознанная в схеме при «по схеме».</summary>
+    bool ShowCapital => _capitalMode == "manual" || (_capitalMode == "auto" && Joint.Capital != null);
+
+    void SetCapital(ref double field, double? value, [CallerMemberName] string? name = null)
+    {
+        if (value is not double v) return;
+        field = v;
+        CapitalMode = "manual";
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        Changed?.Invoke();
+    }
 
     /// <summary>Переопределение узла; null — переопределять нечего.</summary>
     public PunchingFemJointOverride? ToOverride(PunchingReinforcementParams common) =>

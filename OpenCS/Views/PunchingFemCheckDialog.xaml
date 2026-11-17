@@ -317,9 +317,9 @@
                      </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                </DataGridTemplateColumn>
-               <DataGridTextColumn Header="bc,x, мм" Binding="{Binding CapBx, Converter={StaticResource AnyDoubleConv}}" Width="Auto"/>
-               <DataGridTextColumn Header="bc,y, мм" Binding="{Binding CapBy, Converter={StaticResource AnyDoubleConv}}" Width="Auto"/>
-               <DataGridTextColumn Header="hc, мм" Binding="{Binding CapHc, Converter={StaticResource AnyDoubleConv}}" Width="Auto"/>
+               <DataGridTextColumn Header="bc,x, мм" Binding="{Binding CapBx, Converter={StaticResource AnyDoubleConv}, TargetNullValue=''}" Width="Auto"/>
+               <DataGridTextColumn Header="bc,y, мм" Binding="{Binding CapBy, Converter={StaticResource AnyDoubleConv}, TargetNullValue=''}" Width="Auto"/>
+               <DataGridTextColumn Header="hc, мм" Binding="{Binding CapHc, Converter={StaticResource AnyDoubleConv}, TargetNullValue=''}" Width="Auto"/>
                <DataGridTemplateColumn Header="{DynamicResource PunchingFemColOwnSw}" Width="Auto" SortMemberPath="OwnSw">
                   <DataGridTemplateColumn.CellTemplate>
                      <DataTemplate>

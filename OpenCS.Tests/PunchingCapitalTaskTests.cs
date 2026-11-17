@@ -92,6 +92,44 @@ public sealed class PunchingCapitalTaskTests
     }
 
     [Fact]
+    public void FemJointRow_CapitalCells_EmptyWithoutCapital_AnyInputGoesManual()
+    {
+        var joint = new CScore.Sp63Punching.Fem.PunchingFemJoint
+        {
+            NodeTag = "7", Origin = default, AxisX = new(1, 0, 0), AxisY = new(0, 1, 0), Normal = new(0, 0, 1),
+            Area = new PunchingLoadArea.Rectangle(0.4, 0.4),
+        };
+        var row = new OpenCS.ViewModels.PunchingFemJointPickVM(joint, null);
+        Assert.Equal("auto", row.CapitalMode);
+        Assert.Null(row.CapBx);
+        Assert.Null(row.ToOverride(new PunchingReinforcementParams()));
+
+        row.CapHc = 150;   // любой ввод — «вручную», прочие размеры — по умолчанию
+        Assert.Equal("manual", row.CapitalMode);
+        Assert.Equal(1200, row.CapBx);
+        var o = row.ToOverride(new PunchingReinforcementParams())!;
+        Assert.Equal("manual", o.Capital);
+        Assert.Equal(0.15, o.CapitalManual!.Hc, 12);
+
+        row.CapitalMode = "auto";
+        Assert.Null(row.CapBx);
+        Assert.Null(row.ToOverride(new PunchingReinforcementParams()));
+
+        // Капитель в схеме: «по схеме» показывает её; правка того же числа — тоже «вручную»; «по схеме» возвращает размеры.
+        var withCap = joint with { Capital = new PunchingCapital(new PunchingLoadArea.Rectangle(1.0, 0.8), 0.1) };
+        var r2 = new OpenCS.ViewModels.PunchingFemJointPickVM(withCap, null);
+        Assert.Equal(1000, r2.CapBx);
+        r2.CapBx = 1000;
+        Assert.Equal("manual", r2.CapitalMode);
+        r2.CapBy = 1500;
+        r2.CapitalMode = "auto";
+        Assert.Equal(800, r2.CapBy);
+        r2.CapitalMode = "none";
+        Assert.Null(r2.CapHc);
+        Assert.Equal("none", r2.ToOverride(new PunchingReinforcementParams())!.Capital);
+    }
+
+    [Fact]
     public void Runner_TwoChecks_InDataJson_AndReport()
     {
         var result = PunchingRunner.Run(Task(Node()), CalcSettings.Default, null);
