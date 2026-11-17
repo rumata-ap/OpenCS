@@ -37,6 +37,12 @@ public sealed record PunchingVariantResult(
 {
     /// <summary>Условие прочности выполнено.</summary>
     public bool Passed => Utilization <= 1.0;
+
+    /// <summary>Рабочая высота варианта, м (у колонны с капителью — h0 + hc).</summary>
+    public double H0 { get; init; }
+
+    /// <summary>Площадь основания пирамиды варианта, м² (за капителью — от грани капители).</summary>
+    public double BaseArea { get; init; }
 }
 
 /// <summary>Поперечная арматура в варианте контура (пп. 8.1.48, 8.1.50, 8.1.52). Значения — до порога 0,25Fb и предела 2Fb.</summary>
@@ -106,10 +112,22 @@ public sealed class PunchingGeometryCache
     /// <summary>Участки под лучами креста по id варианта основной зоны (пусто — не крест).</summary>
     public IReadOnlyDictionary<string, PunchingArmedSegments> Armed { get; }
 
+    /// <summary>Геометрия проверки за капителью; null — капители нет.</summary>
+    public PunchingGeometryCache? CapitalPart { get; private init; }
+
     /// <summary>Строит геометрию по исходным данным (усилия не используются).</summary>
     public static PunchingGeometryCache Prepare(PunchingInput input)
     {
         ArgumentNullException.ThrowIfNull(input);
+        if (input.Capital is not null)
+        {
+            PunchingCapitalCheck.Validate(input);
+            var column = Prepare(PunchingCapitalCheck.ColumnPart(input));
+            return new PunchingGeometryCache(column.Build, column.BaseArea, column.Properties, column.Armed)
+            {
+                CapitalPart = Prepare(PunchingCapitalCheck.CapitalPart(input)),
+            };
+        }
         input = input.Normalized();
         var build = PunchingContourBuilder.Build(input);
         var props = build.Variants.Where(v => v.Kind != PunchingVariantKind.PylonReduced)
@@ -138,6 +156,15 @@ public static class PunchingChecker
 
     /// <summary>Расчёт с qsw раскладки, умноженным на <paramref name="swScale"/> (подбор).</summary>
     internal static PunchingResult Check(PunchingInput input, bool includeTrace, PunchingGeometryCache? geometry, double swScale)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        return input.Capital is not null
+            ? PunchingCapitalCheck.Check(input, includeTrace, geometry, swScale)
+            : CheckSingle(input, includeTrace, geometry, swScale);
+    }
+
+    /// <summary>Проверка одной зоны без капители (у капители — каждая из двух частей).</summary>
+    internal static PunchingResult CheckSingle(PunchingInput input, bool includeTrace, PunchingGeometryCache? geometry, double swScale)
     {
         ArgumentNullException.ThrowIfNull(input);
         if (!(input.H0 > 0)) throw new ArgumentException("Рабочая высота h0 должна быть больше нуля.", nameof(input));
@@ -171,7 +198,8 @@ public static class PunchingChecker
                 [string.Join(", ", bad.Select(b => b.Code))]));
 
         var ctx = new Context(input, options, fred, baseArea, warnings, includeTrace, geometry, sw, swScale);
-        var results = build.Variants.Select(v => Evaluate(ctx, v)).ToList();
+        double h0Variant = input.H0;
+        var results = build.Variants.Select(v => Evaluate(ctx, v) with { H0 = h0Variant, BaseArea = baseArea }).ToList();
 
         int gov = -1;
         double util = 0;
@@ -185,7 +213,7 @@ public static class PunchingChecker
         else
             results[gov] = results[gov] with { Governs = true };
 
-        var statusSet = results.Where(r => Eligible(r.Variant, options) && r.Variant.Zone == PunchingZone.Main).ToList();
+        var statusSet = results.Where(r => Eligible(r.Variant, options) && r.Variant.Zone is PunchingZone.Main or PunchingZone.BeyondCapital).ToList();
         double kb = statusSet.Count > 0 ? statusSet.Max(r => r.UtilizationConcreteOnly) : 0;
         double kmax = statusSet.Count > 0 ? statusSet.Max(r => r.UtilizationMaxReinforcement) : 0;
         var status = kb <= 1.0 ? PunchingStatus.ConcreteSufficient
@@ -252,7 +280,7 @@ public static class PunchingChecker
         var f = input.Forces;
         double h0 = input.H0, rbt = input.Rbt, F = f.F;
         var g = ctx.Geometry?.Properties.GetValueOrDefault(v.Id) ?? ContourProperties.Compute(v.Contour);
-        var o = PunchingContourBuilder.LoadCenter(input);
+        var o = input.ForcePoint ?? PunchingContourBuilder.LoadCenter(input);
         double ex = g.Xc - o.X, ey = g.Yc - o.Y;
         double share = f.MomentsAreMloc ? 0.5 : 1.0;
         double mx0 = share * f.Mx, my0 = share * f.My;

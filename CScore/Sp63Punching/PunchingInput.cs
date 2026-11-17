@@ -179,6 +179,7 @@ public sealed record PunchingOptions(
 /// оси — оси узла стены; <see cref="PunchingForces.Mx"/> у торца — разность ΔM изгибающих моментов плиты по сторонам стены
 /// (вектор вдоль стены), в расчёт идёт ½ΔM; у угла моменты не учитываются.</param>
 /// <param name="H">Полная толщина плиты h, м (зона влияния отверстий 6h, п. 8.1.46); null — принимается h0.</param>
+/// <param name="Capital">Капитель; null — нет. H0 и H — плиты без утолщения (см. <see cref="PunchingCapitalCheck"/>).</param>
 public sealed record PunchingInput(
     PunchingLoadArea LoadArea,
     double H0,
@@ -190,8 +191,15 @@ public sealed record PunchingInput(
     IReadOnlyList<PunchingCustomContour>? CustomContours = null,
     PunchingOptions? Options = null,
     PunchingWall? Wall = null,
-    double? H = null)
+    double? H = null,
+    PunchingCapital? Capital = null)
 {
+    /// <summary>Точка приложения силы для эксцентриситета; null — центр грузовой площади (проверка за капителью — центр колонны).</summary>
+    internal PlanPoint? ForcePoint { get; init; }
+
+    /// <summary>Вход проверки за капителью: варианты получают зону <see cref="PunchingZone.BeyondCapital"/> и префикс cap_.</summary>
+    internal bool IsCapitalPart { get; init; }
+
     /// <summary>Полная толщина плиты h, м; без заданной — h0.</summary>
     public double SlabH => H is > 0 ? H.Value : H0;
 

@@ -38,7 +38,10 @@ public enum PunchingZone
     Main,
 
     /// <summary>За зоной поперечной арматуры (п. 8.1.48, рис. 8.13) — только бетон.</summary>
-    BeyondReinforcement
+    BeyondReinforcement,
+
+    /// <summary>За капителью: h0/2 от грани капители, рабочая высота плиты — только бетон.</summary>
+    BeyondCapital
 }
 
 /// <summary>Вариант расчётного контура.</summary>
@@ -77,7 +80,8 @@ public static class PunchingContourBuilder
             warnings.Add(new("concave_area_hull",
                 "Грузовая площадь невыпуклая — контур построен по выпуклой оболочке."));
 
-        AddZone(input, PunchingZone.Main, ClosedBoundary(input.LoadArea, h0 / 2), variants, warnings);
+        AddZone(input, input.IsCapitalPart ? PunchingZone.BeyondCapital : PunchingZone.Main,
+            ClosedBoundary(input.LoadArea, h0 / 2), variants, warnings);
 
         if (input.Reinforcement is { } rf && rf.EffectiveZoneExtent is double ext && ext > 0)
         {
@@ -220,7 +224,7 @@ public static class PunchingContourBuilder
         List<PunchingVariant> variants, List<PunchingWarning> warnings)
     {
         var edges = input.Edges ?? Array.Empty<PunchingSlabEdge>();
-        string prefix = zone == PunchingZone.Main ? "" : "outer_";
+        string prefix = zone switch { PunchingZone.Main => "", PunchingZone.BeyondCapital => "cap_", _ => "outer_" };
 
         // Замкнутый — если целиком в плите.
         var closed = PunchingContour.FromElements(boundary);

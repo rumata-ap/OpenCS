@@ -39,6 +39,8 @@ public static class PunchingResultJson
                 Num(w, "ratio", v.Utilization);
                 w.WriteBoolean("governs", v.Governs);
                 Num(w, "u", v.Geometry.U);
+                Num(w, "h0", v.H0);
+                Num(w, "fred", v.Fred);
                 Num(w, "xc", v.Geometry.Xc);
                 Num(w, "yc", v.Geometry.Yc);
                 Num(w, "Wbx", v.Wbx);

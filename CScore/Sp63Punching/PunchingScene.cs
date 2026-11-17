@@ -41,12 +41,23 @@ public sealed record PunchingSceneVariant(
 /// <param name="SwCross">Раскладка — крест.</param>
 /// <param name="AxesOrigin">Начало осей рисунка, м; null — центр тяжести площади. У узла стены — (0; 0): центр торца
 /// или наружный угол (оси узла по СП 430, рис. 6.1, 6.2), а не центр куска стены.</param>
+/// <param name="CapitalPolygon">Капитель многоугольником (круглая — пусто); null — капители нет.</param>
+/// <param name="CapitalDiameter">Диаметр круглой капители (центр — центр площади); null — не круг.</param>
 public sealed record PunchingScene(
     IReadOnlyList<PlanPoint> AreaPolygon, double? AreaDiameter, double? AreaInnerDiameter, PlanPoint AreaCentroid,
     IReadOnlyList<PunchingSceneEdge> Edges, IReadOnlyList<IReadOnlyList<PlanPoint>> Holes, double H0,
     IReadOnlyList<PunchingSceneVariant> Variants, IReadOnlyList<PunchingSceneHoleRays>? HoleRays = null,
-    IReadOnlyList<PlanPoint>? SwBars = null, bool SwCross = false, PlanPoint? AxesOrigin = null)
+    IReadOnlyList<PlanPoint>? SwBars = null, bool SwCross = false, PlanPoint? AxesOrigin = null,
+    IReadOnlyList<PlanPoint>? CapitalPolygon = null, double? CapitalDiameter = null)
 {
+    /// <summary>Капитель для рисования многоугольником (круг — 72-угольник); пусто — капители нет.</summary>
+    public IReadOnlyList<PlanPoint> CapitalOutline()
+    {
+        if (CapitalDiameter is double d)
+            return Enumerable.Range(0, 72).Select(i => AreaCentroid + d / 2 * PlanPoint.FromAngle(2 * Math.PI * i / 72)).ToList();
+        return CapitalPolygon ?? [];
+    }
+
     /// <summary>Точка, через которую рисуются оси X и Y.</summary>
     public PlanPoint AxesCenter => AxesOrigin ?? AreaCentroid;
 
@@ -83,14 +94,25 @@ public sealed record PunchingScene(
                 v.Variant.Excluded.ToList(),
                 new PlanPoint(v.Geometry.Xc, v.Geometry.Yc), v.Utilization, v.Governs,
                 v.Sw?.Armed is { } am ? am.ElementsX.Concat(am.ElementsY).ToList() : null)).ToList();
+        // У капители — проверка у колонны (h0 + hc) и за капителью (касательные от капители).
+        var column = input.Capital is not null ? PunchingCapitalCheck.ColumnPart(input) : input;
+        var capPart = input.Capital is not null ? PunchingCapitalCheck.CapitalPart(input) : null;
         var rays = new List<PunchingSceneHoleRays>();
         for (int i = 0; i < holes.Count; i++)
-            if (PunchingContourBuilder.HoleTangents(input, holes[i]) is { } tg)
+            if (((capPart is not null ? PunchingContourBuilder.HoleTangents(capPart, holes[i]) : null)
+                ?? PunchingContourBuilder.HoleTangents(column, holes[i])) is { } tg)
                 rays.Add(new PunchingSceneHoleRays(i, tg.Lo, tg.Hi));
-        var bars = PunchingSwLayout.BarPoints(input);
+        var bars = PunchingSwLayout.BarPoints(column);
+        IReadOnlyList<PlanPoint>? capPoly = null;
+        double? capD = null;
+        if (input.Capital is { } cap)
+        {
+            if (cap.Area is PunchingLoadArea.Circle or PunchingLoadArea.Ring) { capPoly = []; capD = cap.Area is PunchingLoadArea.Circle cc ? cc.D : ((PunchingLoadArea.Ring)cap.Area).D; }
+            else capPoly = PunchingCapitalCheck.CapitalPolygon(input);
+        }
         return new PunchingScene(polygon, d, di, PunchingContourBuilder.LoadCenter(input),
-            edges, holes, input.H0, variants, rays, bars.Count > 0 ? bars : null, input.Reinforcement?.Cross is not null,
-            input.Wall is not null ? new PlanPoint(0, 0) : null);
+            edges, holes, column.H0, variants, rays, bars.Count > 0 ? bars : null, input.Reinforcement?.Cross is not null,
+            input.Wall is not null ? new PlanPoint(0, 0) : null, capPoly, capD);
     }
 
     /// <summary>Точки элемента контура для рисования: отрезок — концы, дуга — ломаная с шагом не больше 3°.</summary>
@@ -132,6 +154,7 @@ public sealed record PunchingScene(
             Add(AreaCentroid.X + d / 2, AreaCentroid.Y + d / 2);
         }
         foreach (var h in Holes) foreach (var p in h) Add(p.X, p.Y);
+        foreach (var p in CapitalOutline()) Add(p.X, p.Y);
         foreach (var p in SwBars ?? []) Add(p.X, p.Y);
         foreach (var v in Variants)
             foreach (var e in v.Pieces.SelectMany(x => x).Concat(v.Excluded))
@@ -214,6 +237,13 @@ public static class PunchingSceneJson
         w.WriteEndArray();
         if (s.SwBars is { Count: > 0 } bars) WritePoints(w, "sw_bars", bars);
         if (s.SwCross) w.WriteBoolean("sw_cross", true);
+        if (s.CapitalPolygon is not null)
+        {
+            w.WriteStartObject("capital");
+            WritePoints(w, "polygon", s.CapitalPolygon);
+            if (s.CapitalDiameter is double cd) w.WriteNumber("d", cd);
+            w.WriteEndObject();
+        }
         w.WriteEndObject();
     }
 
@@ -270,8 +300,16 @@ public static class PunchingSceneJson
             foreach (var r in ra.EnumerateArray())
                 rays.Add(new PunchingSceneHoleRays((int)Num(r, "hole"), new PlanPoint(Num(r, "lox"), Num(r, "loy")), new PlanPoint(Num(r, "hix"), Num(r, "hiy"))));
         var bars = ReadPoints(e, "sw_bars");
+        IReadOnlyList<PlanPoint>? capPoly = null;
+        double? capD = null;
+        if (e.TryGetProperty("capital", out var ca) && ca.ValueKind == JsonValueKind.Object)
+        {
+            capPoly = ReadPoints(ca, "polygon");
+            capD = ca.TryGetProperty("d", out var cdv) && cdv.ValueKind == JsonValueKind.Number ? cdv.GetDouble() : null;
+        }
         return new PunchingScene(polygon, d, di, centroid, edges, holes, Num(e, "h0"), variants, rays,
-            bars.Count > 0 ? bars : null, e.TryGetProperty("sw_cross", out var sc) && sc.ValueKind == JsonValueKind.True, axes);
+            bars.Count > 0 ? bars : null, e.TryGetProperty("sw_cross", out var sc) && sc.ValueKind == JsonValueKind.True, axes,
+            capPoly, capD);
     }
 
     static void WritePoints(Utf8JsonWriter w, string name, IReadOnlyList<PlanPoint> pts)

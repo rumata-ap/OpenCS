@@ -41,13 +41,14 @@ public enum PunchingDesignState
 /// <param name="BeyondNotEnsured">Контур за армированием не проходит при любой ширине зоны (до 100 рядов / 20h0).</param>
 /// <param name="UtilizationAtRequired">Кисп основной зоны при требуемой арматуре.</param>
 /// <param name="ProvidedSufficient">Заданной арматуры достаточно для основной зоны.</param>
+/// <param name="CapitalBeyondFails">Не проходит проверка за капителью (по бетону) — арматура у колонны её не исправит.</param>
 public sealed record PunchingDesignResult(
     PunchingDesignState State, double Lambda, string? GoverningId, bool Cross,
     double QswReq, double QswXReq, double QswYReq,
     double QswProvided, double QswXProvided, double QswYProvided,
     double AswLineReq, double? BarAreaReq, double? BarDiameter,
     int? RowsRequired, double? ZoneExtentRequired, bool BeyondNotEnsured,
-    double UtilizationAtRequired, bool ProvidedSufficient);
+    double UtilizationAtRequired, bool ProvidedSufficient, bool CapitalBeyondFails = false);
 
 /// <summary>
 /// Подбор поперечной арматуры при продавливании (пп. 8.1.48, 8.1.50): требуемое qsw при заданной раскладке
@@ -69,16 +70,19 @@ public static class PunchingDesign
         ArgumentNullException.ThrowIfNull(input);
         var options = input.Options ?? new PunchingOptions();
         var provided = input.Reinforcement;
-        var reference = ReferenceLayout(input.Reinforcement, input.H0);
+        // У капители арматура работает у колонны — рабочая высота h0 + hc.
+        double h0 = PunchingCapitalCheck.ColumnH0(input);
+        var reference = ReferenceLayout(input.Reinforcement, h0);
         var refInput = input with { Reinforcement = reference };
         // Геометрия контуров основной зоны от площади стержня не зависит; кэш пакета годится, если раскладка та же.
         var geom = geometry is not null && ReferenceEquals(reference, provided) ? geometry : PunchingGeometryCache.Prepare(refInput);
 
-        double h0 = input.H0;
         var refSw = SwOf(reference, h0);
         var provSw = SwOf(provided, h0);
 
-        var at0 = Main(PunchingChecker.Check(refInput, false, geom, 0), options);
+        var r0 = PunchingChecker.Check(refInput, false, geom, 0);
+        bool capFails = r0.Variants.Any(v => v.Variant.Zone == PunchingZone.BeyondCapital && v.Utilization > 1 + Tol);
+        var at0 = Main(r0, options);
         double k0 = at0.Count > 0 ? at0.Max(v => v.Utilization) : 0;
         PunchingDesignResult Make(PunchingDesignState st, double lam, string? gov, double util)
         {
@@ -96,7 +100,7 @@ public static class PunchingDesign
             return new PunchingDesignResult(st, lam, gov, reference?.Cross is not null,
                 qReq, qxReq, qyReq, provSw.Q, provSw.QX, provSw.QY,
                 provided is null ? double.NaN : asw, barReq, dia,
-                rowsReq, extReq, beyondBad, util, enough);
+                rowsReq, extReq, beyondBad, util, enough, capFails);
         }
 
         if (at0.Count == 0 || k0 <= 1 + Tol)
@@ -184,7 +188,7 @@ public static class PunchingDesign
     static (int? Rows, double? Extent, bool NotEnsured) Zone(PunchingInput input, PunchingShearReinforcement? provided)
     {
         if (provided is null) return (null, null, false);
-        double h0 = input.H0;
+        double h0 = PunchingCapitalCheck.ColumnH0(input);
         bool BeyondOk(PunchingShearReinforcement r)
         {
             var res = PunchingChecker.Check(input with { Reinforcement = r }, false);

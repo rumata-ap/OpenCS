@@ -311,6 +311,26 @@ internal static class PunchingTrace
         };
     }
 
+    /// <summary>Шаги капители в начале варианта: у колонны — h0к = h0 + hc; за капителью — h0 плиты и своё Fred.</summary>
+    public static IReadOnlyList<CalculationTraceStep> Capital(PunchingVariantResult v, PunchingInput input, double hc)
+    {
+        string p = $"sp63.punching.{v.Variant.Id}";
+        var steps = new List<CalculationTraceStep>();
+        if (v.Variant.Zone == PunchingZone.BeyondCapital)
+        {
+            steps.Add(Step($"{p}.capital", "п. 8.1.46", "Punching_Trace_CapitalBeyond", @"h_0", "", "{h0}",
+                ("h0", v.H0, CalculationUnit.Meter)));
+            if (input.Forces.CounterPressure != 0)
+                steps.Add(Step($"{p}.fred", "п. 8.1.46", "Punching_Trace_Fred", @"F = F_0 - q\,A_b", @"{F0} - {q} \cdot {Ab}", "{F}",
+                    ("F0", input.Forces.F, CalculationUnit.Kilonewton), ("q", input.Forces.CounterPressure, CalculationUnit.Kilopascal),
+                    ("Ab", v.BaseArea, CalculationUnit.SquareMeter), ("F", v.Fred, CalculationUnit.Kilonewton)));
+        }
+        else if (v.H0 > input.H0)
+            steps.Add(Step($"{p}.capital", "п. 8.1.46", "Punching_Trace_CapitalColumn", @"h_{0c} = h_0 + h_c", @"{h0} + {hc}", "{h0c}",
+                ("h0", input.H0, CalculationUnit.Meter), ("hc", hc, CalculationUnit.Meter), ("h0c", v.H0, CalculationUnit.Meter)));
+        return steps;
+    }
+
     static CalculationTraceStep Step(string id, string reference, string titleKey, string formula, string subst,
         string result, params (string Key, double Value, CalculationUnit Unit)[] values)
         => Step(id, reference, titleKey, formula, subst, result, CalculationTraceStatus.Informational, values);
