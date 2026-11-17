@@ -6296,9 +6296,11 @@ namespace OpenCS
          IReadOnlyList<CScore.Sp63Punching.Fem.PunchingFemJoint> joints)
       {
          string title = Loc.S("PunchingFemLiraSetsTitle", "Наборы из ЛИРЫ");
-         void Show(string message, MessageBoxImage icon) =>
-            MessageBox.Show(Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow!,
-               message, title, MessageBoxButton.OK, icon);
+         // Владелец сообщений — окно проверки (во время чтения ЛИРЫ оно может быть неактивным, а главное окно — нет).
+         Window Owner() => Application.Current?.Windows.OfType<Views.PunchingFemCheckDialog>().FirstOrDefault(w => w.IsVisible)
+                           ?? Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive)
+                           ?? Application.Current!.MainWindow;
+         void Show(string message, MessageBoxImage icon) => MessageBox.Show(Owner(), message, title, MessageBoxButton.OK, icon);
 
          var diag = new List<CScore.Fem.FemValidationDiagnostic>();
          var source = PunchingFemService.OpenImported(db, schema, CScore.Fem.Fragment.Masks.FragmentMaskSet.SourceLira, diag);
@@ -6331,7 +6333,7 @@ namespace OpenCS
             StoreyFragmentMaskService.SnapshotFileKind(CScore.Fem.Fragment.Masks.FragmentMaskSet.SourceLira))?.FileName;
          string snapshotDoc = Path.GetFileNameWithoutExtension(snapshotName ?? "");
          if (snapshotDoc.Length > 0 && !string.Equals(snapshotDoc, document, StringComparison.OrdinalIgnoreCase)
-             && MessageBox.Show(string.Format(Loc.S("PunchingFemLiraSetsOtherDoc",
+             && MessageBox.Show(Owner(), string.Format(Loc.S("PunchingFemLiraSetsOtherDoc",
                    "В ЛИРЕ открыт документ «{0}», а снимок результатов схемы взят из «{1}». Номера КЭ и загружений могут не совпасть. Продолжить?"),
                    document, snapshotDoc), title, MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
