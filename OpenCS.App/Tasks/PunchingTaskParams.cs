@@ -485,7 +485,7 @@ public sealed record PunchingTaskParams
                 Options.HoleInfluence,
                 Options.Wb == "stress_side" ? SectionModulusMode.StressSide : SectionModulusMode.Minimum,
                 Options.PylonReduced, false, Options.Mu),
-            Wall.ToCore(Options.WallFigure));
+            Wall.ToCore(Options.WallFigure), Slab.H);
     }
 
     static EccentricityMode Eccentricity(string mode) => mode switch

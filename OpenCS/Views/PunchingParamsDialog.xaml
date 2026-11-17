@@ -418,7 +418,7 @@
                   <TextBlock Grid.Row="4" Text="{DynamicResource PunchingHoleInfluence}" Style="{StaticResource Lbl}"/>
                   <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal">
                      <TextBox Style="{StaticResource Num}" Width="50" Text="{Binding HoleInfluence, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                     <TextBlock Text="h0" Style="{StaticResource Unit}"/>
+                     <TextBlock Text="h" Style="{StaticResource Unit}"/>
                   </StackPanel>
                   <CheckBox Grid.Row="5" Grid.ColumnSpan="2" Content="{DynamicResource PunchingPylonReduced}" IsChecked="{Binding PylonReduced}"
                             IsEnabled="{Binding IsColumnNode}"/>

@@ -288,6 +288,23 @@ public class PunchingCoreTests
     }
 
     [Fact]
+    public void Hole_InfluenceZoneIs6hFullThickness_Not6h0()
+    {
+        // П. 8.1.46: «на расстоянии менее 6h» — полная толщина. Отверстие на 1,4 м от грани: 7h0 при h0 = 0,2,
+        // но меньше 6h = 1,44 при h = 0,24 — вырезает часть контура.
+        var far = new PunchingHole(new PlanPoint[] { new(-0.1, 1.6), new(0.1, 1.6), new(0.1, 1.8), new(-0.1, 1.8) });
+        var input = Rect(0.4, 0.4, 0.2, 300, holes: new[] { far }) with { H = 0.24 };
+        var r = PunchingChecker.Check(input);
+        Assert.True(V(r, "closed").Geometry.U < 2.4 - 1e-6);
+        Assert.Contains(r.Warnings, w => w.Code == "hole_excluded" && w.Text.Contains("6h:"));
+        Assert.NotNull(PunchingContourBuilder.HoleTangents(input, far.Polygon));
+
+        // При h = 0,23 (6h = 1,38 < 1,4) — не влияет.
+        var r2 = PunchingChecker.Check(input with { H = 0.23 });
+        Assert.Equal(2.4, V(r2, "closed").Geometry.U, 12);
+    }
+
+    [Fact]
     public void ConcavePolygon_UsesHullAndWarns()
     {
         var l = new PunchingLoadArea.Polygon(new PlanPoint[] { new(0, 0), new(0.6, 0), new(0.6, 0.2), new(0.2, 0.2), new(0.2, 0.6), new(0, 0.6) });

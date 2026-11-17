@@ -639,7 +639,7 @@ public static class PunchingFemJointFinder
                 .Where(l => l.Count >= 3).ToList();
             var holes = new List<PunchingHole>();
             var candidates = new List<(PunchingSlabEdge Edge, double Dist)>();
-            double edgeLimit = Options.EdgeInfluence * h0, holeLimit = Options.HoleInfluence * h0;
+            double edgeLimit = Options.EdgeInfluence * h0, holeLimit = Options.HoleInfluence * joint.H;
             foreach (var loop in loops)
             {
                 double sa = Area(loop);

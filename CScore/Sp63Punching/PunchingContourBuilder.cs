@@ -416,14 +416,14 @@ public static class PunchingContourBuilder
     }
 
     /// <summary>
-    /// Направления касательных из центра тяжести площади к отверстию, если оно ближе HoleInfluence·h0
+    /// Направления касательных из центра тяжести площади к отверстию, если оно ближе HoleInfluence·h (полная толщина плиты)
     /// (п. 8.1.46); null — отверстие на контур не влияет. Для рисунка.
     /// </summary>
     public static (PlanPoint Lo, PlanPoint Hi)? HoleTangents(PunchingInput input, IReadOnlyList<PlanPoint> hole)
     {
         input = input.Normalized();
         var options = input.Options ?? new PunchingOptions();
-        if (hole.Count < 3 || DistanceToHole(input, hole) >= options.HoleInfluence * input.H0) return null;
+        if (hole.Count < 3 || DistanceToHole(input, hole) >= options.HoleInfluence * input.SlabH) return null;
         var o = LoadCenter(input);
         var hc = new PlanPoint(hole.Average(p => p.X), hole.Average(p => p.Y));
         double refAng = Math.Atan2(hc.Y - o.Y, hc.X - o.X);
@@ -445,7 +445,7 @@ public static class PunchingContourBuilder
         {
             var hole = holes[h].Polygon;
             if (hole.Count < 3) continue;
-            if (DistanceToHole(input, hole) >= options.HoleInfluence * input.H0) continue;
+            if (DistanceToHole(input, hole) >= options.HoleInfluence * input.SlabH) continue;
             var hc = new PlanPoint(hole.Average(p => p.X), hole.Average(p => p.Y));
             double refAng = Math.Atan2(hc.Y - o.Y, hc.X - o.X);
             var angs = hole.Select(p => Wrap(Math.Atan2(p.Y - o.Y, p.X - o.X) - refAng)).ToList();
@@ -472,7 +472,7 @@ public static class PunchingContourBuilder
             kept = next;
             if (cut)
                 warnings.Add(new("hole_excluded",
-                    $"Отверстие {h + 1} ближе {options.HoleInfluence:0.#}h0: часть контура «{v.Id}» между касательными не учитывается (п. 8.1.46).",
+                    $"Отверстие {h + 1} ближе {options.HoleInfluence:0.#}h: часть контура «{v.Id}» между касательными не учитывается (п. 8.1.46).",
                     [(h + 1).ToString(System.Globalization.CultureInfo.InvariantCulture),
                      options.HoleInfluence.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture), v.Id]));
         }

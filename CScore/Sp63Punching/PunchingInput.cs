@@ -149,7 +149,7 @@ public sealed record PunchingCustomContour(IReadOnlyList<PlanPoint> Polygon, IRe
 /// <param name="EccentricityX">Режим эксцентриситета для Mx (смещение центра тяжести по Y).</param>
 /// <param name="EccentricityY">Режим эксцентриситета для My (смещение по X).</param>
 /// <param name="Pylon">Разорванный контур пилона.</param>
-/// <param name="HoleInfluence">Отверстия ближе HoleInfluence·h0 вырезают часть контура (п. 8.1.46).</param>
+/// <param name="HoleInfluence">Отверстия ближе HoleInfluence·h (полная толщина плиты) вырезают часть контура (п. 8.1.46: 6h).</param>
 /// <param name="Wb">Выбор момента сопротивления.</param>
 /// <param name="PylonReducedPerimeter">Справочный вариант по Галяутдинову (2022), только F.</param>
 /// <param name="PylonReducedGoverns">Справочный вариант участвует в выборе определяющего.</param>
@@ -178,6 +178,7 @@ public sealed record PunchingOptions(
 /// грузовая площадь задаётся ядром (<see cref="PunchingWallGeometry.AreaPolygon"/>), переданная игнорируется;
 /// оси — оси узла стены; <see cref="PunchingForces.Mx"/> у торца — разность ΔM изгибающих моментов плиты по сторонам стены
 /// (вектор вдоль стены), в расчёт идёт ½ΔM; у угла моменты не учитываются.</param>
+/// <param name="H">Полная толщина плиты h, м (зона влияния отверстий 6h, п. 8.1.46); null — принимается h0.</param>
 public sealed record PunchingInput(
     PunchingLoadArea LoadArea,
     double H0,
@@ -188,8 +189,12 @@ public sealed record PunchingInput(
     IReadOnlyList<PunchingHole>? Holes = null,
     IReadOnlyList<PunchingCustomContour>? CustomContours = null,
     PunchingOptions? Options = null,
-    PunchingWall? Wall = null)
+    PunchingWall? Wall = null,
+    double? H = null)
 {
+    /// <summary>Полная толщина плиты h, м; без заданной — h0.</summary>
+    public double SlabH => H is > 0 ? H.Value : H0;
+
     /// <summary>
     /// Вход в форме, с которой работает ядро: у узла стены — грузовая площадь по стене, без пилона и справочного
     /// варианта; крестообразная арматура у стены не учитывается (предупреждение <c>wall_sw_cross_ignored</c>).

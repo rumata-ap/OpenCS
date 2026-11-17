@@ -48,7 +48,7 @@ public sealed class PunchingFemModel
 /// <param name="HorizontalTolDeg">Допуск отклонения нормали плиты от вертикали, град; больше — плита наклонная.</param>
 /// <param name="PlaneTolM">Допуск попадания узла в плоскость плиты, м.</param>
 /// <param name="EdgeInfluence">Края плиты ближе этого числа h0 к грузовой площади учитываются.</param>
-/// <param name="HoleInfluence">Отверстия ближе этого числа h0 учитываются (п. 8.1.46: 6h0).</param>
+/// <param name="HoleInfluence">Отверстия ближе этого числа h (полная толщина плиты) учитываются (п. 8.1.46: 6h).</param>
 /// <param name="WallRatio">Площадь с Lmax &gt; WallRatio·Lmin — стена, а не пилон (срез 5).</param>
 /// <param name="DefaultCover">Привязки, если у сечения пластины их нет.</param>
 /// <param name="WallFigure">Редакция рис. 6.2 СП 430 для углов стен.</param>

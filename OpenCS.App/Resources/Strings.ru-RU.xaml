@@ -6727,7 +6727,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingWarn_pylon_at_edge_not_checked">Пилон у края плиты: разорванный контур не проверяется, только контуры по СП 63.</system:String>
    <system:String x:Key="PunchingWarn_pylon_cmin_h0_out_of_range">Cmin/h0 = {0} &gt; 2: по Галяутдинову (2022, с. 162) контур СП 430 при Cmin/h0 ≥ 3 переоценивает прочность — сравните со справочным вариантом.</system:String>
    <system:String x:Key="PunchingWarn_closed_not_fit">Замкнутый контур выходит за край плиты — проверяется только незамкнутый (п. 8.1.46).</system:String>
-   <system:String x:Key="PunchingWarn_hole_excluded">Отверстие {0} ближе {1}h0: часть контура «{2}» между касательными не учитывается (п. 8.1.46).</system:String>
+   <system:String x:Key="PunchingWarn_hole_excluded">Отверстие {0} ближе {1}h: часть контура «{2}» между касательными не учитывается (п. 8.1.46).</system:String>
    <system:String x:Key="CalcTaskKind_punching_batch">Продавливание плиты по набору усилий (СП 63)</system:String>
    <system:String x:Key="PunchingErr_force_set_missing">Не выбран набор усилий пакета (или он удалён).</system:String>
    <system:String x:Key="PunchingErr_force_set_empty">В наборе усилий пакета нет строк.</system:String>
