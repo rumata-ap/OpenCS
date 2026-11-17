@@ -77,7 +77,7 @@
 
    <Grid Margin="10">
       <Grid.ColumnDefinitions>
-         <ColumnDefinition Width="440" MinWidth="380"/>
+         <ColumnDefinition Width="460" MinWidth="380"/>
          <ColumnDefinition Width="6"/>
          <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
@@ -91,25 +91,25 @@
          <StackPanel>
             <Expander Header="{DynamicResource PunchingFemGroupSource}">
                <StackPanel>
-                  <StackPanel Orientation="Horizontal">
-                     <TextBlock Text="{DynamicResource PunchingFemName}" Style="{StaticResource Lbl}" Width="90"/>
-                     <TextBox Width="300" Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
-                  </StackPanel>
-                  <StackPanel Orientation="Horizontal">
-                     <TextBlock Text="{DynamicResource PunchingFemSchema}" Style="{StaticResource Lbl}" Width="90"/>
-                     <ComboBox Width="300" ItemsSource="{Binding Schemas}" DisplayMemberPath="Tag" SelectedItem="{Binding Schema}"
+                  <DockPanel LastChildFill="True">
+                     <TextBlock Text="{DynamicResource PunchingFemName}" Style="{StaticResource Lbl}" Width="90" DockPanel.Dock="Left"/>
+                     <TextBox Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                  </DockPanel>
+                  <DockPanel LastChildFill="True">
+                     <TextBlock Text="{DynamicResource PunchingFemSchema}" Style="{StaticResource Lbl}" Width="90" DockPanel.Dock="Left"/>
+                     <ComboBox ItemsSource="{Binding Schemas}" DisplayMemberPath="Tag" SelectedItem="{Binding Schema}"
                                IsEnabled="{Binding CanChangeSchema}"/>
-                  </StackPanel>
-                  <StackPanel Orientation="Horizontal">
-                     <TextBlock Text="{DynamicResource PunchingFemAnalysis}" Style="{StaticResource Lbl}" Width="90"/>
-                     <ComboBox Width="300" ItemsSource="{Binding Analyses}" DisplayMemberPath="Label" SelectedItem="{Binding Analysis}"/>
-                  </StackPanel>
+                  </DockPanel>
+                  <DockPanel LastChildFill="True">
+                     <TextBlock Text="{DynamicResource PunchingFemAnalysis}" Style="{StaticResource Lbl}" Width="90" DockPanel.Dock="Left"/>
+                     <ComboBox ItemsSource="{Binding Analyses}" DisplayMemberPath="Label" SelectedItem="{Binding Analysis}"/>
+                  </DockPanel>
                   <TextBlock Text="{DynamicResource PunchingFemNoAnalysesHint}" Style="{StaticResource Hint}" Foreground="#8B0000"
                              Visibility="{Binding HasNoAnalyses, Converter={StaticResource BoolToVisibility}}"/>
-                  <StackPanel Orientation="Horizontal">
-                     <TextBlock Text="{DynamicResource PunchingFemMethod}" Style="{StaticResource Lbl}" Width="90"/>
-                     <ComboBox Width="300" ItemsSource="{Binding Methods}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding Method}"/>
-                  </StackPanel>
+                  <DockPanel LastChildFill="True">
+                     <TextBlock Text="{DynamicResource PunchingFemMethod}" Style="{StaticResource Lbl}" Width="90" DockPanel.Dock="Left"/>
+                     <ComboBox ItemsSource="{Binding Methods}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding Method}"/>
+                  </DockPanel>
                   <TextBlock Text="{DynamicResource PunchingFemMethodHint}" Style="{StaticResource Hint}"/>
                   <CheckBox Content="{DynamicResource PunchingFemMloc}" IsChecked="{Binding MomentsAreMloc}" ToolTip="{DynamicResource PunchingFemMlocHint}"/>
                </StackPanel>

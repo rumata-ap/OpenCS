@@ -83,7 +83,8 @@
       <!-- Поиск вида задачи: подстрока названия или группы, слова в любом порядке; Enter или ↓ — раскрыть список. -->
       <Grid Margin="0,0,0,2">
          <TextBox x:Name="KindFilterBox" Text="{Binding KindFilter, UpdateSourceTrigger=PropertyChanged}"
-                  ToolTip="{DynamicResource CalcTaskKindFilterHint}" PreviewKeyDown="KindFilterBox_PreviewKeyDown"/>
+                  ToolTip="{DynamicResource CalcTaskKindFilterHint}" PreviewKeyDown="KindFilterBox_PreviewKeyDown"
+                  GotKeyboardFocus="KindFilterBox_GotKeyboardFocus" LostKeyboardFocus="KindFilterBox_LostKeyboardFocus"/>
          <TextBlock Text="{DynamicResource CalcTaskKindFilterPlaceholder}">
             <TextBlock.Style>
                <Style TargetType="TextBlock" BasedOn="{StaticResource ForceItemFilterWatermark}">
@@ -116,7 +117,7 @@
             </GroupStyle>
          </ComboBox.GroupStyle>
       </ComboBox>
-      <TextBlock Text="{Binding KindFilterInfo}" Foreground="#9A5B00" Margin="2,2,0,0"
+      <TextBlock Text="{Binding KindFilterInfo}" Foreground="#9A5B00" Margin="2,2,0,0" TextWrapping="Wrap"
                  Visibility="{Binding HasKindFilterInfo, Converter={StaticResource BoolToVisibility}}"/>
       </StackPanel>
 
@@ -1625,7 +1626,7 @@
 
       <StackPanel Grid.Row="1"
                   Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-         <Button Content="{DynamicResource OK}"
+         <Button x:Name="OkButton" Content="{DynamicResource OK}"
                  IsDefault="True"
                  Command="{Binding OkCommand}"
                  Width="80" Margin="0,0,8,0"/>

@@ -34,6 +34,10 @@ public partial class CalcTaskPropsDialog : Window
 
    public CalcTask? Result => (DataContext as CalcTaskPropsDlgVM)?.Result;
 
+   /// <summary>Пока фокус в поиске вида, Enter не подтверждает окно: OK перестаёт быть кнопкой по умолчанию.</summary>
+   void KindFilterBox_GotKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e) => OkButton.IsDefault = false;
+   void KindFilterBox_LostKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e) => OkButton.IsDefault = true;
+
    /// <summary>Enter или ↓ в поиске вида задачи раскрывают отфильтрованный список.</summary>
    void KindFilterBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
    {
