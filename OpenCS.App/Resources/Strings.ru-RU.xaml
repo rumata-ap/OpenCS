@@ -1593,6 +1593,10 @@
    <!-- Расчётные задачи -->
    <system:String x:Key="CalcTaskDlgTitle">Параметры расчётной задачи</system:String>
    <system:String x:Key="CalcTaskKind">Тип задачи</system:String>
+   <system:String x:Key="CalcTaskKindFilterPlaceholder">Поиск вида задачи (например: продав, трещ, огнест)</system:String>
+   <system:String x:Key="CalcTaskKindFilterHint">Слова ищутся в названии и группе вида задачи в любом порядке, регистр не важен. Enter или ↓ раскрывает отфильтрованный список.</system:String>
+   <system:String x:Key="CalcTaskKindFilterNone">Ничего не найдено — измените запрос.</system:String>
+   <system:String x:Key="CalcTaskKindFilterCount">Найдено видов: {0} — Enter или ↓ раскрывает список.</system:String>
    <system:String x:Key="CalcTaskSection">Сечение</system:String>
    <system:String x:Key="CalcTaskForceSet">Набор усилий</system:String>
    <system:String x:Key="CalcTaskForceItem">Строка усилий</system:String>

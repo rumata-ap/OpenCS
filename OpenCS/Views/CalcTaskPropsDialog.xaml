@@ -79,11 +79,32 @@
 
       <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource CalcTaskKind}"
                  VerticalAlignment="Center" Margin="0,0,8,8"/>
-      <ComboBox  Grid.Row="1" Grid.Column="1"
+      <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,8">
+      <!-- Поиск вида задачи: подстрока названия или группы, слова в любом порядке; Enter или ↓ — раскрыть список. -->
+      <Grid Margin="0,0,0,2">
+         <TextBox x:Name="KindFilterBox" Text="{Binding KindFilter, UpdateSourceTrigger=PropertyChanged}"
+                  ToolTip="{DynamicResource CalcTaskKindFilterHint}" PreviewKeyDown="KindFilterBox_PreviewKeyDown"/>
+         <TextBlock Text="{DynamicResource CalcTaskKindFilterPlaceholder}">
+            <TextBlock.Style>
+               <Style TargetType="TextBlock" BasedOn="{StaticResource ForceItemFilterWatermark}">
+                  <Setter Property="Visibility" Value="Collapsed"/>
+                  <Style.Triggers>
+                     <DataTrigger Binding="{Binding KindFilter}" Value="{x:Null}">
+                        <Setter Property="Visibility" Value="Visible"/>
+                     </DataTrigger>
+                     <DataTrigger Binding="{Binding KindFilter}" Value="">
+                        <Setter Property="Visibility" Value="Visible"/>
+                     </DataTrigger>
+                  </Style.Triggers>
+               </Style>
+            </TextBlock.Style>
+         </TextBlock>
+      </Grid>
+      <ComboBox  x:Name="KindCombo"
                  ItemsSource="{Binding AvailableKindsView}"
                  SelectedItem="{Binding SelectedKind}"
-                 DisplayMemberPath="Label"
-                 Margin="0,0,0,8">
+                 IsSynchronizedWithCurrentItem="False"
+                 DisplayMemberPath="Label">
          <ComboBox.GroupStyle>
             <GroupStyle>
                <GroupStyle.HeaderTemplate>
@@ -95,6 +116,9 @@
             </GroupStyle>
          </ComboBox.GroupStyle>
       </ComboBox>
+      <TextBlock Text="{Binding KindFilterInfo}" Foreground="#9A5B00" Margin="2,2,0,0"
+                 Visibility="{Binding HasKindFilterInfo, Converter={StaticResource BoolToVisibility}}"/>
+      </StackPanel>
 
       <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource CalcTaskFireSection}"
                  VerticalAlignment="Center" Margin="0,0,8,8"

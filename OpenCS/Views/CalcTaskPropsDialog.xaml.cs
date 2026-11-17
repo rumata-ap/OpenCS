@@ -33,6 +33,15 @@ public partial class CalcTaskPropsDialog : Window
    }
 
    public CalcTask? Result => (DataContext as CalcTaskPropsDlgVM)?.Result;
+
+   /// <summary>Enter или ↓ в поиске вида задачи раскрывают отфильтрованный список.</summary>
+   void KindFilterBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+   {
+      if (e.Key is not (System.Windows.Input.Key.Enter or System.Windows.Input.Key.Down)) return;
+      KindCombo.Focus();
+      KindCombo.IsDropDownOpen = true;
+      e.Handled = true;
+   }
 }
 
 public class CalcTaskKindItem
@@ -185,7 +194,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string shearManualN = "0", shearManualMx = "0", shearManualMy = "0", shearManualT = "0";
    string shearManualVy = "0", shearManualVx = "0";
    string shearOverrideVyB = "", shearOverrideVxB = "";
-   string _forceItemFilter = "", _shellForceItemFilter = "";
+   string _forceItemFilter = "", _shellForceItemFilter = "", _kindFilter = "";
    CancellationTokenSource? _torsionPreviewDebounceCts;
 
    public string Tag { get => tag; set { tag = value; OnPropertyChanged(); } }
@@ -1988,6 +1997,39 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public ObservableCollection<ForceSet> ForceSets { get; }
    public ObservableCollection<LoadItem> ForceItems { get; } = [];
    public ListCollectionView ForceItemsView { get; private set; } = null!;
+   /// <summary>Поиск вида задачи: каждое слово — подстрока названия или группы; выбранный вид всегда остаётся в списке.</summary>
+   public string KindFilter
+   {
+      get => _kindFilter;
+      set
+      {
+         _kindFilter = value ?? "";
+         OnPropertyChanged();
+         AvailableKindsView?.Refresh();
+         OnPropertyChanged(nameof(KindFilterInfo));
+         OnPropertyChanged(nameof(HasKindFilterInfo));
+      }
+   }
+
+   /// <summary>Вид проходит поиск.</summary>
+   public static bool KindMatches(CalcTaskKindItem k, string filter) =>
+      filter.Split(' ', StringSplitOptions.RemoveEmptyEntries).All(w =>
+         k.Label.Contains(w, StringComparison.CurrentCultureIgnoreCase) || k.Group.Contains(w, StringComparison.CurrentCultureIgnoreCase));
+
+   /// <summary>Подсказка под списком: сколько найдено или «ничего не найдено».</summary>
+   public string KindFilterInfo
+   {
+      get
+      {
+         if (string.IsNullOrWhiteSpace(_kindFilter)) return "";
+         int n = AvailableKinds.Count(k => KindMatches(k, _kindFilter));
+         return n == 0
+            ? Loc.S("CalcTaskKindFilterNone", "Ничего не найдено — измените запрос.")
+            : string.Format(System.Globalization.CultureInfo.CurrentCulture, Loc.S("CalcTaskKindFilterCount", "Найдено видов: {0} — Enter или ↓ раскрывает список."), n);
+      }
+   }
+   public bool HasKindFilterInfo => KindFilterInfo.Length > 0;
+
    public string ForceItemFilter
    {
       get => _forceItemFilter;
@@ -2031,6 +2073,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
       AvailableKindsView = new ListCollectionView(AvailableKinds);
       AvailableKindsView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(CalcTaskKindItem.Group)));
+      AvailableKindsView.Filter = o => o is CalcTaskKindItem k && (ReferenceEquals(k, selectedKind) || KindMatches(k, _kindFilter));
 
       ForceItemsView      = new ListCollectionView(ForceItems);
       ShellForceItemsView = new ListCollectionView(ShellForceItems);

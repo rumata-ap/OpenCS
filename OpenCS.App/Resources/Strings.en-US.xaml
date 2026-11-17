@@ -1593,6 +1593,10 @@
    <!-- Calc Tasks -->
    <system:String x:Key="CalcTaskDlgTitle">Task Properties</system:String>
    <system:String x:Key="CalcTaskKind">Task type</system:String>
+   <system:String x:Key="CalcTaskKindFilterPlaceholder">Search task type (e.g. punch, crack, fire)</system:String>
+   <system:String x:Key="CalcTaskKindFilterHint">Words are matched in the task type name and group in any order, case-insensitive. Enter or ↓ opens the filtered list.</system:String>
+   <system:String x:Key="CalcTaskKindFilterNone">Nothing found — change the query.</system:String>
+   <system:String x:Key="CalcTaskKindFilterCount">Task types found: {0} — Enter or ↓ opens the list.</system:String>
    <system:String x:Key="CalcTaskSection">Section</system:String>
    <system:String x:Key="CalcTaskForceSet">Force set</system:String>
    <system:String x:Key="CalcTaskForceItem">Force row</system:String>
