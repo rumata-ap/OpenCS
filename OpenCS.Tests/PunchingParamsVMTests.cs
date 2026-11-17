@@ -23,6 +23,20 @@ public sealed class PunchingParamsVMTests
     static PunchingParamsVM Vm(PunchingTaskParams p, LoadItem? row = null, IEnumerable<PlateSection>? plates = null)
         => new(Task(p.ToJson()), [], plates ?? [], row);
 
+    /// <summary>Контур ЛИРЫ задачи (контуры пользователя + замена основного) в окне не правится, но сохраняется.</summary>
+    [Fact]
+    public void CustomReplacesMain_KeptThroughForm()
+    {
+        var p = Gosha() with
+        {
+            CustomContours = [new PunchingCustomContourParams { Name = "ЛИРА", Points = [[-0.2, -0.5], [0.2, -0.5], [0.2, 0.5], [-0.2, 0.5]] }],
+            Options = new PunchingOptionParams { CustomReplacesMain = true },
+        };
+        var back = PunchingTaskParams.Parse(Vm(p).ToJson());
+        Assert.True(back.Options.CustomReplacesMain);
+        Assert.Single(back.CustomContours);
+    }
+
     [Fact]
     public void RoundTrip_ParamsThroughForm()
     {

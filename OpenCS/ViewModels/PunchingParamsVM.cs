@@ -70,6 +70,7 @@ public sealed class PunchingParamsVM : ViewModelBase
     readonly IReadOnlyList<LoadItem>? _batchRows;
     readonly string _batchSetTag;
     readonly List<PunchingCustomContourParams> _customContours;
+    readonly bool _customReplacesMain;
     bool _loading;
 
     /// <summary>Создаёт VM по задаче и данным проекта.</summary>
@@ -93,6 +94,7 @@ public sealed class PunchingParamsVM : ViewModelBase
 
         var p = PunchingTaskParams.Parse(task.ParamsJson);
         _customContours = p.CustomContours;
+        _customReplacesMain = p.Options.CustomReplacesMain;
         _source = p.Source;
         bool isNew = string.IsNullOrWhiteSpace(task.ParamsJson) || task.ParamsJson.Trim() == "{}";
         if (isNew)
@@ -715,7 +717,9 @@ public sealed class PunchingParamsVM : ViewModelBase
             Options = new PunchingOptionParams
             {
                 EccentricityX = EccentricityX, EccentricityY = EccentricityY, Wb = Wb, Pylon = Pylon, WallFigure = WallFigure,
-                HoleInfluence = HoleInfluence, PylonReduced = PylonReduced, Mu = MuEnabled ? MuPercent / 100 : null
+                HoleInfluence = HoleInfluence, PylonReduced = PylonReduced, Mu = MuEnabled ? MuPercent / 100 : null,
+                // Как контуры пользователя: в окне не правится, но сохраняется (контур ЛИРЫ из проверки по МКЭ).
+                CustomReplacesMain = _customReplacesMain,
             },
             CustomContours = _customContours,
             Wall = new PunchingWallParams { Kind = NodeKind, A1 = M(WallA1), A2 = M(WallA2) },

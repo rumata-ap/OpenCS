@@ -351,6 +351,33 @@ public class PunchingCoreTests
         Assert.Equal(open.Utilization, c.Utilization, 12);
     }
 
+    /// <summary>
+    /// Заданный основной контур (контур ЛИРЫ для сверки): контуры СП 63 на h0/2 и пилона не строятся, контур за
+    /// поперечной арматурой — по-прежнему; без контуров пользователя опция не действует.
+    /// </summary>
+    [Fact]
+    public void CustomReplacesMain_SkipsSp63MainContours_KeepsOuter()
+    {
+        var sw = new PunchingShearReinforcement(170_000, 4 * Math.PI * 0.008 * 0.008 / 4, 0.06, ZoneExtent: 0.3);
+        // Контур «ЛИРЫ» — квадрат 0,62×0,62 (чуть больше OpenCS 0,6×0,6).
+        var lira = new PunchingCustomContour(new PlanPoint[] { new(-0.31, -0.31), new(0.31, -0.31), new(0.31, 0.31), new(-0.31, 0.31) }, []);
+        var opt = new PunchingOptions(CustomReplacesMain: true);
+        var r = PunchingChecker.Check(Rect(0.4, 0.4, 0.2, 400, options: opt, sw: sw) with { CustomContours = [lira] });
+        Assert.DoesNotContain(r.Variants, v => v.Variant.Id == "closed");
+        Assert.Equal(4 * 0.62, V(r, "custom_0").Geometry.U, 12);
+        Assert.Contains(r.Variants, v => v.Variant.Id == "outer_closed");
+        Assert.Contains(r.Warnings, w => w.Code == "main_contour_custom");
+
+        // Пилон 1,2×0,3: разорванного контура тоже нет.
+        var pylon = PunchingChecker.Check(Rect(1.2, 0.3, 0.2, 400, options: opt) with { CustomContours = [lira] });
+        Assert.DoesNotContain(pylon.Variants, v => v.Variant.Kind is PunchingVariantKind.PylonBroken or PunchingVariantKind.Closed);
+
+        // Без контуров пользователя — как обычно.
+        var plain = PunchingChecker.Check(Rect(0.4, 0.4, 0.2, 400, options: opt));
+        Assert.Contains(plain.Variants, v => v.Variant.Id == "closed");
+        Assert.DoesNotContain(plain.Warnings, w => w.Code == "main_contour_custom");
+    }
+
     [Theory]
     [InlineData(0.9, PunchingStatus.ConcreteSufficient)]
     [InlineData(1.5, PunchingStatus.ReinforcementRequired)]

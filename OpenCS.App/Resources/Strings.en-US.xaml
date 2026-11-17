@@ -6732,6 +6732,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingWarn_m_limited_half_kf">Perimeter "{0}": the moment contribution is limited to half of the force contribution (cl. 8.1.46).</system:String>
    <system:String x:Key="PunchingWarn_concave_area_hull">The loaded area is concave — the perimeter is built on its convex hull.</system:String>
    <system:String x:Key="PunchingWarn_pylon_at_edge_not_checked">Pylon at a slab edge: the broken perimeter is not checked, only SP 63 perimeters.</system:String>
+   <system:String x:Key="PunchingWarn_main_contour_custom">The main perimeter at h0/2 is a given one: closed and open SP 63 perimeters around the loaded area are not built.</system:String>
    <system:String x:Key="PunchingWarn_pylon_cmin_h0_out_of_range">Cmin/h0 = {0} &gt; 2: according to Galyautdinov (2022, p. 162) the SP 430 perimeter overestimates the capacity at Cmin/h0 ≥ 3 — compare with the reference variant.</system:String>
    <system:String x:Key="PunchingWarn_closed_not_fit">The closed perimeter extends beyond the slab edge — only the open perimeter is checked (cl. 8.1.46).</system:String>
    <system:String x:Key="PunchingWarn_hole_excluded">Opening {0} is closer than {1}h: the part of perimeter "{2}" between the tangents is ignored (cl. 8.1.46).</system:String>

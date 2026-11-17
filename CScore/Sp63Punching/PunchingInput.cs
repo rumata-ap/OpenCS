@@ -154,6 +154,9 @@ public sealed record PunchingCustomContour(IReadOnlyList<PlanPoint> Polygon, IRe
 /// <param name="PylonReducedPerimeter">Справочный вариант по Галяутдинову (2022), только F.</param>
 /// <param name="PylonReducedGoverns">Справочный вариант участвует в выборе определяющего.</param>
 /// <param name="LongitudinalRatio">Коэффициент продольного армирования плиты μ (доля, не %) для (5.34); null — множитель 1.</param>
+/// <param name="CustomReplacesMain">Контуры пользователя заменяют основной контур на h0/2 (замкнутый, у края, у угла, пилона):
+/// те не строятся; контур за поперечной арматурой и за капителью — по-прежнему. Например, контур ЛИРЫ для сверки.
+/// Без контуров пользователя не действует.</param>
 public sealed record PunchingOptions(
     EccentricityMode EccentricityX = EccentricityMode.Loading,
     EccentricityMode EccentricityY = EccentricityMode.Loading,
@@ -162,7 +165,8 @@ public sealed record PunchingOptions(
     SectionModulusMode Wb = SectionModulusMode.Minimum,
     bool PylonReducedPerimeter = false,
     bool PylonReducedGoverns = false,
-    double? LongitudinalRatio = null);
+    double? LongitudinalRatio = null,
+    bool CustomReplacesMain = false);
 
 /// <summary>Исходные данные расчёта на продавливание по СП 63.13330.2018, пп. 8.1.46–8.1.52.</summary>
 /// <param name="LoadArea">Грузовая площадь.</param>

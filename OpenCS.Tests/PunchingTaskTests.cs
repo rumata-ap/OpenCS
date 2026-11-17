@@ -54,6 +54,25 @@ public sealed class PunchingTaskTests
         Assert.Equal(0.165, Gosha().H0, 12);
     }
 
+    /// <summary>Контур ЛИРЫ в задаче: заданный контур заменяет основной контур на h0/2 — флаг доходит до ядра.</summary>
+    [Fact]
+    public void CustomReplacesMain_ReachesCore()
+    {
+        var p = Gosha() with
+        {
+            Reinforcement = new PunchingReinforcementParams(),
+            CustomContours = [new PunchingCustomContourParams { Name = "ЛИРА", Points = [[-0.21, -0.49], [0.21, -0.49], [0.21, 0.49], [-0.21, 0.49]] }],
+            Options = new PunchingOptionParams { CustomReplacesMain = true },
+        };
+        var back = PunchingTaskParams.Parse(p.ToJson());
+        Assert.True(back.Options.CustomReplacesMain);
+        var r = PunchingChecker.Check(back.ToInput(1050, 170_000));
+        var v = Assert.Single(r.Variants);
+        Assert.Equal(PunchingVariantKind.Custom, v.Variant.Kind);
+        Assert.Equal(2 * (0.42 + 0.98), v.Geometry.U, 9);
+        Assert.False(PunchingTaskParams.Parse(Gosha().ToJson()).Options.CustomReplacesMain);
+    }
+
     [Fact]
     public void Edges_SideDistanceAngle_GiveCoreEdges()
     {

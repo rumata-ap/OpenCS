@@ -254,6 +254,11 @@ public sealed record PunchingOptionParams
     /// Изменения № 2. Старые задачи без поля — "amd1".
     /// </summary>
     public string WallFigure { get; init; } = "amd1";
+    /// <summary>
+    /// Контуры пользователя заменяют основной контур на h0/2 (<see cref="PunchingOptions.CustomReplacesMain"/>): так в
+    /// расчёт идёт контур ЛИРЫ из проверки по МКЭ.
+    /// </summary>
+    public bool CustomReplacesMain { get; init; }
 
     /// <summary>Код редакции → редакция ядра; неизвестный — действующая.</summary>
     public static PunchingWallFigure ParseWallFigure(string? code)
@@ -533,7 +538,7 @@ public sealed record PunchingTaskParams
                 Options.Pylon == "off" ? PylonMode.Off : PylonMode.Auto,
                 Options.HoleInfluence,
                 Options.Wb == "stress_side" ? SectionModulusMode.StressSide : SectionModulusMode.Minimum,
-                Options.PylonReduced, false, Options.Mu),
+                Options.PylonReduced, false, Options.Mu, Options.CustomReplacesMain),
             Wall.ToCore(Options.WallFigure), Slab.H, Wall.IsWall ? null : Capital.ToCore(Area.Shape));
     }
 

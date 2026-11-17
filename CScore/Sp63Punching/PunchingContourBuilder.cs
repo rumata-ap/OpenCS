@@ -80,8 +80,14 @@ public static class PunchingContourBuilder
             warnings.Add(new("concave_area_hull",
                 "Грузовая площадь невыпуклая — контур построен по выпуклой оболочке."));
 
-        AddZone(input, input.IsCapitalPart ? PunchingZone.BeyondCapital : PunchingZone.Main,
-            ClosedBoundary(input.LoadArea, h0 / 2), variants, warnings);
+        // Основной контур — заданный (контур ЛИРЫ и т. п.): контуры СП 63 на h0/2 и пилона не строятся.
+        bool customMain = options.CustomReplacesMain && !input.IsCapitalPart && input.CustomContours is { Count: > 0 };
+        if (customMain)
+            warnings.Add(new("main_contour_custom",
+                "Основной контур на h0/2 — заданный: замкнутый и незамкнутые контуры по СП 63 у грузовой площади не строятся."));
+        else
+            AddZone(input, input.IsCapitalPart ? PunchingZone.BeyondCapital : PunchingZone.Main,
+                ClosedBoundary(input.LoadArea, h0 / 2), variants, warnings);
 
         if (input.Reinforcement is { } rf && rf.EffectiveZoneExtent is double ext && ext > 0)
         {
@@ -92,7 +98,7 @@ public static class PunchingContourBuilder
             AddZone(input, PunchingZone.BeyondReinforcement, outer, variants, warnings);
         }
 
-        if (options.Pylon == PylonMode.Auto && input.LoadArea is PunchingLoadArea.Rectangle rect)
+        if (!customMain && options.Pylon == PylonMode.Auto && input.LoadArea is PunchingLoadArea.Rectangle rect)
         {
             double cmin = Math.Min(rect.Bx, rect.By), cmax = Math.Max(rect.Bx, rect.By);
             if (cmax > 2 * cmin + h0 + Tol)
@@ -112,7 +118,7 @@ public static class PunchingContourBuilder
             }
         }
 
-        if (options.PylonReducedPerimeter && input.LoadArea is PunchingLoadArea.Rectangle && edges.Count == 0)
+        if (!customMain && options.PylonReducedPerimeter && input.LoadArea is PunchingLoadArea.Rectangle && edges.Count == 0)
             variants.Add(new PunchingVariant("pylon_reduced", PunchingVariantKind.PylonReduced, PunchingZone.Main,
                 PunchingContour.Empty, Array.Empty<ContourElement>(), Array.Empty<int>()));
 
