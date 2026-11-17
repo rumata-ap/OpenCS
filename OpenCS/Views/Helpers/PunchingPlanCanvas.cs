@@ -307,8 +307,9 @@ public static class Variants
         }
         return zone switch
         {
-            PunchingZone.BeyondReinforcement => name + Utilites.Loc.S("PunchingVariantOuterSuffix", " — за зоной арматуры"),
-            PunchingZone.BeyondCapital => name + Utilites.Loc.S("PunchingVariantCapitalSuffix", " — за капителью"),
+            // Ведущий пробел строки ресурса XAML отбрасывает — пробел перед тире ставится здесь.
+            PunchingZone.BeyondReinforcement => name + " " + Utilites.Loc.S("PunchingVariantOuterSuffix", "— за зоной арматуры").TrimStart(),
+            PunchingZone.BeyondCapital => name + " " + Utilites.Loc.S("PunchingVariantCapitalSuffix", "— за капителью").TrimStart(),
             _ => name
         };
     }
