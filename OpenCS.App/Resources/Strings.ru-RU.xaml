@@ -6906,9 +6906,9 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemNode">узел</system:String>
    <system:String x:Key="PunchingFemLevel">отм. {0:+0.000;−0.000;0.000}</system:String>
    <system:String x:Key="PunchingFemPickReady">готов к проверке</system:String>
-   <system:String x:Key="PunchingFemMethodAuto">автоматически: по разрезу основания пирамиды у CSfea</system:String>
-   <system:String x:Key="PunchingFemMethodContour">по разрезу основания пирамиды (узловые силы КЭ)</system:String>
-   <system:String x:Key="PunchingFemMethodColumn">по стержням колонн минус нагрузка основания</system:String>
+   <system:String x:Key="PunchingFemMethodAuto">авто: CSfea — разрез, импорт — колонны</system:String>
+   <system:String x:Key="PunchingFemMethodContour">по разрезу основания (силы КЭ)</system:String>
+   <system:String x:Key="PunchingFemMethodColumn">по колоннам минус нагрузка основания</system:String>
    <system:String x:Key="PunchingFemDefaultTag">Продавливание</system:String>
    <system:String x:Key="PunchingFemAnalysisNoResult">(не рассчитана)</system:String>
    <system:String x:Key="PunchingFemLinear">линейный</system:String>

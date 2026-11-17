@@ -269,9 +269,9 @@ public sealed class PunchingFemCheckVM : ViewModelBase
 
     public IReadOnlyList<PunchingChoice> Methods { get; } =
     [
-        new("auto", Loc.S("PunchingFemMethodAuto", "автоматически: по разрезу основания пирамиды у CSfea")),
-        new("contour", Loc.S("PunchingFemMethodContour", "по разрезу основания пирамиды (узловые силы КЭ)")),
-        new("column", Loc.S("PunchingFemMethodColumn", "по стержням колонн минус нагрузка основания")),
+        new("auto", Loc.S("PunchingFemMethodAuto", "авто: CSfea — разрез, импорт — колонны")),
+        new("contour", Loc.S("PunchingFemMethodContour", "по разрезу основания (силы КЭ)")),
+        new("column", Loc.S("PunchingFemMethodColumn", "по колоннам минус нагрузка основания")),
     ];
     public IReadOnlyList<PunchingChoice> EccentricityModes { get; } =
     [

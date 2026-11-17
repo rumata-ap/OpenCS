@@ -6906,8 +6906,8 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemNode">joint</system:String>
    <system:String x:Key="PunchingFemLevel">el. {0:+0.000;−0.000;0.000}</system:String>
    <system:String x:Key="PunchingFemPickReady">ready</system:String>
-   <system:String x:Key="PunchingFemMethodAuto">automatic: section cut for CSfea</system:String>
-   <system:String x:Key="PunchingFemMethodContour">pyramid base section cut (element nodal forces)</system:String>
+   <system:String x:Key="PunchingFemMethodAuto">auto: CSfea — cut, import — columns</system:String>
+   <system:String x:Key="PunchingFemMethodContour">base section cut (element forces)</system:String>
    <system:String x:Key="PunchingFemMethodColumn">column bars minus the base load</system:String>
    <system:String x:Key="PunchingFemDefaultTag">Punching shear</system:String>
    <system:String x:Key="PunchingFemAnalysisNoResult">(not run)</system:String>
