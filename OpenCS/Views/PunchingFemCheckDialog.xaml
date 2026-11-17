@@ -288,24 +288,42 @@
             <RowDefinition Height="5"/>
             <RowDefinition Height="1.2*" MinHeight="200"/>
          </Grid.RowDefinitions>
-         <DockPanel Grid.Row="0" Margin="0,0,0,4">
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-               <Button Content="{DynamicResource PunchingFemFind}" Command="{Binding FindJointsCommand}" Padding="10,2" Margin="6,0,0,0"
+         <!-- Сводка во всю ширину; под ней — ряд кнопок обычной высоты (переносится при узком окне): узлы | ЛИРА. -->
+         <StackPanel Grid.Row="0" Margin="0,0,0,4">
+            <StackPanel.Resources>
+               <Style TargetType="Button">
+                  <Setter Property="Padding" Value="10,2"/>
+                  <Setter Property="Margin" Value="0,4,6,0"/>
+                  <Setter Property="VerticalAlignment" Value="Center"/>
+                  <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+               </Style>
+               <!-- Длинные подсказки — с переносом, а не одной строкой за край экрана. -->
+               <Style TargetType="ToolTip">
+                  <Setter Property="ContentTemplate">
+                     <Setter.Value>
+                        <DataTemplate>
+                           <TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="420"/>
+                        </DataTemplate>
+                     </Setter.Value>
+                  </Setter>
+               </Style>
+            </StackPanel.Resources>
+            <TextBlock Text="{Binding JointsSummary}" TextWrapping="Wrap" FontWeight="SemiBold"/>
+            <WrapPanel>
+               <Button Content="{DynamicResource PunchingFemFind}" Command="{Binding FindJointsCommand}"
                        ToolTip="{DynamicResource PunchingFemFindHint}"/>
-               <Button Content="{DynamicResource PunchingFemIncludeAll}" Command="{Binding IncludeAllCommand}" Padding="10,2" Margin="6,0,0,0"/>
-               <Button Content="{DynamicResource PunchingFemExcludeAll}" Command="{Binding ExcludeAllCommand}" Padding="10,2" Margin="6,0,0,0"/>
-               <Button Content="{DynamicResource PunchingFemLiraOnly}" Command="{Binding LiraOnlyCommand}" Padding="10,2" Margin="6,0,0,0"
-                       ToolTip="{DynamicResource PunchingFemLiraOnlyHint}" ToolTipService.ShowOnDisabled="True"/>
-               <Button Content="{DynamicResource PunchingFemAttachAsp}" Command="{Binding AttachAspCommand}" Padding="10,2" Margin="6,0,0,0"
-                       ToolTip="{DynamicResource PunchingFemAttachAspHint}" ToolTipService.ShowOnDisabled="True"/>
-               <Button Content="{DynamicResource PunchingFemLiraSets}" Command="{Binding LiraSetsCommand}" Padding="10,2" Margin="6,0,0,0"
-                       ToolTip="{DynamicResource PunchingFemLiraSetsHint}" ToolTipService.ShowOnDisabled="True"/>
-            </StackPanel>
-            <StackPanel VerticalAlignment="Center">
-               <TextBlock Text="{Binding JointsSummary}" TextWrapping="Wrap" FontWeight="SemiBold"/>
-               <TextBlock Text="{Binding LiraAspText}" TextWrapping="Wrap" Foreground="#555555"/>
-            </StackPanel>
-         </DockPanel>
+               <Button Content="{DynamicResource PunchingFemIncludeAll}" Command="{Binding IncludeAllCommand}"/>
+               <Button Content="{DynamicResource PunchingFemExcludeAll}" Command="{Binding ExcludeAllCommand}"/>
+               <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="4,6,10,2"/>
+               <Button Content="{DynamicResource PunchingFemLiraOnly}" Command="{Binding LiraOnlyCommand}"
+                       ToolTip="{DynamicResource PunchingFemLiraOnlyHint}"/>
+               <Button Content="{DynamicResource PunchingFemAttachAsp}" Command="{Binding AttachAspCommand}"
+                       ToolTip="{DynamicResource PunchingFemAttachAspHint}"/>
+               <Button Content="{DynamicResource PunchingFemLiraSets}" Command="{Binding LiraSetsCommand}"
+                       ToolTip="{DynamicResource PunchingFemLiraSetsHint}"/>
+            </WrapPanel>
+            <TextBlock Text="{Binding LiraAspText}" TextWrapping="Wrap" Foreground="#555555" Margin="0,4,0,0"/>
+         </StackPanel>
          <DataGrid Grid.Row="1" ItemsSource="{Binding Joints}" SelectedItem="{Binding SelectedJoint}" AutoGenerateColumns="False"
                    CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" SelectionMode="Single"
                    GridLinesVisibility="Horizontal">
