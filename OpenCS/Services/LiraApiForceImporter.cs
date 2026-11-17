@@ -97,7 +97,7 @@ static class LiraApiForceImporter
 
     /// <summary>Смещение «сторожевого» номера КЭ в запросе РСУ (см. ReadDesignCombinationForces).
     /// Большое, чтобы не попасть в реальный КЭ схемы.</summary>
-    const int RsuSentinelOffset = 10_000_000;
+    internal const int RsuSentinelOffset = 10_000_000;
 
     /// <summary>Метка строки РСУ в терминах таблицы РСУ ЛИРА: элемент, сечение, критерий, категория
     /// (например «э.1 с2 к2 Б2»).</summary>
@@ -115,7 +115,7 @@ static class LiraApiForceImporter
     }
 
     /// <summary>kLiraInternalGroup_A2 → «A2» (столбец «Г» таблицы РСУ ЛИРА); Undefined → пусто.</summary>
-    static string InternalGroupName(LiraInternalGroupsEnum group)
+    internal static string InternalGroupName(LiraInternalGroupsEnum group)
     {
         const string prefix = "kLiraInternalGroup_";
         string name = group.ToString();
@@ -130,7 +130,7 @@ static class LiraApiForceImporter
     /// Единица координат (Geometry) к усилиям отношения не имеет. Если единицы не читаются —
     /// считаются кН, м и кПа.
     /// </summary>
-    static (string docName, LiraApiUnits units, Dictionary<int,string> lcNames) GetDocumentInfo(LiraImportSettings settings)
+    internal static (string docName, LiraApiUnits units, Dictionary<int,string> lcNames) GetDocumentInfo(LiraImportSettings settings)
     {
         dynamic lira = LiraComConnector.ConnectApplication();
 
@@ -156,7 +156,7 @@ static class LiraApiForceImporter
         return (docName, units, lcNames);
     }
 
-    static LiraResultsApi CreateResultsAccessObject() => LiraComConnector.CreateResultsAccess();
+    internal static LiraResultsApi CreateResultsAccessObject() => LiraComConnector.CreateResultsAccess();
 
     static List<ForceSet> ParseForcesResponse(
         dynamic resp,

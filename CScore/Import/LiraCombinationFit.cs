@@ -18,6 +18,12 @@ public sealed record LiraCombinationFitResult(IReadOnlyList<(int LoadCase, doubl
 {
     /// <summary>Подбор принят.</summary>
     public bool Ok => Failure == null;
+
+    /// <summary>Загружения, исключённые из подбора (не влияют на усилия стержней) — коэффициент не определён.</summary>
+    public IReadOnlyList<int> Ignored { get; init; } = [];
+
+    /// <summary>Коэффициенты взяты у другой строки с тем же набором загружений (свои не определялись).</summary>
+    public bool Matched { get; init; }
 }
 
 /// <summary>
@@ -36,6 +42,33 @@ public static class LiraCombinationFit
 
     /// <summary>Столбец считается линейно зависимым, если после ортогонализации от него остаётся меньше этой доли.</summary>
     const double RankShare = 1e-6;
+
+    /// <summary>
+    /// Относительная невязка заданных коэффициентов <paramref name="terms"/> (загружения вне списка — 0) в тех же весах,
+    /// что у <see cref="Fit"/>; нет строк выше шума — 0.
+    /// </summary>
+    public static double Residual(IReadOnlyList<int> loadCases, IReadOnlyList<LiraFitEquation> equations,
+        IReadOnlyList<(int LoadCase, double Factor)> terms)
+    {
+        ArgumentNullException.ThrowIfNull(loadCases);
+        ArgumentNullException.ThrowIfNull(equations);
+        ArgumentNullException.ThrowIfNull(terms);
+        var k = loadCases.Select(lc => terms.Where(t => t.LoadCase == lc).Sum(t => t.Factor)).ToArray();
+        var scales = equations.Select(e => Math.Max(Math.Abs(e.Target), e.Cases.DefaultIfEmpty().Max(Math.Abs))).ToArray();
+        double top = scales.DefaultIfEmpty().Max();
+        if (top <= 0) return 0;
+        double res = 0, norm = 0;
+        for (int i = 0; i < equations.Count; i++)
+        {
+            if (scales[i] < NoiseShare * top) continue;
+            double b = equations[i].Target / scales[i];
+            double ax = 0;
+            for (int j = 0; j < k.Length; j++) ax += k[j] * equations[i].Cases[j] / scales[i];
+            res += (ax - b) * (ax - b);
+            norm += b * b;
+        }
+        return norm > 0 ? Math.Sqrt(res / norm) : Math.Sqrt(res);
+    }
 
     /// <summary>
     /// Подбирает коэффициенты загружений <paramref name="loadCases"/> по уравнениям <paramref name="equations"/>.
