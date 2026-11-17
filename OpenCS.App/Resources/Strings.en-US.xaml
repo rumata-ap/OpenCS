@@ -6850,6 +6850,16 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemLiraOnlyHint">Include only the joints LIRA checked (from the *.asp attached to the schema), exclude the rest. Disabled until an *.asp with punching joints of this schema is attached.</system:String>
    <system:String x:Key="PunchingFemAttachAsp">Attach *.asp…</system:String>
    <system:String x:Key="PunchingFemAttachAspHint">Attach LIRA selected reinforcement (*.asp) to the schema, as «Load *.asp» in the schema menu; LIRA punching results and perimeters are taken from it for comparison. Disabled for a fragment: attach the *.asp to the parent schema.</system:String>
+   <system:String x:Key="PunchingFemLiraSets">Sets from LIRA…</system:String>
+   <system:String x:Key="PunchingFemLiraSetsHint">For included joints with columns: a force set «Punching, joint N» from the open LIRA (load cases, load combinations and design combinations; LIRA combinations are decomposed into load cases, joint forces are taken from columns of the schema snapshot) and a punching batch task. Running again updates the sets. Enabled when the force source is a LIRA-SAPR result snapshot; disabled for a fragment.</system:String>
+   <system:String x:Key="PunchingFemLiraSetsTitle">Sets from LIRA</system:String>
+   <system:String x:Key="PunchingFemLiraSetsNoBars">The selected joints have no column bars.</system:String>
+   <system:String x:Key="PunchingFemLiraSetsNoLira">LIRA-SAPR is not available: {0}</system:String>
+   <system:String x:Key="PunchingFemLiraSetsOtherDoc">LIRA has document «{0}» open, while the schema result snapshot was taken from «{1}». Element and load case numbers may differ. Continue?</system:String>
+   <system:String x:Key="PunchingFemLiraSetsReading">Reading LIRA design and load combinations: {0} bars…</system:String>
+   <system:String x:Key="PunchingFemLiraSetsReadError">Could not read forces from LIRA: {0}</system:String>
+   <system:String x:Key="PunchingFemLiraSetsDone">LIRA «{0}»: punching force sets created {1}, updated {2}; each has a punching batch task.</system:String>
+   <system:String x:Key="PunchingFemLiraSetsWarnings">Remarks: {0} — see the log.</system:String>
    <system:String x:Key="PunchingFemColLira">LIRA</system:String>
    <system:String x:Key="PunchingFemLiraAswKsw">Asw {0:0.00} cm²; Ksw {1:0.00}</system:String>
    <system:String x:Key="PunchingFemLiraKsw">Ksw {0:0.00}</system:String>

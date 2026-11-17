@@ -317,6 +317,19 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         {
             if (_schema != null && AttachLiraAsp?.Invoke(_schema) == true) FindJoints();
         }, _ => _schema != null && AttachLiraAsp != null && !_isFragment);
+        LiraSetsCommand = new RelayCommand(async _ =>
+        {
+            if (_schema == null || CreateLiraForceSets == null || _liraBusy) return;
+            _liraBusy = true;
+            CommandManager.InvalidateRequerySuggested();
+            try { await CreateLiraForceSets(_schema, ToParams(), LiraSetJoints()); }
+            finally
+            {
+                _liraBusy = false;
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }, _ => _schema != null && CreateLiraForceSets != null && !_liraBusy && !_isFragment && _analysis?.Kind == FragmentMaskSet.SourceLira
+               && LiraSetJoints().Count > 0);
         if (_schema != null) FindJoints();
     }
 
@@ -473,6 +486,21 @@ public sealed class PunchingFemCheckVM : ViewModelBase
 
     /// <summary>Загрузка *.asp к схеме (окно выбора файла и сверка, как в меню схемы); true — файл приложен.</summary>
     public Func<FemSchema, bool>? AttachLiraAsp { get; set; }
+
+    /// <summary>
+    /// Наборы усилий продавливания из открытой ЛИРЫ (РСУ, РСН, загружения) и пакетные задачи для включённых узлов с
+    /// колоннами; источник проверки — снимок результатов ЛИРЫ.
+    /// </summary>
+    public ICommand LiraSetsCommand { get; }
+
+    /// <summary>Создание наборов из ЛИРЫ: схема, параметры формы, узлы.</summary>
+    public Func<FemSchema, PunchingFemCheckParams, IReadOnlyList<PunchingFemJoint>, Task>? CreateLiraForceSets { get; set; }
+
+    /// <summary>Идёт чтение ЛИРЫ и создание наборов.</summary>
+    bool _liraBusy;
+
+    /// <summary>Включённые проверяемые узлы со стержнями колонн.</summary>
+    List<PunchingFemJoint> LiraSetJoints() => Joints.Where(j => j.Include && j.Checkable && j.Joint.Bars.Count > 0).Select(j => j.Joint).ToList();
 
     /// <summary>Строка о *.asp ЛИРЫ: файл и сколько узлов сопоставлено, или подсказка приложить.</summary>
     public string LiraAspText { get; private set; } = "";

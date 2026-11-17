@@ -1027,6 +1027,65 @@ public sealed class PunchingFemServiceTests : IDisposable
         Assert.Equal(0.95 * post.My - 0.9 * wind.My, f.My, 3);
     }
 
+    /// <summary>
+    /// Наборы из ЛИРЫ: стержень колонны у плиты → сечение ЛИРЫ; строки загружений, РСН и РСУ — усилия узла по
+    /// разложенным сочетаниям (суперпозиция загружений снимка); повторный запуск обновляет набор и задачу узла.
+    /// </summary>
+    [Fact]
+    public void LiraForceSets_RowsByFittedCombinations_UpdateOnRerun()
+    {
+        var s = Create();
+        using var db = s.Db;
+        var lc = db.GetFemLoadCases(s.Schema.Id);
+        ScadSnapshotFromCsfea(db, s.Schema, s.Analysis, lc);
+        var diag = new List<FemValidationDiagnostic>();
+        var source = PunchingFemService.OpenImported(db, s.Schema, CScore.Fem.Fragment.Masks.FragmentMaskSet.SourceScad, diag)!;
+        var data = PunchingFemService.Load(db, s.Schema, new PunchingFemOptions());
+        var joint = Assert.Single(data.Joints);
+
+        var warnings = new List<string>();
+        var bars = PunchingLiraForceSets.Bars(data, data.Joints, warnings);
+        Assert.Empty(warnings);
+        Assert.Equal([(5002, false)], bars);
+
+        // Усилия ЛИРЫ в сечении у плиты (значения условные: по ним только раскладываются сочетания).
+        var at = new CScore.Import.LiraBarSection(5002, 2);
+        double[] v1 = [-40, 0.01, 2.3, -0.8, 0.5, -0.2], v2 = [-12, 0.02, 0.7, 2.1, 0.1, 0.7];
+        double[] Comb(double a, double b) => v1.Zip(v2, (x, y) => a * x + b * y).ToArray();
+        var lira = new PunchingLiraInput("плита",
+            new Dictionary<CScore.Import.LiraBarSection, IReadOnlyDictionary<int, IReadOnlyList<double>>>
+            {
+                [at] = new Dictionary<int, IReadOnlyList<double>> { [1] = v1, [2] = v2 },
+            },
+            [new CScore.Import.LiraRsuRow(at, 1, 18, "А1", [1, 2], Comb(1.2, 0.9))],
+            [new CScore.Import.LiraRsnRow(1, "Осн.", new Dictionary<CScore.Import.LiraBarSection, IReadOnlyList<double>> { [at] = Comb(1.0, 1.0) })],
+            new Dictionary<int, string> { [1] = "Пост." });
+        var check = new PunchingFemCheckParams { SourceKind = CScore.Fem.Fragment.Masks.FragmentMaskSet.SourceScad };
+
+        var outcome = PunchingLiraForceSets.Build(data, source, data.Joints, lira, check, [], []);
+        Assert.Empty(outcome.Warnings);
+        var js = Assert.Single(outcome.Joints);
+        Assert.Equal($"Продавливание, узел {joint.NodeTag}", js.Set.Tag);
+        Assert.Equal((2, 1, 1), (js.LoadCases, js.Rsn, js.Rsu));
+        var items = js.Set.Items;
+        Assert.Equal(["Загр. 1 «Пост.»", "Загр. 2", "РСН 1 «Осн.»", "РСУ э.5002 с2 к18 А1"], items.Select(i => i.Label));
+        Assert.Equal(items[0].N + items[1].N, items[2].N, 2);
+        Assert.Equal(1.2 * items[0].N + 0.9 * items[1].N, items[3].N, 2);
+        Assert.Equal(1.2 * items[0].Mx + 0.9 * items[1].Mx, items[3].Mx, 2);
+        Assert.Equal(PunchingBatchRunner.Kind, js.Task.Kind);
+        var p = PunchingTaskParams.Parse(js.Task.ParamsJson);
+        Assert.Equal(PunchingBatchRunner.DominantSign(items) >= 0 ? "from_below" : "from_above", p.Forces.LoadSide);
+
+        // Повторный запуск: тот же набор и та же задача.
+        js.Set.Id = 7;
+        js.Task.Id = 3;
+        js.Task.ForceSetId = 7;
+        var again = Assert.Single(PunchingLiraForceSets.Build(data, source, data.Joints, lira, check, [js.Set], [js.Task]).Joints);
+        Assert.Same(js.Set, again.Set);
+        Assert.Same(js.Task, again.Task);
+        Assert.Equal(4, again.Set.Items.Count);
+    }
+
     [Fact]
     public void TaskParams_RunCore()
     {

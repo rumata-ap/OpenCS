@@ -6287,6 +6287,123 @@ namespace OpenCS
          db.SaveFemCheck(check);
       }
 
+      /// <summary>
+      /// «Наборы из ЛИРЫ…» окна проверки продавливания по МКЭ: для узлов — набор «Продавливание, узел N» (загружения,
+      /// РСН и РСУ открытой ЛИРЫ, разложенные на загружения; усилия узла — по колоннам из снимка схемы) и пакетная задача
+      /// продавливания. Чтение API — в отдельном STA-потоке, сохранение — здесь.
+      /// </summary>
+      async Task CreatePunchingLiraForceSets(CScore.Fem.FemSchema schema, Tasks.PunchingFemCheckParams check,
+         IReadOnlyList<CScore.Sp63Punching.Fem.PunchingFemJoint> joints)
+      {
+         string title = Loc.S("PunchingFemLiraSetsTitle", "Наборы из ЛИРЫ");
+         void Show(string message, MessageBoxImage icon) =>
+            MessageBox.Show(Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow!,
+               message, title, MessageBoxButton.OK, icon);
+
+         var diag = new List<CScore.Fem.FemValidationDiagnostic>();
+         var source = PunchingFemService.OpenImported(db, schema, CScore.Fem.Fragment.Masks.FragmentMaskSet.SourceLira, diag);
+         if (source == null)
+         {
+            Show(string.Join("\n", diag.Where(d => d.IsError).Select(d => d.Message)), MessageBoxImage.Warning);
+            return;
+         }
+         var data = PunchingFemService.Load(db, schema, check.FinderOptions);
+         var nodes = joints.Select(j => j.NodeTag).ToHashSet(StringComparer.Ordinal);
+         var picked = data.Joints.Where(j => nodes.Contains(j.NodeTag)).ToList();
+         var warnings = new List<string>();
+         var bars = PunchingLiraForceSets.Bars(data, picked, warnings);
+         if (bars.Count == 0)
+         {
+            Show(string.Join("\n", warnings.DefaultIfEmpty(Loc.S("PunchingFemLiraSetsNoBars", "У выбранных узлов нет стержней колонн."))), MessageBoxImage.Warning);
+            return;
+         }
+
+         // Документ ЛИРЫ — тот же, что у снимка схемы?
+         string document;
+         try { document = LiraApiPunchingCombinations.ActiveDocumentName(); }
+         catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException
+                                        or Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
+         {
+            Show(string.Format(Loc.S("PunchingFemLiraSetsNoLira", "ЛИРА-САПР недоступна: {0}"), ex.Message), MessageBoxImage.Warning);
+            return;
+         }
+         string? snapshotName = db.GetFemSchemaSourceFileInfo(schema.Id,
+            StoreyFragmentMaskService.SnapshotFileKind(CScore.Fem.Fragment.Masks.FragmentMaskSet.SourceLira))?.FileName;
+         string snapshotDoc = Path.GetFileNameWithoutExtension(snapshotName ?? "");
+         if (snapshotDoc.Length > 0 && !string.Equals(snapshotDoc, document, StringComparison.OrdinalIgnoreCase)
+             && MessageBox.Show(string.Format(Loc.S("PunchingFemLiraSetsOtherDoc",
+                   "В ЛИРЕ открыт документ «{0}», а снимок результатов схемы взят из «{1}». Номера КЭ и загружений могут не совпасть. Продолжить?"),
+                   document, snapshotDoc), title, MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+
+         LiraPunchingApiData api;
+         var settings = LiraImportSettings;
+         Mouse.OverrideCursor = Cursors.Wait;
+         StatusMessage = string.Format(Loc.S("PunchingFemLiraSetsReading", "Чтение РСУ и РСН ЛИРЫ: стержней {0}…"), bars.Count);
+         try
+         {
+            api = await RunSta(() => LiraApiPunchingCombinations.Read(bars, settings));
+         }
+         catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException
+                                        or Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
+         {
+            Mouse.OverrideCursor = null;
+            StatusMessage = "";
+            LogService.Error($"{title}: {ex.Message}");
+            Show(string.Format(Loc.S("PunchingFemLiraSetsReadError", "Не удалось прочитать усилия из ЛИРЫ: {0}"), ex.Message), MessageBoxImage.Error);
+            return;
+         }
+
+         try
+         {
+            var outcome = PunchingLiraForceSets.Build(data, source, picked, LiraApiPunchingCombinations.ToInput(api), check,
+               ForceSets.ToList(), CalcTasks.ToList());
+            warnings.AddRange(outcome.Warnings);
+            int created = 0, updated = 0;
+            int nextSet = ForceSets.Count > 0 ? ForceSets.Max(f => f.Num) + 1 : 1;
+            int nextTask = CalcTasks.Count > 0 ? CalcTasks.Max(t => t.Num) + 1 : 1;
+            foreach (var j in outcome.Joints)
+            {
+               bool isNew = j.Set.Id == 0;
+               if (isNew) j.Set.Num = nextSet++;
+               db.SaveForceSet(j.Set);
+               j.Set.IsModified = false;
+               if (isNew) { ForceSets.Add(j.Set); created++; }
+               else { RefreshForceSetInTree(j.Set); updated++; }
+               j.Task.ForceSetId = j.Set.Id;
+               if (j.Task.Id == 0) j.Task.Num = nextTask++;
+               db.SaveCalcTask(j.Task);
+            }
+            foreach (var w in warnings) LogService.Warning(w);
+            string done = string.Format(Loc.S("PunchingFemLiraSetsDone",
+               "ЛИРА «{0}»: наборов продавливания создано {1}, обновлено {2}; к каждому — пакетная задача продавливания."),
+               api.DocumentName, created, updated);
+            LogService.Info(done);
+            Show(done + (warnings.Count > 0
+                  ? "\n\n" + string.Format(Loc.S("PunchingFemLiraSetsWarnings", "Замечаний: {0} — см. журнал."), warnings.Count) : ""),
+               warnings.Count > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
+         }
+         finally
+         {
+            Mouse.OverrideCursor = null;
+            StatusMessage = "";
+         }
+      }
+
+      /// <summary>Выполняет <paramref name="work"/> в отдельном STA-потоке (COM ЛИРЫ) и ждёт его без блокировки окна.</summary>
+      static Task<T> RunSta<T>(Func<T> work)
+      {
+         var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+         var thread = new Thread(() =>
+         {
+            try { tcs.SetResult(work()); }
+            catch (Exception ex) { tcs.SetException(ex); }
+         }) { IsBackground = true };
+         thread.SetApartmentState(ApartmentState.STA);
+         thread.Start();
+         return tcs.Task;
+      }
+
       /// <summary>Новая проверка продавливания по МКЭ-схеме (<c>punching_check</c>); «Сохранить и рассчитать» — сразу расчёт.</summary>
       public void AddPunchingFemCheck(CScore.Fem.FemSchema? schema)
       {
@@ -6296,7 +6413,7 @@ namespace OpenCS
                MessageBoxButton.OK, MessageBoxImage.Information);
             return;
          }
-         var dlg = new Views.PunchingFemCheckDialog(db, null, schema ?? currentFemSchema) { AttachLiraAsp = LoadLiraAsp };
+         var dlg = new Views.PunchingFemCheckDialog(db, null, schema ?? currentFemSchema) { AttachLiraAsp = LoadLiraAsp, CreateLiraForceSets = CreatePunchingLiraForceSets };
          if (dlg.ShowDialog() != true || dlg.ResultCheck == null) return;
          db.SaveFemCheck(dlg.ResultCheck);
          CurrentFemCheck = dlg.ResultCheck;
@@ -6341,7 +6458,7 @@ namespace OpenCS
 
          if (check.NormCode == Tasks.PunchingFemCheckParams.NormCode)
          {
-             var punching = new Views.PunchingFemCheckDialog(db, check) { AttachLiraAsp = LoadLiraAsp };
+             var punching = new Views.PunchingFemCheckDialog(db, check) { AttachLiraAsp = LoadLiraAsp, CreateLiraForceSets = CreatePunchingLiraForceSets };
              if (punching.ShowDialog() != true) return;
              db.SaveFemCheck(check);
              if (punching.RunRequested) _ = RunFemCheck(check);

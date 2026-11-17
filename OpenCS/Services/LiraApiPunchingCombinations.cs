@@ -23,6 +23,18 @@ sealed record LiraPunchingApiData(
 /// <summary>Чтение усилий загружений, РСУ и РСН стержней колонн узлов продавливания из открытого документа ЛИРЫ.</summary>
 static class LiraApiPunchingCombinations
 {
+    /// <summary>Имя документа, открытого в ЛИРЕ (без пути и расширения); исключение — ЛИРА не запущена или документа нет.</summary>
+    public static string ActiveDocumentName()
+    {
+        dynamic lira = LiraComConnector.ConnectApplication();
+        dynamic doc = lira.ActiveDocument
+            ?? throw new InvalidOperationException("В ЛИРЕ нет открытого документа. Откройте расчётную схему и повторите.");
+        return System.IO.Path.GetFileNameWithoutExtension((string)doc.PathName);
+    }
+
+    /// <summary>Данные API в виде входа построителя наборов.</summary>
+    public static PunchingLiraInput ToInput(LiraPunchingApiData d) => new(d.DocumentName, d.Cases, d.Rsu, d.Rsn, d.LoadCaseNames);
+
     /// <summary>
     /// Читает данные для стержней <paramref name="bars"/>: номер КЭ ЛИРЫ и конец у плиты (true — первый узел, сечение 1;
     /// false — последнее сечение). Запрашиваются только стержни: запрос РСУ с пластинами в ЛИРЕ 2024 обрывал процесс.

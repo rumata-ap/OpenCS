@@ -298,6 +298,8 @@
                        ToolTip="{DynamicResource PunchingFemLiraOnlyHint}" ToolTipService.ShowOnDisabled="True"/>
                <Button Content="{DynamicResource PunchingFemAttachAsp}" Command="{Binding AttachAspCommand}" Padding="10,2" Margin="6,0,0,0"
                        ToolTip="{DynamicResource PunchingFemAttachAspHint}" ToolTipService.ShowOnDisabled="True"/>
+               <Button Content="{DynamicResource PunchingFemLiraSets}" Command="{Binding LiraSetsCommand}" Padding="10,2" Margin="6,0,0,0"
+                       ToolTip="{DynamicResource PunchingFemLiraSetsHint}" ToolTipService.ShowOnDisabled="True"/>
             </StackPanel>
             <StackPanel VerticalAlignment="Center">
                <TextBlock Text="{Binding JointsSummary}" TextWrapping="Wrap" FontWeight="SemiBold"/>

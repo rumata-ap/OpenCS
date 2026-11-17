@@ -29,6 +29,13 @@ public partial class PunchingFemCheckDialog : Window
     /// <summary>Загрузка *.asp ЛИРЫ к схеме (как в меню схемы) для кнопки «Приложить *.asp…»; true — приложен.</summary>
     public Func<FemSchema, bool>? AttachLiraAsp { get => _vm.AttachLiraAsp; init => _vm.AttachLiraAsp = value; }
 
+    /// <summary>Наборы усилий продавливания из открытой ЛИРЫ для кнопки «Наборы из ЛИРЫ…».</summary>
+    public Func<FemSchema, OpenCS.Tasks.PunchingFemCheckParams, IReadOnlyList<CScore.Sp63Punching.Fem.PunchingFemJoint>, Task>? CreateLiraForceSets
+    {
+        get => _vm.CreateLiraForceSets;
+        init => _vm.CreateLiraForceSets = value;
+    }
+
     /// <summary>Проверка после «Сохранить» (новая — созданная здесь, без Id).</summary>
     public FemCheck? ResultCheck { get; private set; }
     /// <summary>Пользователь выбрал «Сохранить и рассчитать».</summary>

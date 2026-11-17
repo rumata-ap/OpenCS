@@ -6850,6 +6850,16 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemLiraOnlyHint">Включить в проверку только узлы, которые считала ЛИРА (по приложенному к схеме *.asp), остальные исключить. Неактивна, пока к схеме не приложен *.asp с узлами продавливания этой схемы.</system:String>
    <system:String x:Key="PunchingFemAttachAsp">Приложить *.asp…</system:String>
    <system:String x:Key="PunchingFemAttachAspHint">Приложить к схеме подбор ЛИРЫ (*.asp) — как «Дозагрузить *.asp» в меню схемы; из него берутся результат и контуры продавливания ЛИРЫ для сверки. У фрагмента неактивна: *.asp прикладывается к исходной схеме.</system:String>
+   <system:String x:Key="PunchingFemLiraSets">Наборы из ЛИРЫ…</system:String>
+   <system:String x:Key="PunchingFemLiraSetsHint">Для включённых узлов с колоннами: набор усилий «Продавливание, узел N» из открытой ЛИРЫ (загружения, РСН и РСУ; сочетания ЛИРЫ раскладываются на загружения, усилия узла — по колоннам из снимка схемы) и пакетная задача продавливания. Повторно — обновляет наборы. Активна, когда источник усилий — снимок результатов ЛИРА-САПР; у фрагмента неактивна.</system:String>
+   <system:String x:Key="PunchingFemLiraSetsTitle">Наборы из ЛИРЫ</system:String>
+   <system:String x:Key="PunchingFemLiraSetsNoBars">У выбранных узлов нет стержней колонн.</system:String>
+   <system:String x:Key="PunchingFemLiraSetsNoLira">ЛИРА-САПР недоступна: {0}</system:String>
+   <system:String x:Key="PunchingFemLiraSetsOtherDoc">В ЛИРЕ открыт документ «{0}», а снимок результатов схемы взят из «{1}». Номера КЭ и загружений могут не совпасть. Продолжить?</system:String>
+   <system:String x:Key="PunchingFemLiraSetsReading">Чтение РСУ и РСН ЛИРЫ: стержней {0}…</system:String>
+   <system:String x:Key="PunchingFemLiraSetsReadError">Не удалось прочитать усилия из ЛИРЫ: {0}</system:String>
+   <system:String x:Key="PunchingFemLiraSetsDone">ЛИРА «{0}»: наборов продавливания создано {1}, обновлено {2}; к каждому — пакетная задача продавливания.</system:String>
+   <system:String x:Key="PunchingFemLiraSetsWarnings">Замечаний: {0} — см. журнал.</system:String>
    <system:String x:Key="PunchingFemColLira">ЛИРА</system:String>
    <system:String x:Key="PunchingFemLiraAswKsw">Asw {0:0.00} см²; Ksw {1:0.00}</system:String>
    <system:String x:Key="PunchingFemLiraKsw">Ksw {0:0.00}</system:String>
