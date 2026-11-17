@@ -295,9 +295,9 @@
                <Button Content="{DynamicResource PunchingFemIncludeAll}" Command="{Binding IncludeAllCommand}" Padding="10,2" Margin="6,0,0,0"/>
                <Button Content="{DynamicResource PunchingFemExcludeAll}" Command="{Binding ExcludeAllCommand}" Padding="10,2" Margin="6,0,0,0"/>
                <Button Content="{DynamicResource PunchingFemLiraOnly}" Command="{Binding LiraOnlyCommand}" Padding="10,2" Margin="6,0,0,0"
-                       ToolTip="{DynamicResource PunchingFemLiraOnlyHint}"/>
+                       ToolTip="{DynamicResource PunchingFemLiraOnlyHint}" ToolTipService.ShowOnDisabled="True"/>
                <Button Content="{DynamicResource PunchingFemAttachAsp}" Command="{Binding AttachAspCommand}" Padding="10,2" Margin="6,0,0,0"
-                       ToolTip="{DynamicResource PunchingFemAttachAspHint}"/>
+                       ToolTip="{DynamicResource PunchingFemAttachAspHint}" ToolTipService.ShowOnDisabled="True"/>
             </StackPanel>
             <StackPanel VerticalAlignment="Center">
                <TextBlock Text="{Binding JointsSummary}" TextWrapping="Wrap" FontWeight="SemiBold"/>

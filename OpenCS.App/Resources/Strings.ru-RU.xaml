@@ -6847,9 +6847,9 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemIncludeAll">Включить все</system:String>
    <system:String x:Key="PunchingFemExcludeAll">Исключить все</system:String>
    <system:String x:Key="PunchingFemLiraOnly">Только узлы ЛИРЫ</system:String>
-   <system:String x:Key="PunchingFemLiraOnlyHint">Включить в проверку только узлы, которые считала ЛИРА (по приложенному к схеме *.asp), остальные исключить</system:String>
+   <system:String x:Key="PunchingFemLiraOnlyHint">Включить в проверку только узлы, которые считала ЛИРА (по приложенному к схеме *.asp), остальные исключить. Неактивна, пока к схеме не приложен *.asp с узлами продавливания этой схемы.</system:String>
    <system:String x:Key="PunchingFemAttachAsp">Приложить *.asp…</system:String>
-   <system:String x:Key="PunchingFemAttachAspHint">Приложить к схеме подбор ЛИРЫ (*.asp) — как «Дозагрузить *.asp» в меню схемы; из него берутся результат и контуры продавливания ЛИРЫ для сверки</system:String>
+   <system:String x:Key="PunchingFemAttachAspHint">Приложить к схеме подбор ЛИРЫ (*.asp) — как «Дозагрузить *.asp» в меню схемы; из него берутся результат и контуры продавливания ЛИРЫ для сверки. У фрагмента неактивна: *.asp прикладывается к исходной схеме.</system:String>
    <system:String x:Key="PunchingFemColLira">ЛИРА</system:String>
    <system:String x:Key="PunchingFemLiraAswKsw">Asw {0:0.00} см²; Ksw {1:0.00}</system:String>
    <system:String x:Key="PunchingFemLiraKsw">Ksw {0:0.00}</system:String>

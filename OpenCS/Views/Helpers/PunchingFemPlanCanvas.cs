@@ -177,6 +177,13 @@ public sealed class PunchingFemPlanCanvas : FrameworkElement
             }
             else DrawMarker(dc, brush, at, r, j.Node == SelectedNode);
             _hit.Add((j.Node, at, Math.Max(r, 8)));
+            // Пунктир ЛИРЫ шире значка: подпись — справа от него, а не впритык к контуру.
+            if (j.Lira is { Contour.Count: > 0 } lira)
+                foreach (var s in lira.Contour.Where(s => s.Length == 6))
+                {
+                    box.Union(P(s[0], s[1]));
+                    box.Union(P(s[3], s[4]));
+                }
             labels.Add((j, box));
         }
 

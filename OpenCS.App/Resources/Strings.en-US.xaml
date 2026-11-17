@@ -6847,9 +6847,9 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemIncludeAll">Include all</system:String>
    <system:String x:Key="PunchingFemExcludeAll">Exclude all</system:String>
    <system:String x:Key="PunchingFemLiraOnly">LIRA joints only</system:String>
-   <system:String x:Key="PunchingFemLiraOnlyHint">Include only the joints LIRA checked (from the *.asp attached to the schema), exclude the rest</system:String>
+   <system:String x:Key="PunchingFemLiraOnlyHint">Include only the joints LIRA checked (from the *.asp attached to the schema), exclude the rest. Disabled until an *.asp with punching joints of this schema is attached.</system:String>
    <system:String x:Key="PunchingFemAttachAsp">Attach *.asp…</system:String>
-   <system:String x:Key="PunchingFemAttachAspHint">Attach LIRA selected reinforcement (*.asp) to the schema, as «Load *.asp» in the schema menu; LIRA punching results and perimeters are taken from it for comparison</system:String>
+   <system:String x:Key="PunchingFemAttachAspHint">Attach LIRA selected reinforcement (*.asp) to the schema, as «Load *.asp» in the schema menu; LIRA punching results and perimeters are taken from it for comparison. Disabled for a fragment: attach the *.asp to the parent schema.</system:String>
    <system:String x:Key="PunchingFemColLira">LIRA</system:String>
    <system:String x:Key="PunchingFemLiraAswKsw">Asw {0:0.00} cm²; Ksw {1:0.00}</system:String>
    <system:String x:Key="PunchingFemLiraKsw">Ksw {0:0.00}</system:String>
