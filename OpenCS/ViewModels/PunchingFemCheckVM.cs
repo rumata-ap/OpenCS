@@ -153,6 +153,23 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
         Changed?.Invoke();
     }
 
+    /// <summary>Узел продавливания ЛИРЫ из приложенного *.asp; null — ЛИРА этот узел не считала или файла нет.</summary>
+    public CScore.Import.LiraAspPunching? Lira { get; private set; }
+    /// <summary>Результат ЛИРЫ кратко: «Asw 6,08 см²», «Ksw 2,00», «#170»; пусто — нет.</summary>
+    public string LiraText { get; private set; } = "";
+    /// <summary>Подсказка к результату ЛИРЫ: номер записи, U, классы, сообщение.</summary>
+    public string? LiraHint { get; private set; }
+
+    /// <summary>Задать узел ЛИРЫ (после сопоставления с *.asp).</summary>
+    public void SetLira(CScore.Import.LiraAspPunching? lira)
+    {
+        Lira = lira;
+        LiraText = PunchingFemLiraText.Short(lira);
+        LiraHint = PunchingFemLiraText.Hint(lira);
+        foreach (var n in new[] { nameof(Lira), nameof(LiraText), nameof(LiraHint) })
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
+    }
+
     /// <summary>Переопределение узла; null — переопределять нечего.</summary>
     public PunchingFemJointOverride? ToOverride(PunchingReinforcementParams common) =>
         _include && _ax == null && _ay == null && !_ownSw && _capitalMode == "auto" ? null : new PunchingFemJointOverride
@@ -176,6 +193,35 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
         field = value;
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         Changed?.Invoke();
+    }
+}
+
+/// <summary>Текст результата ЛИРЫ по узлу продавливания (таблица 47) для окон проверки и результата.</summary>
+public static class PunchingFemLiraText
+{
+    /// <summary>Кратко: «#170», «Asw 6,08 см²; Ksw 1,60», «Ksw 2,00»; пусто — нет узла ЛИРЫ.</summary>
+    public static string Short(CScore.Import.LiraAspPunching? p) => p == null ? "" : Short(p.ErrorCode, p.Asw, p.Ksw);
+
+    public static string Short(int errorCode, double asw, double ksw)
+    {
+        var c = CultureInfo.CurrentCulture;
+        if (errorCode != 0) return "#" + errorCode.ToString(c);
+        return asw > 0
+            ? string.Format(c, Loc.S("PunchingFemLiraAswKsw", "Asw {0:0.00} см²; Ksw {1:0.00}"), asw, ksw)
+            : string.Format(c, Loc.S("PunchingFemLiraKsw", "Ksw {0:0.00}"), ksw);
+    }
+
+    /// <summary>Подсказка: запись, U, классы, сообщение ЛИРЫ.</summary>
+    public static string? Hint(CScore.Import.LiraAspPunching? p) => p == null ? null
+        : Hint(p.Index, p.Perimeter, p.ConcreteClass, p.RebarClass, p.ErrorText);
+
+    public static string Hint(int index, double perimeter, string concrete, string rebar, string? error)
+    {
+        var c = CultureInfo.CurrentCulture;
+        string s = string.Format(c, Loc.S("PunchingFemLiraHint", "ЛИРА, запись {0} таблицы «Арматура для контуров продавливания»: U = {1:0} мм"),
+            index, perimeter * 1000);
+        if (concrete.Length + rebar.Length > 0) s += $"; {concrete} / {rebar}";
+        return error != null ? s + "\n" + error : s;
     }
 }
 
@@ -266,6 +312,11 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         FindJointsCommand = new RelayCommand(_ => FindJoints(), _ => _schema != null);
         IncludeAllCommand = new RelayCommand(_ => { foreach (var j in Joints) j.Include = true; });
         ExcludeAllCommand = new RelayCommand(_ => { foreach (var j in Joints) j.Include = false; });
+        LiraOnlyCommand = new RelayCommand(_ => { foreach (var j in Joints) j.Include = j.Lira != null; }, _ => HasLiraJoints);
+        AttachAspCommand = new RelayCommand(_ =>
+        {
+            if (_schema != null && AttachLiraAsp?.Invoke(_schema) == true) FindJoints();
+        }, _ => _schema != null && AttachLiraAsp != null && !_isFragment);
         if (_schema != null) FindJoints();
     }
 
@@ -415,6 +466,18 @@ public sealed class PunchingFemCheckVM : ViewModelBase
     public ICommand FindJointsCommand { get; }
     public ICommand IncludeAllCommand { get; }
     public ICommand ExcludeAllCommand { get; }
+    /// <summary>Включить в проверку только узлы, которые считала ЛИРА (по приложенному *.asp).</summary>
+    public ICommand LiraOnlyCommand { get; }
+    /// <summary>Приложить к схеме *.asp ЛИРЫ (та же загрузка, что в меню схемы).</summary>
+    public ICommand AttachAspCommand { get; }
+
+    /// <summary>Загрузка *.asp к схеме (окно выбора файла и сверка, как в меню схемы); true — файл приложен.</summary>
+    public Func<FemSchema, bool>? AttachLiraAsp { get; set; }
+
+    /// <summary>Строка о *.asp ЛИРЫ: файл и сколько узлов сопоставлено, или подсказка приложить.</summary>
+    public string LiraAspText { get; private set; } = "";
+    /// <summary>В найденных узлах есть узлы ЛИРЫ.</summary>
+    public bool HasLiraJoints => Joints.Any(j => j.Lira != null);
 
     // ── Логика ─────────────────────────────────────────────────────────────
 
@@ -465,7 +528,34 @@ public sealed class PunchingFemCheckVM : ViewModelBase
             : string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingFemJointsFound", "Найдено узлов: {0}, из них не проверяются по геометрии: {1}, плит: {2}. При расчёте без проверки останутся и узлы без усилий в результате."),
                 data.Joints.Count, noCheck, data.Slabs.Count(s => data.Joints.Any(j => j.SlabIndex == s.Index)));
         OnPropertyChanged(nameof(JointsSummary));
-        SelectedJoint = Joints.FirstOrDefault(j => j.Node == keep) ?? Joints.FirstOrDefault(j => j.Checkable) ?? Joints.FirstOrDefault();
+        MatchLira(data.Joints);
+        SelectedJoint =Joints.FirstOrDefault(j => j.Node == keep) ?? Joints.FirstOrDefault(j => j.Checkable) ?? Joints.FirstOrDefault();
+    }
+
+    bool _isFragment;
+
+    /// <summary>Сопоставить найденные узлы с узлами продавливания ЛИРЫ из *.asp схемы.</summary>
+    void MatchLira(IReadOnlyList<PunchingFemJoint> joints)
+    {
+        var c = CultureInfo.CurrentCulture;
+        _isFragment = _schema != null && _db.GetFemSchemaFragmentSource(_schema.Id).IsFragment;
+        var asp = _schema == null ? null : PunchingFemService.LoadLiraAsp(_db, _schema.Id);
+        var match = PunchingFemService.MatchLira(asp?.File, joints);
+        foreach (var j in Joints) j.SetLira(match.ByNode.GetValueOrDefault(j.Node));
+        LiraAspText = asp switch
+        {
+            null => _isFragment
+                ? Loc.S("PunchingFemLiraNoAspFragment", "Подбор ЛИРЫ (*.asp) не приложен к исходной схеме фрагмента — сверки с ЛИРОЙ нет.")
+                : Loc.S("PunchingFemLiraNoAsp", "Подбор ЛИРЫ (*.asp) к схеме не приложен — приложите его, чтобы сверить узлы с ЛИРОЙ."),
+            { Error: { } e } => string.Format(c, Loc.S("PunchingFemLiraAspError", "Подбор ЛИРЫ {0} не прочитан: {1}"), asp.Value.FileName, e),
+            { File.Punching.Count: 0 } => string.Format(c, Loc.S("PunchingFemLiraAspNoPunching", "В подборе ЛИРЫ {0} нет узлов продавливания."), asp.Value.FileName),
+            _ => string.Format(c, Loc.S("PunchingFemLiraAspMatched", "ЛИРА ({0}): узлов продавливания {1}, сопоставлено {2}{3}."),
+                asp.Value.FileName, asp.Value.File!.Punching.Count, match.ByNode.Count,
+                match.Unmatched.Count > 0 ? string.Format(c, Loc.S("PunchingFemLiraAspUnmatched", ", без пары {0}"), match.Unmatched.Count) : ""),
+        };
+        OnPropertyChanged(nameof(LiraAspText));
+        OnPropertyChanged(nameof(HasLiraJoints));
+        CommandManager.InvalidateRequerySuggested();
     }
 
     PunchingReinforcementParams Common() => new()

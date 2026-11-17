@@ -92,6 +92,34 @@ public sealed record PunchingFemJointResult
     public double? BarDiameter { get; init; }
     /// <summary>Заданной арматуры достаточно.</summary>
     public bool? DesignSufficient { get; init; }
+    /// <summary>Результат ЛИРЫ по этому узлу из приложенного к схеме *.asp; null — файла нет или узел ЛИРА не считала.</summary>
+    public PunchingFemLiraJson? Lira { get; init; }
+}
+
+/// <summary>Узел продавливания ЛИРЫ (таблица 47) для сверки: результат и расчётный контур.</summary>
+public sealed record PunchingFemLiraJson
+{
+    /// <summary>Номер записи в таблице ЛИРЫ.</summary>
+    public int Index { get; init; }
+    /// <summary>Требуемая Asw, см²; 0 — не требуется.</summary>
+    public double Asw { get; init; }
+    public double Ksw { get; init; }
+    /// <summary>Код сообщения ЛИРЫ; 0 — проверка выполнена.</summary>
+    public int ErrorCode { get; init; }
+    public string? ErrorText { get; init; }
+    public string RebarClass { get; init; } = "";
+    public string ConcreteClass { get; init; } = "";
+    /// <summary>Периметр контура U, м.</summary>
+    public double Perimeter { get; init; }
+    /// <summary>Отрезки контура в общих осях: [x1, y1, z1, x2, y2, z2], м.</summary>
+    public List<double[]> Contour { get; init; } = [];
+
+    public static PunchingFemLiraJson From(CScore.Import.LiraAspPunching p) => new()
+    {
+        Index = p.Index, Asw = p.Asw, Ksw = p.Ksw, ErrorCode = p.ErrorCode, ErrorText = p.ErrorText,
+        RebarClass = p.RebarClass, ConcreteClass = p.ConcreteClass, Perimeter = p.Perimeter,
+        Contour = p.Contour.Select(s => new[] { s.X1, s.Y1, s.Z1, s.X2, s.Y2, s.Z2 }).ToList(),
+    };
 }
 
 /// <summary>Предупреждение в JSON результата.</summary>
@@ -138,6 +166,8 @@ public sealed record PunchingFemCheckData
     public List<PunchingFemSlabOutline> Slabs { get; init; } = [];
     /// <summary>Стены у плит с узлами — линией по всей длине на плане (старые результаты — без них).</summary>
     public List<PunchingFemWallOutline> Walls { get; init; } = [];
+    /// <summary>Имя *.asp ЛИРЫ, по которому сверены узлы; null — файл не приложен.</summary>
+    public string? LiraAspFile { get; init; }
     /// <summary>Определяющий узел (наибольший Кисп).</summary>
     public string? GoverningNode { get; init; }
     /// <summary>DataJson одиночной задачи по определяющей строке определяющего узла (с ходом вычислений) — для отчёта.</summary>
@@ -235,6 +265,25 @@ public static class PunchingFemCheckRunner
             results.Add(Joint(schemaData, source, joints[i], p, materials, calcType));
             progress?.Report((i + 1.0) / Math.Max(1, joints.Count));
         }
+        string? aspName = null;
+        if (PunchingFemService.LoadLiraAsp(db, schemaId) is { } asp)
+        {
+            aspName = asp.FileName;
+            if (asp.Error != null)
+                warnings.Add(new("punching_fem_lira_asp_error", $"Подбор ЛИРЫ {asp.FileName} не прочитан: {asp.Error}"));
+            else if (asp.File is { Punching.Count: > 0 } file)
+            {
+                var match = PunchingFemService.MatchLira(file, schemaData.Joints);
+                for (int i = 0; i < results.Count; i++)
+                    if (match.ByNode.TryGetValue(results[i].Node, out var rec))
+                        results[i] = results[i] with { Lira = PunchingFemLiraJson.From(rec) };
+                if (match.Unmatched.Count > 0)
+                    warnings.Add(new("punching_fem_lira_unmatched", string.Create(CultureInfo.GetCultureInfo("ru-RU"),
+                        $"Узлов продавливания ЛИРЫ ({asp.FileName}) без пары среди найденных узлов схемы: {match.Unmatched.Count} " +
+                        $"({string.Join(", ", match.Unmatched.Take(12).Select(r => r.Node is int n ? $"узел {n}" : $"запись {r.Index}"))}" +
+                        $"{(match.Unmatched.Count > 12 ? ", …" : "")}).")));
+            }
+        }
         if (joints.Count == 0)
             warnings.Add(new("punching_fem_no_joints",
                 "В схеме не найдено узлов «колонна — плита»: стержень под углом к горизонтальной плите с концом в её узле или в теле АЖТ."));
@@ -260,7 +309,7 @@ public static class PunchingFemCheckRunner
             Passed = results.Count > 0 && failed == 0 && noCheck == 0,
             Ratio = results.Where(r => r.Status != "no_check").Select(r => r.Ratio).DefaultIfEmpty(0).Max(),
             TotalJoints = results.Count, PassedJoints = results.Count(r => r.Passed), FailedJoints = failed, NoCheckJoints = noCheck,
-            Keys = source.Keys.Count, Warnings = warnings, Joints = results,
+            Keys = source.Keys.Count, Warnings = warnings, Joints = results, LiraAspFile = aspName,
             Slabs = Outlines(schemaData, results.Select(r => r.Slab).ToHashSet()),
             Walls = schemaData.Walls.Where(w => results.Any(r => r.Slab == w.SlabIndex))
                 .Select(w => new PunchingFemWallOutline

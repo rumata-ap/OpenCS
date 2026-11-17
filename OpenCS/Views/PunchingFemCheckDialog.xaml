@@ -294,8 +294,15 @@
                        ToolTip="{DynamicResource PunchingFemFindHint}"/>
                <Button Content="{DynamicResource PunchingFemIncludeAll}" Command="{Binding IncludeAllCommand}" Padding="10,2" Margin="6,0,0,0"/>
                <Button Content="{DynamicResource PunchingFemExcludeAll}" Command="{Binding ExcludeAllCommand}" Padding="10,2" Margin="6,0,0,0"/>
+               <Button Content="{DynamicResource PunchingFemLiraOnly}" Command="{Binding LiraOnlyCommand}" Padding="10,2" Margin="6,0,0,0"
+                       ToolTip="{DynamicResource PunchingFemLiraOnlyHint}"/>
+               <Button Content="{DynamicResource PunchingFemAttachAsp}" Command="{Binding AttachAspCommand}" Padding="10,2" Margin="6,0,0,0"
+                       ToolTip="{DynamicResource PunchingFemAttachAspHint}"/>
             </StackPanel>
-            <TextBlock Text="{Binding JointsSummary}" TextWrapping="Wrap" FontWeight="SemiBold" VerticalAlignment="Center"/>
+            <StackPanel VerticalAlignment="Center">
+               <TextBlock Text="{Binding JointsSummary}" TextWrapping="Wrap" FontWeight="SemiBold"/>
+               <TextBlock Text="{Binding LiraAspText}" TextWrapping="Wrap" Foreground="#555555"/>
+            </StackPanel>
          </DockPanel>
          <DataGrid Grid.Row="1" ItemsSource="{Binding Joints}" SelectedItem="{Binding SelectedJoint}" AutoGenerateColumns="False"
                    CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" SelectionMode="Single"
@@ -347,6 +354,13 @@
                <DataGridTextColumn Header="n" Binding="{Binding SwCount}" Width="Auto"/>
                <DataGridTextColumn Header="sw, мм" Binding="{Binding SwStep, Converter={StaticResource AnyDoubleConv}}" Width="Auto"/>
                <DataGridTextColumn Header="{DynamicResource PunchingFemColRows}" Binding="{Binding SwRows}" Width="Auto"/>
+               <DataGridTemplateColumn Header="{DynamicResource PunchingFemColLira}" Width="Auto" IsReadOnly="True" SortMemberPath="LiraText">
+                  <DataGridTemplateColumn.CellTemplate>
+                     <DataTemplate>
+                        <TextBlock Text="{Binding LiraText}" ToolTip="{Binding LiraHint}" Margin="4,0" VerticalAlignment="Center"/>
+                     </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+               </DataGridTemplateColumn>
                <DataGridTemplateColumn Header="{DynamicResource PunchingFemColStatus}" Width="*" MinWidth="200" IsReadOnly="True">
                   <DataGridTemplateColumn.CellTemplate>
                      <DataTemplate>

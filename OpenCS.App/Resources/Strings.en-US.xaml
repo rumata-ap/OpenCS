@@ -6846,6 +6846,22 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemFindHint">Repeat the search with current settings (flags and overrides are kept)</system:String>
    <system:String x:Key="PunchingFemIncludeAll">Include all</system:String>
    <system:String x:Key="PunchingFemExcludeAll">Exclude all</system:String>
+   <system:String x:Key="PunchingFemLiraOnly">LIRA joints only</system:String>
+   <system:String x:Key="PunchingFemLiraOnlyHint">Include only the joints LIRA checked (from the *.asp attached to the schema), exclude the rest</system:String>
+   <system:String x:Key="PunchingFemAttachAsp">Attach *.asp…</system:String>
+   <system:String x:Key="PunchingFemAttachAspHint">Attach LIRA selected reinforcement (*.asp) to the schema, as «Load *.asp» in the schema menu; LIRA punching results and perimeters are taken from it for comparison</system:String>
+   <system:String x:Key="PunchingFemColLira">LIRA</system:String>
+   <system:String x:Key="PunchingFemLiraAswKsw">Asw {0:0.00} cm²; Ksw {1:0.00}</system:String>
+   <system:String x:Key="PunchingFemLiraKsw">Ksw {0:0.00}</system:String>
+   <system:String x:Key="PunchingFemLiraHint">LIRA, row {0} of the table «Reinforcement for punching perimeters»: U = {1:0} mm</system:String>
+   <system:String x:Key="PunchingFemLiraNoAsp">LIRA selected reinforcement (*.asp) is not attached to the schema — attach it to compare joints with LIRA.</system:String>
+   <system:String x:Key="PunchingFemLiraNoAspFragment">LIRA selected reinforcement (*.asp) is not attached to the fragment's parent schema — no comparison with LIRA.</system:String>
+   <system:String x:Key="PunchingFemLiraAspError">LIRA file {0} could not be read: {1}</system:String>
+   <system:String x:Key="PunchingFemLiraAspNoPunching">LIRA file {0} contains no punching joints.</system:String>
+   <system:String x:Key="PunchingFemLiraAspMatched">LIRA ({0}): punching joints {1}, matched {2}{3}.</system:String>
+   <system:String x:Key="PunchingFemLiraAspUnmatched">, unmatched {0}</system:String>
+   <system:String x:Key="PunchingFemJointCardLira">LIRA: {0}</system:String>
+   <system:String x:Key="PunchingFemLiraLegend">Dashed — LIRA punching perimeters ({0}): joints with LIRA result {1} of {2}.</system:String>
    <system:String x:Key="PunchingFemColInclude">Check</system:String>
    <system:String x:Key="PunchingFemColNode">Node</system:String>
    <system:String x:Key="PunchingFemColSection">Column</system:String>

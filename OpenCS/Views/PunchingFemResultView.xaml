@@ -82,6 +82,8 @@
                                SelectedItem="{Binding SelectedLevel}" Visibility="{Binding HasLevels, Converter={StaticResource BoolToVisibility}}"/>
                      <TextBlock Text="{DynamicResource PunchingFemPlanHint}" Foreground="#555" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                   </DockPanel>
+                  <TextBlock DockPanel.Dock="Top" Text="{Binding LiraLegend}" Foreground="#8E24AA" Margin="0,0,0,3" TextWrapping="Wrap"
+                             Visibility="{Binding HasLira, Converter={StaticResource BoolToVisibility}}"/>
                   <Border BorderBrush="#D5DDE5" BorderThickness="1">
                      <h:PunchingFemPlanCanvas x:Name="Plan" Data="{Binding Data}" Level="{Binding LevelZ}" SelectedNode="{Binding SelectedJointNode}"/>
                   </Border>
@@ -150,6 +152,13 @@
                      </DataGridTemplateColumn.CellTemplate>
                   </DataGridTemplateColumn>
                   <DataGridTextColumn Header="{DynamicResource PunchingFemColQsw}" Binding="{Binding Qsw}" SortMemberPath="QswValue" Width="Auto"/>
+                  <DataGridTemplateColumn Header="{DynamicResource PunchingFemColLira}" Width="Auto" SortMemberPath="LiraValue">
+                     <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                           <TextBlock Text="{Binding LiraText}" ToolTip="{Binding LiraHint}" Style="{StaticResource StatusCell}"/>
+                        </DataTemplate>
+                     </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
                   <DataGridTextColumn Header="{DynamicResource PunchingFemColKey}" Binding="{Binding GoverningKey}" Width="Auto"/>
                   <DataGridTextColumn Header="F, кН" Binding="{Binding F}" Width="Auto"/>
                   <DataGridTextColumn Header="Mx, кН·м" Binding="{Binding Mx}" Width="Auto"/>

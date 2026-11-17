@@ -72,6 +72,32 @@ public static class PunchingFemService
     /// <summary>Допуск полосы нагрузок основания по высоте около плиты, м: стержни колонн почти не попадают.</summary>
     const double BaseLoadHalfBand = 2e-3;
 
+    // ------------------------------------------------------------------ продавливание ЛИРЫ (*.asp)
+
+    /// <summary>
+    /// Подбор ЛИРЫ (*.asp), приложенный к схеме (у фрагмента — копия родителя): имя файла, разобранный файл и
+    /// текст ошибки чтения. Null — файл не приложен.
+    /// </summary>
+    public static (string FileName, CScore.Import.LiraAspFile? File, string? Error)? LoadLiraAsp(DatabaseService db, int schemaId)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        var (isFragment, _) = db.GetFemSchemaFragmentSource(schemaId);
+        (string FileName, byte[] Data)? src = isFragment
+            ? db.GetFragmentRebarSources(schemaId).FirstOrDefault(c => c.Kind == DatabaseService.FragmentRebarSourceLiraAsp) is { Data: not null } c
+                ? (c.FileName, c.Data) : null
+            : db.GetFemSchemaSelectedReinforcementFile(schemaId);
+        if (src is not { } f) return null;
+        try { return (f.FileName, CScore.Import.LiraAspReader.Read(f.Data), null); }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or ArgumentException)
+        { return (f.FileName, null, ex.Message); }
+    }
+
+    /// <summary>Сопоставление узлов продавливания ЛИРЫ с найденными узлами схемы.</summary>
+    public static PunchingFemLiraMatch MatchLira(CScore.Import.LiraAspFile? asp, IEnumerable<PunchingFemJoint> joints) =>
+        asp is { Punching.Count: > 0 }
+            ? PunchingFemLiraMatch.Build(asp.Punching, joints.Select(j => (j.NodeTag, j.Origin)).ToList())
+            : PunchingFemLiraMatch.Empty;
+
     // ------------------------------------------------------------------ сетка
 
     /// <summary>Сетка схемы и найденные узлы продавливания.</summary>

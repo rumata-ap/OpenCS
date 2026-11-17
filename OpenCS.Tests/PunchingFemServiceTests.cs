@@ -610,6 +610,72 @@ public sealed class PunchingFemServiceTests : IDisposable
         Assert.Equal(f.ColumnForce!.Value, f.ContourForce!.Value, 3);
     }
 
+    /// <summary>
+    /// Приложенный к схеме *.asp ЛИРЫ: узел с тем же номером получает результат и контур ЛИРЫ, запись без пары —
+    /// предупреждение сводки; имя файла — в результате.
+    /// </summary>
+    [Fact]
+    public void LiraAsp_AttachedToSchema_ResultAndContourInJoint()
+    {
+        var s = Create();
+        using var db = s.Db;
+        var joint = Assert.Single(PunchingFemService.Load(db, s.Schema, new PunchingFemOptions()).Joints);
+        db.SaveFemSchemaSelectedReinforcementFile(s.Schema.Id, "plita.asp", LiraAsp(
+            (int.Parse(joint.NodeTag, CultureInfo.InvariantCulture), joint.Origin, 6.08f, 1.6f),
+            (999999, new PlanarVector3(5, 5, Zs), 0f, 2f)));
+
+        var data = PunchingFemCheckRunner.Compute(db, s.Schema.Id,
+            new PunchingFemCheckParams { SourceRef = s.Analysis.Id.ToString(CultureInfo.InvariantCulture) }, CalcType.C);
+
+        Assert.Equal("plita.asp", data.LiraAspFile);
+        var lira = Assert.Single(data.Joints).Lira;
+        Assert.NotNull(lira);
+        Assert.Equal(6.08, lira!.Asw, 4);
+        Assert.Equal(1.6, lira.Ksw, 4);
+        Assert.Equal(4, lira.Contour.Count);
+        Assert.Equal(4 * 0.74, lira.Perimeter, 4);
+        Assert.Contains(data.Warnings, w => w.Code == "punching_fem_lira_unmatched" && w.Text.Contains("узел 999999"));
+
+        // Окно результата и строка таблицы: столбец «ЛИРА» и подпись пунктира.
+        var row = new ViewModels.PunchingFemJointRowVM(data.Joints[0]);
+        Assert.False(string.IsNullOrEmpty(row.LiraText));
+        Assert.Contains("6", row.LiraText);
+    }
+
+    /// <summary>*.asp v6 без пластин и стержней: записи продавливания (узел, Asw, Ksw) и квадратные контуры 0,74 м.</summary>
+    static byte[] LiraAsp(params (int Node, PlanarVector3 At, float Asw, float Ksw)[] recs)
+    {
+        using var ms = new MemoryStream();
+        using var w = new BinaryWriter(ms);
+        var header = new byte[272];
+        System.Text.Encoding.ASCII.GetBytes("ARM-SAPFIR_6 binary v.6.0 2022").CopyTo(header, 0);
+        BitConverter.GetBytes(156).CopyTo(header, 100);
+        BitConverter.GetBytes(recs.Length).CopyTo(header, 240);
+        BitConverter.GetBytes(120).CopyTo(header, 244);
+        w.Write(header);
+        for (int i = 0; i < recs.Length; i++)
+        {
+            var b = new byte[120];
+            BitConverter.GetBytes(i + 1).CopyTo(b, 0);
+            BitConverter.GetBytes(7).CopyTo(b, 8);
+            System.Text.Encoding.ASCII.GetBytes("A240").CopyTo(b, 12);
+            System.Text.Encoding.ASCII.GetBytes("B25").CopyTo(b, 44);
+            BitConverter.GetBytes(recs[i].Asw).CopyTo(b, 76);
+            BitConverter.GetBytes(recs[i].Ksw).CopyTo(b, 80);
+            BitConverter.GetBytes(recs[i].Node).CopyTo(b, 104);
+            w.Write(b);
+        }
+        foreach (var r in recs)
+        {
+            float x = (float)r.At.X, y = (float)r.At.Y, z = (float)r.At.Z, h = 0.37f;
+            w.Write(x); w.Write(y); w.Write(z); w.Write(4);
+            float[][] segs = [[x - h, y - h, x + h, y - h], [x + h, y - h, x + h, y + h], [x + h, y + h, x - h, y + h], [x - h, y + h, x - h, y - h]];
+            foreach (var sg in segs) { w.Write(sg[0]); w.Write(sg[1]); w.Write(z); w.Write(sg[2]); w.Write(sg[3]); w.Write(z); }
+        }
+        w.Write(new byte[16]);
+        return ms.ToArray();
+    }
+
     [Fact]
     public void ColumnAbove_NetForceIsDifference()
     {

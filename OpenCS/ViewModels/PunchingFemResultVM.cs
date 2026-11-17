@@ -91,7 +91,19 @@ public sealed class PunchingFemJointRowVM
         };
         Warnings = data.Warnings.Count > 0 ? data.Warnings.Count.ToString(c) : "";
         WarningsText = string.Join("\n", data.Warnings.Select(w => "• " + w.Text));
+        if (data.Lira is { } l)
+        {
+            LiraText = PunchingFemLiraText.Short(l.ErrorCode, l.Asw, l.Ksw);
+            LiraHint = PunchingFemLiraText.Hint(l.Index, l.Perimeter, l.ConcreteClass, l.RebarClass, l.ErrorText);
+            LiraValue = l.ErrorCode != 0 ? 1e9 : l.Asw > 0 ? 1e3 + l.Asw : l.Ksw;
+        }
     }
+
+    /// <summary>Результат ЛИРЫ по узлу кратко; пусто — ЛИРА узел не считала или *.asp не приложен.</summary>
+    public string LiraText { get; } = "";
+    public string? LiraHint { get; }
+    /// <summary>Для сортировки: Ksw, затем узлы с Asw, затем с сообщениями; без ЛИРЫ — −1.</summary>
+    public double LiraValue { get; } = -1;
 
     public PunchingFemJointResult Data { get; }
     public string Node { get; }
@@ -260,6 +272,13 @@ public sealed class PunchingFemResultVM : ViewModelBase
     public ObservableCollection<PunchingFemJointRowVM> Joints { get; } = [];
     public ObservableCollection<PunchingFemKeyRowVM> Rows { get; } = [];
 
+    /// <summary>Есть узлы с результатом ЛИРЫ (*.asp был приложен при расчёте).</summary>
+    public bool HasLira => Data.Joints.Any(j => j.Lira != null);
+    /// <summary>Подпись к пунктиру ЛИРЫ на плане.</summary>
+    public string LiraLegend => !HasLira ? "" : string.Format(CultureInfo.CurrentCulture,
+        Loc.S("PunchingFemLiraLegend", "Пунктир — контуры продавливания ЛИРЫ ({0}): узлов с результатом ЛИРЫ {1} из {2}."),
+        Data.LiraAspFile, Data.Joints.Count(j => j.Lira != null), Data.Joints.Count);
+
     public PunchingFemJointRowVM? SelectedJoint
     {
         get => _selectedJoint;
@@ -323,6 +342,9 @@ public sealed class PunchingFemResultVM : ViewModelBase
                 lines.Add(string.Format(c, Loc.S("PunchingFemJointCardKey", "Кисп = {0} по «{1}»: F = {2} кН, Mx = {3}, My = {4} кН·м"),
                     j.K, j.GoverningKey, j.F, j.Mx, j.My));
             if (j.DesignText.Length > 0) lines.Add(j.DesignText);
+            if (j.LiraText.Length > 0)
+                lines.Add(string.Format(c, Loc.S("PunchingFemJointCardLira", "ЛИРА: {0}"), j.LiraText)
+                    + (j.Data.Lira?.ErrorText is { } et ? " — " + et : ""));
             return string.Join("\n", lines);
         }
     }

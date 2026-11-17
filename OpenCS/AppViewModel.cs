@@ -5453,14 +5453,14 @@ namespace OpenCS
       /// «Конструирование»): разобрать, сверить номера КЭ с сеткой схемы и сохранить файл при схеме
       /// (заменяет ранее загруженный).
       /// </summary>
-      void LoadLiraAsp(CScore.Fem.FemSchema? schema)
+      bool LoadLiraAsp(CScore.Fem.FemSchema? schema)
       {
          schema ??= currentFemSchema;
-         if (schema == null) return;
+         if (schema == null) return false;
 
          string? path = FileDialogService.OpenFile(Loc.S("LiraAspFilter"),
             string.Format(Loc.S("LiraAspOpenTitle"), schema.Tag));
-         if (path == null) return;
+         if (path == null) return false;
 
          string name = System.IO.Path.GetFileName(path);
          try
@@ -5472,7 +5472,7 @@ namespace OpenCS
             if (parsed.Plates.Count + parsed.Bars.Count == 0)
             {
                ShowAspRejected(string.Format(Loc.S("LiraAspEmpty"), name, parsed.PunchingCount));
-               return;
+               return false;
             }
 
             var elements = db.GetFemMeshElements(schema.Id)
@@ -5488,18 +5488,20 @@ namespace OpenCS
             {
                ShowAspRejected(string.Format(Loc.S("LiraAspNoMatch"), name, schema.Tag,
                   parsed.Plates.Count, parsed.Bars.Count));
-               return;
+               return false;
             }
 
             db.SaveFemSchemaSelectedReinforcementFile(schema.Id, name, data);
             string done = string.Format(Loc.S("LiraAspLoaded"), name, parsed.Variant,
                match.PlatesMatched, match.BarsMatched);
             LogService.Info(done);
+            return true;
          }
          catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException
                                         or System.IO.InvalidDataException)
          {
             ShowAspRejected(string.Format(Loc.S("LiraAspReadError"), name, ex.Message));
+            return false;
          }
 
          // Отказ в загрузке — в журнал и окном: иначе команда выглядит так, будто ничего не произошло.
@@ -6294,7 +6296,7 @@ namespace OpenCS
                MessageBoxButton.OK, MessageBoxImage.Information);
             return;
          }
-         var dlg = new Views.PunchingFemCheckDialog(db, null, schema ?? currentFemSchema);
+         var dlg = new Views.PunchingFemCheckDialog(db, null, schema ?? currentFemSchema) { AttachLiraAsp = LoadLiraAsp };
          if (dlg.ShowDialog() != true || dlg.ResultCheck == null) return;
          db.SaveFemCheck(dlg.ResultCheck);
          CurrentFemCheck = dlg.ResultCheck;
@@ -6339,7 +6341,7 @@ namespace OpenCS
 
          if (check.NormCode == Tasks.PunchingFemCheckParams.NormCode)
          {
-             var punching = new Views.PunchingFemCheckDialog(db, check);
+             var punching = new Views.PunchingFemCheckDialog(db, check) { AttachLiraAsp = LoadLiraAsp };
              if (punching.ShowDialog() != true) return;
              db.SaveFemCheck(check);
              if (punching.RunRequested) _ = RunFemCheck(check);
