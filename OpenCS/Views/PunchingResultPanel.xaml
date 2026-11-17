@@ -68,6 +68,7 @@
                </DataGridTextColumn.ElementStyle>
             </DataGridTextColumn>
             <DataGridTextColumn Header="u, м" Binding="{Binding U}"/>
+            <DataGridTextColumn Header="h0, мм" Binding="{Binding H0}"/>
             <DataGridTextColumn Header="F, кН" Binding="{Binding F}"/>
             <DataGridTextColumn Header="Fult, кН" Binding="{Binding Fult}"/>
             <DataGridTextColumn Header="Mx,ult, кН·м" Binding="{Binding Mxult}"/>

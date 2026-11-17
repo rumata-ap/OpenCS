@@ -6784,6 +6784,22 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingWarn_wall_sw_cross_ignored">Cross-shaped shear reinforcement is not applicable at a wall — reinforcement is ignored. Use uniform reinforcement in rows.</system:String>
    <system:String x:Key="PunchingWarn_wall_end_clipped">The slab edge is closer than h0/2 to the wall end or faces — the U-contour is clipped, only the part within the slab is used.</system:String>
    <system:String x:Key="PunchingWarn_wall_corner_amd2_draft">The wall corner contour follows Fig. 6.2 of draft Amendment 2 to SP 430 (not approved) — for reference only.</system:String>
+   <system:String x:Key="PunchingGroupCapital">Capital</system:String>
+   <system:String x:Key="PunchingCapitalEnabled">Column capital or drop panel below the slab</system:String>
+   <system:String x:Key="PunchingCapitalHcHint">Depth of the thickening below the slab. Enter a sloped capital by its size at the slab soffit and its full depth.</system:String>
+   <system:String x:Key="PunchingCapitalOffset">Centre offset</system:String>
+   <system:String x:Key="PunchingCapitalOffsetHint">Offset of the capital centre from the column centre (at a slab edge the capital usually runs to the edge).</system:String>
+   <system:String x:Key="PunchingCapitalHint">Two perimeters are checked: at the column with effective depth h0 + hc, and beyond the capital at h0/2 from its face with the slab h0. Shear reinforcement counts only at the column.</system:String>
+   <system:String x:Key="PunchingCapitalH0Line">; at the column with capital h0 + hc = {0:0.#} mm</system:String>
+   <system:String x:Key="PunchingSummaryCapital">, capital {0} mm, hc = {1:0}</system:String>
+   <system:String x:Key="PunchingVariantCapitalSuffix"> — beyond the capital</system:String>
+   <system:String x:Key="PunchingVariantShortCapitalSuffix">, beyond capital</system:String>
+   <system:String x:Key="PunchingErr_capital_wall">A capital applies to a column only, not to a wall.</system:String>
+   <system:String x:Key="PunchingErr_capital_values">Capital dimensions and depth must be greater than zero.</system:String>
+   <system:String x:Key="PunchingErr_capital_contains">The capital in plan must contain the column section.</system:String>
+   <system:String x:Key="PunchingWarn_capital_too_small">The column perimeter (h0c/2 from the face, h0c = {0} mm) extends beyond the capital — the slab effective depth without thickening is used at the column.</system:String>
+   <system:String x:Key="PunchingWarn_capital_sw_beyond">The shear reinforcement zone extends beyond the capital — the perimeter beyond the reinforcement is checked with the slab effective depth.</system:String>
+   <system:String x:Key="PunchingWarn_capital_beyond_fails">The check beyond the capital fails — shear reinforcement at the column cannot fix it: enlarge the capital or the slab depth.</system:String>
    <system:String x:Key="PunchingWarn_wall_corner_clipped">The slab edge crosses the wall corner contour — only the part within the slab is used.</system:String>
    <system:String x:Key="PunchingWarn_wall_batch_end_moments">Wall end: row Mx is taken as the difference ΔM of slab moments on both sides of the wall (½ΔM is used), row My is ignored (SP 430, cl. 6.3.8).</system:String>
    <system:String x:Key="PunchingWarn_wall_batch_corner_moments">Wall corner: only F = |N| of the row is used, Mx and My are ignored (SP 430, cl. 6.3.8).</system:String>

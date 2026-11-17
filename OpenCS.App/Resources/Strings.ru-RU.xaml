@@ -6784,6 +6784,22 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingWarn_wall_sw_cross_ignored">У стены крестообразная поперечная арматура не применяется — арматура не учитывается. Задайте равномерную раскладку рядами.</system:String>
    <system:String x:Key="PunchingWarn_wall_end_clipped">Край плиты ближе h0/2 к торцу или граням стены — П-контур обрезан краем, учитывается часть в пределах плиты.</system:String>
    <system:String x:Key="PunchingWarn_wall_corner_amd2_draft">Контур у угла стен построен по рис. 6.2 проекта Изменения № 2 к СП 430 (не утверждён) — расчёт справочный.</system:String>
+   <system:String x:Key="PunchingGroupCapital">Капитель</system:String>
+   <system:String x:Key="PunchingCapitalEnabled">Капитель или надколонное утолщение под плитой</system:String>
+   <system:String x:Key="PunchingCapitalHcHint">Высота утолщения под плитой. Наклонную капитель задайте размерами по низу плиты и полной высотой.</system:String>
+   <system:String x:Key="PunchingCapitalOffset">Смещение центра</system:String>
+   <system:String x:Key="PunchingCapitalOffsetHint">Смещение центра капители от центра колонны (у колонны у края плиты капитель обычно доводят до края).</system:String>
+   <system:String x:Key="PunchingCapitalHint">Проверяются два контура: у колонны — с рабочей высотой h0 + hc, за капителью — на h0/2 от её грани с h0 плиты. Поперечная арматура учитывается только у колонны.</system:String>
+   <system:String x:Key="PunchingCapitalH0Line">; у колонны с капителью h0 + hc = {0:0.#} мм</system:String>
+   <system:String x:Key="PunchingSummaryCapital">, капитель {0} мм, hc = {1:0}</system:String>
+   <system:String x:Key="PunchingVariantCapitalSuffix"> — за капителью</system:String>
+   <system:String x:Key="PunchingVariantShortCapitalSuffix">, за капителью</system:String>
+   <system:String x:Key="PunchingErr_capital_wall">Капитель задаётся только у колонны, не у стены.</system:String>
+   <system:String x:Key="PunchingErr_capital_values">Размеры и высота капители должны быть больше нуля.</system:String>
+   <system:String x:Key="PunchingErr_capital_contains">Капитель в плане должна включать сечение колонны.</system:String>
+   <system:String x:Key="PunchingWarn_capital_too_small">Контур у колонны (h0к/2 от грани, h0к = {0} мм) выходит за капитель — у колонны принята рабочая высота плиты без утолщения.</system:String>
+   <system:String x:Key="PunchingWarn_capital_sw_beyond">Зона поперечной арматуры выходит за капитель — контур за зоной арматуры проверен с рабочей высотой плиты.</system:String>
+   <system:String x:Key="PunchingWarn_capital_beyond_fails">Не проходит проверка за капителью — поперечная арматура у колонны её не исправит: увеличьте капитель или толщину плиты.</system:String>
    <system:String x:Key="PunchingWarn_wall_corner_clipped">Край плиты пересекает контур у угла стен — учитывается часть контура в пределах плиты.</system:String>
    <system:String x:Key="PunchingWarn_wall_batch_end_moments">Торец стены: Mx строки принимается как разность моментов плиты по сторонам стены ΔM (в расчёт — ½ΔM), My строки не учитывается (СП 430, п. 6.3.8).</system:String>
    <system:String x:Key="PunchingWarn_wall_batch_corner_moments">Угол стен: учитывается только F = |N| строки, моменты Mx и My не учитываются (СП 430, п. 6.3.8).</system:String>

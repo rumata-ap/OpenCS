@@ -202,6 +202,7 @@ public static class PunchingBatchRunner
     public static string Reference(PunchingVariantKind kind, PunchingZone zone, bool amd2 = false)
     {
         if (zone == PunchingZone.BeyondReinforcement) return "СП 63.13330.2018, п. 8.1.48, рис. 8.13";
+        if (zone == PunchingZone.BeyondCapital) return "СП 63.13330.2018, п. 8.1.46 (за капителью)";
         return kind switch
         {
             PunchingVariantKind.Closed => "СП 63.13330.2018, п. 8.1.46, рис. 8.11а",

@@ -165,6 +165,7 @@ public static class PunchingResultJson
             w.WriteBoolean("beyond_not_ensured", d.BeyondNotEnsured);
             Num(w, "ratio_at_req", d.UtilizationAtRequired);
             w.WriteBoolean("provided_sufficient", d.ProvidedSufficient);
+            if (d.CapitalBeyondFails) w.WriteBoolean("capital_beyond_fails", true);
             w.WriteEndObject();
         }
         return System.Text.Encoding.UTF8.GetString(ms.ToArray());

@@ -174,6 +174,44 @@
                </StackPanel>
             </Expander>
 
+            <!-- Капитель (только колонна) -->
+            <Expander Header="{DynamicResource PunchingGroupCapital}" IsExpanded="{Binding CapitalEnabled, Mode=OneTime}"
+                      Visibility="{Binding IsColumnNode, Converter={StaticResource BoolToVisibility}}">
+               <StackPanel>
+                  <CheckBox Content="{DynamicResource PunchingCapitalEnabled}" IsChecked="{Binding CapitalEnabled}" Margin="0,2,0,2"/>
+                  <StackPanel IsEnabled="{Binding CapitalEnabled}">
+                     <WrapPanel Visibility="{Binding IsNotRound, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="bx" Style="{StaticResource Lbl}"/>
+                        <TextBox Style="{StaticResource Num}" Text="{Binding CapitalBx, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="by" Style="{StaticResource Lbl}"/>
+                        <TextBox Style="{StaticResource Num}" Text="{Binding CapitalBy, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     </WrapPanel>
+                     <WrapPanel Visibility="{Binding IsRound, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="D" Style="{StaticResource Lbl}"/>
+                        <TextBox Style="{StaticResource Num}" Text="{Binding CapitalD, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     </WrapPanel>
+                     <WrapPanel>
+                        <TextBlock Text="hc" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingCapitalHcHint}"/>
+                        <TextBox Style="{StaticResource Num}" ToolTip="{DynamicResource PunchingCapitalHcHint}"
+                                 Text="{Binding CapitalHc, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     </WrapPanel>
+                     <WrapPanel Visibility="{Binding IsNotRound, Converter={StaticResource BoolToVisibility}}" ToolTip="{DynamicResource PunchingCapitalOffsetHint}">
+                        <TextBlock Text="{DynamicResource PunchingCapitalOffset}" Style="{StaticResource Lbl}"/>
+                        <TextBlock Text="dx" Style="{StaticResource Lbl}"/>
+                        <TextBox Style="{StaticResource Num}" Text="{Binding CapitalDx, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                        <TextBlock Text="dy" Style="{StaticResource Lbl}"/>
+                        <TextBox Style="{StaticResource Num}" Text="{Binding CapitalDy, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     </WrapPanel>
+                     <TextBlock Text="{DynamicResource PunchingCapitalHint}" Style="{StaticResource Hint}"/>
+                  </StackPanel>
+               </StackPanel>
+            </Expander>
+
             <!-- Положение -->
             <Expander Header="{DynamicResource PunchingGroupPosition}">
                <StackPanel>

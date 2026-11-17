@@ -279,7 +279,23 @@ public sealed class PunchingParamsVM : ViewModelBase
     public bool ShowWallHint => IsColumnNode && IsRectangle && Math.Min(Bx, By) > 0 && Math.Max(Bx, By) / Math.Min(Bx, By) > 4 + 1e-9;
 
     /// <summary>Форма площади.</summary>
-    public string AreaShape { get => _areaShape; set { if (SetField(ref _areaShape, value)) { OnPropertyChanged(nameof(ShowWallHint)); OnPropertyChanged(nameof(IsRectangle)); OnPropertyChanged(nameof(IsRound)); OnPropertyChanged(nameof(IsRing)); OnPropertyChanged(nameof(IsPolygon)); } } }
+    public string AreaShape { get => _areaShape; set { if (SetField(ref _areaShape, value)) { OnPropertyChanged(nameof(ShowWallHint)); OnPropertyChanged(nameof(IsRectangle)); OnPropertyChanged(nameof(IsRound)); OnPropertyChanged(nameof(IsRing)); OnPropertyChanged(nameof(IsPolygon)); OnPropertyChanged(nameof(IsNotRound)); } } }
+    /// <summary>Площадь не круглая — капитель задаётся прямоугольником со смещением.</summary>
+    public bool IsNotRound => !IsRound;
+
+    bool _capitalEnabled;
+    double _capitalBx, _capitalBy, _capitalD, _capitalHc, _capitalDx, _capitalDy;
+    /// <summary>Капитель задана (только у колонны).</summary>
+    public bool CapitalEnabled { get => _capitalEnabled; set => SetField(ref _capitalEnabled, value); }
+    /// <summary>Размеры капители, мм.</summary>
+    public double CapitalBx { get => _capitalBx; set => SetField(ref _capitalBx, value); }
+    public double CapitalBy { get => _capitalBy; set => SetField(ref _capitalBy, value); }
+    public double CapitalD { get => _capitalD; set => SetField(ref _capitalD, value); }
+    /// <summary>Высота утолщения под плитой, мм.</summary>
+    public double CapitalHc { get => _capitalHc; set => SetField(ref _capitalHc, value); }
+    /// <summary>Смещение центра капители от центра колонны, мм.</summary>
+    public double CapitalDx { get => _capitalDx; set => SetField(ref _capitalDx, value); }
+    public double CapitalDy { get => _capitalDy; set => SetField(ref _capitalDy, value); }
     public bool IsRectangle => AreaShape == "rectangle";
     public bool IsRound => AreaShape is "circle" or "ring";
     public bool IsRing => AreaShape == "ring";
@@ -380,7 +396,7 @@ public sealed class PunchingParamsVM : ViewModelBase
             if (value && !_swByRows && !_loading)
             {
                 // Включение рядов: s1, sd, nr — по п. 10.3.17 для текущей h0.
-                var (s1, sd, nr) = DefaultRows(H0Value());
+                var (s1, sd, nr) = DefaultRows(SwH0Value());
                 _loading = true;
                 try { FirstRow = Mm(s1); RowStep = Mm(sd); RowCount = nr; }
                 finally { _loading = false; }
@@ -573,6 +589,9 @@ public sealed class PunchingParamsVM : ViewModelBase
             EccentricityX = p.Options.EccentricityX; EccentricityY = p.Options.EccentricityY;
             Wb = p.Options.Wb; Pylon = p.Options.Pylon; HoleInfluence = p.Options.HoleInfluence;
             WallFigure = p.Options.WallFigure == "amd2" ? "amd2" : "amd1";
+            CapitalEnabled = p.Capital.Enabled;
+            CapitalBx = Mm(p.Capital.Bx); CapitalBy = Mm(p.Capital.By); CapitalD = Mm(p.Capital.D); CapitalHc = Mm(p.Capital.Hc);
+            CapitalDx = Mm(p.Capital.Dx); CapitalDy = Mm(p.Capital.Dy);
             PylonReduced = p.Options.PylonReduced;
             MuEnabled = p.Options.Mu is not null; MuPercent = 100 * (p.Options.Mu ?? 0.01);
         }
@@ -621,6 +640,11 @@ public sealed class PunchingParamsVM : ViewModelBase
             },
             CustomContours = _customContours,
             Wall = new PunchingWallParams { Kind = NodeKind, A1 = M(WallA1), A2 = M(WallA2) },
+            Capital = new PunchingCapitalParams
+            {
+                Enabled = CapitalEnabled && IsColumnNode, Bx = M(CapitalBx), By = M(CapitalBy), D = M(CapitalD), Hc = M(CapitalHc),
+                Dx = M(CapitalDx), Dy = M(CapitalDy),
+            },
             // Источник задачи по строке проверки по МКЭ (проверка, узел, ключ) в окне не правится, но хранится: по нему
             // «Создать задачу» находит прежнюю задачу строки, а отчёт показывает происхождение усилий.
             Source = _source,
@@ -644,6 +668,8 @@ public sealed class PunchingParamsVM : ViewModelBase
         var p = ToParams();
         var c = CultureInfo.CurrentCulture;
         H0Text = string.Format(c, "h0x = {0:0.#} мм, h0y = {1:0.#} мм, h0 = {2:0.#} мм", p.H0x * 1000, p.H0y * 1000, p.H0 * 1000);
+        if (p.Capital.Enabled)
+            H0Text += string.Format(c, Loc.S("PunchingCapitalH0Line", "; у колонны с капителью h0 + hc = {0:0.#} мм"), (p.H0 + p.Capital.Hc) * 1000);
 
         var errors = p.Validate();
         var strengths = PunchingRunner.ResolveStrengths(p, _materials, _task.CalcType, out var materialErrors);
@@ -735,7 +761,7 @@ public sealed class PunchingParamsVM : ViewModelBase
             if (!SwEnabled)
             {
                 SwEnabled = true;
-                var (s1, sd, nr) = DefaultRows(H0Value());
+                var (s1, sd, nr) = DefaultRows(SwH0Value());
                 SwByRows = true; FirstRow = Mm(s1); RowStep = Mm(sd); RowCount = nr;
                 if (!(Step > 0)) Step = Mm(sd);
             }
@@ -862,6 +888,8 @@ public sealed class PunchingParamsVM : ViewModelBase
     static bool SideOk(string a, string b) => a != b && PunchingTaskParams.SideVector(a).Dot(PunchingTaskParams.SideVector(b)) > -0.5;
     double MaxHalfSize() => IsWallNode ? M(Math.Max(WallA1, WallA2)) / 2 : AreaShape switch { "circle" or "ring" => M(D) / 2, "polygon" => 0.2, _ => M(Math.Max(Bx, By)) / 2 };
     double H0Value() => M(H) - 0.5 * M(Ax + Ay);
+    /// <summary>Рабочая высота, по которой расставляется поперечная арматура: у колонны с капителью — h0 + hc.</summary>
+    double SwH0Value() => H0Value() + (CapitalEnabled && IsColumnNode && CapitalHc > 0 ? M(CapitalHc) : 0);
     static double Mm(double m) => Math.Round(m * 1000, 6);
     static double M(double mm) => mm / 1000;
 }

@@ -21,6 +21,8 @@ public sealed class PunchingVariantRowVM
     /// <summary>Определяющий вариант.</summary>
     public bool Governs { get; init; }
     public string U { get; init; } = "";
+    /// <summary>Рабочая высота контура, мм (у колонны с капителью — h0 + hc).</summary>
+    public string H0 { get; init; } = "";
     /// <summary>Продавливающая сила за вычетом отпора, кН.</summary>
     public string F { get; init; } = "";
     public string Fult { get; init; } = "";
@@ -69,6 +71,7 @@ public sealed class PunchingResultVM : ViewModelBase
             {
                 Id = v.Id, Title = title, Governs = v.Governs,
                 U = N(v, "u", "0.000"), F = N(v, "Fred", "0.0"), Fult = N(v, "Fult", "0.0"),
+                H0 = v.Numbers.TryGetValue("h0", out var h0v) && h0v is double h0m && h0m > 0 ? (h0m * 1000).ToString("0", CultureInfo.CurrentCulture) : "—",
                 Mxult = noMx ? "—" : N(v, "Mxult", "0.0"), Myult = noMy ? "—" : N(v, "Myult", "0.0"),
                 MxStar = noMx ? "—" : N(v, "MxStar", "0.0"), MyStar = noMy ? "—" : N(v, "MyStar", "0.0"),
                 KF = N(v, "kF", "0.000"), KM = noMx ? "—" : N(v, "kM", "0.000"),
@@ -132,6 +135,7 @@ public sealed class PunchingResultVM : ViewModelBase
             text += " " + (d.ProvidedSufficient ? Loc.S("PunchingDesignEnough", "Заданной арматуры достаточно.") : Loc.S("PunchingDesignNotEnough", "Заданной арматуры недостаточно."));
             if (d.BeyondNotEnsured) text += " " + Loc.S("PunchingDesignBeyondBad", "Контур за армированием не проходит при любой ширине зоны.");
         }
+        if (d.CapitalBeyondFails) text += " " + Loc.S("PunchingWarn_capital_beyond_fails", "Не проходит проверка за капителью.");
         return text;
     }
 
@@ -250,6 +254,10 @@ public sealed class PunchingResultVM : ViewModelBase
             "polygon" => Loc.S("PunchingShape_polygon", "многоугольник"),
             _ => string.Format(c, "{0:0}×{1:0}", D("bx") * 1000, D("by") * 1000)
         };
+        if (D("capitalHc") > 0)
+            area += string.Format(c, Loc.S("PunchingSummaryCapital", ", капитель {0} мм, hc = {1:0}"),
+                D("capitalD") > 0 ? string.Format(c, "Ø{0:0}", D("capitalD") * 1000) : string.Format(c, "{0:0}×{1:0}", D("capitalBx") * 1000, D("capitalBy") * 1000),
+                D("capitalHc") * 1000);
         string concrete = S("concrete") is { Length: > 0 } ct ? ct : Loc.S("PunchingManualValue");
         bool hasSw = i.TryGetProperty("sw", out var swv) && swv.ValueKind == JsonValueKind.True;
         bool rows = i.TryGetProperty("swFirstRow", out var fr) && fr.ValueKind == JsonValueKind.Number;

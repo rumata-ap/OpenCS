@@ -64,6 +64,9 @@ public sealed class PunchingPlanCanvas : FrameworkElement
 
     static T Frozen<T>(T f) where T : Freezable { f.Freeze(); return f; }
 
+    static readonly Brush CapitalBrush = Frozen(new SolidColorBrush(Color.FromRgb(0xF6, 0xEF, 0xDF)));
+    static readonly Pen CapitalPen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0x47, 0x55, 0x69)), 1.2) { DashStyle = new DashStyle([6, 3], 0) });
+
     /// <summary>Создаёт холст.</summary>
     public PunchingPlanCanvas()
     {
@@ -138,6 +141,9 @@ public sealed class PunchingPlanCanvas : FrameworkElement
             }
         }
 
+        // Капитель — светлая заливка и штрих: контур у колонны проверяется с h0 + hc, за капителью — от её грани.
+        if (scene.CapitalOutline() is { Count: >= 3 } capital)
+            dc.DrawGeometry(CapitalBrush, CapitalPen, Poly(capital, M, true));
         dc.DrawGeometry(AreaBrush, AreaPen, Poly(scene.AreaOutline(), M, true));
         var inner = scene.AreaInnerOutline();
         if (inner.Count > 0) dc.DrawGeometry(Brushes.White, AreaPen, Poly(inner, M, true));
@@ -299,7 +305,12 @@ public static class Variants
             int i = id.LastIndexOf('_');
             if (i >= 0 && int.TryParse(id[(i + 1)..], out int n)) name += $" {n + 1}";
         }
-        return zone == PunchingZone.BeyondReinforcement ? name + Utilites.Loc.S("PunchingVariantOuterSuffix", " — за зоной арматуры") : name;
+        return zone switch
+        {
+            PunchingZone.BeyondReinforcement => name + Utilites.Loc.S("PunchingVariantOuterSuffix", " — за зоной арматуры"),
+            PunchingZone.BeyondCapital => name + Utilites.Loc.S("PunchingVariantCapitalSuffix", " — за капителью"),
+            _ => name
+        };
     }
 
     /// <summary>Краткое название варианта — заголовок столбца таблицы строк пакета.</summary>
@@ -309,7 +320,12 @@ public static class Variants
         int i = id.LastIndexOf('_');
         bool numbered = (kind is PunchingVariantKind.OpenEdge or PunchingVariantKind.WallEndEdge && edgeCount > 1) || kind == PunchingVariantKind.Custom;
         if (numbered && i >= 0 && int.TryParse(id[(i + 1)..], out int n)) name += $" {n + 1}";
-        return zone == PunchingZone.BeyondReinforcement ? name + Utilites.Loc.S("PunchingVariantShortOuterSuffix", ", за арматурой") : name;
+        return zone switch
+        {
+            PunchingZone.BeyondReinforcement => name + Utilites.Loc.S("PunchingVariantShortOuterSuffix", ", за арматурой"),
+            PunchingZone.BeyondCapital => name + Utilites.Loc.S("PunchingVariantShortCapitalSuffix", ", за капителью"),
+            _ => name
+        };
     }
 
     /// <summary>

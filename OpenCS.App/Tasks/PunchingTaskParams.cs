@@ -58,6 +58,33 @@ public sealed record PunchingWallParams
     };
 }
 
+/// <summary>
+/// Капитель (надколонное утолщение) — ступень под плитой у колонны: у колонны рабочая высота h0 + hc, за капителью —
+/// контур от грани капители с h0 плиты (<see cref="PunchingCapitalCheck"/>). У круглой колонны — круглая, без смещения.
+/// </summary>
+public sealed record PunchingCapitalParams
+{
+    /// <summary>Капитель задана.</summary>
+    public bool Enabled { get; init; }
+    /// <summary>Размер вдоль X, м.</summary>
+    public double Bx { get; init; } = 1.2;
+    /// <summary>Размер вдоль Y, м.</summary>
+    public double By { get; init; } = 1.2;
+    /// <summary>Диаметр круглой капители, м.</summary>
+    public double D { get; init; } = 1.2;
+    /// <summary>Высота утолщения под плитой, м.</summary>
+    public double Hc { get; init; } = 0.15;
+    /// <summary>Смещение центра капители от центра колонны вдоль X, м.</summary>
+    public double Dx { get; init; }
+    /// <summary>Смещение вдоль Y, м.</summary>
+    public double Dy { get; init; }
+
+    /// <summary>Капитель ядра для колонны формы <paramref name="areaShape"/>; null — не задана.</summary>
+    public PunchingCapital? ToCore(string areaShape) => !Enabled ? null : areaShape is "circle" or "ring"
+        ? new PunchingCapital(new PunchingLoadArea.Circle(D), Hc)
+        : new PunchingCapital(new PunchingLoadArea.Rectangle(Bx, By), Hc, new PlanPoint(Dx, Dy));
+}
+
 /// <summary>Плита: толщина, привязки арматуры к растянутой грани, бетон.</summary>
 public sealed record PunchingSlabParams
 {
@@ -257,6 +284,8 @@ public sealed record PunchingTaskParams
     public List<PunchingCustomContourParams> CustomContours { get; init; } = [];
     /// <summary>Узел стены (СП 430 п. 6.3.8); по умолчанию — колонна или пилон.</summary>
     public PunchingWallParams Wall { get; init; } = new();
+    /// <summary>Капитель у колонны; у стены не применяется.</summary>
+    public PunchingCapitalParams Capital { get; init; } = new();
     /// <summary>Источник усилий (задача по строке проверки по МКЭ); null — усилия заданы вручную.</summary>
     public PunchingSourceParams? Source { get; init; }
 
@@ -284,7 +313,8 @@ public sealed record PunchingTaskParams
             Reinforcement = sw with { Layout = sw.Layout ?? "uniform", CrossX = sw.CrossX ?? new(), CrossY = sw.CrossY ?? new() },
             Forces = p.Forces ?? new(), Options = p.Options ?? new(),
             CustomContours = p.CustomContours ?? [],
-            Wall = p.Wall ?? new()
+            Wall = p.Wall ?? new(),
+            Capital = p.Capital ?? new()
         };
     }
 
@@ -420,8 +450,27 @@ public sealed record PunchingTaskParams
         if (Forces.F < 0 || !double.IsFinite(Forces.F)) errors.Add("force_negative");
         if (!double.IsFinite(Forces.Mx) || !double.IsFinite(Forces.My) || !double.IsFinite(Forces.CounterPressure)) errors.Add("force_invalid");
         if (!(Options.HoleInfluence >= 0)) errors.Add("hole_influence");
+        if (Capital.Enabled)
+        {
+            bool round = !Wall.IsWall && Area.Shape is "circle" or "ring";
+            if (Wall.IsWall) errors.Add("capital_wall");
+            else if (!(Capital.Hc > 0) || (round ? !(Capital.D > 0) : !(Capital.Bx > 0 && Capital.By > 0))
+                || !double.IsFinite(Capital.Dx) || !double.IsFinite(Capital.Dy)) errors.Add("capital_values");
+            else if (areaOk && H0 > 0 && !CapitalContainsArea()) errors.Add("capital_contains");
+        }
         if (Options.Mu is double mu && !(mu >= 0 && mu < 0.2)) errors.Add("mu_range");
         return errors;
+    }
+
+    /// <summary>Капитель в плане включает сечение колонны (проверка ядра <see cref="PunchingCapitalCheck.Validate"/>).</summary>
+    bool CapitalContainsArea()
+    {
+        try
+        {
+            PunchingCapitalCheck.Validate(new PunchingInput(BuildArea(), H0, 1, new PunchingForces(0, 0, 0), Capital: Capital.ToCore(Area.Shape)));
+            return true;
+        }
+        catch (ArgumentException) { return false; }
     }
 
     /// <summary>Выпуклые части грузовой площади (у угла стен — две полки Г) для проверки пересечения с отверстиями.</summary>
@@ -485,7 +534,7 @@ public sealed record PunchingTaskParams
                 Options.HoleInfluence,
                 Options.Wb == "stress_side" ? SectionModulusMode.StressSide : SectionModulusMode.Minimum,
                 Options.PylonReduced, false, Options.Mu),
-            Wall.ToCore(Options.WallFigure), Slab.H);
+            Wall.ToCore(Options.WallFigure), Slab.H, Wall.IsWall ? null : Capital.ToCore(Area.Shape));
     }
 
     static EccentricityMode Eccentricity(string mode) => mode switch

@@ -26,6 +26,7 @@ public static class PunchingReportText
         string rows = d.RowsReq is int n ? $"; рядов не менее {n}" : d.ZoneReq is double z ? $"; зона армирования не менее {(z * 1000).ToString("0", c)} мм от грани" : "";
         string beyond = d.BeyondNotEnsured ? " Контур за армированием не проходит при любой ширине зоны — увеличьте толщину или класс бетона." : "";
         string have = d.ProvidedSufficient ? " Заданной арматуры достаточно." : "";
+        if (d.CapitalBeyondFails) beyond += " Контур за капителью не проходит по бетону — арматура у колонны его не исправит: увеличьте капитель или толщину плиты.";
         return d.State switch
         {
             "not_required" => "Поперечная арматура по расчёту не требуется — прочность обеспечена бетоном.",
@@ -52,9 +53,12 @@ public static class PunchingReportText
             PunchingVariantKind.WallCorner => "Контур у угла стен (СП 430, рис. 6.2)",
             _ => "Контур пользователя"
         };
-        return zone == PunchingZone.BeyondReinforcement
-            ? name + " — за зоной поперечной арматуры (п. 8.1.48, рис. 8.13)"
-            : name;
+        return zone switch
+        {
+            PunchingZone.BeyondReinforcement => name + " — за зоной поперечной арматуры (п. 8.1.48, рис. 8.13)",
+            PunchingZone.BeyondCapital => name + " — за капителью (от грани капители, h0 плиты)",
+            _ => name
+        };
     }
 
     /// <summary>Вариант узла стены (СП 430 п. 6.3.8).</summary>
@@ -107,7 +111,12 @@ public static class PunchingReportText
             PunchingVariantKind.WallCorner => "угол стен",
             _ => "пользователя " + CustomNumber(id)
         };
-        return zone == PunchingZone.BeyondReinforcement ? name + ", за арматурой" : name;
+        return zone switch
+        {
+            PunchingZone.BeyondReinforcement => name + ", за арматурой",
+            PunchingZone.BeyondCapital => name + ", за капителью",
+            _ => name
+        };
     }
 
     static string CustomNumber(string id)
@@ -223,6 +232,11 @@ public sealed class PunchingPlanSvgRenderer
                 svg.Append("<polyline points=\"").Append(Pts([new(hx0, hy1), new(hx1, hy0)], M)).AppendLine("\" stroke=\"#94a3b8\" stroke-width=\"0.8\"/>");
             }
         }
+
+        // Капитель — светлая заливка, штрих.
+        if (scene.CapitalOutline() is { Count: >= 3 } capital)
+            svg.Append("<polygon points=\"").Append(Pts(capital, M))
+                .AppendLine("\" fill=\"#f6efdf\" stroke=\"#475569\" stroke-width=\"1.2\" stroke-dasharray=\"6 3\"/>");
 
         // Грузовая площадь.
         svg.Append("<polygon points=\"").Append(Pts(scene.AreaOutline(), M))

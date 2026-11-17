@@ -27,7 +27,7 @@ public sealed record PunchingReportDesign(
     string State, double? Lambda, string Governing, bool Cross,
     double? QswReq, double? Qsw, double? QswXReq, double? QswX, double? QswYReq, double? QswY,
     double? AswReq, double? BarAreaReq, double? BarDiameter, int? RowsReq, double? ZoneReq,
-    bool BeyondNotEnsured, bool ProvidedSufficient);
+    bool BeyondNotEnsured, bool ProvidedSufficient, bool CapitalBeyondFails = false);
 
 /// <summary>Разбор <c>DataJson</c> задачи продавливания для отчёта и окна результата.</summary>
 public sealed record PunchingReportData(
@@ -76,7 +76,7 @@ public sealed record PunchingReportData(
                 Num(dz, "qsw_req"), Num(dz, "qsw"), Num(dz, "qsw_x_req"), Num(dz, "qsw_x"), Num(dz, "qsw_y_req"), Num(dz, "qsw_y"),
                 Num(dz, "asw_req"), Num(dz, "bar_area_req"), Num(dz, "bar_diameter"),
                 Num(dz, "rows_req") is double rq ? (int)rq : null, Num(dz, "zone_req"),
-                Bool(dz, "beyond_not_ensured"), Bool(dz, "provided_sufficient"));
+                Bool(dz, "beyond_not_ensured"), Bool(dz, "provided_sufficient"), Bool(dz, "capital_beyond_fails"));
         var detailing = new List<PunchingReportDetailing>();
         if (r.TryGetProperty("detailing", out var dt) && dt.ValueKind == JsonValueKind.Array)
             foreach (var c in dt.EnumerateArray())
@@ -192,6 +192,10 @@ public sealed class PunchingReportProvider : IReportProvider
                     + "продавливании»: дис. … канд. техн. наук. Самара: СамГТУ, 2022, формулы (5.9)–(5.35). Моменты не учитываются."));
             if (v.Zone == PunchingZone.BeyondReinforcement)
                 doc.Add(new ReportParagraph("Контур за зоной поперечной арматуры проверяется только по бетону (п. 8.1.48, рис. 8.13)."));
+            if (v.Zone == PunchingZone.BeyondCapital)
+                doc.Add(new ReportParagraph("Проверка за капителью: грузовая площадь — капитель в плане, контур на расстоянии h0/2 от её "
+                    + "грани, рабочая высота — плиты без утолщения; сила — за вычетом нагрузки в основании своей пирамиды, "
+                    + "эксцентриситет — от центра колонны (пп. 8.1.46–8.1.49). Проверяется только по бетону."));
             if (data.Scene is { } sc && sc.Variants.Any(x => x.Id == v.Id && x.Pieces.Count > 0))
                 doc.Add(new ReportImage(title, new PunchingPlanSvgRenderer().Render(sc, v.Id, title)));
             foreach (var s in v.Trace) doc.Add(StepBlock(s));
@@ -263,6 +267,7 @@ public sealed class PunchingReportProvider : IReportProvider
         if (d.RowsReq is int n) rows.Add(("Рядов не менее (контур за армированием и 1,5h0)", n.ToString(CultureInfo.InvariantCulture)));
         if (d.ZoneReq is double z) rows.Add(("Граница армированной зоны от грани не менее, мм", Sig(z * 1000)));
         if (d.BeyondNotEnsured) rows.Add(("Контур за армированием", "не проходит при любой ширине зоны"));
+        if (d.CapitalBeyondFails) rows.Add(("Контур за капителью", "не проходит по бетону — арматура у колонны его не исправит"));
         doc.Add(new ReportKeyValueTable(rows, "Величина", "Значение"));
     }
 
@@ -316,6 +321,18 @@ public sealed class PunchingReportProvider : IReportProvider
         Row("h", N(i, "h"), "м", "толщина плиты");
         Row("a_x", N(i, "ax"), "м", "привязка арматуры вдоль X к растянутой грани");
         Row("a_y", N(i, "ay"), "м", "привязка арматуры вдоль Y к растянутой грани");
+        if (N(i, "capitalHc") is double hc)
+        {
+            if (N(i, "capitalD") is double cd) Row("D_c", cd, "м", "диаметр капители");
+            else
+            {
+                Row("b_{c,x}", N(i, "capitalBx"), "м", "размер капители вдоль X");
+                Row("b_{c,y}", N(i, "capitalBy"), "м", "размер капители вдоль Y");
+                if (N(i, "capitalDx") is double cdx && cdx != 0) Row("d_x", cdx, "м", "смещение центра капители от центра колонны вдоль X");
+                if (N(i, "capitalDy") is double cdy && cdy != 0) Row("d_y", cdy, "м", "смещение центра капители вдоль Y");
+            }
+            Row("h_c", hc, "м", "высота капители (утолщения) под плитой");
+        }
         Text("—", S(i, "concrete") is { Length: > 0 } ct ? ct : "Rbt задано вручную", "бетон плиты");
         Row("R_bt", N(i, "rbt"), "кПа", "расчётное сопротивление бетона растяжению");
         Text("—", EdgesText(i), "положение относительно краёв плиты");
@@ -562,6 +579,9 @@ public sealed class PunchingReportProvider : IReportProvider
             "ured" => "Приведённый периметр (справочно)",
             "check" => "Условие прочности",
             "wall" => "Усилия у узла стены (СП 430, п. 6.3.8)",
+            "capital" => stepId.Contains(".cap_", StringComparison.Ordinal)
+                ? "Рабочая высота за капителью (плита без утолщения)"
+                : "Рабочая высота у колонны с капителью",
             _ => "Расчётная величина"
         };
     }
