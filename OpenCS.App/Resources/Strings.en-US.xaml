@@ -6681,6 +6681,9 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingCrossWidth">Lsw = {0:0} mm</system:String>
    <system:String x:Key="PunchingDesignButton">Design</system:String>
    <system:String x:Key="PunchingDesignButtonHint">Design the bar diameter (with rows) or the number of bars and the zone width per cl. 8.1.48, 8.1.50 for the given layout</system:String>
+   <system:String x:Key="PunchingRowsHint">The rows do not meet cl. 10.3.17 for h0 = {0:0} mm (s1 from h0/3 to h0/2, sd ≤ h0/3 and 300 mm, zone ≥ 1.5h0). Per code: s1 = {1:0}, sd = {2:0} mm, {3} rows.</system:String>
+   <system:String x:Key="PunchingRowsReset">Per cl. 10.3.17</system:String>
+   <system:String x:Key="PunchingRowsResetHint">Set s1, sd and the number of rows per cl. 10.3.17 for the current effective depth (h0 + hc at a column with a capital); then use Design</system:String>
    <system:String x:Key="PunchingSwRowsLine">rows in the pyramid (h0/3 … h0 from the face): {0} of {1}; </system:String>
    <system:String x:Key="PunchingSwCrossLine">Asw = {0:0.#} mm², Rsw = {1:0.#} MPa; qsw of arms along X = {2:0.#} kN/m, along Y = {3:0.#} kN/m</system:String>
    <system:String x:Key="PunchingDesignApplied_not_required">Shear reinforcement is not required — input unchanged.</system:String>

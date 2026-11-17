@@ -148,4 +148,46 @@ public sealed class PunchingCapitalTaskTests
         Assert.Contains(data.Variants, v => v.Zone == PunchingZone.BeyondCapital);
         Assert.Contains("за капителью", PunchingReportText.VariantTitle(PunchingVariantKind.Closed, PunchingZone.BeyondCapital, "cap_closed"));
     }
+
+    /// <summary>Узел без капители с рядами по умолчанию для h0 = 170 (s1 = 60, sd = 55, 5 рядов) или заданными.</summary>
+    static PunchingTaskParams WithRows(double s1 = 0.06, double sd = 0.055, int n = 5) => Node(new PunchingCapitalParams { Enabled = false, Bx = 1.2, By = 1.2, Hc = 0.15 }) with
+    {
+        Reinforcement = new PunchingReinforcementParams
+        {
+            Enabled = true, Diameter = 0.008, Count = 1, Step = 0.055, RswOverride = 300_000, FirstRow = s1, RowStep = sd, RowCount = n,
+        }
+    };
+
+    [Fact]
+    public void ParamsVM_DefaultRowsFollowCapital()
+    {
+        var vm = new OpenCS.ViewModels.PunchingParamsVM(Task(WithRows()), [], [], null);
+        Assert.True(vm.SwByRows);
+        Assert.False(vm.ShowRowsHint);
+        vm.CapitalEnabled = true;                 // h0 + hc = 320: s1 = 110, sd = 105, рядов 5
+        Assert.Equal(110, vm.FirstRow, 9);
+        Assert.Equal(105, vm.RowStep, 9);
+        Assert.Equal(5, vm.RowCount);
+        Assert.False(vm.ShowRowsHint);
+        Assert.Contains("3 из 5", vm.SwText);     // в пирамиде (h0/3 … h0 = 107 … 320) — ряды 110, 215, 320 (по h0 плиты был бы 1)
+        vm.CapitalEnabled = false;                // обратно к h0 плиты
+        Assert.Equal(60, vm.FirstRow, 9);
+        Assert.Equal(55, vm.RowStep, 9);
+    }
+
+    [Fact]
+    public void ParamsVM_ManualRowsKept_HintAndReset()
+    {
+        var vm = new OpenCS.ViewModels.PunchingParamsVM(Task(WithRows(0.07, 0.05, 6)), [], [], null);
+        Assert.False(vm.ShowRowsHint);            // для h0 = 170: s1 = 70 ∈ [57; 85], sd = 50 ≤ 57, зона 320 ≥ 255
+        vm.CapitalEnabled = true;
+        Assert.Equal(70, vm.FirstRow, 9);         // заданные вручную не трогаем
+        Assert.True(vm.ShowRowsHint);
+        Assert.Contains("10.3.17", vm.RowsHint);
+        vm.ResetRowsCommand.Execute(null);
+        Assert.Equal(110, vm.FirstRow, 9);
+        Assert.Equal(105, vm.RowStep, 9);
+        Assert.Equal(5, vm.RowCount);
+        Assert.False(vm.ShowRowsHint);
+    }
 }

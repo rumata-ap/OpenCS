@@ -337,6 +337,11 @@
                         <TextBlock Text="{DynamicResource PunchingSwRowCount}" Style="{StaticResource Lbl}"/>
                         <TextBox Style="{StaticResource Num}" Width="40" Text="{Binding RowCount, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
                      </WrapPanel>
+                     <DockPanel Visibility="{Binding ShowRowsHint, Converter={StaticResource BoolToVisibility}}" Margin="16,2,0,2">
+                        <Button DockPanel.Dock="Right" Content="{DynamicResource PunchingRowsReset}" Command="{Binding ResetRowsCommand}"
+                                Padding="8,1" Margin="6,0,0,0" VerticalAlignment="Top" ToolTip="{DynamicResource PunchingRowsResetHint}"/>
+                        <TextBlock Text="{Binding RowsHint}" Style="{StaticResource Hint}" TextWrapping="Wrap" Foreground="#9A5B00"/>
+                     </DockPanel>
                      <StackPanel Orientation="Horizontal" Visibility="{Binding SwLegacy, Converter={StaticResource BoolToVisibility}}">
                         <CheckBox Content="{DynamicResource PunchingSwZone}" IsChecked="{Binding ZoneEnabled}" Margin="0,4,8,2"
                                   ToolTip="{DynamicResource PunchingSwZoneHint}"/>

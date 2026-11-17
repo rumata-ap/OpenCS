@@ -6681,6 +6681,9 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingCrossWidth">Lsw = {0:0} мм</system:String>
    <system:String x:Key="PunchingDesignButton">Подобрать</system:String>
    <system:String x:Key="PunchingDesignButtonHint">Подобрать диаметр (при рядах) или число стержней и ширину зоны по пп. 8.1.48, 8.1.50 при заданной раскладке</system:String>
+   <system:String x:Key="PunchingRowsHint">Ряды не отвечают п. 10.3.17 для h0 = {0:0} мм (s1 от h0/3 до h0/2, sd ≤ h0/3 и 300 мм, зона ≥ 1,5h0). По норме: s1 = {1:0}, sd = {2:0} мм, рядов {3}.</system:String>
+   <system:String x:Key="PunchingRowsReset">По п. 10.3.17</system:String>
+   <system:String x:Key="PunchingRowsResetHint">Задать s1, sd и число рядов по п. 10.3.17 для текущей рабочей высоты (у колонны с капителью — h0 + hc); затем можно «Подобрать»</system:String>
    <system:String x:Key="PunchingSwRowsLine">рядов в пирамиде (h0/3 … h0 от грани): {0} из {1}; </system:String>
    <system:String x:Key="PunchingSwCrossLine">Asw = {0:0.#} мм², Rsw = {1:0.#} МПа; qsw лучей вдоль X = {2:0.#} кН/м, вдоль Y = {3:0.#} кН/м</system:String>
    <system:String x:Key="PunchingDesignApplied_not_required">Поперечная арматура не требуется — ввод не изменён.</system:String>

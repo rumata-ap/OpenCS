@@ -130,6 +130,17 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
     public double? CapBy { get => ShowCapital ? _capBy : null; set => SetCapital(ref _capBy, value); }
     public double? CapHc { get => ShowCapital ? _capHc : null; set => SetCapital(ref _capHc, value); }
 
+    /// <summary>
+    /// Рабочая высота у колонны для расстановки рядов поперечной арматуры, м: h0 + hc капители узла (по схеме или
+    /// вручную), без капители — h0.
+    /// </summary>
+    public double SwH0 => Joint.H0 + _capitalMode switch
+    {
+        "none" => 0,
+        "manual" => Math.Max(0, _capHc / 1000),
+        _ => Joint.Capital?.Hc ?? 0,
+    };
+
     /// <summary>Размеры капители видны: «вручную» или распознанная в схеме при «по схеме».</summary>
     bool ShowCapital => _capitalMode == "manual" || (_capitalMode == "auto" && Joint.Capital != null);
 
@@ -346,7 +357,7 @@ public sealed class PunchingFemCheckVM : ViewModelBase
     public string SwLayout { get => _swLayout; set { if (SetField(ref _swLayout, value)) { OnPropertyChanged(nameof(IsSwCross)); OnPropertyChanged(nameof(IsSwUniform)); Preview(); } } }
     public bool IsSwCross => SwLayout == "cross";
     public bool IsSwUniform => !IsSwCross;
-    /// <summary>Ряды поперёк контура (проверка п. 10.3.17); при включении — по h0 выбранного узла.</summary>
+    /// <summary>Ряды поперёк контура (проверка п. 10.3.17); при включении — по h0 выбранного узла (с капителью — h0 + hc).</summary>
     public bool SwByRows
     {
         get => _swByRows;
@@ -354,7 +365,7 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         {
             if (value && !_swByRows && !_loading)
             {
-                var (s1, sd, nr) = PunchingParamsVM.DefaultRows(_selectedJoint?.Joint.H0 ?? 0.2);
+                var (s1, sd, nr) = PunchingParamsVM.DefaultRows(_selectedJoint?.SwH0 ?? 0.2);
                 _firstRow = s1 * 1000; _rowStep = sd * 1000; _rowCount = nr;
                 OnPropertyChanged(nameof(FirstRow)); OnPropertyChanged(nameof(RowStep)); OnPropertyChanged(nameof(RowCount));
             }

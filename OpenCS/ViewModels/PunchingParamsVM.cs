@@ -124,6 +124,7 @@ public sealed class PunchingParamsVM : ViewModelBase
         TakeForcesFromRowCommand = new RelayCommand(_ => TakeForcesFromRow(), _ => _forceRow is not null);
         TakeFromPlateSectionCommand = new RelayCommand(_ => TakeFromPlateSection(), _ => SelectedPlateSection is not null);
         DesignCommand = new RelayCommand(_ => ApplyDesign());
+        ResetRowsCommand = new RelayCommand(_ => ResetRows());
     }
 
     /// <summary>
@@ -414,6 +415,82 @@ public sealed class PunchingParamsVM : ViewModelBase
     public double RowStep { get => _rowStep; set => SetField(ref _rowStep, value); }
     /// <summary>Число рядов.</summary>
     public int RowCount { get => _rowCount; set => SetField(ref _rowCount, value); }
+
+    /// <summary>
+    /// Рабочая высота, по которой расставлены ряды при последнем пересчёте, м: ряды «по умолчанию» для неё (s1 и sd
+    /// по <see cref="DefaultRows"/>) следуют за сменой h0 + hc; заданные вручную не меняются. 0 — ещё не было пересчёта.
+    /// </summary>
+    double _rowsH0;
+
+    /// <summary>
+    /// Ряды по умолчанию — за рабочей высотой: если s1 и sd совпадают с <see cref="DefaultRows"/> прежней h0 (+ hc), а
+    /// она изменилась (включили капитель, сменили hc, h или привязки), они пересчитываются для новой. Число рядов:
+    /// прежнее по умолчанию — новое по умолчанию; подобранное или заданное — не меньше прежнего.
+    /// </summary>
+    void FollowRows()
+    {
+        double h0 = SwH0Value();
+        if (!(h0 > 0)) return;   // промежуточный ввод (пустое h) — базу не сдвигаем
+        if (_rowsH0 > 0 && Math.Abs(h0 - _rowsH0) > 1e-9 && SwByRows)
+        {
+            var (s1o, sdo, nro) = DefaultRows(_rowsH0);
+            if (Math.Abs(FirstRow - Mm(s1o)) < 1e-6 && Math.Abs(RowStep - Mm(sdo)) < 1e-6)
+            {
+                var (s1, sd, nr) = DefaultRows(h0);
+                SetRows(s1, sd, RowCount == nro ? nr : Math.Max(RowCount, nr));
+            }
+        }
+        _rowsH0 = h0;
+    }
+
+    /// <summary>Записывает ряды без пересчёта (вызывающий пересчитывает сам).</summary>
+    void SetRows(double s1, double sd, int count)
+    {
+        bool was = _loading;
+        _loading = true;
+        try { FirstRow = Mm(s1); RowStep = Mm(sd); RowCount = count; }
+        finally { _loading = was; }
+    }
+
+    /// <summary>«По п. 10.3.17»: s1, sd и число рядов — по умолчанию для текущей h0 (с капителью — h0 + hc).</summary>
+    public void ResetRows()
+    {
+        var (s1, sd, nr) = DefaultRows(SwH0Value());
+        SetRows(s1, sd, nr);
+        _rowsH0 = SwH0Value();
+        Recalculate();
+    }
+
+    /// <summary>
+    /// Подсказка у рядов: заданные ряды не отвечают п. 10.3.17 для текущей h0 (+ hc) — s1 вне [h0/3; h0/2],
+    /// sd &gt; min(h0/3; 300 мм) или зона короче 1,5h0. Пусто — отвечают или ряды не заданы.
+    /// </summary>
+    public string RowsHint { get; private set; } = "";
+    /// <summary>Показывать подсказку и кнопку «По п. 10.3.17».</summary>
+    public bool ShowRowsHint => RowsHint.Length > 0;
+
+    void UpdateRowsHint()
+    {
+        string hint = "";
+        double h0 = SwH0Value();
+        if (SwEnabled && SwByRows && h0 > 0)
+        {
+            double s1 = M(FirstRow), sd = M(RowStep), ext = s1 + Math.Max(0, RowCount - 1) * sd;
+            const double eps = 1e-6;
+            bool bad = s1 < h0 / 3 - eps || s1 > h0 / 2 + eps || (RowCount > 1 && sd > Math.Min(h0 / 3, 0.3) + eps) || ext < 1.5 * h0 - eps;
+            if (bad)
+            {
+                var (ds1, dsd, dnr) = DefaultRows(h0);
+                hint = string.Format(CultureInfo.CurrentCulture,
+                    Loc.S("PunchingRowsHint", "Ряды не отвечают п. 10.3.17 для h0 = {0:0} мм (s1 от h0/3 до h0/2, sd ≤ h0/3 и 300 мм, зона ≥ 1,5h0). По норме: s1 = {1:0}, sd = {2:0} мм, рядов {3}."),
+                    h0 * 1000, ds1 * 1000, dsd * 1000, dnr);
+            }
+        }
+        if (hint == RowsHint) return;
+        RowsHint = hint;
+        OnPropertyChanged(nameof(RowsHint));
+        OnPropertyChanged(nameof(ShowRowsHint));
+    }
     /// <summary>Лучи вдоль X: число линий, шаг линий (мм), стороны.</summary>
     public int CrossXLines { get => _crossXLines; set { if (SetField(ref _crossXLines, value)) OnPropertyChanged(nameof(CrossXWidthText)); } }
     public double CrossXStep { get => _crossXStep; set { if (SetField(ref _crossXStep, value)) OnPropertyChanged(nameof(CrossXWidthText)); } }
@@ -515,6 +592,8 @@ public sealed class PunchingParamsVM : ViewModelBase
     public ICommand TakeFromPlateSectionCommand { get; }
     /// <summary>Подобрать поперечную арматуру по ядру.</summary>
     public ICommand DesignCommand { get; }
+    /// <summary>Ряды — по п. 10.3.17 для текущей h0 (+ hc).</summary>
+    public ICommand ResetRowsCommand { get; }
 
     bool SetField<T>(ref T field, T value, [CallerMemberName] string? name = null)
     {
@@ -665,6 +744,8 @@ public sealed class PunchingParamsVM : ViewModelBase
         // Итог «Подобрать» относится к вводу, который он сам записал: любая следующая правка его сбрасывает.
         if (_keepDesignText) _keepDesignText = false;
         else if (DesignApplyText.Length > 0) { DesignApplyText = ""; OnPropertyChanged(nameof(DesignApplyText)); }
+        FollowRows();
+        UpdateRowsHint();
         var p = ToParams();
         var c = CultureInfo.CurrentCulture;
         H0Text = string.Format(c, "h0x = {0:0.#} мм, h0y = {1:0.#} мм, h0 = {2:0.#} мм", p.H0x * 1000, p.H0y * 1000, p.H0 * 1000);
@@ -733,7 +814,11 @@ public sealed class PunchingParamsVM : ViewModelBase
         if (!r.Enabled || !(rsw > 0) || p.Validate().Any(e => e.StartsWith("sw_", StringComparison.Ordinal))) return "";
         var c = CultureInfo.CurrentCulture;
         var core = r.ToCore(rsw);
+        // Ряды у колонны с капителью ядро считает по h0 + hc (если контур у колонны в капители) — так и здесь.
         double h0 = p.H0;
+        if (p.Capital.Enabled && !p.Validate().Any())
+            try { h0 = PunchingCapitalCheck.ColumnH0(p.ToInput(1, rsw)); }
+            catch (ArgumentException) { }
         double asw = PunchingSwLayout.AswPerLine(core, h0);
         string rows = core.Rows is { } rs
             ? string.Format(c, Loc.S("PunchingSwRowsLine", "рядов в пирамиде (h0/3 … h0 от грани): {0} из {1}; "), PunchingSwLayout.CountRows(rs, h0).Counted, rs.Count)
