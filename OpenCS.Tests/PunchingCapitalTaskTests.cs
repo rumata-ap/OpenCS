@@ -69,6 +69,29 @@ public sealed class PunchingCapitalTaskTests
     }
 
     [Fact]
+    public void FemJoint_CapitalOverride_AutoNoneManual()
+    {
+        var joint = new CScore.Sp63Punching.Fem.PunchingFemJoint
+        {
+            NodeTag = "7", Origin = default, AxisX = new(1, 0, 0), AxisY = new(0, 1, 0), Normal = new(0, 0, 1),
+            Area = new PunchingLoadArea.Rectangle(0.4, 0.4),
+            Capital = new PunchingCapital(new PunchingLoadArea.Rectangle(1.2, 1.0), 0.15, new PlanPoint(0.1, 0)),
+        };
+        var auto = PunchingFemService.CapitalParams(joint, null);
+        Assert.True(auto.Enabled);
+        Assert.Equal(1.0, auto.By, 12);
+        Assert.Equal(0.1, auto.Dx, 12);
+        Assert.False(PunchingFemService.CapitalParams(joint, new PunchingFemJointOverride { Node = "7", Capital = "none" }).Enabled);
+        var manual = PunchingFemService.CapitalParams(joint, new PunchingFemJointOverride
+        {
+            Node = "7", Capital = "manual", CapitalManual = new PunchingCapitalParams { Bx = 1.6, By = 1.6, Hc = 0.2 }
+        });
+        Assert.True(manual.Enabled);
+        Assert.Equal(1.6, manual.Bx, 12);
+        Assert.False(PunchingFemService.CapitalParams(joint with { Capital = null }, null).Enabled);
+    }
+
+    [Fact]
     public void Runner_TwoChecks_InDataJson_AndReport()
     {
         var result = PunchingRunner.Run(Task(Node()), CalcSettings.Default, null);

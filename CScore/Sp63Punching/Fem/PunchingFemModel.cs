@@ -149,6 +149,10 @@ public sealed record PunchingFemJoint
     public bool CoverDefault { get; init; }
     /// <summary>Подпись сечения плиты.</summary>
     public string SlabLabel { get; init; } = "";
+    /// <summary>Капитель, распознанная по пластинам толще плиты (в осях узла); null — нет. <see cref="H"/> — толщина плиты без неё.</summary>
+    public PunchingCapital? Capital { get; init; }
+    /// <summary>Подпись сечения пластин капители.</summary>
+    public string CapitalLabel { get; init; } = "";
     public IReadOnlyList<PunchingSlabEdge> Edges { get; init; } = [];
     public IReadOnlyList<PunchingHole> Holes { get; init; } = [];
     /// <summary>Основание пирамиды продавливания в осях узла (против часовой).</summary>

@@ -6845,6 +6845,13 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemColSlab">Плита</system:String>
    <system:String x:Key="PunchingFemColPosition">Положение</system:String>
    <system:String x:Key="PunchingFemColOwnSw">Своя арм.</system:String>
+   <system:String x:Key="PunchingFemColCapital">Капитель</system:String>
+   <system:String x:Key="PunchingFemCapitalHint">Капитель узла: «по схеме» — пластины у колонны толще плиты (габарит области, hc — разность толщин); «нет» — без капители; «вручную» — размеры bc,x × bc,y и hc из строки. Правка размера переводит узел в «вручную».</system:String>
+   <system:String x:Key="PunchingFemCapitalAuto">по схеме: {0:0}×{1:0}, hc = {2:0} мм</system:String>
+   <system:String x:Key="PunchingFemCapitalNoneInSchema">в схеме не найдена</system:String>
+   <system:String x:Key="PunchingFemCapital_auto">по схеме</system:String>
+   <system:String x:Key="PunchingFemCapital_none">нет</system:String>
+   <system:String x:Key="PunchingFemCapital_manual">вручную</system:String>
    <system:String x:Key="PunchingFemColStatus">Состояние</system:String>
    <system:String x:Key="PunchingFemOverrideCoverHint">Своя привязка узла, мм; пусто — из сечения плиты</system:String>
    <system:String x:Key="PunchingFemCreateTask">Создать задачу</system:String>

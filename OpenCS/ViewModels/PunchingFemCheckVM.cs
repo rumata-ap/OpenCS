@@ -23,6 +23,8 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
 {
     bool _include = true, _ownSw;
     double? _ax, _ay;
+    string _capitalMode = "auto";
+    double _capBx, _capBy, _capHc;
     double _swDiameter = 8, _swStep = 60;
     int _swCount = 2, _swRows = 5;
 
@@ -33,6 +35,17 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
         Node = joint.NodeTag;
         Section = joint.SectionLabel;
         Slab = joint.SlabLabel.Length > 0 ? string.Format(c, "{0}; h0 = {1:0} " + Loc.S("UnitMm", "мм"), joint.SlabLabel, joint.H0 * 1000) : "";
+        if (joint.Capital is { Area: PunchingLoadArea.Rectangle cr } cap)
+        {
+            CapitalAutoText = string.Format(c, Loc.S("PunchingFemCapitalAuto", "по схеме: {0:0}×{1:0}, hc = {2:0} мм"), cr.Bx * 1000, cr.By * 1000, cap.Hc * 1000);
+            _capBx = cr.Bx * 1000; _capBy = cr.By * 1000; _capHc = cap.Hc * 1000;
+        }
+        else
+        {
+            CapitalAutoText = Loc.S("PunchingFemCapitalNoneInSchema", "в схеме не найдена");
+            // Начальные размеры для «вручную»: как у одиночной задачи.
+            _capBx = 1200; _capBy = 1200; _capHc = 150;
+        }
         Position = (joint.Edges.Count switch
         {
             0 => Loc.S("PunchingPosition_inside", "внутри плиты"),
@@ -49,6 +62,8 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
             _include = !o.Excluded;
             _ax = o.Ax * 1000;
             _ay = o.Ay * 1000;
+            if (o.Capital is "none" or "manual") _capitalMode = o.Capital;
+            if (o.CapitalManual is { } cm) { _capBx = cm.Bx * 1000; _capBy = cm.By * 1000; _capHc = cm.Hc * 1000; }
             if (o.Reinforcement is { } r)
             {
                 _ownSw = true;
@@ -82,11 +97,32 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
     /// <summary>Число рядов узла (при раскладке рядами).</summary>
     public int SwRows { get => _swRows; set => Set(ref _swRows, value); }
 
+    /// <summary>Капитель узла: "auto" — по схеме, "none" — без капители, "manual" — размеры строки.</summary>
+    public string CapitalMode { get => _capitalMode; set => Set(ref _capitalMode, value is "none" or "manual" ? value : "auto"); }
+    /// <summary>Режимы капители для списка.</summary>
+    public static IReadOnlyList<PunchingChoice> CapitalModes { get; } =
+    [
+        new("auto", Loc.S("PunchingFemCapital_auto", "по схеме")), new("none", Loc.S("PunchingFemCapital_none", "нет")),
+        new("manual", Loc.S("PunchingFemCapital_manual", "вручную")),
+    ];
+    /// <summary>Что распознано в схеме (подсказка).</summary>
+    public string CapitalAutoText { get; } = "";
+    /// <summary>Размеры капители, мм; правка переводит узел в режим «вручную».</summary>
+    public double CapBx { get => _capBx; set { if (_capBx == value) return; Set(ref _capBx, value); CapitalMode = "manual"; } }
+    public double CapBy { get => _capBy; set { if (_capBy == value) return; Set(ref _capBy, value); CapitalMode = "manual"; } }
+    public double CapHc { get => _capHc; set { if (_capHc == value) return; Set(ref _capHc, value); CapitalMode = "manual"; } }
+
     /// <summary>Переопределение узла; null — переопределять нечего.</summary>
     public PunchingFemJointOverride? ToOverride(PunchingReinforcementParams common) =>
-        _include && _ax == null && _ay == null && !_ownSw ? null : new PunchingFemJointOverride
+        _include && _ax == null && _ay == null && !_ownSw && _capitalMode == "auto" ? null : new PunchingFemJointOverride
         {
             Node = Node, Excluded = !_include, Ax = _ax / 1000, Ay = _ay / 1000,
+            Capital = _capitalMode == "auto" ? null : _capitalMode,
+            CapitalManual = _capitalMode != "manual" ? null : new PunchingCapitalParams
+            {
+                Enabled = true, Bx = _capBx / 1000, By = _capBy / 1000, D = _capBx / 1000, Hc = _capHc / 1000,
+                Dx = Joint.Capital?.Offset.X ?? 0, Dy = Joint.Capital?.Offset.Y ?? 0,
+            },
             Reinforcement = _ownSw ? common with { Enabled = true, Diameter = _swDiameter / 1000, Count = _swCount, Step = _swStep / 1000, RowCount = _swRows } : null,
         };
 

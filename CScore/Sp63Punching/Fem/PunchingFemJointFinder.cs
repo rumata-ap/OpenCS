@@ -228,6 +228,15 @@ public static class PunchingFemJointFinder
             if (near.Count == 0) near = [slab.Shells.MinBy(s => (s.Centroid - origin).Length)!];
             if (Model.ShellProps(near[0].Element) is not { } props)
                 return Partial(PunchingFemNoCheck.SlabSectionUnknown, $"У пластин плиты у узла {node} нет сечения (толщины).");
+            // Капитель: пластины у колонны толще основной плиты (решение пользователя 17.11.2026) — h плиты, hc = t − h.
+            HashSet<string>? capitalShells = null;
+            if (wall == null && joint.Kind == PunchingFemJointKind.Bar && area != null
+                && DetectCapital(slab, near, joint, area, warnings) is { } cap)
+            {
+                joint = joint with { Capital = cap.Capital, CapitalLabel = cap.Label };
+                props = cap.BaseProps;
+                capitalShells = cap.Shells;
+            }
             var cover = (onlyAbove ? props.Bottom : props.Top) ?? Options.DefaultCover;
             bool coverDefault = (onlyAbove ? props.Bottom : props.Top) == null;
             cover ??= PunchingFemOptions.StandardCover;
@@ -271,6 +280,8 @@ public static class PunchingFemJointFinder
                 .Select(s => s.Element.ElemTag).ToList();
             joint = joint with { BaseShells = baseShells };
 
+            // Пластины капители в основании пирамиды — не перепад толщины, а капитель (проверка у колонны с h0 + hc).
+            if (capitalShells != null) inside = inside.Where(s => !capitalShells.Contains(s.Element.ElemTag)).ToList();
             var mixed = inside.Select(s => Model.ShellProps(s.Element)).Where(p => p != null)
                 .Select(p => p!).DistinctBy(p => p.SectionKey).ToList();
             if (mixed.Count > 1 || inside.Any(s => Model.ShellProps(s.Element) == null))
@@ -628,6 +639,81 @@ public static class PunchingFemJointFinder
 
         PlanarVector3? Position(string tag) => Model.Nodes.TryGetValue(tag, out var m) ? new PlanarVector3(m.X, m.Y, m.Z) : null;
 
+        /// <summary>Наибольший размер утолщения, которое ещё считается капителью, м; больше — участок плиты другой толщины.</summary>
+        const double MaxCapitalSize = 6;
+
+        /// <summary>
+        /// Капитель у узла колонны: основная толщина плиты — преобладающая по площади; капитель — связная (по общим
+        /// узлам) область пластин толще основной, начиная с пластин у узла. Размеры — габарит области в осях узла,
+        /// смещение — центр габарита, hc — наименьшая толщина области минус основная. null — капители нет.
+        /// </summary>
+        (PunchingCapital Capital, PunchingFemShellProps BaseProps, HashSet<string> Shells, string Label)? DetectCapital(
+            PunchingFemSlab slab, List<PunchingFemShell> near, PunchingFemJoint joint, PunchingLoadArea area, List<PunchingWarning> warnings)
+        {
+            const double tol = 1e-3;
+            var byH = new Dictionary<double, (double A, PunchingFemShellProps P)>();
+            foreach (var s in slab.Shells)
+            {
+                if (Model.ShellProps(s.Element) is not { } p) continue;
+                double key = Math.Round(p.H, 4);
+                double a = ShellArea(s.Geometry);
+                byH[key] = byH.TryGetValue(key, out var v) ? (v.A + a, v.P) : (a, p);
+            }
+            if (byH.Count < 2) return null;
+            double tb = byH.MaxBy(kv => kv.Value.A).Key;
+            bool Thick(PunchingFemShell s) => Model.ShellProps(s.Element) is { } p && p.H > tb + tol;
+            var seeds = near.Where(Thick).ToList();
+            if (seeds.Count == 0) return null;
+
+            var thickAt = new Dictionary<string, List<PunchingFemShell>>(StringComparer.Ordinal);
+            foreach (var s in slab.Shells.Where(Thick))
+                foreach (var t in s.Geometry.NodeTags)
+                {
+                    if (!thickAt.TryGetValue(t, out var l)) thickAt[t] = l = [];
+                    l.Add(s);
+                }
+            var region = new Dictionary<string, PunchingFemShell>(StringComparer.Ordinal);
+            var queue = new Queue<PunchingFemShell>(seeds);
+            foreach (var s in seeds) region[s.Element.ElemTag] = s;
+            while (queue.Count > 0)
+            {
+                var s = queue.Dequeue();
+                foreach (var t in s.Geometry.NodeTags)
+                    foreach (var x in thickAt[t])
+                        if (region.TryAdd(x.Element.ElemTag, x)) queue.Enqueue(x);
+            }
+
+            var pts = region.Values.SelectMany(s => s.Geometry.Points).Select(joint.ToLocal).ToList();
+            double x0 = pts.Min(p => p.X), x1 = pts.Max(p => p.X), y0 = pts.Min(p => p.Y), y1 = pts.Max(p => p.Y);
+            double bx = x1 - x0, by = y1 - y0;
+            string node = joint.NodeTag;
+            if (Math.Max(bx, by) > MaxCapitalSize)
+            {
+                warnings.Add(new("fem_capital_large", string.Create(Ru,
+                    $"Утолщение плиты у узла {node} больше {MaxCapitalSize:0} м ({bx:0.##}×{by:0.##} м) — принято как плита этой толщины, а не капитель; при необходимости задайте капитель вручную.")));
+                return null;
+            }
+            var capPoly = new List<PlanPoint> { new(x0, y0), new(x1, y0), new(x1, y1), new(x0, y1) };
+            if (!PunchingContourBuilder.AreaPolygon(area).All(p => Contains(capPoly, p, 1e-6)))
+            {
+                warnings.Add(new("fem_capital_off", $"Утолщение плиты у узла {node} не охватывает сечение колонны — капитель не учтена."));
+                return null;
+            }
+            double fill = region.Values.Sum(s => ShellArea(s.Geometry)) / Math.Max(bx * by, 1e-12);
+            if (fill < 0.9)
+                warnings.Add(new("fem_capital_not_rect", string.Create(Ru,
+                    $"Утолщение у узла {node} не прямоугольное (занимает {fill * 100:0} % габарита) — капитель принята по габариту {bx:0.##}×{by:0.##} м; уточните её вручную.")));
+            var thick = region.Values.Select(s => Model.ShellProps(s.Element)!).ToList();
+            double tc = thick.Min(p => p.H);
+            if (thick.Select(p => Math.Round(p.H, 4)).Distinct().Count() > 1)
+                warnings.Add(new("fem_capital_stepped", string.Create(Ru,
+                    $"У капители узла {node} пластины разной толщины ({string.Join(", ", thick.Select(p => p.H * 1000).Distinct().OrderBy(v => v).Select(v => v.ToString("0", Ru)))} мм) — принята наименьшая.")));
+            var capital = new PunchingCapital(new PunchingLoadArea.Rectangle(bx, by), tc - byH[tb].P.H,
+                new PlanPoint((x0 + x1) / 2, (y0 + y1) / 2));
+            string label = thick.MinBy(p => p.H)!.Label;
+            return (capital, byH[tb].P, region.Keys.ToHashSet(StringComparer.Ordinal), label);
+        }
+
         (IReadOnlyList<PunchingSlabEdge> Edges, IReadOnlyList<PunchingHole> Holes) EdgesAndHoles(
             PunchingFemSlab slab, PunchingFemJoint joint, PunchingLoadArea area, double h0, List<PunchingWarning> warnings)
         {
@@ -640,6 +726,13 @@ public static class PunchingFemJointFinder
             var holes = new List<PunchingHole>();
             var candidates = new List<(PunchingSlabEdge Edge, double Dist)>();
             double edgeLimit = Options.EdgeInfluence * h0, holeLimit = Options.HoleInfluence * joint.H;
+            if (joint.Capital is { } cap)
+            {
+                // С капителью: у колонны — 6(h + hc), за капителью — от её грани; ядро решает по каждой проверке.
+                double overhang = PunchingContourBuilder.AreaPolygon(cap.Area).Max(p => Math.Max(Math.Abs(p.X + cap.Offset.X), Math.Abs(p.Y + cap.Offset.Y)));
+                edgeLimit = Math.Max(edgeLimit, Options.EdgeInfluence * h0 + overhang);
+                holeLimit = Math.Max(Options.HoleInfluence * (joint.H + cap.Hc), Options.HoleInfluence * joint.H + overhang);
+            }
             foreach (var loop in loops)
             {
                 double sa = Area(loop);
@@ -786,6 +879,15 @@ public static class PunchingFemJointFinder
             cur = s;
         }
         return result;
+    }
+
+    /// <summary>Площадь пластины по её узлам (многоугольник в пространстве), м².</summary>
+    static double ShellArea(FemElementGeometry g)
+    {
+        var pts = g.Contour.Select(i => g.Points[i]).ToList();
+        var sum = new PlanarVector3(0, 0, 0);
+        for (int i = 0; i < pts.Count; i++) sum = sum + pts[i].Cross(pts[(i + 1) % pts.Count]);
+        return sum.Length / 2;
     }
 
     static double Area(IReadOnlyList<PlanPoint> p)

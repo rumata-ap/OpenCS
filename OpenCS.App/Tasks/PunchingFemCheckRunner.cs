@@ -72,6 +72,10 @@ public sealed record PunchingFemJointResult
     public List<PunchingWarningJson> Warnings { get; init; } = [];
     /// <summary>Контур грузовой площади в плане (общие X, Y), м.</summary>
     public List<double[]> Area { get; init; } = [];
+    /// <summary>Контур капители в плане (общие X, Y), м; пусто — капители нет.</summary>
+    public List<double[]> Capital { get; init; } = [];
+    /// <summary>Высота капители hc, м; 0 — нет.</summary>
+    public double CapitalHc { get; init; }
     /// <summary>Параметры одиночной задачи по определяющему ключу (без него — с нулевыми усилиями).</summary>
     public string ParamsJson { get; init; } = "";
     public List<PunchingFemRow> Rows { get; init; } = [];
@@ -330,6 +334,20 @@ public static class PunchingFemCheckRunner
                 .Where((_, i) => joint.Area is not (PunchingLoadArea.Circle or PunchingLoadArea.Ring) || i % 20 == 0)
                 .Select(q => joint.ToGlobal(q)).Select(g => new[] { g.X, g.Y }).ToList(),
         };
+        // Капитель узла (по схеме или из переопределения) — для плана перекрытия.
+        if (!joint.IsWall && joint.Area != null
+            && PunchingFemService.CapitalParams(joint, p.Overrides.FirstOrDefault(x => x.Node == joint.NodeTag)) is { Enabled: true } capP
+            && capP.ToCore(PunchingFemService.AreaParams(joint.Area).Shape) is { } capCore)
+        {
+            var probe = new PunchingInput(joint.Area, 1, 1, new PunchingForces(0, 0, 0), Capital: capCore);
+            baseResult = baseResult with
+            {
+                Capital = PunchingCapitalCheck.CapitalPolygon(probe)
+                    .Where((_, i) => capCore.Area is not PunchingLoadArea.Circle || i % 20 == 0)
+                    .Select(q => joint.ToGlobal(q)).Select(g => new[] { g.X, g.Y }).ToList(),
+                CapitalHc = capCore.Hc,
+            };
+        }
         if (joint.NoCheck != null)
             return baseResult with
             {

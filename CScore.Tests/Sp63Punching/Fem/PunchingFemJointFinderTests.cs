@@ -181,6 +181,41 @@ public class PunchingFemJointFinderTests
     }
 
     [Fact]
+    public void Capital_ThickerPlatesAtColumn_Recognized()
+    {
+        // Утолщение 1,2×1,2 толщиной 0,35 у колонны 0,4×0,4 в плите 0,2; смещено на 0,2 вдоль X (x 2,6…3,8).
+        var m = Plate(h: (x, y) => x > 2.6 && x < 3.8 && Math.Abs(y - 3) < 0.6 ? 0.35 : 0.2);
+        m.Bar(m.Node(3, 3, 0), m.Node(3, 3, Z));
+        var j = Single(m, Rect(0.4, 0.4));
+        Assert.Null(j.NoCheck);
+        Assert.Equal(0.2, j.H, 12);
+        var cap = Assert.IsType<PunchingCapital>(j.Capital);
+        var r = Assert.IsType<PunchingLoadArea.Rectangle>(cap.Area);
+        Assert.Equal(1.2, r.Bx, 9);
+        Assert.Equal(1.2, r.By, 9);
+        Assert.Equal(0.15, cap.Hc, 9);
+        Assert.Equal(0.2, cap.Offset.X, 9);
+        Assert.Equal(0, cap.Offset.Y, 9);
+
+        // Через ядро: у колонны h0 + hc, за капителью h0 плиты.
+        var input = new PunchingInput(j.Area!, j.H0, 1050, new PunchingForces(500, 0, 0), H: j.H, Capital: j.Capital);
+        var res = PunchingChecker.Check(input);
+        Assert.Equal(j.H0 + 0.15, res.Variants.Single(v => v.Variant.Id == "closed").H0, 9);
+        Assert.Equal(j.H0, res.Variants.Single(v => v.Variant.Id == "cap_closed").H0, 9);
+    }
+
+    [Fact]
+    public void Capital_NotAtColumn_NotRecognized()
+    {
+        // Утолщение в стороне от колонны (не касается узла) — капители нет, плита однородная у узла.
+        var m = Plate(h: (x, y) => x > 4.6 && x < 5.4 && y > 4.6 && y < 5.4 ? 0.35 : 0.2);
+        m.Bar(m.Node(3, 3, 0), m.Node(3, 3, Z));
+        var j = Single(m, Rect(0.4, 0.4));
+        Assert.Null(j.Capital);
+        Assert.Null(j.NoCheck);
+    }
+
+    [Fact]
     public void JunctionWithWall_NoCheck()
     {
         var m = Plate();

@@ -48,6 +48,8 @@ public sealed class PunchingFemPlanCanvas : FrameworkElement
     static readonly Typeface Font = new("Segoe UI");
     static readonly Brush SlabFill = Frozen(new SolidColorBrush(Color.FromRgb(0xEE, 0xF2, 0xF6)));
     static readonly Pen SlabPen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0x44, 0x55, 0x66)), 1.2));
+    static readonly Brush CapitalFill = Frozen(new SolidColorBrush(Color.FromRgb(0xF6, 0xEF, 0xDF)));
+    static readonly Pen CapitalPen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0x47, 0x55, 0x69)), 1) { DashStyle = new DashStyle([5, 3], 0) });
     static readonly Pen SelectPen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0x1F, 0x4E, 0xD8)), 2.5));
     static readonly Brush TextBrush = Frozen(new SolidColorBrush(Color.FromRgb(0x11, 0x18, 0x27)));
     static readonly Brush WallBrush = Frozen(new SolidColorBrush(Color.FromRgb(0x9A, 0xA4, 0xB1)));
@@ -114,6 +116,19 @@ public sealed class PunchingFemPlanCanvas : FrameworkElement
             var pen = new Pen(WallBrush, Math.Max(3, w.T * _scale)) { StartLineCap = PenLineCap.Flat, EndLineCap = PenLineCap.Flat };
             pen.Freeze();
             dc.DrawLine(pen, P(w.A[0], w.A[1]), P(w.B[0], w.B[1]));
+        }
+
+        // Капители — светлой заливкой со штрихом под значками узлов.
+        foreach (var j in d.Joints.Where(j => j.Capital.Count >= 3 && j.Origin.Length == 3 && OnLevel(j.Origin[2])))
+        {
+            var geo = new StreamGeometry();
+            using (var g = geo.Open())
+            {
+                g.BeginFigure(P(j.Capital[0][0], j.Capital[0][1]), true, true);
+                g.PolyLineTo(j.Capital.Skip(1).Select(p => P(p[0], p[1])).ToList(), true, false);
+            }
+            geo.Freeze();
+            dc.DrawGeometry(CapitalFill, CapitalPen, geo);
         }
 
         // Box — экранная рамка значка узла: у стен кусок стены не центрирован на узле (торец, наружный угол), подпись — справа от рамки.

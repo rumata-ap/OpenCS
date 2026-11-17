@@ -4,6 +4,7 @@
         xmlns:u="clr-namespace:OpenCS.Utilites"
         xmlns:h="clr-namespace:OpenCS.Views.Helpers"
         xmlns:conv="clr-namespace:OpenCS.Converters"
+        xmlns:vm="clr-namespace:OpenCS.ViewModels"
         Title="{DynamicResource PunchingFemDialogTitle}"
         Width="1380" Height="900" MinWidth="1000" MinHeight="640"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
@@ -303,6 +304,22 @@
                   </DataGridTextColumn.HeaderStyle>
                </DataGridTextColumn>
                <DataGridTextColumn Header="ay, мм" Binding="{Binding Ay, Converter={StaticResource AnyDoubleConv}, TargetNullValue=''}" Width="Auto"/>
+               <DataGridTemplateColumn Header="{DynamicResource PunchingFemColCapital}" Width="Auto" SortMemberPath="CapitalMode">
+                  <DataGridTemplateColumn.HeaderStyle>
+                     <Style TargetType="DataGridColumnHeader"><Setter Property="ToolTip" Value="{DynamicResource PunchingFemCapitalHint}"/></Style>
+                  </DataGridTemplateColumn.HeaderStyle>
+                  <DataGridTemplateColumn.CellTemplate>
+                     <DataTemplate>
+                        <!-- Список в шаблоне ячейки открывается первым щелчком. -->
+                        <ComboBox ItemsSource="{x:Static vm:PunchingFemJointPickVM.CapitalModes}" DisplayMemberPath="Label" SelectedValuePath="Id"
+                                  SelectedValue="{Binding CapitalMode, UpdateSourceTrigger=PropertyChanged}" MinWidth="90" Margin="2,0"
+                                  ToolTip="{Binding CapitalAutoText}"/>
+                     </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+               </DataGridTemplateColumn>
+               <DataGridTextColumn Header="bc,x, мм" Binding="{Binding CapBx, Converter={StaticResource AnyDoubleConv}}" Width="Auto"/>
+               <DataGridTextColumn Header="bc,y, мм" Binding="{Binding CapBy, Converter={StaticResource AnyDoubleConv}}" Width="Auto"/>
+               <DataGridTextColumn Header="hc, мм" Binding="{Binding CapHc, Converter={StaticResource AnyDoubleConv}}" Width="Auto"/>
                <DataGridTemplateColumn Header="{DynamicResource PunchingFemColOwnSw}" Width="Auto" SortMemberPath="OwnSw">
                   <DataGridTemplateColumn.CellTemplate>
                      <DataTemplate>

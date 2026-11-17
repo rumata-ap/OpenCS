@@ -6845,6 +6845,13 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemColSlab">Slab</system:String>
    <system:String x:Key="PunchingFemColPosition">Position</system:String>
    <system:String x:Key="PunchingFemColOwnSw">Own reinf.</system:String>
+   <system:String x:Key="PunchingFemColCapital">Capital</system:String>
+   <system:String x:Key="PunchingFemCapitalHint">Joint capital: "from model" — plates at the column thicker than the slab (extent of the region, hc — thickness difference); "none" — no capital; "manual" — bc,x × bc,y and hc from the row. Editing a size switches the joint to "manual".</system:String>
+   <system:String x:Key="PunchingFemCapitalAuto">from model: {0:0}×{1:0}, hc = {2:0} mm</system:String>
+   <system:String x:Key="PunchingFemCapitalNoneInSchema">not found in the model</system:String>
+   <system:String x:Key="PunchingFemCapital_auto">from model</system:String>
+   <system:String x:Key="PunchingFemCapital_none">none</system:String>
+   <system:String x:Key="PunchingFemCapital_manual">manual</system:String>
    <system:String x:Key="PunchingFemColStatus">State</system:String>
    <system:String x:Key="PunchingFemOverrideCoverHint">Joint cover, mm; empty — from the slab section</system:String>
    <system:String x:Key="PunchingFemCreateTask">Create task</system:String>

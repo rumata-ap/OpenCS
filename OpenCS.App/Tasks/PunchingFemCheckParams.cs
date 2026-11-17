@@ -17,6 +17,10 @@ public sealed record PunchingFemJointOverride
     public double? Ay { get; init; }
     /// <summary>Поперечная арматура узла; null — общая арматура проверки.</summary>
     public PunchingReinforcementParams? Reinforcement { get; init; }
+    /// <summary>Капитель узла: null — по схеме (распознанная), "none" — без капители, "manual" — <see cref="CapitalManual"/>.</summary>
+    public string? Capital { get; init; }
+    /// <summary>Капитель, заданная вручную (м).</summary>
+    public PunchingCapitalParams? CapitalManual { get; init; }
 }
 
 /// <summary>

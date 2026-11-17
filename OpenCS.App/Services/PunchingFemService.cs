@@ -509,6 +509,22 @@ public static class PunchingFemService
         return list;
     }
 
+    /// <summary>Капитель узла: переопределение пользователя или распознанная по схеме.</summary>
+    public static PunchingCapitalParams CapitalParams(PunchingFemJoint joint, PunchingFemJointOverride? o) => o?.Capital switch
+    {
+        "none" => new PunchingCapitalParams(),
+        "manual" when o.CapitalManual is { } m => m with { Enabled = true },
+        _ => FromCore(joint.Capital),
+    };
+
+    /// <summary>Капитель ядра → параметры задачи; null — выключена.</summary>
+    public static PunchingCapitalParams FromCore(PunchingCapital? c) => c switch
+    {
+        { Area: PunchingLoadArea.Rectangle r } => new PunchingCapitalParams { Enabled = true, Bx = r.Bx, By = r.By, Hc = c.Hc, Dx = c.Offset.X, Dy = c.Offset.Y },
+        { Area: PunchingLoadArea.Circle k } => new PunchingCapitalParams { Enabled = true, D = k.D, Hc = c.Hc },
+        _ => new PunchingCapitalParams(),
+    };
+
     /// <summary>Грузовая площадь ядра → параметры площади.</summary>
     public static PunchingAreaParams AreaParams(PunchingLoadArea area) => area switch
     {
@@ -545,6 +561,7 @@ public static class PunchingFemService
                 RbtOverride = check.RbtOverride,
             },
             Edges = EdgeParams(area, joint.Edges),
+            Capital = wall.IsWall ? new PunchingCapitalParams() : CapitalParams(joint, o),
             Holes = joint.Holes.Select(h => new PunchingHoleParams { Shape = "polygon", Points = h.Polygon.Select(p => new[] { p.X, p.Y }).ToList() }).ToList(),
             Reinforcement = o?.Reinforcement ?? check.Reinforcement,
             Forces = new PunchingForceParams
