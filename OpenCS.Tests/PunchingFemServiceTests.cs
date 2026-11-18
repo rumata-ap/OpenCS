@@ -36,8 +36,11 @@ public sealed class PunchingFemServiceTests : IDisposable
 
     sealed record Setup(DatabaseService Db, FemSchema Schema, FemAnalysis Analysis);
 
-    /// <summary>Схема с колонной в узле сетки (ci, cj); <paramref name="above"/> — колонна продолжается вверх до z = 6.</summary>
-    Setup Create(int ci = N / 2, int cj = N / 2, bool above = false, double windX = 0)
+    /// <summary>
+    /// Схема с колонной в узле сетки (ci, cj); <paramref name="above"/> — колонна продолжается вверх до z = 6;
+    /// <paramref name="c1"/> — коэффициент постели плиты, Н/м³ (0 — основания нет).
+    /// </summary>
+    Setup Create(int ci = N / 2, int cj = N / 2, bool above = false, double windX = 0, double c1 = 0)
     {
         var db = new DatabaseService(_path);
         var schema = new FemSchema { Tag = "Плита" };
@@ -118,6 +121,7 @@ public sealed class PunchingFemServiceTests : IDisposable
                 {
                     ElemTag = S(1 + j * N + i), ElemType = "shell", SourceMemberTag = "S1", ThicknessM = 0.2,
                     NodeIdsJson = $"[{SlabNode(i, j)},{SlabNode(i + 1, j)},{SlabNode(i, j + 1)},{SlabNode(i + 1, j + 1)}]",
+                    FoundationC1 = c1 > 0 ? c1 : null,
                 });
         string top = S(SlabNode(ci, cj));
         string Col(int k) => k == 3 ? top : S(100 + k);
@@ -1097,6 +1101,34 @@ public sealed class PunchingFemServiceTests : IDisposable
         Assert.Null(check.Error);
         Assert.Equal("РСН1", Assert.Single(check.Joints).GoverningKey);
         Assert.Contains("SCAD", check.Source);
+    }
+
+    /// <summary>
+    /// Плита на упругом основании C1: у CSfea в нагрузку основания входит реакция основания (−K·u), у снимка — тот же
+    /// отпор по перемещениям снимка; нагрузка основания и сила по колоннам совпадают.
+    /// </summary>
+    [Fact]
+    public void Imported_FoundationC1_BaseLoadIncludesSoilReaction()
+    {
+        var s = Create(c1: 2e6);
+        using var db = s.Db;
+        var lc = db.GetFemLoadCases(s.Schema.Id);
+        var csfea = Evaluate(s);
+        var post = csfea.Forces.ByKey[csfea.Source.Keys.Single(k => k.Label == "Пост.").Key];
+
+        ScadSnapshotFromCsfea(db, s.Schema, s.Analysis, lc);
+        var diag = new List<FemValidationDiagnostic>();
+        var source = PunchingFemService.OpenImported(db, s.Schema, CScore.Fem.Fragment.Masks.FragmentMaskSet.SourceScad, diag);
+        Assert.True(source != null, string.Join("; ", diag.Select(d => d.Message)));
+        Assert.DoesNotContain(diag, d => d.Code == "punching_fem_foundation_no_displacements");
+        var data = PunchingFemService.Load(db, s.Schema, new PunchingFemOptions());
+        var f = PunchingFemService.Evaluate(data, source!, Assert.Single(data.Joints)).ByKey[source!.Keys.Single(k => k.Label == "Пост.").Key];
+
+        Assert.NotEqual(0, post.BaseLoad!.Value);
+        Assert.Equal(post.BaseLoad!.Value, f.BaseLoad!.Value, 6);
+        Assert.Equal(post.ColumnAction!.Value, f.ColumnAction!.Value, 3);
+        Assert.Equal(post.Mx, f.Mx, 3);
+        Assert.Equal(post.My, f.My, 3);
     }
 
     /// <summary>

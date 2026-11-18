@@ -369,10 +369,24 @@ public static class PunchingFemService
         {
             var model = StoreyFragmentMaskService.ParentModelOf(db, schema.Id, new FemCsfeaSetup(), sections: false);
             var prepared = new Lazy<FragmentBandLoads.Prepared>(() => new FragmentBandLoads.Prepared(model.Input, model.Loads));
-            if (model.Adapted.Model.LoadCases.Count > 0)
+            // Отпор упругого основания C1 — по перемещениям снимка, как реакция основания у CSfea (−K·u).
+            var foundation = FoundationSprings(model.Adapted.Model);
+            var displacements = new PunchingFemCombinedResult(inner, []);
+            if (foundation.Count > 0)
+            {
+                var firstKey = FragmentMaskKey.OfLoadCase(known.Min());
+                int missing = foundation.Count(fs => !inner.TryNodeDisplacement(firstKey, fs.Tag, out _));
+                if (missing > 0)
+                    diag.Add(new("punching_fem_foundation_no_displacements",
+                        $"У {missing} из {foundation.Count} узлов плит на упругом основании нет перемещений в снимке {program} — " +
+                        "отпор C1 этих узлов не вычитается (в запас).", false));
+            }
+            if (model.Adapted.Model.LoadCases.Count > 0 || foundation.Count > 0)
                 baseLoads = (bounds, origin, wanted) =>
                 {
-                    var perCase = prepared.Value.Compute(bounds, origin);
+                    var perCase = model.Adapted.Model.LoadCases.Count > 0
+                        ? prepared.Value.Compute(bounds, origin)
+                        : new Dictionary<int, (PlanarVector3 F, PlanarVector3 M)>();
                     var byKey = new Dictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>();
                     foreach (var key in wanted)
                     {
@@ -380,7 +394,8 @@ public static class PunchingFemService
                         var m = PlanarVector3.Zero;
                         foreach (var (lc, k) in key.Terms())
                             if (perCase.TryGetValue(lc, out var l)) { f += l.F * k; m += l.M * k; }
-                        byKey[key] = (f, m);
+                        var (rf, rm) = FoundationReactions(foundation, displacements, key, bounds, origin);
+                        byKey[key] = (f + rf, m + rm);
                     }
                     return byKey;
                 };
@@ -402,6 +417,59 @@ public static class PunchingFemService
             BaseLoads = baseLoads,
             ProgramLoadCases = byNum,
         };
+    }
+
+    /// <summary>Узел плиты на упругом основании: тег, координаты и матрица 3 × 3 Σ C1·wᵢ·n·nᵀ по смежным КЭ (Н/м).</summary>
+    internal sealed record FoundationSpring(string Tag, PlanarVector3 Position, double[,] K);
+
+    /// <summary>
+    /// Узловые пружины основания C1 модели — как у CSfea (<see cref="RcStructuralMeshBuilder"/>): узлу КЭ добавляется
+    /// C1·wᵢ·n·nᵀ, wᵢ — доля площади узла, n — нормаль КЭ.
+    /// </summary>
+    internal static List<FoundationSpring> FoundationSprings(RcStructuralModel model)
+    {
+        var xyz = model.Nodes.ToDictionary(n => n.Id, n => new[] { n.X, n.Y, n.Z });
+        var k = new Dictionary<int, double[,]>();
+        foreach (var shell in model.Shells)
+        {
+            if (shell.FoundationC1 is not { } c1 || !(c1 > 0) || double.IsInfinity(c1)) continue;
+            if (shell.NodeIds.Any(id => !xyz.ContainsKey(id))) continue;
+            var p = shell.NodeIds.Select(id => xyz[id]).ToArray();
+            var frame = CSfea.Core.ShellGeometry.LocalFrame(p);
+            double[] n = [frame[2, 0], frame[2, 1], frame[2, 2]];
+            var w = RcStructuralMeshBuilder.AreaWeights(p);
+            for (int i = 0; i < p.Length; i++)
+            {
+                if (!k.TryGetValue(shell.NodeIds[i], out var m)) k[shell.NodeIds[i]] = m = new double[3, 3];
+                for (int a = 0; a < 3; a++)
+                    for (int b = 0; b < 3; b++) m[a, b] += c1 * w[i] * n[a] * n[b];
+            }
+        }
+        return k.Select(kv => new FoundationSpring(kv.Key.ToString(CultureInfo.InvariantCulture),
+            new PlanarVector3(xyz[kv.Key][0], xyz[kv.Key][1], xyz[kv.Key][2]), kv.Value)).ToList();
+    }
+
+    /// <summary>
+    /// Отпор основания внутри границ по перемещениям результата: сила −K·u на схему и её момент относительно
+    /// <paramref name="origin"/>. Узлы без перемещений пропускаются.
+    /// </summary>
+    internal static (PlanarVector3 F, PlanarVector3 M) FoundationReactions(IReadOnlyList<FoundationSpring> springs,
+        IFragmentParentResult result, FragmentMaskKey key, FragmentBounds bounds, PlanarVector3 origin)
+    {
+        var f = PlanarVector3.Zero;
+        var m = PlanarVector3.Zero;
+        foreach (var s in springs)
+        {
+            if (!bounds.InBox(s.Position) || !result.TryNodeDisplacement(key, s.Tag, out var d)) continue;
+            double[] u = [d.X, d.Y, d.Z];
+            var r = new double[3];
+            for (int a = 0; a < 3; a++)
+                for (int b = 0; b < 3; b++) r[a] -= s.K[a, b] * u[b];
+            var rf = new PlanarVector3(r[0], r[1], r[2]);
+            f += rf;
+            m += (s.Position - origin).Cross(rf);
+        }
+        return (f, m);
     }
 
     /// <summary>Реакции опор внутри границ из полей шага CSfea: сила и момент относительно <paramref name="origin"/>.</summary>
