@@ -53,7 +53,17 @@ public sealed class FemCompositeStiffnessSource(params IFemElementStiffnessSourc
     /// <inheritdoc/>
     public bool IsWithoutStiffness(FemElement element) => Pick(element) == null && sources.Any(s => s.IsWithoutStiffness(element));
 
-    IFemElementStiffnessSource? Pick(FemElement element) =>
-        sources.FirstOrDefault(s => (element.ElemType == "shell" ? s.Shell(element) != null : s.Bar(element) != null))
-        ?? sources.FirstOrDefault(s => s.UnitWeight(element) != null);
+    /// <summary>
+    /// Источник КЭ. КЭ, который источник раньше по порядку объявил без жёсткости (стержневой аналог ЛИРЫ), дальше не ищется:
+    /// сечение проекта, созданное ему для проверок, не вводит его в расчётную модель.
+    /// </summary>
+    IFemElementStiffnessSource? Pick(FemElement element)
+    {
+        foreach (var s in sources)
+        {
+            if (s.IsWithoutStiffness(element)) return null;
+            if (element.ElemType == "shell" ? s.Shell(element) != null : s.Bar(element) != null) return s;
+        }
+        return sources.FirstOrDefault(s => s.UnitWeight(element) != null);
+    }
 }

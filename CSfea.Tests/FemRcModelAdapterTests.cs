@@ -107,6 +107,18 @@ public class FemRcModelAdapterTests
         TestHarness.Check("предупреждение beam_without_stiffness",
             a.Diagnostics.Any(d => d.Code == "beam_without_stiffness" && !d.IsError && d.SourceKeys!.SequenceEqual(["2"])));
         TestHarness.Check("с. в. без пропусков", a.Diagnostics.All(d => d.Code != "self_weight_skipped"));
+
+        // С сечением CScore (команда «Создать сечения стержней…» для проверок) аналог тоже вне модели — иначе линейный
+        // расчёт падал («Мирная», 18.11): упругих свойств у него нет, а жёсткость стены вошла бы дважды.
+        var cross = new FemRcBeamCross(BridgeTestSections.RectSteel(0.25, 0.474, 30_000), "cs-analog", 1);
+        var withCross = FemRcModelAdapter.Adapt(new FemRcModelInput
+        {
+            MeshNodes = [N(1, 0, 0), N(2, 1, 0), N(3, 0, 1), N(4, 0, 1, 2)], MeshElements = [El(1, "shell", [1, 2, 3]), analog],
+            LoadCases = [lc], Stages = [Stage(1)], Properties = new Props(), BeamSection = _ => cross,
+        });
+        TestHarness.Check("аналог с сечением CScore — вне модели, без ошибки",
+            !withCross.HasErrors && withCross.Model.Beams.Count == 0
+            && withCross.Diagnostics.Any(d => d.Code == "beam_without_stiffness" && d.SourceKeys!.SequenceEqual(["2"])));
     }
 
     /// <summary>Опора КонЭ через исходный узел, опора и пружина сетки, жёсткое тело, шарнир конца КЭ.</summary>

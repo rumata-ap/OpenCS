@@ -126,6 +126,21 @@ public sealed class LiraElementStiffnessSourceTests
         Assert.False(Source.IsWithoutStiffness(E(1, "shell")));
         // В составе: сечения проекта аналог не знают — КЭ остаётся без жёсткости.
         Assert.True(new FemCompositeStiffnessSource(Source, new ProjectElementStiffnessSource([], [], [], [])).IsWithoutStiffness(E(2)));
+        // Сечение проекта, созданное аналогу для проверок, жёсткости ему не даёт: решает программа (первый источник).
+        var known = new FemCompositeStiffnessSource(Source, new AnyBar());
+        Assert.True(known.IsWithoutStiffness(E(2)));
+        Assert.Null(known.Bar(E(2)));
+        Assert.Null(known.UnitWeight(E(2)));
+        Assert.NotNull(known.Bar(E(3)));
+    }
+
+    /// <summary>Источник, знающий любой стержень (как сечения проекта у КЭ с сечением).</summary>
+    sealed class AnyBar : IFemElementStiffnessSource
+    {
+        public FemShellStiffness? Shell(FemElement element) => null;
+        public FemBarStiffness? Bar(FemElement element) => element.ElemType == "beam" ? new(3e10, 1.25e10, 0.1, 1e-3, 1e-3, 1e-3) : null;
+        public double? UnitWeight(FemElement element) => 25e3;
+        public double? BarArea(FemElement element) => 0.1;
     }
 
     [Fact]

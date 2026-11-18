@@ -423,6 +423,14 @@ public static class FemRcModelAdapter
             try { refVec = BeamLocalAxisConvention.Frame(g.Points[0], g.Points[1], BeamRotationDeg(e, members)).Y; }
             catch (InvalidOperationException) { degenerate.Add(e.ElemTag); continue; }
 
+            // Стержень без жёсткости в источнике (стержневой аналог ЛИРЫ) — вне модели, как в программе, даже с сечением
+            // CScore: сечение ему создают для проверок по подбору (команда «Создать сечения стержней…»), а в расчётной
+            // схеме его жёсткость дала бы стену дважды.
+            if (input.Properties?.IsWithoutStiffness(e) == true)
+            {
+                withoutStiffness.Add(e.ElemTag);
+                continue;
+            }
             var cross = input.BeamSection?.Invoke(e);
             var bar = input.Properties?.Bar(e);
             if (cross == null && bar == null)

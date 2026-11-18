@@ -140,10 +140,16 @@ public sealed class ProjectElementStiffnessSourceTests
         Assert.Equal(0.08, src.BarArea(imported)!.Value, 12);
         Assert.Equal(2.5e3, src.UnitWeight(imported)!.Value, 9);
 
-        // жёсткость ЛИРЫ без свойств — отвечает сечение проекта, вес и площадь тоже его
-        var fallback = new FemElement { ElemTag = "2", ElemType = "beam", StiffnessNum = 4, SourceMemberTag = "B1" };
+        // жёсткости нет в таблице ЛИРЫ — отвечает сечение проекта, вес и площадь тоже его
+        var fallback = new FemElement { ElemTag = "2", ElemType = "beam", StiffnessNum = 5, SourceMemberTag = "B1" };
         Assert.Equal(project.Bar(fallback), src.Bar(fallback));
         Assert.Equal(project.UnitWeight(fallback), src.UnitWeight(fallback));
         Assert.Equal(project.BarArea(fallback), src.BarArea(fallback));
+
+        // стержневой аналог ЛИРЫ (E 0) — без жёсткости, даже если у КонЭ есть сечение проекта: решает программа
+        var analog = new FemElement { ElemTag = "3", ElemType = "beam", StiffnessNum = 4, SourceMemberTag = "B1" };
+        Assert.NotNull(project.Bar(analog));
+        Assert.Null(src.Bar(analog));
+        Assert.True(src.IsWithoutStiffness(analog));
     }
 }
