@@ -29,6 +29,9 @@ public partial class PunchingFemCheckDialog : Window
     /// <summary>Загрузка *.asp ЛИРЫ к схеме (как в меню схемы) для кнопки «Приложить *.asp…»; true — приложен.</summary>
     public Func<FemSchema, bool>? AttachLiraAsp { get => _vm.AttachLiraAsp; init => _vm.AttachLiraAsp = value; }
 
+    /// <summary>Сечения стержней импортной схемы по жёсткостям (как в меню схемы); true — сечения назначены.</summary>
+    public Func<FemSchema, bool>? CreateBarSections { get => _vm.CreateBarSections; init => _vm.CreateBarSections = value; }
+
     /// <summary>Наборы усилий продавливания из открытой ЛИРЫ для кнопки «Наборы из ЛИРЫ…».</summary>
     public Func<FemSchema, OpenCS.Tasks.PunchingFemCheckParams, IReadOnlyList<CScore.Sp63Punching.Fem.PunchingFemJoint>, Task>? CreateLiraForceSets
     {

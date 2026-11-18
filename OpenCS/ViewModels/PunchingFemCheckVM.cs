@@ -345,6 +345,10 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         {
             if (_schema != null && AttachLiraAsp?.Invoke(_schema) == true) FindJoints();
         }, _ => _schema != null && AttachLiraAsp != null && !_isFragment);
+        CreateBarSectionsCommand = new RelayCommand(_ =>
+        {
+            if (_schema != null && CreateBarSections?.Invoke(_schema) == true) FindJoints();
+        }, _ => _schema != null && CreateBarSections != null && IsImportedSchema);
         LiraSetsCommand = new RelayCommand(async _ =>
         {
             if (_schema == null || CreateLiraForceSets == null || _liraBusy) return;
@@ -539,6 +543,44 @@ public sealed class PunchingFemCheckVM : ViewModelBase
     /// <summary>Включённые проверяемые узлы со стержнями колонн.</summary>
     List<PunchingFemJoint> LiraSetJoints() => Joints.Where(j => j.Include && j.Checkable && j.Joint.Bars.Count > 0).Select(j => j.Joint).ToList();
 
+    /// <summary>Сечения стержней импортной схемы по жёсткостям (меню схемы «Создать сечения стержней по данным …»); true — назначены.</summary>
+    public Func<FemSchema, bool>? CreateBarSections
+    {
+        get => _createBarSections;
+        set { _createBarSections = value; OnPropertyChanged(nameof(CanOfferBarSections)); }
+    }
+    Func<FemSchema, bool>? _createBarSections;
+    /// <summary>Создать сечения стержней импортной схемы и найти узлы заново.</summary>
+    public ICommand CreateBarSectionsCommand { get; }
+
+    /// <summary>Схема импортирована из ЛИРЫ или SCAD (сечения стержней можно создать по жёсткостям).</summary>
+    bool IsImportedSchema => _schema?.SourceType is "lira" or "scad";
+
+    /// <summary>
+    /// Узлы, где у стержней нет бетонного сечения с контуром: пояснение, что делать (у импортной схемы — создать сечения
+    /// по жёсткостям, у своей — назначить сечение); пусто — таких узлов нет.
+    /// </summary>
+    public string BarSectionsHint { get; private set; } = "";
+    public bool HasBarSectionsHint => BarSectionsHint.Length > 0;
+    /// <summary>Кнопка «Создать сечения стержней…» видна у импортной схемы.</summary>
+    public bool CanOfferBarSections => HasBarSectionsHint && IsImportedSchema && CreateBarSections != null;
+
+    void UpdateBarSectionsHint(IReadOnlyList<PunchingFemJoint> joints)
+    {
+        int n = joints.Count(j => j.NoCheck == PunchingFemNoCheck.AreaUnknown);
+        var c = CultureInfo.CurrentCulture;
+        BarSectionsHint = n == 0 ? ""
+            : IsImportedSchema
+                ? string.Format(c, Loc.S("PunchingFemBarSectionsHintImport",
+                    "У колонн {0} узлов нет бетонных сечений — грузовая площадь неизвестна, узлы не проверяются. У импортной схемы стержни несут только жёсткости: создайте сечения по ним кнопкой «Создать сечения стержней…» (то же, что пункт меню схемы «{1}»). Назначать колоннам сечение вручную не нужно — размеры возьмутся из жёсткостей."),
+                    n, Loc.S(_schema!.SourceType == "scad" ? "FemSchemaCreateScadBarSections" : "FemSchemaCreateLiraBarSections").TrimEnd('…'))
+                : string.Format(c, Loc.S("PunchingFemBarSectionsHintOwn",
+                    "У колонн {0} узлов нет бетонных сечений — грузовая площадь неизвестна, узлы не проверяются. Назначьте сечение стержням колонн в схеме."), n);
+        OnPropertyChanged(nameof(BarSectionsHint));
+        OnPropertyChanged(nameof(HasBarSectionsHint));
+        OnPropertyChanged(nameof(CanOfferBarSections));
+    }
+
     /// <summary>Строка о *.asp ЛИРЫ: файл и сколько узлов сопоставлено, или подсказка приложить.</summary>
     public string LiraAspText { get; private set; } = "";
     /// <summary>В найденных узлах есть узлы ЛИРЫ.</summary>
@@ -593,6 +635,7 @@ public sealed class PunchingFemCheckVM : ViewModelBase
             : string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingFemJointsFound", "Найдено узлов: {0}, из них не проверяются по геометрии: {1}, плит: {2}. При расчёте без проверки останутся и узлы без усилий в результате."),
                 data.Joints.Count, noCheck, data.Slabs.Count(s => data.Joints.Any(j => j.SlabIndex == s.Index)));
         OnPropertyChanged(nameof(JointsSummary));
+        UpdateBarSectionsHint(data.Joints);
         MatchLira(data.Joints);
         SelectedJoint =Joints.FirstOrDefault(j => j.Node == keep) ?? Joints.FirstOrDefault(j => j.Checkable) ?? Joints.FirstOrDefault();
     }

@@ -6873,6 +6873,9 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemLiraAspUnmatched">, unmatched {0}</system:String>
    <system:String x:Key="PunchingFemJointCardLira">LIRA: {0}</system:String>
    <system:String x:Key="PunchingFemLiraLegend">Dashed — LIRA punching perimeters ({0}): joints with LIRA result {1} of {2}.</system:String>
+   <system:String x:Key="PunchingFemCreateBarSections">Create bar sections…</system:String>
+   <system:String x:Key="PunchingFemBarSectionsHintImport">Columns of {0} joints have no concrete sections — the loaded area is unknown, the joints are not checked. In an imported model bars carry stiffnesses only: create sections from them with «Create bar sections…» (same as the model menu item «{1}»). There is no need to assign a section to columns by hand — the sizes come from the stiffnesses.</system:String>
+   <system:String x:Key="PunchingFemBarSectionsHintOwn">Columns of {0} joints have no concrete sections — the loaded area is unknown, the joints are not checked. Assign a section to the column bars in the model.</system:String>
    <system:String x:Key="PunchingFemColMainContour">Perimeter</system:String>
    <system:String x:Key="PunchingFemLiraLegendCalc">Solid — LIRA perimeter used in the check (joints: {0}).</system:String>
    <system:String x:Key="PunchingFemContour_check">as check</system:String>

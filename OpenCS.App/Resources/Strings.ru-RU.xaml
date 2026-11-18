@@ -6873,6 +6873,9 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemLiraAspUnmatched">, без пары {0}</system:String>
    <system:String x:Key="PunchingFemJointCardLira">ЛИРА: {0}</system:String>
    <system:String x:Key="PunchingFemLiraLegend">Пунктир — контуры продавливания ЛИРЫ ({0}): узлов с результатом ЛИРЫ {1} из {2}.</system:String>
+   <system:String x:Key="PunchingFemCreateBarSections">Создать сечения стержней…</system:String>
+   <system:String x:Key="PunchingFemBarSectionsHintImport">У колонн {0} узлов нет бетонных сечений — грузовая площадь неизвестна, узлы не проверяются. У импортной схемы стержни несут только жёсткости: создайте сечения по ним кнопкой «Создать сечения стержней…» (то же, что пункт меню схемы «{1}»). Назначать колоннам сечение вручную не нужно — размеры возьмутся из жёсткостей.</system:String>
+   <system:String x:Key="PunchingFemBarSectionsHintOwn">У колонн {0} узлов нет бетонных сечений — грузовая площадь неизвестна, узлы не проверяются. Назначьте сечение стержням колонн в схеме.</system:String>
    <system:String x:Key="PunchingFemColMainContour">Контур</system:String>
    <system:String x:Key="PunchingFemLiraLegendCalc">Сплошной — контур ЛИРЫ в расчёте (узлов {0}).</system:String>
    <system:String x:Key="PunchingFemContour_check">по проверке</system:String>

@@ -690,6 +690,35 @@ public sealed class PunchingFemServiceTests : IDisposable
     }
 
     [Fact]
+    public void CheckWindow_ColumnsWithoutSections_OfferBarSections()
+    {
+        var s = Create();
+        using var db = s.Db;
+        var column = db.CrossSections.Single(c => c.Id == 9001);
+        db.CrossSections.Remove(column);
+        s.Schema.SourceType = "lira";
+
+        var vm = new OpenCS.ViewModels.PunchingFemCheckVM(db, null, s.Schema);
+        Assert.True(vm.HasBarSectionsHint);
+        Assert.False(vm.CanOfferBarSections);   // команды ещё нет
+        int calls = 0;
+        vm.CreateBarSections = _ => { calls++; db.CrossSections.Add(column); return true; };
+        Assert.True(vm.CanOfferBarSections);
+        vm.CreateBarSectionsCommand.Execute(null);
+        Assert.Equal(1, calls);
+        // Сечения назначены — узлы найдены заново, подсказки нет.
+        Assert.False(vm.HasBarSectionsHint);
+        Assert.Contains(vm.Joints, j => j.Checkable);
+
+        // Своя схема: подсказка без кнопки.
+        db.CrossSections.Remove(column);
+        s.Schema.SourceType = "internal";
+        var own = new OpenCS.ViewModels.PunchingFemCheckVM(db, null, s.Schema) { CreateBarSections = _ => true };
+        Assert.True(own.HasBarSectionsHint);
+        Assert.False(own.CanOfferBarSections);
+    }
+
+    [Fact]
     public void LiraContour_NodeContourMode_KeptInOverride()
     {
         var joint = new PunchingFemJoint

@@ -5613,16 +5613,17 @@ namespace OpenCS
       /// Создаёт сечения стержней импортированной схемы (ЛИРА, SCAD): параметрические ЖБ-сечения по жёсткостям «Брус» /
       /// S0 и классам материалов (подбор ЛИРЫ, ЖБ-группы SCAD), назначает их КЭ сетки без сечения.
       /// </summary>
-      void CreateImportedBarSections(CScore.Fem.FemSchema? schema)
+      /// <returns>true — сечения назначены хотя бы одному КЭ.</returns>
+      bool CreateImportedBarSections(CScore.Fem.FemSchema? schema)
       {
          schema ??= currentFemSchema;
-         if (schema == null) return;
+         if (schema == null) return false;
          bool scad = schema.SourceType == "scad";
          string title = Loc.S("BarSectionsTitle");
 
          // Открытый редактор этой схемы держит КЭ в памяти и при сохранении перезапишет назначения.
          bool editorOpen = ReferenceEquals(currentFemSchema, schema) && currentPage is Views.FemSchemaPage;
-         if (editorOpen && !TryLeaveFemSchemaEditor()) return;
+         if (editorOpen && !TryLeaveFemSchemaEditor()) return false;
 
          var data = Services.FemCheckSchemaData.Load(db, schema.Id);
          foreach (string error in data.Errors)
@@ -5630,12 +5631,12 @@ namespace OpenCS
 
          var report = Services.ImportedBarSectionCreator.Create(db, data,
             chooseSteel: ChooseSteelForImportedBars, steelCatalog: new ProfileDB(), chooseRebar: ChooseRebarForImportedBars);
-         if (report.Cancelled) return;
+         if (report.Cancelled) return false;
          if (report.NoMaterialData)
          {
             MessageBox.Show(Loc.S(scad ? "BarSectionsNoScadData" : "BarSectionsNoLiraData"), title,
                MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
+            return false;
          }
 
          foreach (string tag in report.Materials)
@@ -5678,6 +5679,7 @@ namespace OpenCS
          MessageBox.Show(details.Length > 0 ? done + "\n\n" + details : done, title, MessageBoxButton.OK,
             report.Skipped.Count + report.Warnings.Count + report.WithoutRebar.Count > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
          if (editorOpen && report.AssignedElements > 0) ReloadFemSchemaPage();
+         return report.AssignedElements > 0;
       }
 
       /// <summary>
@@ -6415,7 +6417,7 @@ namespace OpenCS
                MessageBoxButton.OK, MessageBoxImage.Information);
             return;
          }
-         var dlg = new Views.PunchingFemCheckDialog(db, null, schema ?? currentFemSchema) { AttachLiraAsp = LoadLiraAsp, CreateLiraForceSets = CreatePunchingLiraForceSets };
+         var dlg = new Views.PunchingFemCheckDialog(db, null, schema ?? currentFemSchema) { AttachLiraAsp = LoadLiraAsp, CreateBarSections = CreateImportedBarSections, CreateLiraForceSets = CreatePunchingLiraForceSets };
          if (dlg.ShowDialog() != true || dlg.ResultCheck == null) return;
          db.SaveFemCheck(dlg.ResultCheck);
          CurrentFemCheck = dlg.ResultCheck;
@@ -6460,7 +6462,7 @@ namespace OpenCS
 
          if (check.NormCode == Tasks.PunchingFemCheckParams.NormCode)
          {
-             var punching = new Views.PunchingFemCheckDialog(db, check) { AttachLiraAsp = LoadLiraAsp, CreateLiraForceSets = CreatePunchingLiraForceSets };
+             var punching = new Views.PunchingFemCheckDialog(db, check) { AttachLiraAsp = LoadLiraAsp, CreateBarSections = CreateImportedBarSections, CreateLiraForceSets = CreatePunchingLiraForceSets };
              if (punching.ShowDialog() != true) return;
              db.SaveFemCheck(check);
              if (punching.RunRequested) _ = RunFemCheck(check);

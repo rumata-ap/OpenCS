@@ -309,6 +309,16 @@
                </Style>
             </StackPanel.Resources>
             <TextBlock Text="{Binding JointsSummary}" TextWrapping="Wrap" FontWeight="SemiBold"/>
+            <!-- Колонны без бетонных сечений: у импортной схемы — создать сечения по жёсткостям, иначе узлы «нет проверки». -->
+            <Border Padding="8,6" Margin="0,4,0,0" CornerRadius="4" Background="#FFF7E6" BorderBrush="#D98E04" BorderThickness="1"
+                    Visibility="{Binding HasBarSectionsHint, Converter={StaticResource BoolToVisibility}}">
+               <DockPanel LastChildFill="True">
+                  <Button DockPanel.Dock="Right" Content="{DynamicResource PunchingFemCreateBarSections}" Command="{Binding CreateBarSectionsCommand}"
+                          Margin="8,0,0,0" VerticalAlignment="Center"
+                          Visibility="{Binding CanOfferBarSections, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBlock Text="{Binding BarSectionsHint}" TextWrapping="Wrap" Foreground="#7A4A00" VerticalAlignment="Center"/>
+               </DockPanel>
+            </Border>
             <WrapPanel>
                <Button Content="{DynamicResource PunchingFemFind}" Command="{Binding FindJointsCommand}"
                        ToolTip="{DynamicResource PunchingFemFindHint}"/>
