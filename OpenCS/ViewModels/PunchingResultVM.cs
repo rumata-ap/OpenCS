@@ -6,6 +6,7 @@ using CScore;
 using CScore.Batch;
 using CScore.Sp63Punching;
 using OpenCS.Reporting;
+using OpenCS.Tasks;
 using OpenCS.Utilites;
 using OpenCS.Views.Helpers;
 
@@ -63,7 +64,7 @@ public sealed class PunchingResultVM : ViewModelBase
         foreach (var v in data.Variants)
         {
             double k = v.Ratio ?? double.PositiveInfinity;
-            string title = Variants.Title(v.Kind, v.Zone, v.Id, edgeCount);
+            string title = CustomTitle(v.Kind, v.Id, data.Inputs) ?? Variants.Title(v.Kind, v.Zone, v.Id, edgeCount);
             // У торца стены My не участвует, у угла — моменты вовсе (СП 430, п. 6.3.8): «—», а не нули.
             bool noMy = v.Kind is PunchingVariantKind.WallEnd or PunchingVariantKind.WallEndEdge or PunchingVariantKind.WallCorner;
             bool noMx = v.Kind == PunchingVariantKind.WallCorner;
@@ -240,6 +241,24 @@ public sealed class PunchingResultVM : ViewModelBase
 
     static string N(PunchingReportVariant v, string key, string format)
         => v.Numbers.TryGetValue(key, out var x) && x is double d ? d.ToString(format, CultureInfo.CurrentCulture) : "—";
+
+    /// <summary>
+    /// Подпись контура пользователя с именем: «Контур ЛИРЫ» (из проверки по МКЭ), «Контур пользователя «имя»»; null —
+    /// не контур пользователя или имени нет.
+    /// </summary>
+    public static string? CustomTitle(PunchingVariantKind kind, string id, JsonElement? inputs)
+    {
+        if (kind != PunchingVariantKind.Custom || inputs is not { } i || !i.TryGetProperty("customNames", out var names)
+            || names.ValueKind != JsonValueKind.Array) return null;
+        int u = id.LastIndexOf('_');
+        if (u < 0 || !int.TryParse(id[(u + 1)..], NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) || n >= names.GetArrayLength())
+            return null;
+        string? name = names[n].ValueKind == JsonValueKind.String ? names[n].GetString() : null;
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        return name == PunchingFemCheckRunner.LiraContourName
+            ? Loc.S("PunchingVariant_CustomLira", "Контур ЛИРЫ")
+            : Loc.S("PunchingVariant_Custom", "Контур пользователя") + " «" + name + "»";
+    }
 
     static string BuildInputsSummary(JsonElement? inputs)
     {

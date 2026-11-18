@@ -23,7 +23,7 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
 {
     bool _include = true, _ownSw;
     double? _ax, _ay;
-    string _capitalMode = "auto";
+    string _capitalMode = "auto", _contourMode = "check";
     double _capBx, _capBy, _capHc;
     double _swDiameter = 8, _swStep = 60;
     int _swCount = 2, _swRows = 5;
@@ -64,6 +64,7 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
             _ay = o.Ay * 1000;
             if (o.Capital is "none" or "manual") _capitalMode = o.Capital;
             if (o.CapitalManual is { } cm) { _capBx = cm.Bx * 1000; _capBy = cm.By * 1000; _capHc = cm.Hc * 1000; }
+            if (o.Contour is "opencs" or "lira") _contourMode = o.Contour;
             if (o.Reinforcement is { } r)
             {
                 _ownSw = true;
@@ -153,6 +154,28 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
         Changed?.Invoke();
     }
 
+    /// <summary>
+    /// Основной контур на h0/2 узла: "check" — по флажку проверки «Контур по ЛИРЕ», "opencs" — всегда OpenCS, "lira" —
+    /// контур ЛИРЫ из *.asp.
+    /// </summary>
+    public string ContourMode
+    {
+        get => _contourMode;
+        set
+        {
+            if (Set(ref _contourMode, value is "opencs" or "lira" ? value : "check"))
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanPickContour)));
+        }
+    }
+    /// <summary>Режимы основного контура для списка.</summary>
+    public static IReadOnlyList<PunchingChoice> ContourModes { get; } =
+    [
+        new("check", Loc.S("PunchingFemContour_check", "по проверке")), new("opencs", Loc.S("PunchingFemContour_opencs", "OpenCS")),
+        new("lira", Loc.S("PunchingFemContour_lira", "ЛИРЫ")),
+    ];
+    /// <summary>Выбор контура доступен у узлов ЛИРЫ; у прочих — только чтобы вернуть «по проверке».</summary>
+    public bool CanPickContour => Lira != null || _contourMode != "check";
+
     /// <summary>Узел продавливания ЛИРЫ из приложенного *.asp; null — ЛИРА этот узел не считала или файла нет.</summary>
     public CScore.Import.LiraAspPunching? Lira { get; private set; }
     /// <summary>Результат ЛИРЫ кратко: «Asw 6,08 см²», «Ksw 2,00», «#170»; пусто — нет.</summary>
@@ -166,16 +189,17 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
         Lira = lira;
         LiraText = PunchingFemLiraText.Short(lira);
         LiraHint = PunchingFemLiraText.Hint(lira);
-        foreach (var n in new[] { nameof(Lira), nameof(LiraText), nameof(LiraHint) })
+        foreach (var n in new[] { nameof(Lira), nameof(LiraText), nameof(LiraHint), nameof(CanPickContour) })
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
     }
 
     /// <summary>Переопределение узла; null — переопределять нечего.</summary>
     public PunchingFemJointOverride? ToOverride(PunchingReinforcementParams common) =>
-        _include && _ax == null && _ay == null && !_ownSw && _capitalMode == "auto" ? null : new PunchingFemJointOverride
+        _include && _ax == null && _ay == null && !_ownSw && _capitalMode == "auto" && _contourMode == "check" ? null : new PunchingFemJointOverride
         {
             Node = Node, Excluded = !_include, Ax = _ax / 1000, Ay = _ay / 1000,
             Capital = _capitalMode == "auto" ? null : _capitalMode,
+            Contour = _contourMode == "check" ? null : _contourMode,
             CapitalManual = _capitalMode != "manual" ? null : new PunchingCapitalParams
             {
                 Enabled = true, Bx = _capBx / 1000, By = _capBy / 1000, D = _capBx / 1000, Hc = _capHc / 1000,
@@ -187,12 +211,13 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
     public event Action? Changed;
 
-    void Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
+    bool Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
     {
-        if (EqualityComparer<T>.Default.Equals(field, value)) return;
+        if (EqualityComparer<T>.Default.Equals(field, value)) return false;
         field = value;
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         Changed?.Invoke();
+        return true;
     }
 }
 
@@ -307,6 +332,7 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         AngleDeg = p.AngleDeg;
         EdgeInfluence = p.EdgeInfluence;
         WallRatio = p.WallRatio;
+        LiraContour = p.LiraContour;
         _loading = false;
 
         FindJointsCommand = new RelayCommand(_ => FindJoints(), _ => _schema != null);
@@ -465,6 +491,15 @@ public sealed class PunchingFemCheckVM : ViewModelBase
     public double EdgeInfluence { get => _edgeInfluence; set { if (SetField(ref _edgeInfluence, value)) Refind(); } }
     public double WallRatio { get => _wallRatio; set { if (SetField(ref _wallRatio, value)) Refind(); } }
 
+    bool _liraContour;
+    /// <summary>
+    /// Основной контур на h0/2 — контур ЛИРЫ из приложенного *.asp (узлам без записи ЛИРЫ — контур OpenCS); узлу можно
+    /// задать своё в столбце «Контур».
+    /// </summary>
+    public bool LiraContour { get => _liraContour; set { if (SetField(ref _liraContour, value)) { OnPropertyChanged(nameof(CanLiraContour)); Preview(); } } }
+    /// <summary>Флажок доступен, когда есть узлы ЛИРЫ; включённый — всегда, чтобы его можно было снять.</summary>
+    public bool CanLiraContour => HasLiraJoints || _liraContour;
+
     public PunchingFemJointPickVM? SelectedJoint { get => _selectedJoint; set { if (SetField(ref _selectedJoint, value)) Preview(); } }
 
     /// <summary>Сводка поиска узлов.</summary>
@@ -583,6 +618,7 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         };
         OnPropertyChanged(nameof(LiraAspText));
         OnPropertyChanged(nameof(HasLiraJoints));
+        OnPropertyChanged(nameof(CanLiraContour));
         CommandManager.InvalidateRequerySuggested();
     }
 
@@ -621,7 +657,7 @@ public sealed class PunchingFemCheckVM : ViewModelBase
                 EccentricityX = EccentricityX, EccentricityY = EccentricityY, Wb = Wb, Pylon = Pylon, HoleInfluence = HoleInfluence,
                 PylonReduced = PylonReduced, WallFigure = WallFigure,
             },
-            AngleDeg = AngleDeg, EdgeInfluence = EdgeInfluence, WallRatio = WallRatio,
+            AngleDeg = AngleDeg, EdgeInfluence = EdgeInfluence, WallRatio = WallRatio, LiraContour = LiraContour,
             Overrides = overrides.Values.OrderBy(o => o.Node, FemNodeRigidBodies.TagComparer).ToList(),
         };
     }
@@ -674,6 +710,14 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         var p = ToParams();
         var zero = new PunchingFemForces(0, PunchingLoadSide.FromBelow, 0, 0, PunchingFemForceMethod.Column, null, null, null);
         var tp = PunchingFemService.TaskParams(joint, zero, p, _schema?.Tag ?? "", "");
+        // Основной контур по ЛИРЕ — как в расчёте: контур пользователя «ЛИРА» вместо контуров OpenCS на h0/2.
+        string contourLine = "";
+        if (p.UsesLiraContour(joint.NodeTag))
+        {
+            var (liraContour, warning) = PunchingFemCheckRunner.LiraMainContour(joint, pick.Lira);
+            if (liraContour != null) tp = PunchingFemCheckRunner.WithLiraContour(tp, liraContour);
+            else if (warning != null) contourLine = "\n" + Loc.S("PunchingFemPreviewContourOpenCs", "Основной контур — OpenCS:") + " " + warning.Text;
+        }
         var errors = tp.Validate();
         var strengths = PunchingRunner.ResolveStrengths(tp, _materials, CalcType.C, out var materialErrors);
         errors.AddRange(materialErrors);
@@ -683,14 +727,20 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         {
             var input = tp.ToInput(Math.Max(strengths.Rbt, 1), strengths.Rsw);
             // Контуры ядра по геометрии узла без усилий: Кисп неизвестен до проверки — NaN (нейтральный цвет, без Кисп в подсказке).
-            var geometryOnly = PunchingScene.From(input, PunchingChecker.Check(input, includeTrace: false));
+            var check = PunchingChecker.Check(input, includeTrace: false);
+            var geometryOnly = PunchingScene.From(input, check);
             Scene = geometryOnly with { Variants = geometryOnly.Variants.Select(v => v with { Utilization = double.NaN, Governs = false }).ToList() };
             var c = CultureInfo.CurrentCulture;
+            if (tp.Options.CustomReplacesMain
+                && check.Variants.FirstOrDefault(v => v.Variant.Kind == PunchingVariantKind.Custom && v.Variant.Zone == PunchingZone.Main) is { } lv)
+                contourLine = "\n" + string.Format(c, Loc.S("PunchingFemPreviewContourLira", "Основной контур — ЛИРЫ (*.asp): u = {0:0} мм; контуры OpenCS на h0/2 не строятся."),
+                    lv.Geometry.U * 1000);
             PreviewText = string.Format(c, Loc.S("PunchingFemPreview",
                     "Узел {0}: {1}, h = {2:0} мм, h0 = {3:0.#} мм, ax = {4:0}, ay = {5:0} мм{6}; бетон {7}. Усилия — из расчёта, Кисп — в результате проверки."),
                 joint.NodeTag, joint.SectionLabel, tp.Slab.H * 1000, tp.H0 * 1000, tp.Slab.Ax * 1000, tp.Slab.Ay * 1000,
                 joint.CoverDefault && pick.Ax == null ? " " + Loc.S("PunchingFemCoverDefault", "(по умолчанию)") : "",
-                strengths.ConcreteTag.Length > 0 ? strengths.ConcreteTag : RbtManual ? Loc.S("PunchingManualValue", "задано вручную") : "—");
+                strengths.ConcreteTag.Length > 0 ? strengths.ConcreteTag : RbtManual ? Loc.S("PunchingManualValue", "задано вручную") : "—")
+                + contourLine;
         }
         catch (Exception ex)
         {

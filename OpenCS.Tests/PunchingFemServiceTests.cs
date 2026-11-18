@@ -675,6 +675,39 @@ public sealed class PunchingFemServiceTests : IDisposable
 
         var over = p with { Overrides = [new PunchingFemJointOverride { Node = joint.NodeTag, Contour = "opencs" }] };
         Assert.False(Assert.Single(PunchingFemCheckRunner.Compute(db, s.Schema.Id, over, CalcType.C).Joints).LiraContour);
+
+        // Карточка узла результата: u ЛИРЫ против u OpenCS.
+        var card = new OpenCS.ViewModels.PunchingFemJointRowVM(lira).ContourText;
+        Assert.Contains((lira.Lira!.Perimeter * 1000).ToString("0", CultureInfo.CurrentCulture), card);
+        Assert.Contains((lira.UOpenCs!.Value * 1000).ToString("0", CultureInfo.CurrentCulture), card);
+        Assert.Equal("", new OpenCS.ViewModels.PunchingFemJointRowVM(plain).ContourText);
+
+        // Подпись варианта в окне задачи строки — «Контур ЛИРЫ», а не «Контур пользователя».
+        var inputs = System.Text.Json.JsonDocument.Parse("""{"customNames":["ЛИРА"]}""").RootElement;
+        Assert.Equal(Loc.S("PunchingVariant_CustomLira", "Контур ЛИРЫ"),
+            OpenCS.ViewModels.PunchingResultVM.CustomTitle(PunchingVariantKind.Custom, "custom_0", inputs));
+        Assert.Null(OpenCS.ViewModels.PunchingResultVM.CustomTitle(PunchingVariantKind.Closed, "closed", inputs));
+    }
+
+    [Fact]
+    public void LiraContour_NodeContourMode_KeptInOverride()
+    {
+        var joint = new PunchingFemJoint
+        {
+            NodeTag = "7", Origin = default, AxisX = new(1, 0, 0), AxisY = new(0, 1, 0), Normal = new(0, 0, 1),
+            Area = new PunchingLoadArea.Rectangle(0.4, 0.4),
+        };
+        var common = new PunchingReinforcementParams();
+        var row = new OpenCS.ViewModels.PunchingFemJointPickVM(joint, new PunchingFemJointOverride { Node = "7", Contour = "lira" });
+        Assert.Equal("lira", row.ContourMode);
+        // Узла нет в *.asp, но выбор «ЛИРЫ» уже стоит — список доступен, чтобы его можно было вернуть.
+        Assert.True(row.CanPickContour);
+        Assert.Equal("lira", row.ToOverride(common)!.Contour);
+        row.ContourMode = "opencs";
+        Assert.Equal("opencs", row.ToOverride(common)!.Contour);
+        row.ContourMode = "check";
+        Assert.Null(row.ToOverride(common));
+        Assert.False(row.CanPickContour);
     }
 
     /// <summary>*.asp v6 без пластин и стержней: записи продавливания (узел, Asw, Ksw) и квадратные контуры 0,74 м.</summary>

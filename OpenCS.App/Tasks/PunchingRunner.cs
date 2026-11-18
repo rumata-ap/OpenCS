@@ -215,6 +215,8 @@ public static class PunchingRunner
             ["eccentricityX"] = p.Options.EccentricityX, ["eccentricityY"] = p.Options.EccentricityY,
             ["wb"] = p.Options.Wb, ["pylon"] = p.Options.Pylon, ["holeInfluence"] = p.Options.HoleInfluence,
             ["pylonReduced"] = p.Options.PylonReduced, ["mu"] = p.Options.Mu,
+            // Имена контуров пользователя (custom_i) — для подписи варианта.
+            ["customNames"] = p.CustomContours.Count > 0 ? p.CustomContours.Select(c => c.Name).ToList() : null,
             ["source"] = p.Source is not { } src ? null : new Dictionary<string, object?>
             {
                 ["schema"] = src.Schema, ["node"] = src.Node, ["key"] = src.Key, ["method"] = src.Method,

@@ -97,7 +97,14 @@ public sealed class PunchingFemJointRowVM
             LiraHint = PunchingFemLiraText.Hint(l.Index, l.Perimeter, l.ConcreteClass, l.RebarClass, l.ErrorText);
             LiraValue = l.ErrorCode != 0 ? 1e9 : l.Asw > 0 ? 1e3 + l.Asw : l.Ksw;
         }
+        if (data.LiraContour)
+            ContourText = string.Format(c, Loc.S("PunchingFemJointCardContourLira", "Контур: ЛИРЫ, u = {0:0} мм"), (data.Lira?.Perimeter ?? 0) * 1000)
+                // Ведущий пробел строки ресурса XAML отбрасывает — ставится здесь.
+                + (data.UOpenCs is double u ? " " + string.Format(c, Loc.S("PunchingFemJointCardContourOpenCs", "(OpenCS: u = {0:0} мм)"), u * 1000) : "");
     }
+
+    /// <summary>Основной контур ЛИРЫ в расчёте: «Контур: ЛИРЫ, u = … мм (OpenCS: u = … мм)»; пусто — контур OpenCS.</summary>
+    public string ContourText { get; } = "";
 
     /// <summary>Результат ЛИРЫ по узлу кратко; пусто — ЛИРА узел не считала или *.asp не приложен.</summary>
     public string LiraText { get; } = "";
@@ -277,7 +284,10 @@ public sealed class PunchingFemResultVM : ViewModelBase
     /// <summary>Подпись к пунктиру ЛИРЫ на плане.</summary>
     public string LiraLegend => !HasLira ? "" : string.Format(CultureInfo.CurrentCulture,
         Loc.S("PunchingFemLiraLegend", "Пунктир — контуры продавливания ЛИРЫ ({0}): узлов с результатом ЛИРЫ {1} из {2}."),
-        Data.LiraAspFile, Data.Joints.Count(j => j.Lira != null), Data.Joints.Count);
+        Data.LiraAspFile, Data.Joints.Count(j => j.Lira != null), Data.Joints.Count)
+        + (Data.Joints.Count(j => j.LiraContour) is var n and > 0
+            ? " " + string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingFemLiraLegendCalc", "Сплошной — контур ЛИРЫ в расчёте (узлов {0})."), n)
+            : "");
 
     public PunchingFemJointRowVM? SelectedJoint
     {
@@ -345,6 +355,7 @@ public sealed class PunchingFemResultVM : ViewModelBase
             if (j.LiraText.Length > 0)
                 lines.Add(string.Format(c, Loc.S("PunchingFemJointCardLira", "ЛИРА: {0}"), j.LiraText)
                     + (j.Data.Lira?.ErrorText is { } et ? " — " + et : ""));
+            if (j.ContourText.Length > 0) lines.Add(j.ContourText);
             return string.Join("\n", lines);
         }
     }

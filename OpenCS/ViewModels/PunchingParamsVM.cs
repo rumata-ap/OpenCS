@@ -468,6 +468,14 @@ public sealed class PunchingParamsVM : ViewModelBase
     /// sd &gt; min(h0/3; 300 мм) или зона короче 1,5h0. Пусто — отвечают или ряды не заданы.
     /// </summary>
     public string RowsHint { get; private set; } = "";
+
+    /// <summary>Основной контур на h0/2 — заданный (контур ЛИРЫ из проверки по МКЭ).</summary>
+    public bool HasCustomMain => _customReplacesMain && _customContours.Count > 0;
+    /// <summary>Пояснение к заданному основному контуру: откуда он и что контуры по СП 63 у площади не строятся.</summary>
+    public string CustomMainText => !HasCustomMain ? ""
+        : _customContours.Any(c => c.Name == PunchingFemCheckRunner.LiraContourName)
+            ? Loc.S("PunchingCustomMainLira", "Основной контур на h0/2 — контур ЛИРЫ из *.asp (задан проверкой по МКЭ): замкнутый и незамкнутые контуры по СП 63 у грузовой площади не строятся. В этом окне контур не правится; контуры за арматурой и за капителью — по СП 63.")
+            : Loc.S("PunchingCustomMainUser", "Основной контур на h0/2 — заданный контур пользователя: замкнутый и незамкнутые контуры по СП 63 у грузовой площади не строятся. Контуры за арматурой и за капителью — по СП 63.");
     /// <summary>Показывать подсказку и кнопку «По п. 10.3.17».</summary>
     public bool ShowRowsHint => RowsHint.Length > 0;
 

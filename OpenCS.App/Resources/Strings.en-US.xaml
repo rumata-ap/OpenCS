@@ -6873,6 +6873,21 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemLiraAspUnmatched">, unmatched {0}</system:String>
    <system:String x:Key="PunchingFemJointCardLira">LIRA: {0}</system:String>
    <system:String x:Key="PunchingFemLiraLegend">Dashed — LIRA punching perimeters ({0}): joints with LIRA result {1} of {2}.</system:String>
+   <system:String x:Key="PunchingFemColMainContour">Perimeter</system:String>
+   <system:String x:Key="PunchingFemLiraLegendCalc">Solid — LIRA perimeter used in the check (joints: {0}).</system:String>
+   <system:String x:Key="PunchingFemContour_check">as check</system:String>
+   <system:String x:Key="PunchingFemContour_opencs">OpenCS</system:String>
+   <system:String x:Key="PunchingFemContour_lira">LIRA</system:String>
+   <system:String x:Key="PunchingFemContourHint">Main perimeter at h0/2 of the joint: «as check» — by the «LIRA perimeter (*.asp)» box, «OpenCS» — SP 63 perimeters, «LIRA» — the perimeter from the LIRA design file. Available for joints LIRA has checked.</system:String>
+   <system:String x:Key="PunchingFemLiraContour">LIRA perimeter (*.asp)</system:String>
+   <system:String x:Key="PunchingFemLiraContourHint">Main perimeter at h0/2 is the LIRA punching perimeter from the attached *.asp (comparison on the same geometry): OpenCS computes u, centroid and Wb on it, openings are cut out; force, moments, loaded area, perimeters beyond reinforcement and beyond the capital are OpenCS. Joints without a LIRA record and wall joints keep the OpenCS perimeter with a warning. A joint can be overridden in the «Perimeter» column.</system:String>
+   <system:String x:Key="PunchingFemPreviewContourLira">Main perimeter — LIRA (*.asp): u = {0:0} mm; OpenCS perimeters at h0/2 are not built.</system:String>
+   <system:String x:Key="PunchingFemPreviewContourOpenCs">Main perimeter — OpenCS:</system:String>
+   <system:String x:Key="PunchingFemJointCardContourLira">Perimeter: LIRA, u = {0:0} mm</system:String>
+   <system:String x:Key="PunchingFemJointCardContourOpenCs">(OpenCS: u = {0:0} mm)</system:String>
+   <system:String x:Key="PunchingVariant_CustomLira">LIRA perimeter</system:String>
+   <system:String x:Key="PunchingCustomMainLira">Main perimeter at h0/2 is the LIRA perimeter from *.asp (set by the FE check): SP 63 closed and open perimeters at the loaded area are not built. The perimeter is not edited in this window; perimeters beyond reinforcement and beyond the capital follow SP 63.</system:String>
+   <system:String x:Key="PunchingCustomMainUser">Main perimeter at h0/2 is the user perimeter: SP 63 closed and open perimeters at the loaded area are not built. Perimeters beyond reinforcement and beyond the capital follow SP 63.</system:String>
    <system:String x:Key="PunchingFemColInclude">Check</system:String>
    <system:String x:Key="PunchingFemColNode">Node</system:String>
    <system:String x:Key="PunchingFemColSection">Column</system:String>

@@ -6873,6 +6873,21 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemLiraAspUnmatched">, без пары {0}</system:String>
    <system:String x:Key="PunchingFemJointCardLira">ЛИРА: {0}</system:String>
    <system:String x:Key="PunchingFemLiraLegend">Пунктир — контуры продавливания ЛИРЫ ({0}): узлов с результатом ЛИРЫ {1} из {2}.</system:String>
+   <system:String x:Key="PunchingFemColMainContour">Контур</system:String>
+   <system:String x:Key="PunchingFemLiraLegendCalc">Сплошной — контур ЛИРЫ в расчёте (узлов {0}).</system:String>
+   <system:String x:Key="PunchingFemContour_check">по проверке</system:String>
+   <system:String x:Key="PunchingFemContour_opencs">OpenCS</system:String>
+   <system:String x:Key="PunchingFemContour_lira">ЛИРЫ</system:String>
+   <system:String x:Key="PunchingFemContourHint">Основной контур на h0/2 узла: «по проверке» — по флажку «Контур по ЛИРЕ (*.asp)», «OpenCS» — контуры по СП 63, «ЛИРЫ» — контур из подбора ЛИРЫ. Выбор доступен у узлов, которые считала ЛИРА.</system:String>
+   <system:String x:Key="PunchingFemLiraContour">Контур по ЛИРЕ (*.asp)</system:String>
+   <system:String x:Key="PunchingFemLiraContourHint">Основной контур на h0/2 — контур продавливания ЛИРЫ из приложенного *.asp (сверка по той же геометрии): u, центр тяжести и Wb считает OpenCS по этому контуру, отверстия вырезаются; сила, моменты, площадь, контуры за арматурой и за капителью — OpenCS. Узлы без записи ЛИРЫ и узлы стен — контур OpenCS с предупреждением. Узлу можно задать своё в столбце «Контур».</system:String>
+   <system:String x:Key="PunchingFemPreviewContourLira">Основной контур — ЛИРЫ (*.asp): u = {0:0} мм; контуры OpenCS на h0/2 не строятся.</system:String>
+   <system:String x:Key="PunchingFemPreviewContourOpenCs">Основной контур — OpenCS:</system:String>
+   <system:String x:Key="PunchingFemJointCardContourLira">Контур: ЛИРЫ, u = {0:0} мм</system:String>
+   <system:String x:Key="PunchingFemJointCardContourOpenCs">(OpenCS: u = {0:0} мм)</system:String>
+   <system:String x:Key="PunchingVariant_CustomLira">Контур ЛИРЫ</system:String>
+   <system:String x:Key="PunchingCustomMainLira">Основной контур на h0/2 — контур ЛИРЫ из *.asp (задан проверкой по МКЭ): замкнутый и незамкнутые контуры по СП 63 у грузовой площади не строятся. В этом окне контур не правится; контуры за арматурой и за капителью — по СП 63.</system:String>
+   <system:String x:Key="PunchingCustomMainUser">Основной контур на h0/2 — заданный контур пользователя: замкнутый и незамкнутые контуры по СП 63 у грузовой площади не строятся. Контуры за арматурой и за капителью — по СП 63.</system:String>
    <system:String x:Key="PunchingFemColInclude">Проверять</system:String>
    <system:String x:Key="PunchingFemColNode">Узел</system:String>
    <system:String x:Key="PunchingFemColSection">Колонна</system:String>

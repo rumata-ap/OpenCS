@@ -323,6 +323,8 @@
                        ToolTip="{DynamicResource PunchingFemLiraSetsHint}"/>
             </WrapPanel>
             <TextBlock Text="{Binding LiraAspText}" TextWrapping="Wrap" Foreground="#555555" Margin="0,4,0,0"/>
+            <CheckBox Content="{DynamicResource PunchingFemLiraContour}" IsChecked="{Binding LiraContour}" IsEnabled="{Binding CanLiraContour}"
+                      ToolTip="{DynamicResource PunchingFemLiraContourHint}" ToolTipService.ShowOnDisabled="True"/>
          </StackPanel>
          <DataGrid Grid.Row="1" ItemsSource="{Binding Joints}" SelectedItem="{Binding SelectedJoint}" AutoGenerateColumns="False"
                    CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" SelectionMode="Single"
@@ -378,6 +380,18 @@
                   <DataGridTemplateColumn.CellTemplate>
                      <DataTemplate>
                         <TextBlock Text="{Binding LiraText}" ToolTip="{Binding LiraHint}" Margin="4,0" VerticalAlignment="Center"/>
+                     </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+               </DataGridTemplateColumn>
+               <DataGridTemplateColumn Header="{DynamicResource PunchingFemColMainContour}" Width="Auto" SortMemberPath="ContourMode">
+                  <DataGridTemplateColumn.HeaderStyle>
+                     <Style TargetType="DataGridColumnHeader"><Setter Property="ToolTip" Value="{DynamicResource PunchingFemContourHint}"/></Style>
+                  </DataGridTemplateColumn.HeaderStyle>
+                  <DataGridTemplateColumn.CellTemplate>
+                     <DataTemplate>
+                        <ComboBox ItemsSource="{x:Static vm:PunchingFemJointPickVM.ContourModes}" DisplayMemberPath="Label" SelectedValuePath="Id"
+                                  SelectedValue="{Binding ContourMode, UpdateSourceTrigger=PropertyChanged}" MinWidth="90" Margin="2,0"
+                                  IsEnabled="{Binding CanPickContour}" ToolTip="{DynamicResource PunchingFemContourHint}"/>
                      </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                </DataGridTemplateColumn>

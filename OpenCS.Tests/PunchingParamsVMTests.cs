@@ -32,7 +32,12 @@ public sealed class PunchingParamsVMTests
             CustomContours = [new PunchingCustomContourParams { Name = "ЛИРА", Points = [[-0.2, -0.5], [0.2, -0.5], [0.2, 0.5], [-0.2, 0.5]] }],
             Options = new PunchingOptionParams { CustomReplacesMain = true },
         };
-        var back = PunchingTaskParams.Parse(Vm(p).ToJson());
+        var vm = Vm(p);
+        // Окно задачи поясняет, что основной контур — заданный (контур ЛИРЫ).
+        Assert.True(vm.HasCustomMain);
+        Assert.Contains("ЛИРЫ", vm.CustomMainText);
+        Assert.False(Vm(Gosha()).HasCustomMain);
+        var back = PunchingTaskParams.Parse(vm.ToJson());
         Assert.True(back.Options.CustomReplacesMain);
         Assert.Single(back.CustomContours);
     }

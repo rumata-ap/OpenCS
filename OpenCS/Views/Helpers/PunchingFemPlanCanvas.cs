@@ -52,6 +52,8 @@ public sealed class PunchingFemPlanCanvas : FrameworkElement
     static readonly Pen CapitalPen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0x47, 0x55, 0x69)), 1) { DashStyle = new DashStyle([5, 3], 0) });
     /// <summary>Контур продавливания ЛИРЫ: фиолетовый пунктир.</summary>
     public static readonly Pen LiraPen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0x8E, 0x24, 0xAA)), 1.4) { DashStyle = new DashStyle([4, 3], 0) });
+    /// <summary>Контур ЛИРЫ, взятый в расчёт как основной.</summary>
+    public static readonly Pen LiraCalcPen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0x8E, 0x24, 0xAA)), 1.6));
     static readonly Pen SelectPen =Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0x1F, 0x4E, 0xD8)), 2.5));
     static readonly Brush TextBrush = Frozen(new SolidColorBrush(Color.FromRgb(0x11, 0x18, 0x27)));
     static readonly Brush WallBrush = Frozen(new SolidColorBrush(Color.FromRgb(0x9A, 0xA4, 0xB1)));
@@ -133,10 +135,11 @@ public sealed class PunchingFemPlanCanvas : FrameworkElement
             dc.DrawGeometry(CapitalFill, CapitalPen, geo);
         }
 
-        // Контуры продавливания ЛИРЫ (приложенный *.asp) — пунктиром по отрезкам, как их построила ЛИРА (у края — разомкнутые).
+        // Контуры продавливания ЛИРЫ (приложенный *.asp) — пунктиром по отрезкам, как их построила ЛИРА (у края — разомкнутые);
+        // контур ЛИРЫ, по которому считал OpenCS (режим «Контур по ЛИРЕ»), — сплошной.
         foreach (var j in d.Joints.Where(j => j.Lira is { Contour.Count: > 0 } && j.Origin.Length == 3 && OnLevel(j.Origin[2])))
             foreach (var s in j.Lira!.Contour.Where(s => s.Length == 6))
-                dc.DrawLine(LiraPen, P(s[0], s[1]), P(s[3], s[4]));
+                dc.DrawLine(j.LiraContour ? LiraCalcPen : LiraPen, P(s[0], s[1]), P(s[3], s[4]));
 
         // Box — экранная рамка значка узла: у стен кусок стены не центрирован на узле (торец, наружный угол), подпись — справа от рамки.
         var labels = new List<(PunchingFemJointResult J, Rect Box)>();

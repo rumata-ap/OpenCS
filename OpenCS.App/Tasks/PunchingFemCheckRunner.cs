@@ -370,6 +370,32 @@ public static class PunchingFemCheckRunner
         return a / 2;
     }
 
+    /// <summary>Имя контура ЛИРЫ в задаче узла (контур пользователя).</summary>
+    public const string LiraContourName = "ЛИРА";
+
+    /// <summary>
+    /// Основной контур узла по ЛИРЕ: отрезки *.asp в осях узла — контур пользователя «ЛИРА»; null с предупреждением —
+    /// узел стены, ЛИРА узел не считала или отрезки не сцепляются (тогда контур OpenCS).
+    /// </summary>
+    public static (PunchingCustomContourParams? Contour, PunchingWarningJson? Warning) LiraMainContour(PunchingFemJoint joint,
+        CScore.Import.LiraAspPunching? lira)
+    {
+        if (joint.IsWall)
+            return (null, new("punching_fem_lira_contour_wall", "Узел стены: контур ЛИРЫ не применяется — контуры по СП 430."));
+        if (lira == null)
+            return (null, new("punching_fem_lira_contour_missing", "ЛИРА этот узел не считала (нет записи в *.asp) — контур OpenCS."));
+        if (PunchingFemLiraContour.ToLocal(joint, lira.Contour) is not var (pts, inactive))
+            return (null, new("punching_fem_lira_contour_broken", "Отрезки контура ЛИРЫ не сцепляются в один контур — контур OpenCS."));
+        return (new PunchingCustomContourParams
+        {
+            Name = LiraContourName, Points = pts.Select(q => new[] { q.X, q.Y }).ToList(), InactiveEdges = [.. inactive],
+        }, null);
+    }
+
+    /// <summary>Задача узла с контуром ЛИРЫ вместо основного контура OpenCS на h0/2.</summary>
+    public static PunchingTaskParams WithLiraContour(PunchingTaskParams tp, PunchingCustomContourParams contour) =>
+        tp with { CustomContours = [contour], Options = tp.Options with { CustomReplacesMain = true } };
+
     static PunchingFemJointResult Joint(PunchingFemSchemaData data, PunchingFemSource source, PunchingFemJoint joint,
         PunchingFemCheckParams p, IReadOnlyList<Material> materials, CalcType calcType, CScore.Import.LiraAspPunching? lira = null)
     {
@@ -378,17 +404,8 @@ public static class PunchingFemCheckRunner
         PunchingCustomContourParams? liraContour = null;
         if (p.UsesLiraContour(joint.NodeTag) && joint.NoCheck == null)
         {
-            if (joint.IsWall)
-                warnings.Add(new("punching_fem_lira_contour_wall", "Узел стены: контур ЛИРЫ не применяется — контуры по СП 430."));
-            else if (lira == null)
-                warnings.Add(new("punching_fem_lira_contour_missing", "ЛИРА этот узел не считала (нет записи в *.asp) — контур OpenCS."));
-            else if (PunchingFemLiraContour.ToLocal(joint, lira.Contour) is not var (pts, inactive))
-                warnings.Add(new("punching_fem_lira_contour_broken", "Отрезки контура ЛИРЫ не сцепляются в один контур — контур OpenCS."));
-            else
-                liraContour = new PunchingCustomContourParams
-                {
-                    Name = "ЛИРА", Points = pts.Select(q => new[] { q.X, q.Y }).ToList(), InactiveEdges = [.. inactive],
-                };
+            (liraContour, var liraWarning) = LiraMainContour(joint, lira);
+            if (liraWarning != null) warnings.Add(liraWarning);
         }
         var baseResult = new PunchingFemJointResult
         {
@@ -489,7 +506,7 @@ public static class PunchingFemCheckRunner
             }
             var tp = PunchingFemService.TaskParams(joint, f, p, data.Schema.Tag, label);
             if (liraContour != null)
-                tp = tp with { CustomContours = [liraContour], Options = tp.Options with { CustomReplacesMain = true } };
+                tp = WithLiraContour(tp, liraContour);
             var row = new PunchingFemRow
             {
                 Key = label, F = tp.Forces.F, Mx = tp.Forces.Mx, My = tp.Forces.My, Side = tp.Forces.LoadSide,
