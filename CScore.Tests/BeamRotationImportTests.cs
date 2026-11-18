@@ -5,9 +5,21 @@ using Xunit;
 
 namespace CScore.Tests;
 
-/// <summary>Поворот сечения импортных стержней (<see cref="FemElement.BeamRotationDeg"/>): оси SCAD и ЛИРЫ → конвенция OpenCS.</summary>
+/// <summary>
+/// Поворот сечения импортных стержней (<see cref="FemElement.BeamRotationDeg"/>): оси SCAD и ЛИРЫ → конвенция OpenCS,
+/// как у родных стержней (<see cref="ImportedBarAxes"/>): местная Y = Z1 программы, Z = −Y1.
+/// </summary>
 public sealed class BeamRotationImportTests
 {
+    /// <summary>Z1 = X1 × Y1 по оси Y1 программы.</summary>
+    static double[] Z1(double[] a, double[] b, double[] y1)
+    {
+        double[] x = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+        double l = Math.Sqrt(x[0] * x[0] + x[1] * x[1] + x[2] * x[2]);
+        x = [x[0] / l, x[1] / l, x[2] / l];
+        return [x[1] * y1[2] - x[2] * y1[1], x[2] * y1[0] - x[0] * y1[2], x[0] * y1[1] - x[1] * y1[0]];
+    }
+
     static ScadSchemaData Data(params (int Id, (double X, double Y, double Z) A, (double X, double Y, double Z) B, ScadRodAxes? Axes)[] bars)
     {
         var data = new ScadSchemaData();
@@ -37,30 +49,30 @@ public sealed class BeamRotationImportTests
 
     [Theory]
     [MemberData(nameof(ScadCases))]
-    public void Scad_LocalYOfConventionMatchesScadY1(string name, double[] a, double[] b, int type, double[] values)
+    public void Scad_LocalYOfConventionIsScadZ1_LocalZIsMinusY1(string name, double[] a, double[] b, int type, double[] values)
     {
         var axes = type == 0 ? null : new ScadRodAxes(type, values);
         var data = Data((7, (a[0], a[1], a[2]), (b[0], b[1], b[2]), axes));
         var bar = Assert.Single(ScadSchemaConverter.ToFemMeshElements(data, 1));
         Assert.True(bar.BeamRotationDeg.HasValue, name);
 
-        var expected = ScadRodAxes.LocalY(axes, (a[0], a[1], a[2]), (b[0], b[1], b[2]))!;
-        var (_, y, _) = BeamLocalAxisConvention.Frame(new(a[0], a[1], a[2]), new(b[0], b[1], b[2]), bar.BeamRotationDeg!.Value);
-        Assert.Equal(expected[0], y.X, 9);
-        Assert.Equal(expected[1], y.Y, 9);
-        Assert.Equal(expected[2], y.Z, 9);
+        var y1 = ScadRodAxes.LocalY(axes, (a[0], a[1], a[2]), (b[0], b[1], b[2]))!;
+        var z1 = Z1(a, b, y1);
+        var (_, y, z) = BeamLocalAxisConvention.Frame(new(a[0], a[1], a[2]), new(b[0], b[1], b[2]), bar.BeamRotationDeg!.Value);
+        Assert.Equal(z1[0], y.X, 9); Assert.Equal(z1[1], y.Y, 9); Assert.Equal(z1[2], y.Z, 9);
+        Assert.Equal(-y1[0], z.X, 9); Assert.Equal(-y1[1], z.Y, 9); Assert.Equal(-y1[2], z.Z, 9);
     }
 
     [Fact]
-    public void Scad_HorizontalDefault_IsMinus90AndShellsHaveNoRotation()
+    public void Scad_HorizontalDefault_IsZeroLikeNativeBeamAndShellsHaveNoRotation()
     {
-        // По умолчанию Y1 SCAD горизонтальна, а Y конвенции — вверх: Y1 = −Z конвенции → поворот −90°.
+        // По умолчанию Z1 SCAD — вверх, как местная Y родной балки: поворот 0.
         var data = Data((1, (0, 0, 0), (4, 0, 0), null));
         data.Nodes.Add(new ScadNodeRecord(3, 0, 1, 0));
         data.Nodes.Add(new ScadNodeRecord(4, 4, 1, 0));
         data.Elements.Add(new ScadElementRecord(2, 44, 1, [1, 2, 3, 4]));
         var elements = ScadSchemaConverter.ToFemMeshElements(data, 1);
-        Assert.Equal(-90, elements.Single(e => e.ElemType == "beam").BeamRotationDeg!.Value, 9);
+        Assert.Equal(0, elements.Single(e => e.ElemType == "beam").BeamRotationDeg!.Value, 9);
         Assert.Null(elements.Single(e => e.ElemType == "shell").BeamRotationDeg);
     }
 
@@ -82,16 +94,17 @@ public sealed class BeamRotationImportTests
         data.Elements.Add(new LiraElementRecord(1, 10, 1, 1, [1, 2]));
         var bar = Assert.Single(LiraSchemaConverter.ToFemMeshBarElements(data, 1));
 
-        var expected = ScadRodAxes.LocalY(null, (ax, ay, az), (bx, by, bz))!;
-        var (_, y, _) = BeamLocalAxisConvention.Frame(new(ax, ay, az), new(bx, by, bz), bar.BeamRotationDeg!.Value);
-        Assert.Equal(expected[0], y.X, 9);
-        Assert.Equal(expected[1], y.Y, 9);
-        Assert.Equal(expected[2], y.Z, 9);
+        var y1 = ScadRodAxes.LocalY(null, (ax, ay, az), (bx, by, bz))!;
+        var z1 = Z1([ax, ay, az], [bx, by, bz], y1);
+        var (_, y, z) = BeamLocalAxisConvention.Frame(new(ax, ay, az), new(bx, by, bz), bar.BeamRotationDeg!.Value);
+        Assert.Equal(z1[0], y.X, 9); Assert.Equal(z1[1], y.Y, 9); Assert.Equal(z1[2], y.Z, 9);
+        Assert.Equal(-y1[0], z.X, 9); Assert.Equal(-y1[1], z.Y, 9); Assert.Equal(-y1[2], z.Z, 9);
     }
 
     /// <summary>
     /// Оси ЛИРЫ-САПФИР 2025, найденные 23.10.2026 по прогибам консолей с местной нагрузкой q = 1 по Y1 и по Z1
-    /// (положительная — против оси, конец консоли смещается против оси): Y1 и Z1 после поворота таблицы 17.
+    /// (положительная — против оси, конец консоли смещается против оси): Y1 и Z1 после поворота таблицы 17. Оси сетки:
+    /// Y = Z1, Z = −Y1.
     /// </summary>
     [Theory]
     [InlineData(0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 1, 0, 0)]                 // вертикальный вверх
@@ -111,8 +124,8 @@ public sealed class BeamRotationImportTests
         var bar = Assert.Single(LiraSchemaConverter.ToFemMeshBarElements(data, 1));
 
         var (_, y, z) = BeamLocalAxisConvention.Frame(new(ax, ay, az), new(bx, by, bz), bar.BeamRotationDeg!.Value);
-        Assert.Equal(y1x, y.X, 4); Assert.Equal(y1y, y.Y, 4); Assert.Equal(y1z, y.Z, 4);
-        Assert.Equal(z1x, z.X, 4); Assert.Equal(z1y, z.Y, 4); Assert.Equal(z1z, z.Z, 4);
+        Assert.Equal(z1x, y.X, 4); Assert.Equal(z1y, y.Y, 4); Assert.Equal(z1z, y.Z, 4);
+        Assert.Equal(-y1x, z.X, 4); Assert.Equal(-y1y, z.Y, 4); Assert.Equal(-y1z, z.Z, 4);
     }
 
     [Fact]

@@ -24,8 +24,8 @@ public sealed class ScadElementStiffnessSourceTests
         Assert.Equal(3e6 * Fu, bar.E, 6);
         Assert.Equal(bar.E / 2.4, bar.G, 6);
         Assert.Equal(0.3 * 0.5, bar.A, 12);
-        Assert.Equal(0.3 * Math.Pow(0.5, 3) / 12, bar.Iy, 12); // h ‖ Z1 — изгиб вокруг Y1
-        Assert.Equal(0.5 * Math.Pow(0.3, 3) / 12, bar.Iz, 12);
+        Assert.Equal(0.3 * Math.Pow(0.5, 3) / 12, bar.Iz, 12); // h ‖ Z1 — изгиб вокруг Y1 = −Z сетки (Iz)
+        Assert.Equal(0.5 * Math.Pow(0.3, 3) / 12, bar.Iy, 12);
         Assert.Equal(2.5 * Fu, src.UnitWeight(E(1))!.Value, 9);
         Assert.Equal(0.15, src.BarArea(E(1))!.Value, 12);
     }

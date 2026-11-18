@@ -99,8 +99,10 @@ public sealed class LiraLoadTransferTests
         Assert.Equal("x", barP.Axis);
         AssertValues([-3 * T, 2], barP.Values);
         AssertValues([2, 4, -T, -1.5 * T], One(lc2, FemElementLoadKinds.Edge, "2").Values);
+        // Местная по Z1 стержня — по Y сетки (ImportedBarAxes: Y = Z1), знак как у общих.
         var local = One(lc2, FemElementLoadKinds.Uniform, "1");
-        Assert.Equal(("local", "z"), (local.CoordinateSystem, local.Axis));
+        Assert.Equal(("local", "y"), (local.CoordinateSystem, local.Axis));
+        AssertValues([-T], local.Values);
         Assert.Equal(7, r.ElementLoads.Count);
 
         string Line(string what) => Assert.Single(r.Report, l => l.Contains(what));
@@ -153,10 +155,15 @@ public sealed class LiraLoadTransferTests
         Assert.Equal(0, r.SkippedRecords);
         Assert.Contains(r.Report, l => l.Contains("Местные нагрузки по Y1/Z1 стержней (2)"));
         Assert.Contains(r.ElementLoads, l => l.LoadKind == "uniform" && l.Axis == "x" && l.TargetTags.SequenceEqual(["1"]));
-        // q по Z1 на стержне 1 и на пластине 2 одинаковы (единицы — метры) — одна запись на оба КЭ
+        // q по Z1: у стержня 1 — по Y сетки (Y = Z1), у пластины 2 — по её нормали Z (записи разные)
+        Assert.Contains(r.ElementLoads, l => l.LoadKind == "uniform" && l.Axis == "y" && l.CoordinateSystem == "local" &&
+            l.TargetTags.SequenceEqual(["1"]));
         Assert.Contains(r.ElementLoads, l => l.LoadKind == "uniform" && l.Axis == "z" && l.CoordinateSystem == "local" &&
-            l.TargetTags.SequenceEqual(["1", "2"]));
-        Assert.Contains(r.ElementLoads, l => l.LoadKind == "point" && l.Axis == "y" && l.TargetTags.SequenceEqual(["1"]));
+            l.TargetTags.SequenceEqual(["2"]));
+        // P по Y1 стержня — по Z сетки с обратным знаком (Z = −Y1): знак ЛИРЫ «против оси» и −1 осей дают +P
+        var p = Assert.Single(r.ElementLoads, l => l.LoadKind == "point" && l.TargetTags.SequenceEqual(["1"]));
+        Assert.Equal(("local", "z"), (p.CoordinateSystem, p.Axis));
+        Assert.True(p.Values[0] > 0);
     }
 
     [Fact]

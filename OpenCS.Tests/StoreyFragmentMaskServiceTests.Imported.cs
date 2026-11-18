@@ -18,6 +18,12 @@ namespace OpenCS.Tests;
 public sealed partial class StoreyFragmentMaskServiceTests
 {
     /// <summary>
+    /// Компонента программы (N Qy₁ Qz₁ Mк My₁ Mz₁) ← компонента осей сетки и знак: Y₁ = −Z, Z₁ = Y
+    /// (обратное к <see cref="CScore.Import.ImportedBarAxes.ToMesh(CScore.Submodel.Dof6)"/>).
+    /// </summary>
+    static readonly (int Mesh, double Sign)[] ToProgram = [(0, 1), (2, -1), (1, 1), (3, 1), (5, -1), (4, 1)];
+
+    /// <summary>
     /// Снимок «как SCAD» из полей записанного результата постановки: шаг i — загружение программы № i; стержни — силы
     /// сечений в знаках <see cref="ImportedForceConvention.Scad"/>, пластины — в осях выдачи CSfea (их угол
     /// записывается в сетку родителя), поворот стержней — как у CSfea.
@@ -52,9 +58,11 @@ public sealed partial class StoreyFragmentMaskServiceTests
             for (int b = 0; b < f.BeamIds.Length; b++)
                 for (int k = 0; k < 6; k++)
                 {
-                    // Сила узла на КЭ: у узла 1 −S(0), у узла 2 +S(L); программа = c · S.
-                    bars[12 * b + k] = -c.Bar[k] * f.BeamForces[RcSecantStepFields.BeamForceComponents * b + k];
-                    bars[12 * b + 6 + k] = c.Bar[k] * f.BeamForces[RcSecantStepFields.BeamForceComponents * b + 6 + k];
+                    // Сила узла на КЭ: у узла 1 −S(0), у узла 2 +S(L); программа = c · S в осях программы: CSfea — в осях
+                    // сетки (Y = Z1, Z = −Y1), поэтому компонента программы k берётся из компоненты сетки ToProgram[k] со знаком.
+                    var (m, sg) = ToProgram[k];
+                    bars[12 * b + k] = -c.Bar[k] * sg * f.BeamForces[RcSecantStepFields.BeamForceComponents * b + m];
+                    bars[12 * b + 6 + k] = c.Bar[k] * sg * f.BeamForces[RcSecantStepFields.BeamForceComponents * b + 6 + m];
                 }
             var shells = new double[f.ShellIds.Length * ImportedResultLoad.ShellComponents];
             for (int s = 0; s < f.ShellIds.Length; s++)

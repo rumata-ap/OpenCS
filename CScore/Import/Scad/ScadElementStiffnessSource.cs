@@ -47,12 +47,15 @@ public sealed class ScadElementStiffnessSource : IFemElementStiffnessSource
         return h is > 0 ? new FemShellStiffness(e0 * _fu / (_lu * _lu), nu, h.Value) : null;
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Упругие свойства стержня в осях сетки (<see cref="ImportedBarAxes"/>: местная Y = Z1, поэтому Iy сетки — момент
+    /// инерции SCAD вокруг Z1, Iz — вокруг Y1); null — источник их не знает.
+    /// </summary>
     public FemBarStiffness? Bar(FemElement element)
     {
         if (element.StiffnessNum is not { } id) return null;
-        if (_bars.TryGetValue(id, out var cached)) return cached;
-        return _bars[id] = ComputeBar(id);
+        if (!_bars.TryGetValue(id, out var s)) _bars[id] = s = ComputeBar(id);
+        return s is null ? null : ImportedBarAxes.ToMesh(s);
     }
 
     FemBarStiffness? ComputeBar(int id)

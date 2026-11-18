@@ -113,17 +113,25 @@ public static class ScadLoadTransfer
                     continue;
                 }
                 string cs = local ? "local" : "global";
-                string axis = r.Qn switch { 1 => "x", 2 => "y", _ => "z" };
+                string axis0 = r.Qn switch { 1 => "x", 2 => "y", _ => "z" };
                 foreach (var byType in ids.GroupBy(t => elementTypes.GetValueOrDefault(t)))
                 {
                     var tags = byType.ToArray();
                     bool shell = byType.Key == "shell", bar = byType.Key == "beam";
+                    // Знак SCAD (против осей) → −1; местные оси стержня Y1/Z1 → оси сетки (Y = Z1, Z = −Y1).
+                    double k = -1;
+                    string axis = axis0;
+                    if (bar && local)
+                    {
+                        (axis, double sign) = ImportedBarAxes.LocalLoadAxis(r.Qn);
+                        k *= sign;
+                    }
                     if (!shell && !bar) { Skip($"{Describe(r)} на КЭ, которых нет в сетке или не стержень/пластина", tags.Length); continue; }
                     switch (r.Qw)
                     {
                         case EvenlyGlobal or EvenlyLocal or EvenlyGlobalIns or EvenlyLocalIns:
                             AddElements(FemElementLoadKinds.Uniform, cs, axis,
-                                [-r.Data[0] * fu / (shell ? lu * lu : lu)], tags);
+                                [k * r.Data[0] * fu / (shell ? lu * lu : lu)], tags);
                             if (bar && r.Qw is EvenlyGlobalIns or EvenlyLocalIns)
                                 Note(report, lc.Num, $"Qw {r.Qw}: равномерная по длине КЭ, жёсткие вставки не учитываются");
                             break;
@@ -134,7 +142,7 @@ public static class ScadLoadTransfer
                             AddElements(FemElementLoadKinds.Point, cs, axis, [-r.Data[0] * fu, r.Data[1] * lu, r.Data[2] * lu], tags);
                             break;
                         case PointGlobal or PointLocal when bar && r.Data.Length >= 2:
-                            AddElements(FemElementLoadKinds.Point, cs, axis, [-r.Data[0] * fu, r.Data[1] * lu], tags);
+                            AddElements(FemElementLoadKinds.Point, cs, axis, [k * r.Data[0] * fu, r.Data[1] * lu], tags);
                             break;
                         default:
                             Skip($"{Describe(r)} на {(shell ? "пластины" : "стержни")} (Data: {r.Data.Length})", tags.Length);

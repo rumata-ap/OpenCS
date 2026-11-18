@@ -87,8 +87,9 @@ public static class ScadBoundaryTransfer
             string tag = T(j.Key);
             if (elementTypes.GetValueOrDefault(tag) != "beam") { missingJoints++; continue; }
             int maskI = j.Aggregate(0, (m, x) => m | x.MaskI), maskJ = j.Aggregate(0, (m, x) => m | x.MaskJ);
-            int? ri = (maskI & FemBoundaryDofs.All) is var mi and not 0 ? mi : null;
-            int? rj = (maskJ & FemBoundaryDofs.All) is var mj and not 0 ? mj : null;
+            // Биты N Qy₁ Qz₁ T My₁ Mz₁ SCAD → оси сетки (ImportedBarAxes: Y = Z1, Z = −Y1)
+            int? ri = (maskI & FemBoundaryDofs.All) is var mi and not 0 ? ImportedBarAxes.ReleaseToMesh(mi) : null;
+            int? rj = (maskJ & FemBoundaryDofs.All) is var mj and not 0 ? ImportedBarAxes.ReleaseToMesh(mj) : null;
             if (ri == null && rj == null) continue;
             releasedEnds += (ri != null ? 1 : 0) + (rj != null ? 1 : 0);
             props[tag] = new FemElementBoundaryProps(ri, rj, null);

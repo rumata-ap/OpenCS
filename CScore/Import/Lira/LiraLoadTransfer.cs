@@ -123,14 +123,21 @@ public static class LiraLoadTransfer
             bool local = r.Kind is PointLocal or EvenlyLocal or TrapezLocal;
             string cs = local ? "local" : "global";
             string axis = r.Direction switch { 1 => "x", 2 => "y", _ => "z" };
-            if (bar && local && r.Direction > 1) localBarTransverse++;
+            // Знак ЛИРЫ (против осей) → −1; местные оси стержня Y1/Z1 → оси сетки (Y = Z1, Z = −Y1).
+            double k = -1;
+            if (bar && local)
+            {
+                (axis, double sign) = ImportedBarAxes.LocalLoadAxis(r.Direction);
+                k *= sign;
+                if (r.Direction > 1) localBarTransverse++;
+            }
             double perArea = fu / (lu * lu), perLength = fu / lu;
 
             switch (r.Kind)
             {
                 case EvenlyLocal or EvenlyGlobal:
                     if (HasExtra(v, 1)) { Skip($"равномерная (вид {r.Kind}) с дополнительным числом, смысл не установлен"); break; }
-                    st.Add(FemElementLoadKinds.Uniform, cs, axis, [-v[0] * (shell ? perArea : perLength)], elemTag, newElementLoads);
+                    st.Add(FemElementLoadKinds.Uniform, cs, axis, [k * v[0] * (shell ? perArea : perLength)], elemTag, newElementLoads);
                     break;
                 case TrapezLocal or TrapezGlobal when shell:
                 {
@@ -142,7 +149,7 @@ public static class LiraLoadTransfer
                 case TrapezLocal or TrapezGlobal:
                     if (v.Length < 4) { Skip($"трапециевидная (вид {r.Kind}) на стержне: ожидается q1 a1 q2 a2"); break; }
                     st.Add(FemElementLoadKinds.Trapezoid, cs, axis,
-                        [-v[0] * perLength, v[1] * lu, -v[2] * perLength, v[3] * lu], elemTag, newElementLoads);
+                        [k * v[0] * perLength, v[1] * lu, k * v[2] * perLength, v[3] * lu], elemTag, newElementLoads);
                     break;
                 case PointLocal or PointGlobal when shell:
                     if (v.Length < 3 || HasExtra(v, 3)) { Skip($"сосредоточенная (вид {r.Kind}) на пластине: ожидается P A B"); break; }
@@ -150,7 +157,7 @@ public static class LiraLoadTransfer
                     break;
                 case PointLocal or PointGlobal:
                     if (v.Length < 2 || HasExtra(v, 2)) { Skip($"сосредоточенная (вид {r.Kind}) на стержне: ожидается P A"); break; }
-                    st.Add(FemElementLoadKinds.Point, cs, axis, [-v[0] * fu, v[1] * lu], elemTag, newElementLoads);
+                    st.Add(FemElementLoadKinds.Point, cs, axis, [k * v[0] * fu, v[1] * lu], elemTag, newElementLoads);
                     break;
                 case EdgeGlobal when shell:
                     if (v.Length < 4 || !IsEdge(v[0], v[1], NodeCount(schema, r.Target)))
@@ -173,8 +180,8 @@ public static class LiraLoadTransfer
                 report.Add($"Загружение {num} «{st.Target.Tag}»: не перенесено — {what}, записей {count}.");
         }
         if (localBarTransverse > 0)
-            report.Add($"Местные нагрузки по Y1/Z1 стержней ({localBarTransverse}) приложены в местных осях сетки — оси ЛИРЫ " +
-                "с углом разворота стержня, прочитанным при импорте схемы.");
+            report.Add($"Местные нагрузки по Y1/Z1 стержней ({localBarTransverse}) приложены в местных осях сетки: Y1 ЛИРЫ = −Z, " +
+                "Z1 = Y сетки (угол разворота стержня — прочитанный при импорте схемы).");
         foreach (var orphan in cases.Where(c => c.Origin == Origin && c.SourceLoadNum is { } n && !states.ContainsKey(n)))
             report.Add($"Загружение «{orphan.Tag}» (ЛИРА {orphan.SourceLoadNum}) в файле отсутствует — перенесённые в него нагрузки удалены.");
 

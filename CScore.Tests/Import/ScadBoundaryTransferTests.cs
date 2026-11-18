@@ -56,7 +56,7 @@ public sealed class ScadBoundaryTransferTests
 
         Assert.Equal(2, r.ElementProps.Count);
         Assert.Equal(new FemElementBoundaryProps(null, 0b110000, null), r.ElementProps["10"]);
-        Assert.Equal(new FemElementBoundaryProps(0b010000, 0b010000, null), r.ElementProps["11"]);
+        Assert.Equal(new FemElementBoundaryProps(0b100000, 0b100000, null), r.ElementProps["11"]);
 
         Assert.Contains("закреплений 2, пружин 2, жёстких тел 1, стержней с шарнирами 2 (концов 3)", r.Report[0]);
         Assert.Contains(r.Report, l => l.Contains("КЭ 55") && l.Contains("58"));
@@ -121,7 +121,7 @@ public sealed class ScadBoundaryTransferTests
 
         var r = ScadBoundaryTransfer.Transfer(model, Nodes, Types);
 
-        Assert.Equal(new FemElementBoundaryProps(0b110000, 0b010000, null), Assert.Single(r.ElementProps).Value);
+        Assert.Equal(new FemElementBoundaryProps(0b110000, 0b100000, null), Assert.Single(r.ElementProps).Value);
         Assert.Contains("стержней с шарнирами 1 (концов 2)", r.Report[0]);
     }
 

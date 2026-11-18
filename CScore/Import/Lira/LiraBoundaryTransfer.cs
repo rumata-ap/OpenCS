@@ -148,7 +148,7 @@ public static class LiraBoundaryTransfer
             report.Add($"Объединения перемещений: {missingCouplings} групп, где в сетке меньше двух узлов, пропущены.");
         if (noDofCouplings > 0) report.Add($"Объединения перемещений: {noDofCouplings} групп без направлений 1–6, пропущены.");
 
-        // ── Шарниры документа 2: DOF 1–6 местных осей ЛИРЫ = биты N Qy Qz T My Mz (местная Y = Y1) ──
+        // ── Шарниры документа 2: DOF 1–6 местных осей ЛИРЫ = биты N Qy₁ Qz₁ T My₁ Mz₁ → оси сетки (ImportedBarAxes) ──
         var props = new Dictionary<string, FemElementBoundaryProps>(StringComparer.Ordinal);
         int releasedEnds = 0, missingJoints = 0, badEnds = 0;
         var elasticEnds = new HashSet<(int, int)>();
@@ -167,7 +167,8 @@ public static class LiraBoundaryTransfer
                     default: badEnds++; break;
                 }
             }
-            int? ri = maskI != 0 ? maskI : null, rj = maskJ != 0 ? maskJ : null;
+            int? ri = maskI != 0 ? ImportedBarAxes.ReleaseToMesh(maskI) : null,
+                rj = maskJ != 0 ? ImportedBarAxes.ReleaseToMesh(maskJ) : null;
             if (ri == null && rj == null) continue;
             releasedEnds += (ri != null ? 1 : 0) + (rj != null ? 1 : 0);
             props[tag] = new FemElementBoundaryProps(ri, rj, null);

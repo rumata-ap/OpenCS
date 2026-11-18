@@ -493,7 +493,8 @@ public static class StoreyFragmentMaskService
             diag.Add(new("fragment_mask_kinematic_only", $"В снимке {program} нет усилий КЭ полосы — маски только кинематические " +
                 "(силовые режимы ГУ разрезов работать не будут).", false));
         if (parentResult.ShearConsistency() is var (ry, rz, n) && n > 0)
-            foreach (var (plane, r) in new[] { ("XY", ry), ("XZ", rz) })
+            // Плоскости — в осях программы: XY сетки = X1Z1, XZ сетки = X1Y1 (ImportedBarAxes: Y = Z1, Z = −Y1).
+            foreach (var (plane, r) in new[] { ("X1Z1", ry), ("X1Y1", rz) })
                 if (r is double v && Math.Abs(v - 1) > 0.2)
                     diag.Add(new("fragment_mask_shear_sign", string.Create(CultureInfo.CurrentCulture,
                         $"Поперечные силы стержней {program} в плоскости {plane} не согласуются с градиентом моментов " +

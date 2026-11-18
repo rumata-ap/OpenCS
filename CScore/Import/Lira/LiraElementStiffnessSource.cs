@@ -8,7 +8,8 @@ namespace CScore.Import;
 /// <list type="bullet">
 /// <item>пластины (<c>PLATE_END</c>) — E, V, H; коэффициенты к жёсткостям плит и стен (PLKE — изгиб, WLKE — мембрана)
 /// применяются только при <c>reducedStiffness</c> (эквивалентные E′ и h′);</item>
-/// <item>«Брус» — E и размеры B×H (B вдоль Y1, H вдоль Z1; изгиб вокруг Y1 — B·H³/12), кручение — по Сен-Венану;
+/// <item>«Брус» — E и размеры B×H (B вдоль Y1, H вдоль Z1; изгиб вокруг Y1 — B·H³/12; в осях сетки
+/// <see cref="ImportedBarAxes"/> — Iz), кручение — по Сен-Венану;
 /// коэффициенты, заложенные ЛИРОЙ в численные EIy/EIz бруса, применяются только при <c>reducedStiffness</c> (к I сечения),
 /// иначе — модуль материала;</item>
 /// <item>прочие стандартные сечения (<c>BAR_END</c>) — численные EF, EIy, EIz, GIk при E &gt; 0;</item>
@@ -119,8 +120,11 @@ public sealed class LiraElementStiffnessSource : IFemElementStiffnessSource
         return new FemShellStiffness(modulus, nu, thickness);
     }
 
-    /// <inheritdoc/>
-    public FemBarStiffness? Bar(FemElement element) => BarOf(element)?.Stiffness;
+    /// <summary>
+    /// Упругие свойства стержня в осях сетки (<see cref="ImportedBarAxes"/>: местная Y = Z1, поэтому Iy сетки — момент
+    /// инерции ЛИРЫ вокруг Z1, Iz — вокруг Y1); null — источник их не знает.
+    /// </summary>
+    public FemBarStiffness? Bar(FemElement element) => BarOf(element)?.Stiffness is { } s ? ImportedBarAxes.ToMesh(s) : null;
 
     /// <inheritdoc/>
     public double? UnitWeight(FemElement element)

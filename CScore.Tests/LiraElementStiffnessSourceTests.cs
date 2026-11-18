@@ -47,11 +47,11 @@ public sealed class LiraElementStiffnessSourceTests
         Assert.Equal(3.06e6 * T, bar.E, 3);
         Assert.Equal(bar.E / 2.4, bar.G, 3);
         Assert.Equal(0.15, bar.A, 12);
-        Assert.Equal(0.25 * Math.Pow(0.6, 3) / 12, bar.Iy, 12); // H ‖ Z1 — изгиб вокруг Y1
-        Assert.Equal(0.6 * Math.Pow(0.25, 3) / 12, bar.Iz, 12);
+        Assert.Equal(0.25 * Math.Pow(0.6, 3) / 12, bar.Iz, 12); // H ‖ Z1 — изгиб вокруг Y1 = −Z сетки (Iz)
+        Assert.Equal(0.6 * Math.Pow(0.25, 3) / 12, bar.Iy, 12);
         // EIy ЛИРЫ = 0,6·EI (коэффициент к жёсткости), EF — полный
         Assert.Equal(459000 * T, bar.E * bar.A, 0);
-        Assert.Equal(1, bar.E * bar.Iy / (8262 / 0.6 * T), 6);
+        Assert.Equal(1, bar.E * bar.Iz / (8262 / 0.6 * T), 6);
         // GIk ЛИРЫ — Сен-Венан без коэффициента; приближение Роарка в пределах 3 %
         Assert.InRange(bar.G * bar.J / (3005.99 * T), 0.97, 1.03);
         Assert.Equal(2.5 * T, Source.UnitWeight(E(3))!.Value, 6);
@@ -98,9 +98,9 @@ public sealed class LiraElementStiffnessSourceTests
         Assert.Equal(plain.E, bar.E, 3);
         Assert.Equal(plain.A, bar.A, 12);
         // EIy ЛИРЫ = 8262 т·м² — точно, как у E·Iy сечения 25×60 с коэффициентом 0,6
-        Assert.Equal(8262 * T, bar.E * bar.Iy, 0);
-        Assert.Equal(1434.37 * T, bar.E * bar.Iz, 0);
-        Assert.InRange(bar.Iy / plain.Iy, 0.599, 0.601);
+        Assert.Equal(8262 * T, bar.E * bar.Iz, 0);
+        Assert.Equal(1434.37 * T, bar.E * bar.Iy, 0);
+        Assert.InRange(bar.Iz / plain.Iz, 0.599, 0.601);
         Assert.Equal(plain.J, bar.J, 12);
     }
 
@@ -133,8 +133,8 @@ public sealed class LiraElementStiffnessSourceTests
     {
         var bar = Source.Bar(E(6))!;
         Assert.Equal(1e6 * T, bar.E * bar.A, 0);
-        Assert.Equal(2e6 * T, bar.E * bar.Iy, 0);
-        Assert.Equal(3e6 * T, bar.E * bar.Iz, 0);
+        Assert.Equal(2e6 * T, bar.E * bar.Iz, 0);
+        Assert.Equal(3e6 * T, bar.E * bar.Iy, 0);
         Assert.Equal(4e6 * T, bar.G * bar.J, 0);
         Assert.Equal(0.01 * T, Source.UnitWeight(E(6))!.Value * Source.BarArea(E(6))!.Value, 9);
     }

@@ -17,16 +17,16 @@ public sealed class ImportedParentResultTests
         p.ToDictionary(n => n.Tag, n => new FemMeshNode { NodeTag = n.Tag, X = n.X, Y = n.Y, Z = n.Z }, StringComparer.Ordinal);
 
     /// <summary>
-    /// Консоль вдоль X длиной L (оси программы: Z1 вверх, Y1 = +Y — поворот −90° от конвенции OpenCS), заделка в узле 1,
-    /// на конце сила P вниз. Знаки ЛИРЫ: My = −P·(L − x) (растянут верх),
-    /// Qz = dMy/dx = +P. Сила узла на КЭ: у конца (0, 0, −P), у заделки (0, 0, +P) и момент Ry = −P·L (равновесие КЭ).
+    /// Консоль вдоль X длиной L (оси программы: Z1 вверх, Y1 = +Y; оси сетки Y = Z1, Z = −Y1 — поворот 0), заделка в
+    /// узле 1, на конце сила P вниз. Знаки ЛИРЫ: My = −P·(L − x) (растянут верх), Qz = dMy/dx = +P. Сила узла на КЭ в
+    /// осях сетки: у конца Y = −P, у заделки Y = +P и момент Rz = +P·L вокруг Z = −Y (в общих осях — −P·L вокруг Y).
     /// </summary>
     [Fact]
     public void Cantilever_LiraSigns()
     {
         const double L = 4, P = 10e3;
         var nodes = Nodes(("1", 0, 0, 0), ("2", L, 0, 0));
-        var elements = new List<FemElement> { new() { ElemTag = "7", ElemType = "beam", NodeIdsJson = "[1,2]", BeamRotationDeg = -90 } };
+        var elements = new List<FemElement> { new() { ElemTag = "7", ElemType = "beam", NodeIdsJson = "[1,2]", BeamRotationDeg = 0 } };
         var snapshot = new ImportedResultSnapshot
         {
             Program = ImportedResultSnapshot.ProgramLira,
@@ -35,14 +35,17 @@ public sealed class ImportedParentResultTests
         var r = new ImportedParentResult(snapshot, Map, nodes, elements);
 
         Assert.True(r.TryBeamEndForces(K, "7", out var f));
-        Assert.Equal(P, f.I.Z, 9);
-        Assert.Equal(-P * L, f.I.Ry, 9);
-        Assert.Equal(-P, f.J.Z, 9);
-        Assert.Equal(0, f.J.Ry, 9);
+        Assert.Equal(P, f.I.Y, 9);
+        Assert.Equal(0, f.I.Z, 9);
+        Assert.Equal(P * L, f.I.Rz, 9);
+        Assert.Equal(0, f.I.Ry, 9);
+        Assert.Equal(-P, f.J.Y, 9);
+        Assert.Equal(0, f.J.Rz, 9);
         Assert.Empty(r.BeamLoads(K, "7"));
+        // Изгиб в вертикальной плоскости — плоскость XY осей сетки.
         var (ry, rz, bars) = r.ShearConsistency();
-        Assert.Null(ry);
-        Assert.Equal(1, rz!.Value, 9);
+        Assert.Null(rz);
+        Assert.Equal(1, ry!.Value, 9);
         Assert.Equal(1, bars);
     }
 
@@ -52,7 +55,7 @@ public sealed class ImportedParentResultTests
     {
         const double L = 6, q = 5e3;
         var nodes = Nodes(("1", 0, 0, 0), ("2", L, 0, 0));
-        var elements = new List<FemElement> { new() { ElemTag = "3", ElemType = "beam", NodeIdsJson = "[1,2]", BeamRotationDeg = -90 } };
+        var elements = new List<FemElement> { new() { ElemTag = "3", ElemType = "beam", NodeIdsJson = "[1,2]", BeamRotationDeg = 0 } };
         // Знаки ЛИРЫ: My(x) = q·x·(L − x)/2 ≥ 0 (растянут низ), Qz = dMy/dx: +qL/2 у узла 1, −qL/2 у узла 2.
         var snapshot = new ImportedResultSnapshot
         {
@@ -65,7 +68,7 @@ public sealed class ImportedParentResultTests
         Assert.Equal(-q, load.QA.Z, 9);
         Assert.Equal(-q, load.QB.Z, 9);
         // Симметрия: средняя Q и градиент момента нулевые — согласованность не определена.
-        Assert.Null(r.ShearConsistency().Rz);
+        Assert.Null(r.ShearConsistency().Ry);
     }
 
     /// <summary>Перевёрнутые знаки Q в снимке дают согласованность −1.</summary>
@@ -74,7 +77,7 @@ public sealed class ImportedParentResultTests
     {
         const double L = 4, P = 10e3;
         var nodes = Nodes(("1", 0, 0, 0), ("2", L, 0, 0));
-        var elements = new List<FemElement> { new() { ElemTag = "7", ElemType = "beam", NodeIdsJson = "[1,2]", BeamRotationDeg = -90 } };
+        var elements = new List<FemElement> { new() { ElemTag = "7", ElemType = "beam", NodeIdsJson = "[1,2]", BeamRotationDeg = 0 } };
         var snapshot = new ImportedResultSnapshot
         {
             Program = ImportedResultSnapshot.ProgramLira,
@@ -86,15 +89,15 @@ public sealed class ImportedParentResultTests
     }
 
     /// <summary>
-    /// Знаки ЛИРЫ в плоскости XY по реальным данным: Qy = −dMz/dx. Конвенция <see cref="ImportedForceConvention.Lira"/>
-    /// даёт согласованность +1, прежняя общая (Mz без инверсии) — −1.
+    /// Знаки ЛИРЫ в плоскости X1Y1 по реальным данным: Qy = −dMz/dx. Конвенция <see cref="ImportedForceConvention.Lira"/>
+    /// даёт согласованность +1, прежняя общая (Mz без инверсии) — −1. Плоскость X1Y1 программы — плоскость XZ осей сетки.
     /// </summary>
     [Fact]
     public void ShearConsistency_LiraConventionXY()
     {
         const double L = 4, P = 10e3;
         var nodes = Nodes(("1", 0, 0, 0), ("2", L, 0, 0));
-        var elements = new List<FemElement> { new() { ElemTag = "7", ElemType = "beam", NodeIdsJson = "[1,2]", BeamRotationDeg = -90 } };
+        var elements = new List<FemElement> { new() { ElemTag = "7", ElemType = "beam", NodeIdsJson = "[1,2]", BeamRotationDeg = 0 } };
         // Qy = P постоянна, Mz(x) = −P·x.
         var snapshot = new ImportedResultSnapshot
         {
@@ -106,8 +109,8 @@ public sealed class ImportedParentResultTests
         var shared = new ImportedParentResult(snapshot, Map, nodes, elements,
             new ImportedForceConvention([1, -1, -1, 1, -1, 1], [1, 1, 1, -1, -1, -1, 1, 1])).ShearConsistency();
 
-        Assert.Equal(1, lira.Ry!.Value, 9);
-        Assert.Equal(-1, shared.Ry!.Value, 9);
+        Assert.Equal(1, lira.Rz!.Value, 9);
+        Assert.Equal(-1, shared.Rz!.Value, 9);
     }
 
     /// <summary>ЛИРА: у пластины инвертируются моменты и поперечные силы, N — нет; у стержня — все, кроме N.</summary>

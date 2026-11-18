@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using CScore.Fem;
 
 namespace CScore.Import;
@@ -147,18 +147,16 @@ public static class LiraSchemaConverter
     /// умолчанию: Z1 невертикального стержня — в вертикальной плоскости вверх, Y1 = Z1 × X1 горизонтальна (как у SCAD,
     /// <see cref="ScadRodAxes.LocalY"/>); у вертикального Y1 — против глобальной Y при любом направлении стержня (у SCAD
     /// по Y). Угол <paramref name="angleDeg"/> (таблица/документ 17) поворачивает Y1/Z1 вокруг X1 по правилу правой
-    /// руки. Местная Y = Y1 ЛИРЫ (B сечения вдоль Y1, H — вдоль Z1). Оси и знак угла сверены 23.10.2026 по прогибам
-    /// консолей с местной нагрузкой в ЛИРЕ-САПФИР 2025 (вертикальные вверх/вниз, горизонтальные по X/Y, наклонный;
-    /// углы 0 и 30°). Null — стержень нулевой длины.
+    /// руки. Оси и знак угла сверены 23.10.2026 по прогибам консолей с местной нагрузкой в ЛИРЕ-САПФИР 2025
+    /// (вертикальные вверх/вниз, горизонтальные по X/Y, наклонный; углы 0 и 30°). Местная Y сетки = Z1 ЛИРЫ, Z = −Y1
+    /// (<see cref="ImportedBarAxes"/>, с 18.11.2026; раньше Y = Y1): B сечения — вдоль Y1, H — вдоль Z1, как у родной
+    /// балки. Null — стержень нулевой длины.
     /// </summary>
     public static double? BarRotationDeg(LiraNodeRecord a, LiraNodeRecord b, double angleDeg = 0)
     {
         var y = ScadRodAxes.LocalY(null, (a.X, a.Y, a.Z), (b.X, b.Y, b.Z));
         if (y == null) return null;
-        double dx = b.X - a.X, dy = b.Y - a.Y, dz = b.Z - a.Z;
-        // Порог вертикальности — как в ScadRodAxes.LocalY (горизонтальная проекция единичного X1 < 1e-6)
-        if (Math.Sqrt(dx * dx + dy * dy) < 1e-6 * Math.Sqrt(dx * dx + dy * dy + dz * dz)) y = [0, -1, 0];
-        double? deg = BeamLocalAxisConvention.RotationDeg(new(a.X, a.Y, a.Z), new(b.X, b.Y, b.Z), new(y[0], y[1], y[2]));
+        double? deg = ImportedBarAxes.RotationDeg(new(a.X, a.Y, a.Z), new(b.X, b.Y, b.Z), new(y[0], y[1], y[2]));
         if (deg is not { } d || angleDeg == 0) return deg;
         d = Math.IEEERemainder(d + angleDeg, 360);
         return d <= -180 ? d + 360 : d;

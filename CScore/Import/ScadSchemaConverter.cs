@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using CScore.Fem;
 
 namespace CScore.Import;
@@ -81,7 +81,8 @@ public static class ScadSchemaConverter
     /// <summary>
     /// Поворот сечения стержней SCAD от осей <see cref="BeamLocalAxisConvention"/>, град, по номеру КЭ: ось Y1 SCAD
     /// (<see cref="ScadRodAxes.LocalY"/>; без записи в <see cref="ScadSchemaData.RodAxes"/> — ориентация по умолчанию)
-    /// становится местной Y. Стержни нулевой длины и с вырожденной ориентацией пропускаются.
+    /// определяет оси сетки: местная Y = Z1, Z = −Y1 (<see cref="ImportedBarAxes"/>, с 18.11.2026; раньше Y = Y1).
+    /// Стержни нулевой длины и с вырожденной ориентацией пропускаются.
     /// </summary>
     public static Dictionary<int, double> BeamRotations(ScadSchemaData data)
     {
@@ -94,7 +95,7 @@ public static class ScadSchemaConverter
             var y = ScadRodAxes.LocalY(data.RodAxes.GetValueOrDefault(e.Id), (a.X, a.Y, a.Z), (b.X, b.Y, b.Z));
             if (y == null) continue;
             var (pa, pb) = (new Planar.PlanarVector3(a.X, a.Y, a.Z), new Planar.PlanarVector3(b.X, b.Y, b.Z));
-            if (BeamLocalAxisConvention.RotationDeg(pa, pb, new(y[0], y[1], y[2])) is { } deg) result[e.Id] = deg;
+            if (ImportedBarAxes.RotationDeg(pa, pb, new(y[0], y[1], y[2])) is { } deg) result[e.Id] = deg;
         }
         return result;
     }

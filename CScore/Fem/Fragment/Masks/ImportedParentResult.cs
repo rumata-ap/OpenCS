@@ -43,7 +43,8 @@ public sealed record ImportedForceConvention(double[] Bar, double[] Shell)
 /// <item>Перемещения — как в снимке (общие оси).</item>
 /// <item>Стержни: усилия сечения → std (<see cref="ImportedForceConvention.Bar"/>) → сила узла на КЭ: у узла 1
 /// <c>−S(0)</c>, у узла 2 <c>+S(L)</c>; оси — <see cref="BeamLocalAxisConvention"/> с <see cref="FemElement.BeamRotationDeg"/>
-/// (без поворота — осей нет, сил нет).</item>
+/// (без поворота — осей нет, сил нет): компоненты программы по Y1/Z1 переводятся в оси сетки
+/// (<see cref="CScore.Import.ImportedBarAxes.ToMesh(Dof6)"/>: Y = Z1, Z = −Y1).</item>
 /// <item>Пластины: оси выдачи — «узел 1 → узел 2», повёрнутая на <see cref="FemElement.LocalAxisAngleDeg"/> вокруг нормали
 /// <see cref="FemElementGeometry.ShellFrame"/> (без угла — осей нет, усилий нет).</item>
 /// <item>Нагрузка КЭ стержня — равномерная по замыканию сил концов, как у <c>CsfeaFieldsParentResult</c>.</item>
@@ -201,9 +202,12 @@ public sealed class ImportedParentResult : IFragmentParentResult
         var b = en.Load.BarForces;
         var c = _convention.Bar;
         int o = i * ImportedResultLoad.BarComponents;
-        first = new Dof6(c[0] * b[o], c[1] * b[o + 1], c[2] * b[o + 2], c[3] * b[o + 3], c[4] * b[o + 4], c[5] * b[o + 5]);
+        // Снимок — в осях программы (Y1, Z1); силы концов — в осях сетки (ImportedBarAxes: Y = Z1, Z = −Y1).
+        first = CScore.Import.ImportedBarAxes.ToMesh(
+            new Dof6(c[0] * b[o], c[1] * b[o + 1], c[2] * b[o + 2], c[3] * b[o + 3], c[4] * b[o + 4], c[5] * b[o + 5]));
         o += 6;
-        last = new Dof6(c[0] * b[o], c[1] * b[o + 1], c[2] * b[o + 2], c[3] * b[o + 3], c[4] * b[o + 4], c[5] * b[o + 5]);
+        last = CScore.Import.ImportedBarAxes.ToMesh(
+            new Dof6(c[0] * b[o], c[1] * b[o + 1], c[2] * b[o + 2], c[3] * b[o + 3], c[4] * b[o + 4], c[5] * b[o + 5]));
         return true;
     }
 

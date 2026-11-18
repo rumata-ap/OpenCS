@@ -48,8 +48,8 @@ public class FemElement
     public double? LocalAxisAngleDeg { get; set; }
 
     /// <summary>Поворот сечения импортного стержня вокруг оси X, град, от осей <see cref="BeamLocalAxisConvention"/>:
-    /// местные оси программы-источника (SCAD — ApiGetSystemCoordElem, ЛИРА — правило по умолчанию). Местная Y — ось
-    /// Iy жёсткости источника. Null — не задан: у КЭ своей схемы поворот берётся у конструктивного элемента
+    /// по местным осям программы-источника (SCAD — ApiGetSystemCoordElem, ЛИРА — правило по умолчанию) так, что местная
+    /// Y = Z1 программы, Z = −Y1 (<see cref="CScore.Import.ImportedBarAxes"/>; оси как у родной балки). Null — не задан: у КЭ своей схемы поворот берётся у конструктивного элемента
     /// (<see cref="FemMember.RotationDeg"/>), у импортного — оси не прочитаны.</summary>
     public double? BeamRotationDeg { get; set; }
 

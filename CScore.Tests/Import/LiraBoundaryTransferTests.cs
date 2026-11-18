@@ -104,8 +104,8 @@ public sealed class LiraBoundaryTransferTests
             (coupling.MasterNodeTag, coupling.SourceElemTag, coupling.Mask, coupling.Origin));
         Assert.Equal(["4"], coupling.SlaveNodeTags);
 
-        // Шарниры: конец 2 — DOF 4, 5 = T, My (биты 3, 4), конец 1 — N; упругий шарнир (поле 30) и пластина не переносятся.
-        Assert.Equal(new FemElementBoundaryProps(0b000001, 0b011000, null), Assert.Single(r.ElementProps).Value);
+        // Шарниры: конец 2 — DOF 4, 5 = T, My₁ (в осях сетки — T, Mz: биты 3, 5), конец 1 — N; упругий шарнир (поле 30) и пластина не переносятся.
+        Assert.Equal(new FemElementBoundaryProps(0b000001, 0b101000, null), Assert.Single(r.ElementProps).Value);
         Assert.Equal("1", r.ElementProps.Keys.Single());
 
         var rows = r.Summary.ToDictionary(x => x.Kind);
@@ -168,7 +168,7 @@ public sealed class LiraBoundaryTransferTests
 
         Assert.Equal(new FemElementBoundaryProps(null, null, 5e7), r.ElementProps["2"]);
         // C1 на стержне не ставится, освобождения стержня остаются.
-        Assert.Equal(new FemElementBoundaryProps(0b000001, 0b011000, null), r.ElementProps["1"]);
+        Assert.Equal(new FemElementBoundaryProps(0b000001, 0b101000, null), r.ElementProps["1"]);
         var row = r.Summary.Single(x => x.Kind == "Упругое основание пластин (C1)");
         Assert.Equal(1, row.Transferred);
     }
