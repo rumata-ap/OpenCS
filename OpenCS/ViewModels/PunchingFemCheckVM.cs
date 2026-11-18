@@ -117,7 +117,8 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
         }
     }
     /// <summary>Режимы капители для списка.</summary>
-    public static IReadOnlyList<PunchingChoice> CapitalModes { get; } =
+    /// <remarks>Строится при каждом открытии окна — подписи на текущем языке.</remarks>
+    public static IReadOnlyList<PunchingChoice> CapitalModes =>
     [
         new("auto", Loc.S("PunchingFemCapital_auto", "по схеме")), new("none", Loc.S("PunchingFemCapital_none", "нет")),
         new("manual", Loc.S("PunchingFemCapital_manual", "вручную")),
@@ -168,7 +169,8 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
         }
     }
     /// <summary>Режимы основного контура для списка.</summary>
-    public static IReadOnlyList<PunchingChoice> ContourModes { get; } =
+    /// <remarks>Строится при каждом открытии окна — подписи на текущем языке.</remarks>
+    public static IReadOnlyList<PunchingChoice> ContourModes =>
     [
         new("check", Loc.S("PunchingFemContour_check", "по проверке")), new("opencs", Loc.S("PunchingFemContour_opencs", "OpenCS")),
         new("lira", Loc.S("PunchingFemContour_lira", "ЛИРЫ")),
