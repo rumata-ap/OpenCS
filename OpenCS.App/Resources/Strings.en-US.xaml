@@ -5867,6 +5867,9 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemResultCardMembers">Members: {0}, elements: {1} — largest by magnitude</system:String>
     <system:String x:Key="FemResultCardElements">Selected elements: {0} — largest by magnitude</system:String>
     <system:String x:Key="FemResultCardOwner">Member</system:String>
+    <system:String x:Key="FemResultCardImportedAxesLira">LIRA components</system:String>
+    <system:String x:Key="FemResultCardImportedAxesScad">SCAD components</system:String>
+    <system:String x:Key="FemResultCardImportedAxesValue">N = N, Mt = −Mt, My = −Mz, Mz = My, Qy = −Qz, Qz = Qy — the OpenCS local Y of the bar is the program's Z1 (as for native beams)</system:String>
     <system:String x:Key="FemResultCardCoordinates">x; y; z, m</system:String>
     <system:String x:Key="FemResultCardEnds">start {0}; end {1}</system:String>
     <system:String x:Key="FemResultCardExtremum">{0} (element {1})</system:String>

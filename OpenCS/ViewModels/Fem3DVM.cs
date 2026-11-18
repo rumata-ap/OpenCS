@@ -1307,7 +1307,9 @@ public class Fem3DVM : ViewModelBase
                 n => _db.GetFemResultStep(id, n)),
             _ => new FemResult.OpenSeesResultSteps(new FemAnalysisResultVM(result, _db, schema)),
         };
-        return new FemResult.FemResultLayer(analysis, analysis.Tag, steps, _resultMesh);
+        string? program = schema.SourceType is "lira" or "scad" ? schema.SourceType
+            : schema.ParentSourceType is "lira" or "scad" ? schema.ParentSourceType : null;
+        return new FemResult.FemResultLayer(analysis, analysis.Tag, steps, _resultMesh) { ImportedProgram = program };
     }
 
     /// <summary>Раскраска результата: пластины и стержни сетки на положениях узлов слоя (деформированных, если показаны).</summary>

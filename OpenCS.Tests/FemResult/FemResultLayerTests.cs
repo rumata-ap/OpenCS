@@ -1087,6 +1087,40 @@ public class FemResultLayerTests
         Assert.Equal(new Vector3D(0, 0, 1), layer.BarDiagramAxis("1", FemForceComponent.Qy));
         // My — против Ez: эпюра моментов на растянутых волокнах.
         Assert.Equal(new Vector3D(0, 1, 0), layer.BarDiagramAxis("1", FemForceComponent.My));
+        // Своя схема: строки «Компоненты ЛИРЫ» нет.
+        layer.Selection.PickElement("1", FemResultPickMode.Elements, false);
+        Assert.DoesNotContain(layer.BuildCard()!.Rows, r => r.Label == OpenCS.Utilites.Loc.S("FemResultCardImportedAxesLira"));
+    }
+
+    /// <summary>
+    /// Стержень импорта ЛИРЫ (поворот сечения своего КЭ): в карточке — связь показанных компонент с компонентами ЛИРЫ;
+    /// у стержня без своего поворота (добавлен в OpenCS) — нет.
+    /// </summary>
+    [Fact]
+    public void Card_ImportedBar_ShowsProgramComponents()
+    {
+        using var t = new TempDb();
+        t.Db.SaveFemMeshSnapshot(t.Schema.Id, [N("1", 0, 0), new FemMeshNode { NodeTag = "2", Z = 3 }, N("3", 1, 0)],
+        [
+            new FemElement { ElemTag = "1", NodeIdsJson = "[1,2]", BeamRotationDeg = 90 },
+            new FemElement { ElemTag = "2", NodeIdsJson = "[1,3]" },
+        ]);
+        var forces = new[]
+        {
+            new FemElementEndForces(1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0),
+            new FemElementEndForces(2, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0),
+        };
+        var result = new FemNonlinearResult { Status = "ok", Steps = [new FemNonlinearStepResult(1, 1.0, true, [], [], forces)], CalcTypeName = "C" };
+        var steps = new OpenSeesResultSteps(new FemAnalysisResultVM(
+            new CalcResult { Status = "ok", DataJson = JsonSerializer.Serialize(result) }, t.Db, t.Schema));
+        var layer = new FemResultLayer(new FemAnalysis { Tag = "Р1" }, "Р1", steps, t.Mesh()) { ImportedProgram = "lira" };
+        string label = OpenCS.Utilites.Loc.S("FemResultCardImportedAxesLira");
+
+        layer.Selection.PickElement("1", FemResultPickMode.Elements, false);
+        var row = Assert.Single(layer.BuildCard()!.Rows, r => r.Label == label);
+        Assert.Equal(OpenCS.Utilites.Loc.S("FemResultCardImportedAxesValue"), row.Value);
+        layer.Selection.PickElement("2", FemResultPickMode.Elements, false);
+        Assert.DoesNotContain(layer.BuildCard()!.Rows, r => r.Label == label);
     }
 
     [Fact]

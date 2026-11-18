@@ -5867,6 +5867,9 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemResultCardMembers">КонЭ: {0}, КЭ: {1} — наибольшие по модулю</system:String>
     <system:String x:Key="FemResultCardElements">Выбрано КЭ: {0} — наибольшие по модулю</system:String>
     <system:String x:Key="FemResultCardOwner">КонЭ</system:String>
+    <system:String x:Key="FemResultCardImportedAxesLira">Компоненты ЛИРЫ</system:String>
+    <system:String x:Key="FemResultCardImportedAxesScad">Компоненты SCAD</system:String>
+    <system:String x:Key="FemResultCardImportedAxesValue">N = N, Mк = −Mк, My = −Mz, Mz = My, Qy = −Qz, Qz = Qy — местная Y стержня в OpenCS = Z1 программы (как у своих балок)</system:String>
     <system:String x:Key="FemResultCardCoordinates">x; y; z, м</system:String>
     <system:String x:Key="FemResultCardEnds">начало {0}; конец {1}</system:String>
     <system:String x:Key="FemResultCardExtremum">{0} (КЭ {1})</system:String>

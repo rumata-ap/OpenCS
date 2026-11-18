@@ -831,11 +831,41 @@ public sealed class FemResultLayer : ViewModelBase
         return new FemResultCard(string.Format(Loc.S("FemResultCardNode"), node), rows);
     }
 
+    /// <summary>
+    /// Программа импорта схемы (<c>lira</c>, <c>scad</c>; у фрагмента — родителя); null — схема не импортная. У стержней
+    /// импорта с осями программы карточка показывает связь компонент OpenCS с компонентами программы.
+    /// </summary>
+    public string? ImportedProgram { get; init; }
+
+    Dictionary<string, FemElement>? _elementsByTag;
+
+    /// <summary>
+    /// Строка карточки: как показанные усилия стержня импорта соотносятся с компонентами программы (оси сетки: местная
+    /// Y = Z1, Z = −Y1 — <see cref="CScore.Import.ImportedBarAxes"/>; знаки программы — как у снимка результатов).
+    /// Сверено 18.11.2026 на «Мирной»: линейный CSfea против снимка ЛИРЫ, 69 колонн, невязка ≤ 3 %.
+    /// </summary>
+    void ImportedAxesRow(string tag, List<FemResultCardRow> rows)
+    {
+        string? key = ImportedProgram switch
+        {
+            "lira" => "FemResultCardImportedAxesLira",
+            "scad" => "FemResultCardImportedAxesScad",
+            _ => null,
+        };
+        if (key == null || !HasBarForces) return;
+        _elementsByTag ??= Mesh.Elements.GroupBy(e => e.ElemTag, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        // Поворот сечения своего КЭ — у стержней импорта (у КЭ, добавленных в OpenCS, — поворот КонЭ, осей программы нет).
+        if (!_elementsByTag.TryGetValue(tag, out var e) || e.BeamRotationDeg == null) return;
+        rows.Add(new(Loc.S(key), Loc.S("FemResultCardImportedAxesValue")));
+    }
+
     FemResultCard ElementCard(string tag)
     {
         bool bar = Mesh.IsBar(tag);
         var rows = new List<FemResultCardRow>();
         if (Mesh.OwnerOf(tag) is { } owner) rows.Add(new(Loc.S("FemResultCardOwner"), owner));
+        if (bar) ImportedAxesRow(tag, rows);
         if (IsEnvelope && Csfea is { } vm && int.TryParse(tag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int elem))
         {
             // Огибающая: обе ветви с комбинациями; перемещения — средние по узлам пластины (у стержня их нет в огибающей).
