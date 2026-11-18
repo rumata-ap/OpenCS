@@ -744,6 +744,8 @@
    <system:String x:Key="StagedPartLinkedTo">сечение «{0}»</system:String>
    <system:String x:Key="StagedPartLinkedReadOnly">Области части берутся из сечения-источника; правьте их в нём или отвяжите часть</system:String>
    <system:String x:Key="StagedPartDefaultTag">Часть {0}</system:String>
+   <system:String x:Key="ImportedBarAxesMigratedNotice">Оси импортных стержней переведены на новое правило (местная Y = Z1 программы, как у родных балок) в схемах {0}: стержней {1}, местных нагрузок {2} (разделено записей на стержни и пластины: {3})</system:String>
+   <system:String x:Key="ImportedBarAxesResultsResetNotice">Сброшены результаты постановок CSfea импортных схем (усилия стержней были в прежних осях): {0}. Пересчитайте их и пересоздайте наборы усилий стержней, составленные из этих результатов (наборы из таблиц ЛИРЫ/SCAD верны)</system:String>
    <system:String x:Key="StagedSectionsRemovedNotice">Удалено {0} двухстадийных сечений; создайте их заново как стадийные</system:String>
    <system:String x:Key="SectionUsedAsStagedPart">Сечение используется как часть стадийного сечения «{0}» — удаление невозможно</system:String>
    <system:String x:Key="NewArea">Новая область</system:String>

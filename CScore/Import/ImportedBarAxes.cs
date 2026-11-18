@@ -54,4 +54,36 @@ public static class ImportedBarAxes
         2 => ("z", -1),
         _ => ("y", 1),
     };
+
+    /// <summary>
+    /// Поворот сечения в прежних осях сетки импорта (местная Y = Y1, до 18.11.2026) → в нынешних, град: +90°,
+    /// в пределах (−180, 180].
+    /// </summary>
+    public static double MigrateRotationDeg(double oldDeg)
+    {
+        double d = Math.IEEERemainder(oldDeg + 90, 360);
+        return d <= -180 ? d + 360 : d;
+    }
+
+    /// <summary>
+    /// Местная нагрузка стержня в прежних осях сетки импорта (Y = Y1, Z = Z1) → в нынешних (Y = Z1, Z = −Y1): ось y →
+    /// z со сменой знака сил, z → y. Силы — первое число равномерной и сосредоточенной, q1 и q2 трапеции (привязки
+    /// не меняются). Null — ось x или вид без поперечных сил стержня (менять нечего).
+    /// </summary>
+    public static (string Axis, double[] Values)? MigrateLocalBarLoad(string kind, string axis, IReadOnlyList<double> values)
+    {
+        if (axis is not ("y" or "z")) return null;
+        int[] forces = kind switch
+        {
+            FemElementLoadKinds.Uniform or FemElementLoadKinds.Point => [0],
+            FemElementLoadKinds.Trapezoid => [0, 2],
+            _ => [],
+        };
+        if (forces.Length == 0) return null;
+        var v = values.ToArray();
+        if (axis == "y")
+            foreach (int i in forces)
+                if (i < v.Length) v[i] = -v[i];
+        return (axis == "y" ? "z" : "y", v);
+    }
 }

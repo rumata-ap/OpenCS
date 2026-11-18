@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 101;
+      const int CurrentSchemaVersion = 102;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -121,6 +121,7 @@ namespace OpenCS.Utilites
          [98] = MigrateV99,
          [99] = MigrateV100,
          [100] = MigrateV101,
+         [101] = MigrateV102,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
