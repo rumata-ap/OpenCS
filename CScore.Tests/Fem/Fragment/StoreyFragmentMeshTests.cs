@@ -8,10 +8,11 @@ public sealed class StoreyFragmentMeshTests
 {
     static FemMeshNode M(string tag, double x, double y, double z) => new() { NodeTag = tag, X = x, Y = y, Z = z };
 
-    static FemElement B(string tag, string i, string j, string? member = null, int? releaseI = null, int? section = null) => new()
+    static FemElement B(string tag, string i, string j, string? member = null, int? releaseI = null, int? section = null,
+        double? rotation = null) => new()
     {
         ElemTag = tag, ElemType = "beam", NodeIdsJson = $"[{i},{j}]", SectionTag = "1", SourceMemberTag = member, ReleaseI = releaseI,
-        CrossSectionId = section,
+        CrossSectionId = section, BeamRotationDeg = rotation,
     };
 
     static readonly FemMeshNode[] ColumnNodes =
@@ -125,6 +126,39 @@ public sealed class StoreyFragmentMeshTests
         Assert.All(bars, b => Assert.Equal(5, b.Member.CrossSectionId));
         Assert.DoesNotContain(d.Diagnostics, x => x.Code == "fragment_bar_section_varies");
     }
+    /// <summary>
+    /// Поворот сечения у КЭ импорта (оси ЛИРЫ/SCAD — у КЭ, у КонЭ 0): части фрагмента берут его, иначе прямоугольная
+    /// колонна во фрагменте развёрнута на 90° (так было у «Мирной», 18.11). КЭ, идущий сверху вниз, — та же местная Y.
+    /// </summary>
+    [Fact]
+    public void UncoveredColumn_TakesElementRotation()
+    {
+        var d = Build(1.5, 4.5, [], [Slab("S1", 1, 3)], ColumnNodes,
+            [CoveredElement("S1"), B("1", "101", "102", section: 5, rotation: 90), B("2", "103", "102", section: 5, rotation: -90),
+             B("3", "103", "104", section: 5, rotation: 90)]);
+
+        var bars = d.Members.Where(m => m.Member.ElemType == "beam").ToList();
+        Assert.Equal(2, bars.Count);
+        Assert.All(bars, b => Assert.Equal(90, b.Member.RotationDeg, 6));
+        Assert.DoesNotContain(d.Diagnostics, x => x.Code == "fragment_bar_rotation_varies");
+    }
+
+    /// <summary>КонЭ со своим поворотом 0 и КЭ импорта с поворотом 180 — у частей поворот КЭ; без поворота у КЭ — КонЭ.</summary>
+    [Fact]
+    public void CoveredColumn_ElementRotationWins_OtherwiseMember()
+    {
+        var column = Bar("C1", "1", "2");
+        column.RotationDeg = 30;
+        var turned = Build(1.5, 4.5, [N("1", 0, 0, 0), N("2", 0, 0, 6)], [(column, null), Slab("S1", 1, 3)], ColumnNodes,
+            [CoveredElement("S1"), B("1", "101", "102", "C1", rotation: 180), B("2", "102", "103", "C1", rotation: 180),
+             B("3", "103", "104", "C1", rotation: 180)]);
+        var plain = Build(1.5, 4.5, [N("1", 0, 0, 0), N("2", 0, 0, 6)], [(column, null), Slab("S1", 1, 3)], ColumnNodes,
+            [CoveredElement("S1"), B("1", "101", "102", "C1"), B("2", "102", "103", "C1"), B("3", "103", "104", "C1")]);
+
+        Assert.All(turned.Members.Where(m => m.Member.ElemType == "beam"), m => Assert.Equal(180, m.Member.RotationDeg, 6));
+        Assert.All(plain.Members.Where(m => m.Member.ElemType == "beam"), m => Assert.Equal(30, m.Member.RotationDeg, 6));
+    }
+
     /// <summary>Шаг сетки родителя — медиана рёбер его КЭ пластин в полосе (Q4 «1 2 4 3» — по контуру); без пластин — null.</summary>
     [Fact]
     public void ParentMeshStep_MedianShellEdge()

@@ -79,11 +79,11 @@ public static partial class StoreyFragmentBuilder
             if (m.ElemType == "beam")
             {
                 // Сечение — у КЭ цепочки (импорт SCAD/ЛИРЫ): части фрагмента берут его по своему участку (CutBar).
-                var bars = new List<(PlanarVector3 A, PlanarVector3 B, int? SectionId)>();
+                var bars = new List<(PlanarVector3 A, PlanarVector3 B, int? SectionId, double? RotationDeg)>();
                 foreach (var e in part.ElementTags.Select(t => elementByTag.GetValueOrDefault(t)).OfType<FemElement>())
                     if (FemMeshTopology.ReadNodeTags(e)?.ToArray() is { Length: 2 } et &&
                         meshNode.TryGetValue(et[0], out var ea) && meshNode.TryGetValue(et[1], out var eb))
-                        bars.Add((P(ea), P(eb), e.CrossSectionId));
+                        bars.Add((P(ea), P(eb), e.CrossSectionId, e.BeamRotationDeg));
                 c.ParentBars[m.ElemTag] = bars;
                 var ids = NodeTags(m);
                 result.Add(new(m, null, P(ends[ids[0].ToString(CultureInfo.InvariantCulture)]),

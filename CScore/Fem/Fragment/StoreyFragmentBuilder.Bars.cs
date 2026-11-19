@@ -69,6 +69,9 @@ public static partial class StoreyFragmentBuilder
             string name = names[d.Z < 0 ? count - 1 - k : k];
             var part = CopyPart(s.Member, name, [int.Parse(nodes[k].NodeTag), int.Parse(nodes[k + 1].NodeTag)]);
             part.CrossSectionId ??= SectionOnPart(c, s.Member.ElemTag, At(a, d, stations[k]), At(a, d, stations[k + 1]), name);
+            // Поворот своего КЭ (импорт ЛИРЫ/SCAD: оси программы у КЭ, у КонЭ — 0) — у части, иначе сечение развернётся.
+            if (RotationOnPart(c, s.Member.ElemTag, At(a, d, stations[k]), At(a, d, stations[k + 1]), name) is { } rotation)
+                part.RotationDeg = rotation;
             parts.Add(part);
             var member = c.Add(s.Member, part, null);
             if (kept is not null)
@@ -101,16 +104,16 @@ public static partial class StoreyFragmentBuilder
     }
 
     /// <summary>Стержневые КЭ сетки родителя с КонЭ — по тегу КонЭ (импорт SCAD/ЛИРЫ: сечение есть у КЭ, у КонЭ нет).</summary>
-    static Dictionary<string, List<(PlanarVector3 A, PlanarVector3 B, int? SectionId)>> ParentBars(StoreyFragmentParentSnapshot parent)
+    static Dictionary<string, List<(PlanarVector3 A, PlanarVector3 B, int? SectionId, double? RotationDeg)>> ParentBars(StoreyFragmentParentSnapshot parent)
     {
         var node = parent.MeshNodes.GroupBy(n => n.NodeTag).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
-        var result = new Dictionary<string, List<(PlanarVector3, PlanarVector3, int?)>>(StringComparer.Ordinal);
+        var result = new Dictionary<string, List<(PlanarVector3, PlanarVector3, int?, double?)>>(StringComparer.Ordinal);
         foreach (var e in parent.MeshElements.Where(e => e.ElemType == "beam" && e.SourceMemberTag is not null))
         {
             var tags = FemMeshTopology.ReadNodeTags(e)?.ToArray();
             if (tags is not { Length: 2 } || !node.TryGetValue(tags[0], out var a) || !node.TryGetValue(tags[1], out var b)) continue;
             if (!result.TryGetValue(e.SourceMemberTag!, out var list)) result[e.SourceMemberTag!] = list = [];
-            list.Add((new(a.X, a.Y, a.Z), new(b.X, b.Y, b.Z), e.CrossSectionId));
+            list.Add((new(a.X, a.Y, a.Z), new(b.X, b.Y, b.Z), e.CrossSectionId, e.BeamRotationDeg));
         }
         return result;
     }
@@ -127,7 +130,7 @@ public static partial class StoreyFragmentBuilder
         if (len < c.Tol) return null;
         var unit = axis * (1 / len);
         var lengths = new Dictionary<int, double>();
-        foreach (var (a, b, section) in elements)
+        foreach (var (a, b, section, _) in elements)
         {
             if (section is not int id) continue;
             // КЭ на оси части: оба конца в допуске привязки к источнику (КЭ того же КонЭ; хорда импортного КонЭ может
@@ -138,6 +141,40 @@ public static partial class StoreyFragmentBuilder
             if (overlap > c.Tol) lengths[id] = lengths.GetValueOrDefault(id) + overlap;
         }
         return PickSection(c, lengths, partTag);
+    }
+
+    /// <summary>
+    /// Поворот сечения части по КЭ родителя этого КонЭ с собственным поворотом (<see cref="FemElement.BeamRotationDeg"/>) на
+    /// участке <paramref name="p"/>–<paramref name="q"/>; КЭ, направленный против части, — с той же
+    /// местной Y. Разные повороты — предупреждение и поворот большей длины; поворотов у КЭ нет — null (поворот КонЭ).
+    /// </summary>
+    static double? RotationOnPart(Ctx c, string memberTag, PlanarVector3 p, PlanarVector3 q, string partTag)
+    {
+        if (!c.ParentBars.TryGetValue(memberTag, out var elements)) return null;
+        var axis = q - p;
+        double len = axis.Length;
+        if (len < c.Tol) return null;
+        var unit = axis * (1 / len);
+        var lengths = new Dictionary<double, double>();
+        foreach (var (a, b, _, rotation) in elements)
+        {
+            if (rotation is not double r) continue;
+            if (Offset(a - p, unit) > SourceSnapM || Offset(b - p, unit) > SourceSnapM) continue;
+            double ta = (a - p).Dot(unit), tb = (b - p).Dot(unit);
+            double overlap = Math.Min(len, Math.Max(ta, tb)) - Math.Max(0, Math.Min(ta, tb));
+            if (overlap <= c.Tol) continue;
+            // Та же местная Y, что у КЭ родителя, — в осях части (КЭ может идти против части).
+            if (BeamLocalAxisConvention.RotationDeg(p, q, BeamLocalAxisConvention.Frame(a, b, r).Y) is not double along) continue;
+            along = Math.Round(along, 6);
+            lengths[along] = lengths.GetValueOrDefault(along) + overlap;
+        }
+        if (lengths.Count == 0) return null;
+        var best = lengths.OrderByDescending(x => x.Value).ThenBy(x => x.Key).First().Key;
+        if (lengths.Count > 1)
+            c.Warn("fragment_bar_rotation_varies",
+                $"У КЭ стержня {partTag} в родителе разные повороты сечения ({string.Join("; ", lengths.Keys.Order().Select(v => v.ToString("0.###", System.Globalization.CultureInfo.CurrentCulture)))}°) — " +
+                $"взят {best.ToString("0.###", System.Globalization.CultureInfo.CurrentCulture)}° по большей длине.", partTag);
+        return best;
     }
 
     /// <summary>Сечение по длинам КЭ с ним; разные — предупреждение.</summary>

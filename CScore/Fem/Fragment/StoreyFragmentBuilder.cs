@@ -37,8 +37,10 @@ public static partial class StoreyFragmentBuilder
         /// <summary>Сохранение сетки родителя (<see cref="StoreyFragmentRequest.KeepParentMesh"/>); null — выключено.</summary>
         public KeepState? Keep { get; set; }
         public List<Slab> Slabs { get; } = [];
-        /// <summary>Стержневые КЭ родителя по тегу КонЭ: концы и сечение — источник сечения частей фрагмента.</summary>
-        public Dictionary<string, List<(PlanarVector3 A, PlanarVector3 B, int? SectionId)>> ParentBars { get; set; } = [];
+        /// <summary>
+        /// Стержневые КЭ родителя по тегу КонЭ: концы, сечение и поворот КЭ — источник сечения и осей частей фрагмента.
+        /// </summary>
+        public Dictionary<string, List<(PlanarVector3 A, PlanarVector3 B, int? SectionId, double? RotationDeg)>> ParentBars { get; set; } = [];
         /// <summary>КЭ родителя исходных КонЭ «КЭ без КонЭ · k» (у КонЭ родителя — КЭ с его тегом в полосе).</summary>
         public Dictionary<string, List<string>> SourceElements { get; } = new(StringComparer.Ordinal);
 

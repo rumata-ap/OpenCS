@@ -44,6 +44,68 @@ public class ImportedBarAxesLiraSnapshotManualTests(ITestOutputHelper output)
         }
     }
 
+    /// <summary>
+    /// Пересборка фрагмента импортной схемы (без расчёта): поворот сечения частей колонн = поворот КЭ родителя на той же
+    /// оси в плане (оси ЛИРЫ — у КЭ, у КонЭ «КЭ без КонЭ» — 0; до 19.11 части теряли поворот).
+    /// </summary>
+    [Fact]
+    public void FragmentRebuild_ColumnRotationsMatchParent()
+    {
+        string? source = Environment.GetEnvironmentVariable("OPENCS_AXES_CMP_DB");
+        if (string.IsNullOrWhiteSpace(source)) return;
+        var root = Path.Combine(Path.GetTempPath(), $"opencs-axes-frag-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        var path = Path.Combine(root, "source.db");
+        File.Copy(source, path);
+        try
+        {
+            using var db = new DatabaseService(path);
+            db.LoadAll();
+            var parent = db.FemSchemas.First(s => s.SourceType == "lira");
+            var fragment = db.FemSchemas.First(s => s.ParentSchemaId == parent.Id);
+            var request = StoreyFragmentService.ParentRequest(fragment)!;
+            var draft = StoreyFragmentService.Prepare(db, parent.Id, request).Draft;
+            Assert.False(draft.HasErrors, string.Join("; ", draft.Diagnostics.Where(d => d.IsError).Select(d => d.Message)));
+
+            static (double, double) Key(double x, double y) => (Math.Round(x, 2), Math.Round(y, 2));
+            var nodes = db.GetFemMeshNodes(parent.Id).ToDictionary(n => n.NodeTag);
+            var parentRotation = new Dictionary<(double, double), HashSet<double>>();
+            foreach (var e in db.GetFemMeshElements(parent.Id).Where(e => e.ElemType == "beam"))
+            {
+                var t = FemMeshTopology.ReadNodeTags(e)!.ToArray();
+                var (a, b) = (nodes[t[0]], nodes[t[1]]);
+                if (Math.Abs(a.X - b.X) > 1e-6 || Math.Abs(a.Y - b.Y) > 1e-6) continue;
+                var k = Key(a.X, a.Y);
+                if (!parentRotation.TryGetValue(k, out var set)) parentRotation[k] = set = [];
+                set.Add(Math.Round(a.Z < b.Z ? e.BeamRotationDeg ?? 0 : -(e.BeamRotationDeg ?? 0), 6));
+            }
+            var fnodes = draft.Nodes.ToDictionary(n => n.NodeTag);
+            int same = 0, differ = 0, unknown = 0;
+            foreach (var m in draft.Members.Select(m => m.Member).Where(m => m.ElemType == "beam"))
+            {
+                var ids = System.Text.Json.JsonSerializer.Deserialize<int[]>(m.NodeIdsJson)!;
+                var (a, b) = (fnodes[ids[0].ToString()], fnodes[ids[^1].ToString()]);
+                if (Math.Abs(a.X - b.X) > 1e-6 || Math.Abs(a.Y - b.Y) > 1e-6) continue;
+                if (!parentRotation.TryGetValue(Key(a.X, a.Y), out var set)) { unknown++; continue; }
+                double rot = Math.Round(a.Z < b.Z ? m.RotationDeg : -m.RotationDeg, 6);
+                bool ok = set.Any(r => Math.Abs(Math.IEEERemainder(r - rot, 360)) < 1e-6);
+                if (ok) same++;
+                else
+                {
+                    differ++;
+                    if (differ <= 5) output.WriteLine($"  {m.ElemTag}: фрагмент {rot}°, родитель {string.Join("/", set)}°");
+                }
+            }
+            output.WriteLine($"колонны фрагмента «{fragment.Tag}»: совпал поворот {same}, разный {differ}, без пары {unknown}");
+            Assert.Equal(0, differ);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            try { Directory.Delete(root, true); } catch (IOException) { }
+        }
+    }
+
     async Task Run(string path, string root)
     {
         var sw = Stopwatch.StartNew();
