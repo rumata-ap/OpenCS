@@ -656,6 +656,7 @@ public class Fem3DVM : ViewModelBase
             _diagramKinematicLoads = _db.GetFemKinematicLoads(_schemaId);
             _diagramElementLoads = _db.GetFemElementLoads(_schemaId);
             _loadMesh = null;
+            _programBarRotations = null;
             RefreshDiagramSources(_diagramLoadCases, []);
             if (_memberOnly == null && _highlightMember == null && !constructiveEmpty && !importedBackground)
                 await LoadMeshOverlayAsync();
@@ -799,6 +800,7 @@ public class Fem3DVM : ViewModelBase
         Fragment.SetMeshSource(() => snapshot.elements);
         // Глифы нагрузок на КЭ/КонЭ и собственного веса строятся по сетке (_loadMesh): после сборки сетки прежняя
         // (у фрагмента без сохранения сетки — пустая) устарела — без сброса нагрузки на плите не видны до переоткрытия.
+        _programBarRotations = null;
         if (_loadMesh != null)
         {
             _loadMesh = null;
@@ -1433,6 +1435,36 @@ public class Fem3DVM : ViewModelBase
     /// <summary>Эпюры текущей мозаики на стержнях: ординаты по сечениям КЭ в местных осях, общий масштаб на вид —
     /// по показанным (видимым) стержням. Знакопеременные — сценой <see cref="BarDiagram"/>, ступени Кисп — линиями
     /// (результат метода). Пусто — эпюры выключены, ступенчатых нет или у мозаики нет значений по сечениям.</summary>
+    Dictionary<string, double>? _programBarRotations;
+
+    /// <summary>
+    /// Ось ординат эпюры мозаики в осях программы-источника по повороту КЭ сетки импорта ЛИРЫ/SCAD (у фрагмента такой
+    /// схемы — по повороту КонЭ, если у КЭ своего нет); null — схема не импортная или поворот неизвестен (правило ЛИРЫ
+    /// при нулевом угле, <see cref="BarDiagramGeometry.LocalAxes"/>).
+    /// </summary>
+    (double X, double Y, double Z)? ProgramDiagramAxis(string tag, Point3D p1, Point3D p2, BarDiagramPlane plane)
+    {
+        if (_programBarRotations == null)
+        {
+            _programBarRotations = new Dictionary<string, double>(StringComparer.Ordinal);
+            var schema = _db.FemSchemas.FirstOrDefault(s => s.Id == _schemaId);
+            if (schema != null && (schema.SourceType is "lira" or "scad" || schema.ParentSourceType is "lira" or "scad"))
+            {
+                var members = _db.GetFemMembers(_schemaId).GroupBy(m => m.ElemTag, StringComparer.Ordinal)
+                    .ToDictionary(g => g.Key, g => g.First().RotationDeg, StringComparer.Ordinal);
+                foreach (var e in _db.GetFemMeshElements(_schemaId).Where(e => e.ElemType == "beam"))
+                {
+                    double? rot = e.BeamRotationDeg
+                                  ?? (e.SourceMemberTag is { } m && members.TryGetValue(m, out double r) ? r : null);
+                    if (rot is double value) _programBarRotations.TryAdd(e.ElemTag.Trim(), value);
+                }
+            }
+        }
+        return _programBarRotations.TryGetValue(tag, out double deg)
+            ? BarDiagramGeometry.ProgramAxis((p1.X, p1.Y, p1.Z), (p2.X, p2.Y, p2.Z), deg, plane)
+            : null;
+    }
+
     List<BarGroup> BuildBarDiagrams()
     {
         BarDiagram = null;
@@ -1463,7 +1495,7 @@ public class Fem3DVM : ViewModelBase
                     var color = Mosaic.UtilizationColor(profile[i].V) ?? BarDiagramPositiveColor;
                     if (!byColor.TryGetValue(color, out var lines)) byColor[color] = lines = [];
                     BarDiagramGeometry.AddBar(lines, negative, (p1.X, p1.Y, p1.Z), (p2.X, p2.Y, p2.Z),
-                        [profile[i], profile[i + 1]], plane, scale);
+                        [profile[i], profile[i + 1]], plane, scale, ProgramDiagramAxis(tag, p1, p2, plane));
                 }
             }
             return byColor.Select(kv => new BarGroup("", kv.Key, Points(kv.Value), 2.0)).ToList();
@@ -1475,7 +1507,7 @@ public class Fem3DVM : ViewModelBase
             foreach (var (tag, p1, p2) in MosaicBarSegments)
                 if (byTag.TryGetValue(tag, out var profile))
                     inputs.Add(new BarDiagramInput(tag, (p1.X, p1.Y, p1.Z), (p2.X, p2.Y, p2.Z), profile,
-                        Mosaic.BarDiagramAxis(tag) is { } d ? (d.X, d.Y, d.Z) : null));
+                        Mosaic.BarDiagramAxis(tag) is { } d ? (d.X, d.Y, d.Z) : ProgramDiagramAxis(tag, p1, p2, plane)));
             return BarDiagramScene.Build(inputs, plane, scale, diagonal * BarDiagramOrdinateSpacingRatio);
         }
 

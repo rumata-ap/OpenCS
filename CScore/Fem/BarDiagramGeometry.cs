@@ -16,7 +16,8 @@ public readonly record struct BarDiagramLine((double X, double Y, double Z) A, (
 public static class BarDiagramGeometry
 {
     /// <summary>
-    /// Местные оси стержня по правилу ЛИРЫ при нулевом угле чистого вращения (угол в схему не импортируется):
+    /// Местные оси стержня по правилу ЛИРЫ при нулевом угле чистого вращения (запасной путь, если поворот КЭ неизвестен;
+    /// по повороту КЭ импорта — <see cref="ProgramAxis"/>):
     /// у невертикального стержня Z1 лежит в вертикальной плоскости стержня и направлена вверх,
     /// у вертикального — против глобальной X (Y1 — вдоль глобальной Y); Y1 = Z1 × X1.
     /// </summary>
@@ -41,6 +42,22 @@ public static class BarDiagramGeometry
         }
         var y = (z.Y * x.Z - z.Z * x.Y, z.Z * x.X - z.X * x.Z, z.X * x.Y - z.Y * x.X);
         return (y, z);
+    }
+
+    /// <summary>
+    /// Направление ординат эпюры в осях программы-источника по местным осям КЭ сетки импорта (поворот сечения
+    /// <paramref name="meshRotationDeg"/>, <see cref="BeamLocalAxisConvention"/>): у ЛИРЫ/SCAD местная Y сетки — Z1,
+    /// Z — −Y1 (<see cref="Import.ImportedBarAxes"/>). В отличие от <see cref="LocalAxes"/> учитывает угол чистого
+    /// вращения программы и её правило для вертикальных стержней. Null — стержень нулевой длины.
+    /// </summary>
+    public static (double X, double Y, double Z)? ProgramAxis((double X, double Y, double Z) p1, (double X, double Y, double Z) p2,
+        double meshRotationDeg, BarDiagramPlane plane)
+    {
+        var a = new Planar.PlanarVector3(p1.X, p1.Y, p1.Z);
+        var b = new Planar.PlanarVector3(p2.X, p2.Y, p2.Z);
+        if ((b - a).Length < 1e-12) return null;
+        var (_, y, z) = BeamLocalAxisConvention.Frame(a, b, meshRotationDeg);
+        return plane == BarDiagramPlane.Z1 ? (y.X, y.Y, y.Z) : (-z.X, -z.Y, -z.Z);
     }
 
     /// <summary>

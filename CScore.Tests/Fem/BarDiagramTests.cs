@@ -226,6 +226,34 @@ public class BarDiagramTests
         Assert.Null(BarDiagramGeometry.LocalAxes((1, 1, 1), (1, 1, 1)));
     }
 
+    /// <summary>
+    /// Оси программы по повороту КЭ импорта (местная Y сетки = Z1, Z = −Y1): у балки вдоль +Y Z1 вверх, Y1 = −X; угол
+    /// чистого вращения 30° поворачивает Z1 вокруг X1; у колонны вверх Y1 против глобальной Y, Z1 = +X (правило ЛИРЫ).
+    /// </summary>
+    [Fact]
+    public void ProgramAxis_FromImportedRotation_MatchesLiraAxes()
+    {
+        static void Near((double X, double Y, double Z) e, (double X, double Y, double Z)? a)
+        {
+            Assert.NotNull(a);
+            Assert.Equal(e.X, a!.Value.X, 9);
+            Assert.Equal(e.Y, a.Value.Y, 9);
+            Assert.Equal(e.Z, a.Value.Z, 9);
+        }
+        static LiraNodeRecord N(double x, double y, double z) => new(1, x, y, z, 0);
+        double beam = LiraSchemaConverter.BarRotationDeg(N(0, 0, 0), N(0, 5, 0))!.Value;
+        Near((0, 0, 1), BarDiagramGeometry.ProgramAxis((0, 0, 0), (0, 5, 0), beam, BarDiagramPlane.Z1));
+        Near((-1, 0, 0), BarDiagramGeometry.ProgramAxis((0, 0, 0), (0, 5, 0), beam, BarDiagramPlane.Y1));
+
+        double turned = LiraSchemaConverter.BarRotationDeg(N(0, 0, 0), N(0, 5, 0), 30)!.Value;
+        Near((0.5, 0, Math.Sqrt(3) / 2), BarDiagramGeometry.ProgramAxis((0, 0, 0), (0, 5, 0), turned, BarDiagramPlane.Z1));
+
+        double column = LiraSchemaConverter.BarRotationDeg(N(0, 0, 0), N(0, 0, 3))!.Value;
+        Near((0, -1, 0), BarDiagramGeometry.ProgramAxis((0, 0, 0), (0, 0, 3), column, BarDiagramPlane.Y1));
+        Near((1, 0, 0), BarDiagramGeometry.ProgramAxis((0, 0, 0), (0, 0, 3), column, BarDiagramPlane.Z1));
+        Assert.Null(BarDiagramGeometry.ProgramAxis((1, 1, 1), (1, 1, 1), 0, BarDiagramPlane.Z1));
+    }
+
     [Fact]
     public void AddBar_OrdinatesAlongZ1_SignChangeSplitsOutline()
     {
