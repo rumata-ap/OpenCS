@@ -114,6 +114,8 @@ public sealed class PunchingFemJointRowVM
 
     public PunchingFemJointResult Data { get; }
     public string Node { get; }
+    /// <summary>Сортировка столбца «Узел» по номеру, а не строкой.</summary>
+    public TagSortKey NodeOrder => new(Node);
     public string Section { get; }
     public string Slab { get; }
     public string Position { get; }

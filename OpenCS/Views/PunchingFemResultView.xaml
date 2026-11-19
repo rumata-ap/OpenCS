@@ -104,7 +104,7 @@
                             AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column"
                             SelectionMode="Single" GridLinesVisibility="Horizontal" MouseDoubleClick="JointsGrid_MouseDoubleClick">
                      <DataGrid.Columns>
-                        <DataGridTextColumn Header="{DynamicResource PunchingFemColNode}" Binding="{Binding Node}" Width="Auto"/>
+                        <DataGridTextColumn Header="{DynamicResource PunchingFemColNode}" Binding="{Binding Node}" SortMemberPath="NodeOrder" Width="Auto"/>
                         <DataGridTextColumn Header="{DynamicResource PunchingKisp}" Binding="{Binding K}" SortMemberPath="KValue" Width="Auto">
                            <DataGridTextColumn.ElementStyle>
                               <Style TargetType="TextBlock" BasedOn="{StaticResource StatusCell}">
@@ -132,7 +132,7 @@
                       AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column"
                       SelectionMode="Single" GridLinesVisibility="Horizontal" MouseDoubleClick="JointsGrid_MouseDoubleClick">
                <DataGrid.Columns>
-                  <DataGridTextColumn Header="{DynamicResource PunchingFemColNode}" Binding="{Binding Node}" Width="Auto"/>
+                  <DataGridTextColumn Header="{DynamicResource PunchingFemColNode}" Binding="{Binding Node}" SortMemberPath="NodeOrder" Width="Auto"/>
                   <DataGridTextColumn Header="{DynamicResource PunchingFemColSection}" Binding="{Binding Section}" Width="Auto"/>
                   <DataGridTextColumn Header="{DynamicResource PunchingFemColSlab}" Binding="{Binding Slab}" Width="Auto"/>
                   <DataGridTextColumn Header="{DynamicResource PunchingFemColPosition}" Binding="{Binding Position}" Width="Auto"/>

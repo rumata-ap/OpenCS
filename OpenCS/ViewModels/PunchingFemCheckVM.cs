@@ -78,6 +78,8 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
 
     public PunchingFemJoint Joint { get; }
     public string Node { get; }
+    /// <summary>Сортировка столбца «Узел» по номеру, а не строкой.</summary>
+    public TagSortKey NodeOrder => new(Node);
     public string Section { get; }
     public string Slab { get; }
     public string Position { get; }

@@ -348,7 +348,7 @@
                      </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                </DataGridTemplateColumn>
-               <DataGridTextColumn Header="{DynamicResource PunchingFemColNode}" Binding="{Binding Node}" IsReadOnly="True" Width="Auto"/>
+               <DataGridTextColumn Header="{DynamicResource PunchingFemColNode}" Binding="{Binding Node}" SortMemberPath="NodeOrder" IsReadOnly="True" Width="Auto"/>
                <DataGridTextColumn Header="{DynamicResource PunchingFemColSection}" Binding="{Binding Section}" IsReadOnly="True" Width="Auto"/>
                <DataGridTextColumn Header="{DynamicResource PunchingFemColSlab}" Binding="{Binding Slab}" IsReadOnly="True" Width="Auto"/>
                <DataGridTextColumn Header="{DynamicResource PunchingFemColPosition}" Binding="{Binding Position}" IsReadOnly="True" Width="Auto"/>
