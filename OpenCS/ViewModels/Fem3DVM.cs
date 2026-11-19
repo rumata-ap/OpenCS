@@ -1311,7 +1311,11 @@ public class Fem3DVM : ViewModelBase
         };
         string? program = schema.SourceType is "lira" or "scad" ? schema.SourceType
             : schema.ParentSourceType is "lira" or "scad" ? schema.ParentSourceType : null;
-        return new FemResult.FemResultLayer(analysis, analysis.Tag, steps, _resultMesh) { ImportedProgram = program };
+        return new FemResult.FemResultLayer(analysis, analysis.Tag, steps, _resultMesh)
+        {
+            ImportedProgram = program,
+            ImportedFragmentBars = program != null && schema.ParentSchemaId != null ? FragmentPairedBars(schema.Id) : null,
+        };
     }
 
     /// <summary>Раскраска результата: пластины и стержни сетки на положениях узлов слоя (деформированных, если показаны).</summary>
@@ -1435,6 +1439,18 @@ public class Fem3DVM : ViewModelBase
     /// <summary>Эпюры текущей мозаики на стержнях: ординаты по сечениям КЭ в местных осях, общий масштаб на вид —
     /// по показанным (видимым) стержням. Знакопеременные — сценой <see cref="BarDiagram"/>, ступени Кисп — линиями
     /// (результат метода). Пусто — эпюры выключены, ступенчатых нет или у мозаики нет значений по сечениям.</summary>
+    /// <summary>Стержни фрагмента с парой в опорной сетке родителя (сопоставление, по которому фрагмент берёт жёсткости программы).</summary>
+    HashSet<string> FragmentPairedBars(int schemaId)
+    {
+        var bars = _db.GetFemMeshElements(schemaId).Where(e => e.ElemType == "beam").ToList();
+        if (bars.Count == 0) return [];
+        var nodes = new Dictionary<string, FemMeshNode>(StringComparer.Ordinal);
+        foreach (var n in _db.GetFemMeshNodes(schemaId)) nodes.TryAdd(n.NodeTag, n);
+        var map = CScore.Fem.Fragment.FragmentParentMap.Build(bars, nodes,
+            new CScore.Fem.Fragment.ParentMeshMapper(_db.GetFragmentRefElements(schemaId)));
+        return map.ByTag.Keys.ToHashSet(StringComparer.Ordinal);
+    }
+
     Dictionary<string, double>? _programBarRotations;
 
     /// <summary>

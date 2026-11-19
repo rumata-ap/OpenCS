@@ -1124,6 +1124,13 @@ public class FemResultLayerTests
         // Группа (как карточка КонЭ): строка один раз, если среди стержней есть импортный.
         layer.Selection.PickElement("1", FemResultPickMode.Elements, true);
         Assert.Single(layer.BuildCard()!.Rows, r => r.Label == label);
+        // Фрагмент импортной схемы: у КЭ поворота нет, ось программы — по паре в сетке родителя.
+        var fragment = new FemResultLayer(new FemAnalysis { Tag = "Р1" }, "Р1", steps, t.Mesh())
+        {
+            ImportedProgram = "lira", ImportedFragmentBars = new HashSet<string> { "2" },
+        };
+        fragment.Selection.PickElement("2", FemResultPickMode.Elements, false);
+        Assert.Single(fragment.BuildCard()!.Rows, r => r.Label == label);
     }
 
     [Fact]

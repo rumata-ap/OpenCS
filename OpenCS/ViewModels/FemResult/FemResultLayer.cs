@@ -837,6 +837,12 @@ public sealed class FemResultLayer : ViewModelBase
     /// </summary>
     public string? ImportedProgram { get; init; }
 
+    /// <summary>
+    /// Стержни фрагмента импортной схемы с парой в сетке родителя (<see cref="CScore.Fem.Fragment.FragmentParentMap"/>):
+    /// поворот у их КонЭ взят от КЭ родителя, оси — программы, хотя у самих КЭ поворота нет. Null — не фрагмент.
+    /// </summary>
+    public IReadOnlySet<string>? ImportedFragmentBars { get; init; }
+
     Dictionary<string, FemElement>? _elementsByTag;
 
     /// <summary>
@@ -855,8 +861,10 @@ public sealed class FemResultLayer : ViewModelBase
         if (key == null || !HasBarForces) return;
         _elementsByTag ??= Mesh.Elements.GroupBy(e => e.ElemTag, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
-        // Поворот сечения своего КЭ — у стержней импорта (у КЭ, добавленных в OpenCS, — поворот КонЭ, осей программы нет).
-        if (!_elementsByTag.TryGetValue(tag, out var e) || e.BeamRotationDeg == null) return;
+        // Поворот сечения своего КЭ — у стержней импорта (у КЭ, добавленных в OpenCS, — поворот КонЭ, осей программы нет);
+        // у фрагмента — пара КЭ в сетке родителя.
+        if (!_elementsByTag.TryGetValue(tag, out var e)) return;
+        if (e.BeamRotationDeg == null && ImportedFragmentBars?.Contains(tag) != true) return;
         rows.Add(new(Loc.S(key), Loc.S("FemResultCardImportedAxesValue")));
     }
 

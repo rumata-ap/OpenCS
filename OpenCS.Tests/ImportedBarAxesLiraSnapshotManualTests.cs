@@ -63,6 +63,12 @@ public class ImportedBarAxesLiraSnapshotManualTests(ITestOutputHelper output)
             db.LoadAll();
             var parent = db.FemSchemas.First(s => s.SourceType == "lira");
             var fragment = db.FemSchemas.First(s => s.ParentSchemaId == parent.Id);
+            // Пары стержней сохранённой сетки фрагмента с родителем — по ним карточка показывает «Компоненты ЛИРЫ».
+            var fbars = db.GetFemMeshElements(fragment.Id).Where(e => e.ElemType == "beam").ToList();
+            var fnodesSaved = db.GetFemMeshNodes(fragment.Id).GroupBy(n => n.NodeTag).ToDictionary(g => g.Key, g => g.First());
+            var pairs = CScore.Fem.Fragment.FragmentParentMap.Build(fbars, fnodesSaved,
+                new CScore.Fem.Fragment.ParentMeshMapper(db.GetFragmentRefElements(fragment.Id)));
+            output.WriteLine($"стержней сетки фрагмента {fbars.Count}, с парой в родителе {pairs.ByTag.Count}");
             var request = StoreyFragmentService.ParentRequest(fragment)!;
             var draft = StoreyFragmentService.Prepare(db, parent.Id, request).Draft;
             Assert.False(draft.HasErrors, string.Join("; ", draft.Diagnostics.Where(d => d.IsError).Select(d => d.Message)));
