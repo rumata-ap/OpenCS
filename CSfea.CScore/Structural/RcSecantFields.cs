@@ -57,16 +57,21 @@ public sealed class RcSecantStepFields
     /// <see cref="ShellStiffness"/>, <see cref="BeamStiffness"/>, <see cref="ShellStrains"/>, <see cref="BeamStrains"/>,
     /// <see cref="ShellMatrices"/>, <see cref="BeamMatrices"/>.
     /// </summary>
-    public const int ShellStiffnessComponents = 17, BeamStiffnessComponents = 21, ShellStrainComponents = 6,
+    public const int ShellStiffnessComponents = 21, BeamStiffnessComponents = 21, ShellStrainComponents = 6,
         BeamStrainComponents = 9, ShellMatrixComponents = 31, BeamMatrixComponents = 33, BeamElementMatrixComponents = 12;
+
+    /// <summary>Компонентов блока жёсткостей пластины на КЭ в записях до 19.11.2026 (без эффективных сдвиговых).</summary>
+    public const int ShellStiffnessComponentsV1 = 17;
 
     /// <summary>Есть блок жёсткостей (записи до 17.10.2026 — нет).</summary>
     public bool HasStiffness { get; init; }
 
     /// <summary>
     /// Жёсткости пластин в осях выдачи усилий (<see cref="ShellStiffnessComponents"/> на КЭ): секущие A11, A22, A12, A66
-    /// (Н/м), D11, D22, D12, D66 (Н·м) по центру КЭ, затем те же начальные и толщина сечения h (м; NaN — не задана).
-    /// Упругий КЭ — секущие = начальные.
+    /// (Н/м), D11, D22, D12, D66 (Н·м) по центру КЭ, затем те же начальные и толщина сечения h (м; NaN — не задана);
+    /// с 19.11.2026 — ещё эффективные сдвиговые жёсткости 1/(C⁻¹)₃₃ (Н/м) и 1/(C⁻¹)₆₆ (Н·м) полной матрицы C = [A B; B D]
+    /// (жёсткость на Nxy и на Mxy при остальных усилиях, равных нулю): секущие, затем начальные. Записи до 19.11.2026 —
+    /// <see cref="ShellStiffnessComponentsV1"/> на КЭ, без эффективных. Упругий КЭ — секущие = начальные.
     /// </summary>
     public double[] ShellStiffness { get; init; } = [];
 
@@ -272,6 +277,8 @@ public sealed class RcSecantFieldExtractor
             ShellStiffnessTerms(secant, angle, shellStiffness, ko);
             ShellStiffnessTerms(initial, angle, shellStiffness, ko + 8);
             shellStiffness[ko + 16] = _thickness.GetValueOrDefault(_build.ShellIds[e], double.NaN);
+            (shellStiffness[ko + 17], shellStiffness[ko + 18]) = EffectiveShear(secant, angle);
+            (shellStiffness[ko + 19], shellStiffness[ko + 20]) = EffectiveShear(initial, angle);
             if (_strains)
             {
                 var (er, kr) = (RotateStrains(eps, angle), RotateStrains(kappa, angle));
@@ -417,6 +424,73 @@ public sealed class RcSecantFieldExtractor
         var (a, d) = angleDeg == 0 ? (t.A, t.D) : (RotateMatrix(t.A, angleDeg), RotateMatrix(t.D, angleDeg));
         dst[offset] = a[0, 0]; dst[offset + 1] = a[1, 1]; dst[offset + 2] = a[0, 1]; dst[offset + 3] = a[2, 2];
         dst[offset + 4] = d[0, 0]; dst[offset + 5] = d[1, 1]; dst[offset + 6] = d[0, 1]; dst[offset + 7] = d[2, 2];
+    }
+
+    /// <summary>
+    /// Эффективные сдвиговые жёсткости сечения в осях выдачи: 1/(C⁻¹)₃₃ на Nxy (Н/м) и 1/(C⁻¹)₆₆ на Mxy (Н·м), C = [A B; B D].
+    /// Это жёсткость при одном Nxy или одном Mxy, когда остальные деформации свободны: у слоя с трещиной арматура не
+    /// входит в A66, D66 (она работает только вдоль стержней), но держит подкосы через связи с εx, εy, κx, κy — и
+    /// эффективная жёсткость выходит по теории поля сжатия, много меньше члена D66. NaN — матрица вырождена.
+    /// </summary>
+    public static (double A66, double D66) EffectiveShear(ShellTangent t, double angleDeg)
+    {
+        var (a, b, d) = angleDeg == 0 ? (t.A, t.B, t.D)
+            : (RotateMatrix(t.A, angleDeg), RotateMatrix(t.B, angleDeg), RotateMatrix(t.D, angleDeg));
+        var c = new double[6, 6];
+        for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 3; j++)
+            {
+                c[i, j] = a[i, j];
+                c[i, j + 3] = b[i, j];
+                c[i + 3, j] = b[j, i];
+                c[i + 3, j + 3] = d[i, j];
+            }
+        var inv = InvertScaled(c);
+        if (inv == null) return (double.NaN, double.NaN);
+        static double Of(double v) => v > 0 && double.IsFinite(v) ? 1.0 / v : double.NaN;
+        return (Of(inv[2, 2]), Of(inv[5, 5]));
+    }
+
+    /// <summary>
+    /// Обращение симметричной неотрицательной матрицы с масштабом по диагонали (S·C·S, S = diag(1/√Cᵢᵢ) — члены A и D
+    /// различаются на порядки) методом Гаусса — Жордана с выбором ведущего; null — нулевая диагональ или вырожденность.
+    /// </summary>
+    internal static double[,]? InvertScaled(double[,] c)
+    {
+        int n = c.GetLength(0);
+        var sc = new double[n];
+        for (int i = 0; i < n; i++)
+        {
+            if (!(c[i, i] > 0) || !double.IsFinite(c[i, i])) return null;
+            sc[i] = 1.0 / Math.Sqrt(c[i, i]);
+        }
+        var m = new double[n, 2 * n];
+        for (int i = 0; i < n; i++)
+        {
+            for (int j = 0; j < n; j++) m[i, j] = c[i, j] * sc[i] * sc[j];
+            m[i, n + i] = 1.0;
+        }
+        for (int col = 0; col < n; col++)
+        {
+            int piv = col;
+            for (int r = col + 1; r < n; r++)
+                if (Math.Abs(m[r, col]) > Math.Abs(m[piv, col])) piv = r;
+            if (Math.Abs(m[piv, col]) < 1e-12) return null;
+            if (piv != col)
+                for (int j = 0; j < 2 * n; j++) (m[col, j], m[piv, j]) = (m[piv, j], m[col, j]);
+            double p = m[col, col];
+            for (int j = 0; j < 2 * n; j++) m[col, j] /= p;
+            for (int r = 0; r < n; r++)
+            {
+                if (r == col || m[r, col] == 0) continue;
+                double k = m[r, col];
+                for (int j = 0; j < 2 * n; j++) m[r, j] -= k * m[col, j];
+            }
+        }
+        var inv = new double[n, n];
+        for (int i = 0; i < n; i++)
+            for (int j = 0; j < n; j++) inv[i, j] = m[i, n + j] * sc[i] * sc[j];
+        return inv;
     }
 
     /// <summary>

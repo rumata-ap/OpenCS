@@ -3646,7 +3646,7 @@
     <system:String x:Key="UnitMNm2">MN·m²</system:String>
     <system:String x:Key="FemCsfeaTabStiffness">Stiffness</system:String>
     <system:String x:Key="FemCsfeaStiffnessShells">Plates — secant stiffness in force output axes</system:String>
-    <system:String x:Key="FemCsfeaStiffnessShellsTip">Bending E1 = 12·D11/h³, E2 = 12·D22/h³, G = 12·D66/h³, ν12 = D12/D22, ν21 = D12/D11; membrane E1 = A11/h, E2 = A22/h, G = A66/h, ν12 = A12/A22, ν21 = A12/A11. At an angle of the output axis to the reinforcement — the diagonal of the rotated matrix, not orthotropic moduli.</system:String>
+    <system:String x:Key="FemCsfeaStiffnessShellsTip">Bending E1 = 12·D11/h³, E2 = 12·D22/h³, G = 12·D66/h³, ν12 = D12/D22, ν21 = D12/D11; membrane E1 = A11/h, E2 = A22/h, G = A66/h, ν12 = A12/A22, ν21 = A12/A11. At an angle of the output axis to the reinforcement — the diagonal of the rotated matrix, not orthotropic moduli. Effective Geff = 12/(h³·(C⁻¹)₆₆) for Mxy and Geff = 1/(h·(C⁻¹)₃₃) for Nxy from the full matrix C = [A B; B D] — stiffness under Mxy or Nxy alone with other forces zero: after cracking the reinforcement is absent from D66, A66 but holds the struts through bending and extension, so Geff is much lower than G; Geff/Geff₀ is the factor to the shear stiffness for a linear analysis.</system:String>
     <system:String x:Key="FemCsfeaStiffnessBars">Bars — secant section stiffness at points i, ½, j</system:String>
     <system:String x:Key="FemCsfeaColBendE1">E1 bend., MPa</system:String>
     <system:String x:Key="FemCsfeaColBendE2">E2 bend., MPa</system:String>
@@ -3662,6 +3662,11 @@
     <system:String x:Key="FemCsfeaColBendE2Ratio">E2/E2₀ bend.</system:String>
     <system:String x:Key="FemCsfeaColMembE1Ratio">E1/E1₀ memb.</system:String>
     <system:String x:Key="FemCsfeaColMembE2Ratio">E2/E2₀ memb.</system:String>
+    <system:String x:Key="FemStiffnessGEffSymbol">Geff</system:String>
+    <system:String x:Key="FemCsfeaColBendGEff">Geff bend. (Mxy), MPa</system:String>
+    <system:String x:Key="FemCsfeaColMembGEff">Geff memb. (Nxy), MPa</system:String>
+    <system:String x:Key="FemCsfeaColBendGEffRatio">Geff/Geff₀ bend.</system:String>
+    <system:String x:Key="FemCsfeaColMembGEffRatio">Geff/Geff₀ memb.</system:String>
     <system:String x:Key="FemCsfeaColPoint">Point</system:String>
     <system:String x:Key="FemCsfeaColEA">EA, MN</system:String>
     <system:String x:Key="FemCsfeaColEIy">EIy, MN·m²</system:String>

@@ -35,6 +35,9 @@ public class RcSecantFieldsTests
 
         TestHarness.Section("Поля шага: жёсткости и деформации пластины в осях выдачи");
         RunPlateStiffness();
+
+        TestHarness.Section("Поля шага: эффективная сдвиговая жёсткость пластины с трещинами (поле сжатия)");
+        RunEffectiveShear();
     }
 
     /// <summary>
@@ -182,6 +185,9 @@ public class RcSecantFieldsTests
         TestHarness.CheckRel("D11 = E·h³/12", k[4], E * h * h * h / 12, 1e-9);
         TestHarness.Check("упругий КЭ: секущие = начальные", Enumerable.Range(0, 8).All(i => k[i] == k[8 + i]));
         TestHarness.CheckRel("толщина сечения в блоке жёсткостей", k[16], h, 1e-12);
+        TestHarness.CheckRel("упругий ламинат без связей: A66эф = A66", k[17], k[3], 1e-9);
+        TestHarness.CheckRel("упругий ламинат без связей: D66эф = D66", k[18], k[7], 1e-9);
+        TestHarness.Check("упругий КЭ: эффективные секущие = начальные", k[17] == k[19] && k[18] == k[20]);
         TestHarness.CheckRel("εx = F/(E·h)", plain.ShellStrains[0], f / (E * h), 1e-6);
         TestHarness.CheckRel("ось выдачи 90°: A11 = A22 сечения", rotated.ShellStiffness[0], E * h / 2, 1e-9);
         TestHarness.CheckRel("ось выдачи 90°: D22 = D11 сечения", rotated.ShellStiffness[5], E * h * h * h / 12, 1e-9);
@@ -199,6 +205,41 @@ public class RcSecantFieldsTests
         // Полная матрица — та, на которой решено u шага, жёсткость мозаики — обновлённая по u: разница — в допуске итераций.
         TestHarness.CheckRel("полоса, середина: D11 ≈ член полной матрицы (D[0,0])",
             strip.ShellMatrices[mid * RcSecantStepFields.ShellMatrixComponents + 18], strip.ShellStiffness[o + 4], 2e-2);
+        TestHarness.Check("полоса, середина: 0 < D66эф ≤ D66", strip.ShellStiffness[o + 18] > 0
+            && strip.ShellStiffness[o + 18] <= strip.ShellStiffness[o + 7] * (1 + 1e-9),
+            $"D66эф = {strip.ShellStiffness[o + 18]:G4}, D66 = {strip.ShellStiffness[o + 7]:G4}");
+    }
+
+    /// <summary>
+    /// Мембрана с трещинами под 45°: арматура asx = asy вдоль осей, бетон — только сжатый подкос E₂ по направлению 135°
+    /// (матрица ранга 1). При одном Nxy остальные деформации свободны, и 1/(A⁻¹)₃₃ = 1/(1/(asx·Es) + 1/(asy·Es) + 4/(E₂·t))
+    /// (поле сжатия, θ = 45°), тогда как член A66 = E₂·t/4 — «только бетон». Сэндвич из двух таких слоёв на ±z/2:
+    /// D66эф = K·z²/2. Поворот осей выдачи на 90° величин не меняет.
+    /// </summary>
+    private static void RunEffectiveShear()
+    {
+        const double es = 200e9, e2 = 30e9, t = 0.04, asx = 1e-3, asy = 0.5e-3, z = 0.16;
+        double[] m = [0.5, 0.5, -0.5];
+        var layer = new double[3, 3];
+        for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 3; j++) layer[i, j] = e2 * t * m[i] * m[j];
+        layer[0, 0] += asx * es;
+        layer[1, 1] += asy * es;
+        var a = new double[3, 3];
+        var d = new double[3, 3];
+        for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 3; j++) { a[i, j] = 2 * layer[i, j]; d[i, j] = 2 * layer[i, j] * (z / 2) * (z / 2); }
+        var tangent = new ShellTangent(a, new double[3, 3], d, new double[2, 2]);
+        double k = 1 / (1 / (asx * es) + 1 / (asy * es) + 4 / (e2 * t));
+        var (a66, d66) = RcSecantFieldExtractor.EffectiveShear(tangent, 0);
+        TestHarness.CheckRel("A66эф = 2·K поля сжатия", a66, 2 * k, 1e-9);
+        TestHarness.CheckRel("D66эф = K·z²/2 (сэндвич)", d66, k * z * z / 2, 1e-9);
+        TestHarness.Check("D66эф много меньше члена D66 («только бетон»)", d66 < 0.2 * d[2, 2], $"D66эф/D66 = {d66 / d[2, 2]:0.###}");
+        var (a90, d90) = RcSecantFieldExtractor.EffectiveShear(tangent, 90);
+        TestHarness.CheckRel("ось выдачи 90°: A66эф та же", a90, a66, 1e-9);
+        TestHarness.CheckRel("ось выдачи 90°: D66эф та же", d90, d66, 1e-9);
+        var noRebar = new ShellTangent(new double[3, 3], new double[3, 3], new double[3, 3], new double[2, 2]);
+        TestHarness.Check("нулевая матрица — NaN", double.IsNaN(RcSecantFieldExtractor.EffectiveShear(noRebar, 0).D66));
     }
 
     /// <summary>

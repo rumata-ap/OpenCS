@@ -72,11 +72,12 @@ public sealed record FemCsfeaBeamRow(int ElemTag,
 
 /// <summary>
 /// Строка таблицы жёсткостей пластины (оси выдачи усилий): изгибные и мембранные E1, E2, G (МПа), ν12, ν21 секущей
-/// матрицы и отношения E1, E2 к начальным; null — не определено.
+/// матрицы, эффективные Gэф на Mxy и Nxy по полной матрице, отношения E1, E2, Gэф к начальным; null — не определено.
 /// </summary>
 public sealed record FemCsfeaShellStiffnessRow(int Elem, double? BendE1, double? BendE2, double? BendG, double? BendNu12,
     double? BendNu21, double? MembE1, double? MembE2, double? MembG, double? MembNu12, double? MembNu21,
-    double? BendE1Ratio, double? BendE2Ratio, double? MembE1Ratio, double? MembE2Ratio);
+    double? BendE1Ratio, double? BendE2Ratio, double? MembE1Ratio, double? MembE2Ratio,
+    double? BendGEff = null, double? MembGEff = null, double? BendGEffRatio = null, double? MembGEffRatio = null);
 
 /// <summary>
 /// Строка таблицы жёсткостей стержня в точке i, ½ или j: секущие EA, GAy, GAz (МН), EIy, EIz (МН·м²) и отношения EA,
@@ -2125,7 +2126,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
                 V(FemCsfeaStiffness.MembE1, s), V(FemCsfeaStiffness.MembE2, s), V(FemCsfeaStiffness.MembG, s),
                 V(FemCsfeaStiffness.MembNu12, s), V(FemCsfeaStiffness.MembNu21, s),
                 V(FemCsfeaStiffness.BendE1, r), V(FemCsfeaStiffness.BendE2, r), V(FemCsfeaStiffness.MembE1, r),
-                V(FemCsfeaStiffness.MembE2, r)));
+                V(FemCsfeaStiffness.MembE2, r), V(FemCsfeaStiffness.BendGEff, s), V(FemCsfeaStiffness.MembGEff, s),
+                V(FemCsfeaStiffness.BendGEff, r), V(FemCsfeaStiffness.MembGEff, r)));
         }
         _shellStiffnessRows = shells;
         var bars = new List<FemCsfeaBarStiffnessRow>(3 * f.BeamIds.Length);

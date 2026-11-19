@@ -3646,7 +3646,7 @@
     <system:String x:Key="UnitMNm2">МН·м²</system:String>
     <system:String x:Key="FemCsfeaTabStiffness">Жёсткости</system:String>
     <system:String x:Key="FemCsfeaStiffnessShells">Пластины — секущие жёсткости в осях выдачи усилий</system:String>
-    <system:String x:Key="FemCsfeaStiffnessShellsTip">Изгибные E1 = 12·D11/h³, E2 = 12·D22/h³, G = 12·D66/h³, ν12 = D12/D22, ν21 = D12/D11; мембранные E1 = A11/h, E2 = A22/h, G = A66/h, ν12 = A12/A22, ν21 = A12/A11. При угле оси выдачи к арматуре — диагональ повёрнутой матрицы, а не модули ортотропии.</system:String>
+    <system:String x:Key="FemCsfeaStiffnessShellsTip">Изгибные E1 = 12·D11/h³, E2 = 12·D22/h³, G = 12·D66/h³, ν12 = D12/D22, ν21 = D12/D11; мембранные E1 = A11/h, E2 = A22/h, G = A66/h, ν12 = A12/A22, ν21 = A12/A11. При угле оси выдачи к арматуре — диагональ повёрнутой матрицы, а не модули ортотропии. Эффективные Gэф = 12/(h³·(C⁻¹)₆₆) на Mxy и Gэф = 1/(h·(C⁻¹)₃₃) на Nxy по полной матрице C = [A B; B D] — жёсткость при одном Mxy или Nxy, остальные усилия нулевые: после трещин арматура не входит в D66, A66, но держит подкосы через изгиб и растяжение, поэтому Gэф много меньше G; Gэф/Gэф₀ — коэффициент к сдвиговой жёсткости для линейного расчёта.</system:String>
     <system:String x:Key="FemCsfeaStiffnessBars">Стержни — секущие жёсткости сечения в точках i, ½, j</system:String>
     <system:String x:Key="FemCsfeaColBendE1">E1 изг., МПа</system:String>
     <system:String x:Key="FemCsfeaColBendE2">E2 изг., МПа</system:String>
@@ -3662,6 +3662,11 @@
     <system:String x:Key="FemCsfeaColBendE2Ratio">E2/E2₀ изг.</system:String>
     <system:String x:Key="FemCsfeaColMembE1Ratio">E1/E1₀ мемб.</system:String>
     <system:String x:Key="FemCsfeaColMembE2Ratio">E2/E2₀ мемб.</system:String>
+    <system:String x:Key="FemStiffnessGEffSymbol">Gэф</system:String>
+    <system:String x:Key="FemCsfeaColBendGEff">Gэф изг. (Mxy), МПа</system:String>
+    <system:String x:Key="FemCsfeaColMembGEff">Gэф мемб. (Nxy), МПа</system:String>
+    <system:String x:Key="FemCsfeaColBendGEffRatio">Gэф/Gэф₀ изг.</system:String>
+    <system:String x:Key="FemCsfeaColMembGEffRatio">Gэф/Gэф₀ мемб.</system:String>
     <system:String x:Key="FemCsfeaColPoint">Точка</system:String>
     <system:String x:Key="FemCsfeaColEA">EA, МН</system:String>
     <system:String x:Key="FemCsfeaColEIy">EIy, МН·м²</system:String>

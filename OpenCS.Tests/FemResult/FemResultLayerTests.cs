@@ -972,6 +972,29 @@ public class FemResultLayerTests
     }
 
     [Fact]
+    public void CsfeaStiffness_EffectiveShear_FromNewRecord()
+    {
+        const double h = 0.2;
+        double[] secant = [1e9, 1e9, 0, 4e8, 1e6, 1e6, 0, 4e5];
+        double[] initial = [6e9, 6e9, 0, 2.5e9, 2e7, 2e7, 0, 8e6];
+        double[] eff = [5e7, 1e5, 2.5e9, 8e6];   // секущие A66эф, D66эф, начальные
+        var f = new RcSecantStepFields
+        {
+            NodeIds = [], Displacements = [], ShellIds = [7], ShellForces = [], ShellStates = [], ShellFlags = [],
+            BeamIds = [], BeamForces = [], BeamFlags = [],
+            HasStiffness = true, ShellStiffness = [.. secant, .. initial, h, .. eff],
+        };
+        Assert.Equal(1e5 * 12 / (h * h * h) * 1e-6, FemCsfeaStiffnessValues.Shell(f, 0, FemCsfeaStiffness.BendGEff, FemCsfeaStiffnessMode.Secant)!.Value, 9);
+        Assert.Equal(5e7 / h * 1e-6, FemCsfeaStiffnessValues.Shell(f, 0, FemCsfeaStiffness.MembGEff, FemCsfeaStiffnessMode.Secant)!.Value, 9);
+        Assert.Equal(1e5 / 8e6, FemCsfeaStiffnessValues.Shell(f, 0, FemCsfeaStiffness.BendGEff, FemCsfeaStiffnessMode.Ratio)!.Value, 12);
+        Assert.Equal(5e7 / 2.5e9, FemCsfeaStiffnessValues.Shell(f, 0, FemCsfeaStiffness.MembGEff, FemCsfeaStiffnessMode.Ratio)!.Value, 12);
+        // Прежние величины — по тем же смещениям, что и в записи из 17 чисел.
+        Assert.Equal(4e5 * 12 / (h * h * h) * 1e-6, FemCsfeaStiffnessValues.Shell(f, 0, FemCsfeaStiffness.BendG, FemCsfeaStiffnessMode.Secant)!.Value, 9);
+        Assert.Contains(Loc.S("FemStiffnessGEffSymbol"), FemResultLayer.StiffnessLabel(FemCsfeaStiffness.BendGEff, FemCsfeaStiffnessMode.Ratio));
+        Assert.StartsWith(Loc.S("FemStiffnessMemb"), FemResultLayer.StiffnessLabel(FemCsfeaStiffness.MembGEff, FemCsfeaStiffnessMode.Secant));
+    }
+
+    [Fact]
     public void Mosaic_CsfeaStiffness_ShellsBarsModeCardAndTable()
     {
         using var t = new TempDb();
@@ -1009,6 +1032,8 @@ public class FemResultLayerTests
         vm.Compute(["2"], ["1"]);
         Assert.Equal(Extremum(vm, 1, "2"), layer.SummaryText);
         Assert.Equal(0.2, layer.ShellStiffness("2", FemCsfeaStiffness.BendNu12, FemCsfeaStiffnessMode.Secant)!.Value, 6);   // float
+        // Запись до 19.11.2026 (17 на КЭ) — без эффективных Gэф.
+        Assert.Null(layer.ShellStiffness("2", FemCsfeaStiffness.BendGEff, FemCsfeaStiffnessMode.Secant));
 
         // Стержни: эпюра по трём точкам вдоль местной Ez, итог — по точкам; без эпюр — раскраска наименьшим по длине.
         vm.SelectedStiffnessMode = vm.StiffnessModeOptions.Single(o => o.Value == FemCsfeaStiffnessMode.Secant);

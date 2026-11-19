@@ -1,4 +1,5 @@
 using CSfea.CScoreBridge.Structural;
+using OpenCS.Utilites;
 
 namespace OpenCS.Services;
 
@@ -8,8 +9,8 @@ namespace OpenCS.Services;
 /// </summary>
 public enum FemCsfeaStiffness
 {
-    BendE1, BendE2, BendNu12, BendNu21, BendG,
-    MembE1, MembE2, MembNu12, MembNu21, MembG,
+    BendE1, BendE2, BendNu12, BendNu21, BendG, BendGEff,
+    MembE1, MembE2, MembNu12, MembNu21, MembG, MembGEff,
     BarEA, BarEIy, BarEIz, BarGAy, BarGAz,
 }
 
@@ -20,13 +21,14 @@ public enum FemCsfeaStiffnessMode { Initial, Secant, Ratio }
 /// Жёсткости КЭ из полей шага CSfea (спека НДС сечений, п. 2.2). Пластина: изгибные E1 = 12·D11/h³, E2 = 12·D22/h³,
 /// G = 12·D66/h³, ν12 = D12/D22, ν21 = D12/D11; мембранные E1 = A11/h, E2 = A22/h, G = A66/h, ν12 = A12/A22,
 /// ν21 = A12/A11 — члены матрицы в осях выдачи усилий (при угле оси выдачи к арматуре — диагональ повёрнутой матрицы, а
-/// не модули ортотропии). Стержень: EA, EIy, EIz — диагональ секущей матрицы сечения точки, GAy, GAz — КЭ. Модули — МПа,
+/// не модули ортотропии). Эффективные Gэф = 12/(h³·(C⁻¹)₆₆) на Mxy и Gэф = 1/(h·(C⁻¹)₃₃) на Nxy по полной матрице
+/// C = [A B; B D] при остальных усилиях, равных нулю (у слоя с трещиной арматура держит подкосы через εx, εy, κx, κy,
+/// поэтому Gэф много меньше G по члену D66/A66); в записях до 19.11.2026 их нет. Стержень: EA, EIy, EIz — диагональ секущей матрицы сечения точки, GAy, GAz — КЭ. Модули — МПа,
 /// EA и GA — МН, EI — МН·м², отношения — безразмерные.
 /// </summary>
 public static class FemCsfeaStiffnessValues
 {
-    public static bool IsShell(FemCsfeaStiffness q) => q <= FemCsfeaStiffness.MembG;
-    public static bool IsBar(FemCsfeaStiffness q) => q >= FemCsfeaStiffness.BarEA;
+    public static bool IsShell(FemCsfeaStiffness q) => q <= FemCsfeaStiffness.MembGEff;    public static bool IsBar(FemCsfeaStiffness q) => q >= FemCsfeaStiffness.BarEA;
 
     public static IReadOnlyList<FemCsfeaStiffness> ShellQuantities { get; } =
         Enum.GetValues<FemCsfeaStiffness>().Where(IsShell).ToArray();
@@ -38,9 +40,19 @@ public static class FemCsfeaStiffnessValues
     public static double? Shell(RcSecantStepFields f, int index, FemCsfeaStiffness q, FemCsfeaStiffnessMode mode)
     {
         if (!f.HasStiffness || !IsShell(q)) return null;
-        int o = index * RcSecantStepFields.ShellStiffnessComponents;
-        if (o + RcSecantStepFields.ShellStiffnessComponents > f.ShellStiffness.Length) return null;
+        // Шаг блока на КЭ — по записи: до 19.11.2026 — 17 (без эффективных сдвиговых), теперь 21.
+        int stride = f.ShellIds.Length > 0 && f.ShellStiffness.Length == f.ShellIds.Length * RcSecantStepFields.ShellStiffnessComponentsV1
+            ? RcSecantStepFields.ShellStiffnessComponentsV1 : RcSecantStepFields.ShellStiffnessComponents;
+        int o = index * stride;
+        if (o + stride > f.ShellStiffness.Length) return null;
         double h = f.ShellStiffness[o + 16];
+        if (q is FemCsfeaStiffness.BendGEff or FemCsfeaStiffness.MembGEff)
+        {
+            if (stride < RcSecantStepFields.ShellStiffnessComponents || !(h > 0)) return null;
+            int k = q == FemCsfeaStiffness.BendGEff ? 18 : 17;
+            double scale = q == FemCsfeaStiffness.BendGEff ? 12 / (h * h * h) : 1 / h;
+            return Combine(Finite(f.ShellStiffness[o + k] * scale), Finite(f.ShellStiffness[o + k + 2] * scale), mode, 1e-6);
+        }
         double? Of(int offset) => ShellTerm(f.ShellStiffness, o + offset, q, h);
         return Combine(Of(0), Of(8), mode, q is FemCsfeaStiffness.BendNu12 or FemCsfeaStiffness.BendNu21
             or FemCsfeaStiffness.MembNu12 or FemCsfeaStiffness.MembNu21 ? 1.0 : 1e-6);
@@ -88,6 +100,7 @@ public static class FemCsfeaStiffnessValues
             FemCsfeaStiffness.BendNu12 or FemCsfeaStiffness.MembNu12 => "ν12",
             FemCsfeaStiffness.BendNu21 or FemCsfeaStiffness.MembNu21 => "ν21",
             FemCsfeaStiffness.BendG or FemCsfeaStiffness.MembG => "G",
+            FemCsfeaStiffness.BendGEff or FemCsfeaStiffness.MembGEff => Loc.S("FemStiffnessGEffSymbol"),
             _ => q.ToString()[3..],
         };
         return mode switch

@@ -627,8 +627,8 @@ public sealed class FemResultLayer : ViewModelBase
         string unit = FemCsfeaStiffnessValues.Unit(q, mode);
         string group = q switch
         {
-            <= FemCsfeaStiffness.BendG => Loc.S("FemStiffnessBend"),
-            <= FemCsfeaStiffness.MembG => Loc.S("FemStiffnessMemb"),
+            <= FemCsfeaStiffness.BendGEff => Loc.S("FemStiffnessBend"),
+            <= FemCsfeaStiffness.MembGEff => Loc.S("FemStiffnessMemb"),
             _ => "",
         };
         string s = group == "" ? symbol : $"{group}: {symbol}";
