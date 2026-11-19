@@ -1121,6 +1121,9 @@ public class FemResultLayerTests
         Assert.Equal(OpenCS.Utilites.Loc.S("FemResultCardImportedAxesValue"), row.Value);
         layer.Selection.PickElement("2", FemResultPickMode.Elements, false);
         Assert.DoesNotContain(layer.BuildCard()!.Rows, r => r.Label == label);
+        // Группа (как карточка КонЭ): строка один раз, если среди стержней есть импортный.
+        layer.Selection.PickElement("1", FemResultPickMode.Elements, true);
+        Assert.Single(layer.BuildCard()!.Rows, r => r.Label == label);
     }
 
     [Fact]

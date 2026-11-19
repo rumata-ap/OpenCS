@@ -1039,6 +1039,13 @@ public sealed class FemResultLayer : ViewModelBase
         if (bars.Count > 0 && HasBarForces)
             foreach (var c in Forces)
                 Extremum(ForceLabel(c), bars.Select(t => (t, BarEndValues(t, c) is { } e ? Math.Abs(e.I) >= Math.Abs(e.J) ? e.I : e.J : (double?)null)));
+        // КонЭ импортной колонны или балки: та же подсказка о компонентах программы, что у отдельного КЭ.
+        foreach (var b in bars)
+        {
+            int before = rows.Count;
+            ImportedAxesRow(b, rows);
+            if (rows.Count > before) break;
+        }
         if (shells.Count > 0)
             foreach (var f in ShellFields.Where(f => f.Value != FemCsfeaShellField.State))
                 Extremum(f.Label, shells.Select(t => (t, ShellValue(t, f.Value))));
