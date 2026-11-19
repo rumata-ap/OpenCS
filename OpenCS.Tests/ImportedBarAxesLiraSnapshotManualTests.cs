@@ -193,7 +193,12 @@ public class ImportedBarAxesLiraSnapshotManualTests(ITestOutputHelper output)
                 Fit($"OpenCS {names[a]} ↔ ЛИРА {names[b]}", shown[a], raw[b]);
         }
 
-        foreach (var (what, tags) in new[] { ("колонны", columns), ("прочие стержни", beams) })
+        // Прочие — по жёсткостям программы: у «Мирной» швеллер 20П (7) и связи, близкие к АЖТ (6), ведут себя по-разному.
+        var groups = new List<(string, List<string>)> { ("колонны", columns) };
+        var byTag = elements.Where(e => e.ElemType == "beam").ToDictionary(e => e.ElemTag);
+        foreach (var g in beams.GroupBy(t => byTag[t].StiffnessNum).OrderBy(g => g.Key))
+            groups.Add(($"прочие стержни, жёсткость {g.Key?.ToString() ?? "—"} ({g.Count()} КЭ)", g.ToList()));
+        foreach (var (what, tags) in groups)
         {
             output.WriteLine($"=== {what}");
             foreach (var key in steps.Select(s => s.Key))
@@ -215,6 +220,27 @@ public class ImportedBarAxesLiraSnapshotManualTests(ITestOutputHelper output)
                 string label = loadCases.FirstOrDefault(x => key == FragmentMaskKey.OfLoadCase(x.Id))?.Tag ?? key.ToString();
                 output.WriteLine($"  {label}: концов {c[0].Count}");
                 for (int k = 0; k < 7; k++) Fit(k < 6 ? names[k] : "|M|", c[k], l[k]);
+                // Равновесие КЭ в плоскости XY без нагрузки на КЭ: Mz_I + Mz_J + L·Fy_J = 0, ΣFy = 0 (силы узлов на КЭ).
+                double[] rm = new double[2], rf = new double[2], mm = new double[2], ff = new double[2];
+                foreach (var tag in tags)
+                {
+                    if (FemElementGeometry.Of(byTag[tag], nodes) is not { IsBar: true } g) continue;
+                    double len = g.Length;
+                    int src = 0;
+                    foreach (var res in new IFragmentParentResult[] { csfea, lira })
+                    {
+                        if (res.TryBeamEndForces(key, tag, out var f))
+                        {
+                            rm[src] += Math.Pow(f.I.Rz + f.J.Rz + len * f.J.Y, 2);
+                            mm[src] += f.I.Rz * f.I.Rz + f.J.Rz * f.J.Rz;
+                            rf[src] += Math.Pow(f.I.Y + f.J.Y, 2);
+                            ff[src] += f.I.Y * f.I.Y + f.J.Y * f.J.Y;
+                        }
+                        src++;
+                    }
+                }
+                output.WriteLine($"     равновесие XY: CSfea ΣF {Math.Sqrt(rf[0] / Math.Max(ff[0], 1e-30)):0.000}, ΣM {Math.Sqrt(rm[0] / Math.Max(mm[0], 1e-30)):0.000}; " +
+                                 $"снимок ΣF {Math.Sqrt(rf[1] / Math.Max(ff[1], 1e-30)):0.000}, ΣM {Math.Sqrt(rm[1] / Math.Max(mm[1], 1e-30)):0.000}");
             }
         }
     }
