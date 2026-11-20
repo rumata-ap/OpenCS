@@ -127,8 +127,8 @@ namespace OpenCS.Utilites
    {
       public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
       {
-         return -0.001 * (double)value;
-         //return $"{-0.001 * (double)value:F3}";
+         // 0.0 − x, а не −x: ноль показывается «0.00», а не «-0.00».
+         return 0.0 - 0.001 * (double)value;
       }
 
       public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -141,7 +141,7 @@ namespace OpenCS.Utilites
    {
       public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
       {
-         return -(double)value;
+         return 0.0 - (double)value;   // не «-0.00000» у нулевых деформаций
       }
 
       public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

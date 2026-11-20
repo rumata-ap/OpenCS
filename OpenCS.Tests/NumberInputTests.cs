@@ -23,6 +23,16 @@ public sealed class NumberInputTests
     public void Rejects(string text) => Assert.Throws<FormatException>(() => NumberInput.Parse(text));
 
     [Fact]
+    public void InverseConverters_ZeroIsPositiveZero()
+    {
+        var inv = (double)new ConvertInv().Convert(0.0, typeof(double), null!, CultureInfo.InvariantCulture);
+        var mpa = (double)new MPaConvertInv().Convert(0.0, typeof(double), null!, CultureInfo.InvariantCulture);
+        Assert.False(double.IsNegative(inv));
+        Assert.False(double.IsNegative(mpa));
+        Assert.Equal(0.002, (double)new ConvertInv().Convert(-0.002, typeof(double), null!, CultureInfo.InvariantCulture), 12);
+    }
+
+    [Fact]
     public void MPaConverter_CommaInput_NotTimesTen()
     {
         var conv = new MPaConvert();
