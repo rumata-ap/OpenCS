@@ -38,17 +38,6 @@ public sealed class NumberInputTests
     }
 
     [Fact]
-    public void EnumText_MaterialTypeAndDampness_Localized()
-    {
-        var conv = new EnumTextConverter();
-        string Text(object v) => (string)conv.Convert(v, typeof(string), null!, CultureInfo.InvariantCulture);
-        Assert.Equal(Loc.S("Humidity40_75"), Text(CScore.Dampness.от40_до70));
-        Assert.Equal(Loc.S("MatType_Concrete"), Text(CScore.MatType.Concrete));
-        Assert.DoesNotContain("_", Text(CScore.Dampness.ниже_40));
-        Assert.NotEqual("ReSteelF", Text(CScore.MatType.ReSteelF));
-    }
-
-    [Fact]
     public void InverseConverters_ZeroIsPositiveZero()
     {
         var inv = (double)new ConvertInv().Convert(0.0, typeof(double), null!, CultureInfo.InvariantCulture);

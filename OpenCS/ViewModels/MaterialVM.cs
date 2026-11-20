@@ -143,8 +143,16 @@ namespace OpenCS.ViewModels
          bool updateExisting = IsSaved && material.Id > 0;
          if (!updateExisting)
          {
+            // Справочник заполняет чистый материал; «Отмена» и Esc возвращают страницу как до открытия окна,
+            // а не пустой материал после сброса.
+            var previous = material;
+            var restorePrevious = CaptureState();
             Reset();
-            new FromDataSourceWindow(this).ShowDialog();
+            if (new FromDataSourceWindow(this).ShowDialog() != true)
+            {
+               Material = previous;
+               restorePrevious();
+            }
             return;
          }
 

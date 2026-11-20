@@ -1,0 +1,48 @@
+<!-- Подписи значений перечислений в выпадающих списках: словами через DynamicResource, чтобы смена языка
+     сразу перерисовывала и пункты, и выбранное значение (конвертер считал текст один раз). -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:core="clr-namespace:CScore;assembly=CScore">
+
+   <DataTemplate x:Key="MatTypeItem">
+      <TextBlock x:Name="text" Text="{Binding}"/>
+      <DataTemplate.Triggers>
+         <DataTrigger Binding="{Binding}" Value="{x:Static core:MatType.None}">
+            <Setter TargetName="text" Property="Text" Value="{DynamicResource MatType_None}"/>
+         </DataTrigger>
+         <DataTrigger Binding="{Binding}" Value="{x:Static core:MatType.Concrete}">
+            <Setter TargetName="text" Property="Text" Value="{DynamicResource MatType_Concrete}"/>
+         </DataTrigger>
+         <DataTrigger Binding="{Binding}" Value="{x:Static core:MatType.ReSteelF}">
+            <Setter TargetName="text" Property="Text" Value="{DynamicResource MatType_ReSteelF}"/>
+         </DataTrigger>
+         <DataTrigger Binding="{Binding}" Value="{x:Static core:MatType.ReSteelU}">
+            <Setter TargetName="text" Property="Text" Value="{DynamicResource MatType_ReSteelU}"/>
+         </DataTrigger>
+         <DataTrigger Binding="{Binding}" Value="{x:Static core:MatType.Steel}">
+            <Setter TargetName="text" Property="Text" Value="{DynamicResource MatType_Steel}"/>
+         </DataTrigger>
+         <DataTrigger Binding="{Binding}" Value="{x:Static core:MatType.Custom}">
+            <Setter TargetName="text" Property="Text" Value="{DynamicResource MatType_Custom}"/>
+         </DataTrigger>
+      </DataTemplate.Triggers>
+   </DataTemplate>
+
+   <DataTemplate x:Key="DampnessItem">
+      <TextBlock x:Name="text" Text="{Binding}"/>
+      <DataTemplate.Triggers>
+         <DataTrigger Binding="{Binding}" Value="{x:Static core:Dampness.ниже_40}">
+            <Setter TargetName="text" Property="Text" Value="{DynamicResource HumidityBelow40}"/>
+         </DataTrigger>
+         <DataTrigger Binding="{Binding}" Value="{x:Static core:Dampness.от40_до70}">
+            <Setter TargetName="text" Property="Text" Value="{DynamicResource Humidity40_75}"/>
+         </DataTrigger>
+         <DataTrigger Binding="{Binding}" Value="{x:Static core:Dampness.свыше_70}">
+            <Setter TargetName="text" Property="Text" Value="{DynamicResource HumidityAbove75}"/>
+         </DataTrigger>
+         <DataTrigger Binding="{Binding}" Value="{x:Static core:Dampness.any}">
+            <Setter TargetName="text" Property="Text" Value="{DynamicResource HumidityAny}"/>
+         </DataTrigger>
+      </DataTemplate.Triggers>
+   </DataTemplate>
+</ResourceDictionary>

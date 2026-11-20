@@ -16,15 +16,16 @@
    </UserControl.DataContext>
 
    <UserControl.Resources>
-      <ut:MPaConvert x:Key="mpa" />
-      <ut:GPaConvert x:Key="gpa" />
-      <ut:MPaConvertInv x:Key="mpa_" />
-      <ut:ConvertInv x:Key="inv" />
-      <ut:EnumTextConverter x:Key="enumText" />
-      <!-- Тип материала и влажность — словами, а не именами из кода. -->
-      <DataTemplate x:Key="enumItem">
-         <TextBlock Text="{Binding Converter={StaticResource enumText}}"/>
-      </DataTemplate>
+      <ResourceDictionary>
+         <ResourceDictionary.MergedDictionaries>
+            <!-- Тип материала и влажность — словами, а не именами из кода. -->
+            <ResourceDictionary Source="/OpenCS;component/Resources/EnumItemTemplates.xaml"/>
+         </ResourceDictionary.MergedDictionaries>
+         <ut:MPaConvert x:Key="mpa" />
+         <ut:GPaConvert x:Key="gpa" />
+         <ut:MPaConvertInv x:Key="mpa_" />
+         <ut:ConvertInv x:Key="inv" />
+      </ResourceDictionary>
    </UserControl.Resources>
 
    <Grid x:Name="masterGrid" ShowGridLines="False">
@@ -67,11 +68,11 @@
                     Visibility="Collapsed">
          <StackPanel>
             <TextBlock Text="{DynamicResource MaterialType}" Foreground="#FF2813EB" Margin="0,0,0,4"/>
-            <ComboBox x:Name="customTypeCombo" ItemTemplate="{StaticResource enumItem}" Width="200" HorizontalAlignment="Left" Margin="0,0,0,12"
+            <ComboBox x:Name="customTypeCombo" ItemTemplate="{StaticResource MatTypeItem}" Width="200" HorizontalAlignment="Left" Margin="0,0,0,12"
                       SelectedItem="{Binding Type}"/>
 
             <TextBlock Text="{DynamicResource BaseType}" Foreground="#FF2813EB" Margin="0,0,0,4"/>
-            <ComboBox x:Name="baseTypeCombo" ItemTemplate="{StaticResource enumItem}" Width="200" HorizontalAlignment="Left" Margin="0,0,0,12"/>
+            <ComboBox x:Name="baseTypeCombo" ItemTemplate="{StaticResource MatTypeItem}" Width="200" HorizontalAlignment="Left" Margin="0,0,0,12"/>
 
             <TextBlock Text="{DynamicResource DiagramsForCalcTypes}" Foreground="#FF2813EB" Margin="0,0,0,4"/>
             <Grid>
@@ -723,7 +724,7 @@
             </DockPanel>
 
             <DockPanel Grid.Row="15" Grid.Column="4">
-               <ComboBox x:Name="typeMaterial_CB" ItemTemplate="{StaticResource enumItem}" Margin="2,0,2,0"
+               <ComboBox x:Name="typeMaterial_CB" ItemTemplate="{StaticResource MatTypeItem}" Margin="2,0,2,0"
                               HorizontalContentAlignment="Center"
                               SelectedItem="{Binding Type}"
                               SelectedIndex="0">
@@ -737,7 +738,7 @@
             </DockPanel>
 
             <DockPanel Grid.Row="16" Grid.Column="4">
-               <ComboBox x:Name="dampness_CB" ItemTemplate="{StaticResource enumItem}" Margin="2,0,2,0" 
+               <ComboBox x:Name="dampness_CB" ItemTemplate="{StaticResource DampnessItem}" Margin="2,0,2,0" 
                               HorizontalContentAlignment="Center"
                               SelectedItem="{Binding ConcreteDampness}">
                   <core:Dampness>1</core:Dampness>
