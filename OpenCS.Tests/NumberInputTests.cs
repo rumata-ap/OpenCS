@@ -22,6 +22,32 @@ public sealed class NumberInputTests
     [InlineData("abc")]
     public void Rejects(string text) => Assert.Throws<FormatException>(() => NumberInput.Parse(text));
 
+    [Theory]
+    [InlineData("abc")]
+    [InlineData("")]
+    [InlineData("1,000.5")]
+    public void UnitConverters_BadInput_UnsetValueNotException(string text)
+    {
+        // DependencyProperty.UnsetValue — WPF подсвечивает поле красной рамкой и не трогает значение;
+        // исключение из ConvertBack роняло программу окном «Необработанное исключение».
+        System.Windows.Data.IValueConverter[] converters =
+            [new MPaConvert(), new GPaConvert(), new MPaConvertInv(), new ConvertInv()];
+        foreach (var c in converters)
+            Assert.Same(System.Windows.DependencyProperty.UnsetValue,
+                c.ConvertBack(text, typeof(double), null!, CultureInfo.InvariantCulture));
+    }
+
+    [Fact]
+    public void EnumText_MaterialTypeAndDampness_Localized()
+    {
+        var conv = new EnumTextConverter();
+        string Text(object v) => (string)conv.Convert(v, typeof(string), null!, CultureInfo.InvariantCulture);
+        Assert.Equal(Loc.S("Humidity40_75"), Text(CScore.Dampness.от40_до70));
+        Assert.Equal(Loc.S("MatType_Concrete"), Text(CScore.MatType.Concrete));
+        Assert.DoesNotContain("_", Text(CScore.Dampness.ниже_40));
+        Assert.NotEqual("ReSteelF", Text(CScore.MatType.ReSteelF));
+    }
+
     [Fact]
     public void InverseConverters_ZeroIsPositiveZero()
     {

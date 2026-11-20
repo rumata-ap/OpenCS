@@ -15,6 +15,11 @@
       <ut:GPaConvert x:Key="gpa" />
       <ut:MPaConvertInv x:Key="mpa_" />
       <ut:ConvertInv x:Key="inv" />
+      <ut:EnumTextConverter x:Key="enumText" />
+      <!-- Тип материала и влажность — словами, а не именами из кода. -->
+      <DataTemplate x:Key="enumItem">
+         <TextBlock Text="{Binding Converter={StaticResource enumText}}"/>
+      </DataTemplate>
    </UserControl.Resources>
 
    <Grid Margin="10">
@@ -207,7 +212,7 @@
             <TextBlock Grid.Row="15" Grid.Column="0" Margin="2" TextAlignment="Center"
                        Text="{DynamicResource MaterialType}" Foreground="#FF2813EB"/>
             <DockPanel Grid.Row="15" Grid.Column="1">
-               <ComboBox Margin="2" HorizontalContentAlignment="Center"
+               <ComboBox Margin="2" HorizontalContentAlignment="Center" ItemTemplate="{StaticResource enumItem}"
                          SelectedItem="{Binding Type}" SelectedIndex="0">
                   <core:MatType>0</core:MatType>
                   <core:MatType>1</core:MatType>
@@ -220,7 +225,7 @@
             <TextBlock Grid.Row="16" Grid.Column="0" Margin="2" TextAlignment="Center"
                        Text="{DynamicResource Humidity}" Foreground="#FF2813EB"/>
             <DockPanel Grid.Row="16" Grid.Column="1">
-               <ComboBox Margin="2" HorizontalContentAlignment="Center"
+               <ComboBox Margin="2" HorizontalContentAlignment="Center" ItemTemplate="{StaticResource enumItem}"
                          SelectedItem="{Binding Dampness}" SelectedIndex="1">
                   <core:Dampness>1</core:Dampness>
                   <core:Dampness>2</core:Dampness>

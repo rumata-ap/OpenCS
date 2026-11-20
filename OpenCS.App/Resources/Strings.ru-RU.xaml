@@ -7050,6 +7050,13 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="DataSourceConcreteFineB">Мелкозернистый группы Б</system:String>
    <system:String x:Key="DataSourceConstructionRc">Железобетонная</system:String>
    <system:String x:Key="DataSourceConstructionPlain">Бетонная</system:String>
+   <system:String x:Key="HumidityAny">любая</system:String>
+   <system:String x:Key="MatType_None">не задан</system:String>
+   <system:String x:Key="MatType_Concrete">Бетон</system:String>
+   <system:String x:Key="MatType_ReSteelF">Арматура с физическим пределом текучести</system:String>
+   <system:String x:Key="MatType_ReSteelU">Арматура с условным пределом текучести</system:String>
+   <system:String x:Key="MatType_Steel">Конструкционная сталь</system:String>
+   <system:String x:Key="MatType_Custom">Свои диаграммы</system:String>
    <system:String x:Key="SteelNormLabel">Норма:</system:String>
    <system:String x:Key="SteelRolledTypeLabel">Тип проката:</system:String>
    <system:String x:Key="SteelGradeLabel">Марка:</system:String>

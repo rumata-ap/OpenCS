@@ -8,7 +8,7 @@
         xmlns:vm="clr-namespace:OpenCS.ViewModels"
         mc:Ignorable="d"
         Title="{DynamicResource DataSourceTitle}"
-        Height="500" Width="500" MinWidth="420" MinHeight="300"
+        Height="500" Width="640" MinWidth="560" MinHeight="300"
         WindowStartupLocation="CenterScreen" 
         SizeToContent="Height" 
         Icon="/Images/database_icon_174569.png">
@@ -53,7 +53,7 @@
 
                         <DockPanel Margin="5" Grid.Column="0">
                             <TextBlock Text="{DynamicResource ConcreteType}" VerticalAlignment="Center"/>
-                            <ComboBox Margin="5,0,0,0" 
+                            <ComboBox Margin="5,0,0,0" MinWidth="150"
                                       ItemsSource="{Binding ConcreteTypes}"
                                       VerticalContentAlignment="Center"
                                       SelectedIndex="{Binding ConcreteTypeIndex}"/>
@@ -61,7 +61,7 @@
 
                         <DockPanel Margin="5" Grid.Column="1">
                             <TextBlock Text="{DynamicResource ConstructionType}" VerticalAlignment="Center"/>
-                            <ComboBox Margin="5,0,0,0" 
+                            <ComboBox Margin="5,0,0,0" MinWidth="150"
                                       ItemsSource="{Binding ConstructionTypes}"
                                       SelectedIndex="{Binding IsRC}"
                                       VerticalContentAlignment="Center"/>
@@ -109,7 +109,7 @@
 
                     <DockPanel Margin="5" Grid.Column="0">
                         <TextBlock Text="{DynamicResource RfSteelType}" VerticalAlignment="Center"/>
-                        <ComboBox Margin="5,0,0,0" 
+                        <ComboBox Margin="5,0,0,0" MinWidth="150"
                                       ItemsSource="{Binding RfSteelTypes}"
                                       VerticalContentAlignment="Center"
                                       SelectedIndex="0"/>
