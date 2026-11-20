@@ -385,8 +385,8 @@ public static class PunchingFemService
                 int missing = foundation.Count(fs => !inner.TryNodeDisplacement(firstKey, fs.Tag, out _));
                 if (missing > 0)
                     diag.Add(new("punching_fem_foundation_no_displacements",
-                        $"У {missing} из {foundation.Count} узлов плит на упругом основании нет перемещений в снимке {program} — " +
-                        "отпор C1 этих узлов не вычитается (в запас).", false));
+                        $"У {missing} из {foundation.Count} узлов с отпором (упругое основание C1, пружины свай) нет перемещений в снимке {program} — " +
+                        "отпор этих узлов не вычитается (в запас).", false));
             }
             if (model.Adapted.Model.LoadCases.Count > 0 || foundation.Count > 0)
                 baseLoads = (bounds, origin, wanted) =>
@@ -431,7 +431,7 @@ public static class PunchingFemService
 
     /// <summary>
     /// Узловые пружины основания C1 модели — как у CSfea (<see cref="RcStructuralMeshBuilder"/>): узлу КЭ добавляется
-    /// C1·wᵢ·n·nᵀ, wᵢ — доля площади узла, n — нормаль КЭ.
+    /// C1·wᵢ·n·nᵀ, wᵢ — доля площади узла, n — нормаль КЭ; плюс поступательные пружины узлов модели (сваи-точки).
     /// </summary>
     internal static List<FoundationSpring> FoundationSprings(RcStructuralModel model)
     {
@@ -451,6 +451,13 @@ public static class PunchingFemService
                 for (int a = 0; a < 3; a++)
                     for (int b = 0; b < 3; b++) m[a, b] += c1 * w[i] * n[a] * n[b];
             }
+        }
+        // Пружины узлов (сваи-точки КЭ 56/57 ЛИРЫ, КЭ 51 SCAD) — поступательные жёсткости в общих осях (п. 2, С1).
+        foreach (var sp in model.Springs)
+        {
+            if (sp.Dof > 2 || !xyz.ContainsKey(sp.NodeId) || !(sp.Stiffness > 0) || double.IsInfinity(sp.Stiffness)) continue;
+            if (!k.TryGetValue(sp.NodeId, out var m)) k[sp.NodeId] = m = new double[3, 3];
+            m[sp.Dof, sp.Dof] += sp.Stiffness;
         }
         return k.Select(kv => new FoundationSpring(kv.Key.ToString(CultureInfo.InvariantCulture),
             new PlanarVector3(xyz[kv.Key][0], xyz[kv.Key][1], xyz[kv.Key][2]), kv.Value)).ToList();
@@ -595,6 +602,11 @@ public static class PunchingFemService
             }
             double colAction = af.Dot(joint.Normal) / 1e3;
             double? baseLoad = baseLoads != null && baseLoads.TryGetValue(key, out var bl) ? bl.F.Dot(joint.Normal) / 1e3 : null;
+            // Стержни с другой стороны плиты в основании (сваи, колонна над сваей) — их действие на плиту входит в
+            // нагрузку основания (п. 2, С1); нет сил концов — нагрузка основания неизвестна (сила без вычета, в запас).
+            if (joint.BaseBars.Count > 0 && baseLoad is double b0)
+                baseLoad = PunchingFemColumnAction.Compute(joint with { Bars = joint.BaseBars }, data.Model.Nodes, data.ElementsByTag, source.Result, key)
+                    is var (pf, _) ? b0 + pf.Dot(joint.Normal) / 1e3 : null;
             double? contour = cut?.Failure == null && cut?.ByKey.TryGetValue(key, out var cf) == true ? cf.Force
                 : cut == null && source.ShellCut ? PunchingFemShellCut.Compute(joint, data.Model.Nodes, data.ElementsByTag, source.Result, key)
                 : null;

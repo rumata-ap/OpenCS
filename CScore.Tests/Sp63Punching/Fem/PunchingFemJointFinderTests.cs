@@ -249,10 +249,49 @@ public class PunchingFemJointFinderTests
     {
         var m = Plate();
         m.Bar(m.Node(3, 3, 0), m.Node(3, 3, Z));
-        m.Bar(m.Node(3.4, 3, 0), m.Node(3.4, 3, Z));
+        m.Bar(m.Node(3.2, 3, 0), m.Node(3.2, 3, Z));
         var joints = PunchingFemJointFinder.Find(m.Model());
         Assert.Equal(2, joints.Count);
         Assert.All(joints, j => Assert.Equal(PunchingFemNoCheck.SupportInsideBase, j.NoCheck));
+    }
+
+    /// <summary>
+    /// Фундаментная плита на сваях (п. 2, С1): колонна сверху, сваи-стержни снизу в основании пирамиды — узел колонны
+    /// проверяется, сваи — в <see cref="PunchingFemJoint.BaseBars"/> с предупреждением; свая за основанием не входит.
+    /// </summary>
+    [Fact]
+    public void ColumnAbove_PilesInsideBase_Checked()
+    {
+        var m = Plate();
+        string top = m.Node(3, 3, Z);
+        var col = m.Bar(top, m.Node(3, 3, 6));
+        var inner = new[] { (2.8, 2.8), (3.2, 2.8), (2.8, 3.2), (3.2, 3.2) }
+            .Select(p => m.Bar(m.Node(p.Item1, p.Item2, 0), m.Node(p.Item1, p.Item2, Z))).ToList();
+        m.Bar(m.Node(1, 1, 0), m.Node(1, 1, Z));
+        var joints = PunchingFemJointFinder.Find(m.Model());
+        var j = joints.Single(x => x.NodeTag == top);
+
+        Assert.True(j.NoCheck == null, j.NoCheckText);
+        Assert.Equal(col.ElemTag, Assert.Single(j.Bars).ElemTag);
+        Assert.Equal(inner.Select(e => e.ElemTag).Order(), j.BaseBars.Select(b => b.ElemTag).Order());
+        Assert.All(j.BaseBars, b => Assert.True(b.Below));
+        Assert.Contains(j.Warnings, w => w.Code == "fem_piles_in_base");
+        // Свая у колонны: колонна сверху в её основании — тоже стержень с другой стороны, проверка есть.
+        var pile = joints.Single(x => x.NodeTag == m.Node(3.2, 3.2, Z));
+        Assert.True(pile.NoCheck == null, pile.NoCheckText);
+        Assert.Contains(pile.BaseBars, b => b.ElemTag == col.ElemTag && !b.Below);
+    }
+
+    /// <summary>Колонны сверху и снизу (перекрытие): у узла нет «другой стороны» — стержень в основании по-прежнему «нет проверки».</summary>
+    [Fact]
+    public void ColumnsBothSides_OtherBarInsideBase_NoCheck()
+    {
+        var m = Plate();
+        m.Bar(m.Node(3, 3, 0), m.Node(3, 3, Z));
+        m.Bar(m.Node(3, 3, Z), m.Node(3, 3, 6));
+        m.Bar(m.Node(3.2, 3, Z), m.Node(3.2, 3, 6));
+        var j = PunchingFemJointFinder.Find(m.Model()).Single(x => x.NodeTag == m.Node(3, 3, Z));
+        Assert.Equal(PunchingFemNoCheck.SupportInsideBase, j.NoCheck);
     }
 
     [Fact]

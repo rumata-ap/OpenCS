@@ -40,7 +40,7 @@ public sealed class PunchingFemServiceTests : IDisposable
     /// Схема с колонной в узле сетки (ci, cj); <paramref name="above"/> — колонна продолжается вверх до z = 6;
     /// <paramref name="c1"/> — коэффициент постели плиты, Н/м³ (0 — основания нет).
     /// </summary>
-    Setup Create(int ci = N / 2, int cj = N / 2, bool above = false, double windX = 0, double c1 = 0)
+    Setup Create(int ci = N / 2, int cj = N / 2, bool above = false, double windX = 0, double c1 = 0, double pileKz = 0)
     {
         var db = new DatabaseService(_path);
         var schema = new FemSchema { Tag = "Плита" };
@@ -138,6 +138,10 @@ public sealed class PunchingFemServiceTests : IDisposable
                 meshElements.Add(new FemElement { ElemTag = S(6000 + k), ElemType = "beam", SourceMemberTag = "C2", NodeIdsJson = $"[{Up(k)},{Up(k + 1)}]" });
         }
         db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
+        // Сваи-точки (пружины Kz в узлах плиты) у колонны — в основании пирамиды (±0,25 м).
+        if (pileKz > 0)
+            foreach (var (di, dj) in new[] { (-1, -1), (1, -1), (-1, 1), (1, 1) })
+                db.SetFemMeshNodeBoundary(schema.Id, S(SlabNode(ci + di, cj + dj)), 0, [0, 0, pileKz, 0, 0, 0]);
         db.LoadAll();
         var parent = db.FemSchemas.Single(s => s.Id == schema.Id);
         db.CrossSections.Add(column);
@@ -780,6 +784,158 @@ public sealed class PunchingFemServiceTests : IDisposable
         return ms.ToArray();
     }
 
+    /// <summary>
+    /// Фундаментная плита на сваях (п. 2, С1): колонна 400×400 сверху в центре с грузом 500 кН, 8 свай-стержней 400×400
+    /// (заделка низа на z = 0): 4 у колонны — в основании пирамиды (±0,25 м), 4 по углам (±2,5 м). «Пост.» — −10 кПа на
+    /// плиту и груз колонны.
+    /// </summary>
+    Setup CreatePiled()
+    {
+        var db = new DatabaseService(_path);
+        var schema = new FemSchema { Tag = "Плита на сваях" };
+        db.SaveFemSchema(schema);
+        var frame = new Frame3D(new PlanarVector3(0, 0, Zs), new(1, 0, 0), new(0, 1, 0), new(0, 0, 1));
+        var region = PlanarRegion.CreateFromContour(new Contour([-Half, Half, Half, -Half, -Half], [-Half, -Half, Half, Half, -Half], "S1"), [], frame, "S1");
+        region.MeshMaxElementSizeM = Step;
+        db.AddPlanarRegion(region, schema.Id);
+        var concrete = MaterialCatalog.CreateHeavyConcrete("B25", CatalogDirectory())!;
+        var rebar = MaterialCatalog.CreateRebar("А500С", CatalogDirectory())!;
+        db.AddMaterial(concrete);
+        db.AddMaterial(rebar);
+        var plate = new PlateSection
+        {
+            Tag = "П200", H = 0.2, ConcreteMaterialId = concrete.Id, RebarMaterialId = rebar.Id,
+            RebarLayers =
+            [
+                new PlateRebarLayer { Name = "низ", InputMode = "direct", Asx = 5e-4, Asy = 5e-4, Zsx = -0.07, Zsy = -0.07, Face = RebarFace.MinusN },
+                new PlateRebarLayer { Name = "верх", InputMode = "direct", Asx = 5e-4, Asy = 5e-4, Zsx = 0.07, Zsy = 0.07, Face = RebarFace.PlusN },
+            ],
+        };
+        db.SavePlateSection(plate);
+        var column = new CrossSection
+        {
+            Id = 9001, Tag = "К400",
+            Areas =
+            [
+                new MaterialArea
+                {
+                    Tag = "concrete", Category = AreaCategory.Region, MaterialId = concrete.Id,
+                    Hull = new Contour(new[] { -0.2, 0.2, 0.2, -0.2, -0.2 }, new[] { -0.2, -0.2, 0.2, 0.2, -0.2 }, "outer"),
+                },
+            ],
+        };
+        (int I, int J)[] piles = [(N / 2 - 1, N / 2 - 1), (N / 2 + 1, N / 2 - 1), (N / 2 - 1, N / 2 + 1), (N / 2 + 1, N / 2 + 1), (2, 2), (N - 2, 2), (2, N - 2), (N - 2, N - 2)];
+        var nodes = new List<FemNode>
+        {
+            new() { Id = -2, NodeTag = "2", X = 0, Y = 0, Z = Zs },
+            new() { Id = -3, NodeTag = "3", X = 0, Y = 0, Z = 6 },
+        };
+        var members = new List<FemMember>
+        {
+            new() { Id = -2, ElemTag = "C2", ElemType = "beam", NodeIdsJson = "[2,3]", CrossSectionId = column.Id },
+            new()
+            {
+                Id = -10, ElemTag = "S1", ElemType = "shell", NodeIdsJson = "[]", PlanarRegionId = region.Id, Kind = "plate",
+                ThicknessM = 0.2, PlateSectionId = plate.Id,
+            },
+        };
+        for (int p = 0; p < piles.Length; p++)
+        {
+            double x = -Half + Step * piles[p].I, y = -Half + Step * piles[p].J;
+            nodes.Add(new FemNode { Id = -100 - 2 * p, NodeTag = S(100 + 2 * p), X = x, Y = y, Z = 0, DofMask = 63 });
+            nodes.Add(new FemNode { Id = -101 - 2 * p, NodeTag = S(101 + 2 * p), X = x, Y = y, Z = Zs });
+            members.Add(new FemMember { Id = -100 - p, ElemTag = $"P{p + 1}", ElemType = "beam", NodeIdsJson = $"[{100 + 2 * p},{101 + 2 * p}]", CrossSectionId = column.Id });
+        }
+        var loadCases = new List<FemLoadCase> { new() { Id = -1, Tag = "Пост." } };
+        var load = new FemElementLoad { LoadCaseId = -1, LoadKind = FemElementLoadKinds.Uniform, Axis = "z", CoordinateSystem = "global" };
+        load.SetTargetTags(Enumerable.Range(1, N * N).Select(S).ToArray());
+        load.SetValues([Q]);
+        var meshNodeLoads = new List<FemMeshNodeLoad> { new() { LoadCaseId = -1, MeshNodeTag = "206", Fz = -500e3 } };
+        db.SaveFemSchemaEdit(schema.Id, nodes, members, [], loadCases, [], [], [], null, [load], meshNodeLoads);
+
+        var meshNodes = new List<FemMeshNode>();
+        var meshElements = new List<FemElement>();
+        for (int j = 0; j <= N; j++)
+            for (int i = 0; i <= N; i++)
+            {
+                int p = Array.IndexOf(piles, (i, j));
+                meshNodes.Add(new FemMeshNode
+                {
+                    NodeTag = S(SlabNode(i, j)), X = -Half + Step * i, Y = -Half + Step * j, Z = Zs,
+                    SourceNodeTag = i == N / 2 && j == N / 2 ? "2" : p >= 0 ? S(101 + 2 * p) : null,
+                });
+            }
+        for (int j = 0; j < N; j++)
+            for (int i = 0; i < N; i++)
+                meshElements.Add(new FemElement
+                {
+                    ElemTag = S(1 + j * N + i), ElemType = "shell", SourceMemberTag = "S1", ThicknessM = 0.2,
+                    NodeIdsJson = $"[{SlabNode(i, j)},{SlabNode(i + 1, j)},{SlabNode(i, j + 1)},{SlabNode(i + 1, j + 1)}]",
+                });
+        for (int p = 0; p < piles.Length; p++)
+        {
+            double x = -Half + Step * piles[p].I, y = -Half + Step * piles[p].J;
+            string top = S(SlabNode(piles[p].I, piles[p].J));
+            string Pn(int k) => k == 3 ? top : S(300 + 10 * p + k);
+            for (int k = 0; k < 3; k++)
+                meshNodes.Add(new FemMeshNode { NodeTag = S(300 + 10 * p + k), X = x, Y = y, Z = k, SourceNodeTag = k == 0 ? S(100 + 2 * p) : null });
+            for (int k = 0; k < 3; k++)
+                meshElements.Add(new FemElement { ElemTag = S(8000 + 10 * p + k), ElemType = "beam", SourceMemberTag = $"P{p + 1}", NodeIdsJson = $"[{Pn(k)},{Pn(k + 1)}]" });
+        }
+        string center = S(SlabNode(N / 2, N / 2));
+        string Up(int k) => k == 3 ? center : S(200 + k);
+        for (int k = 4; k <= 6; k++)
+            meshNodes.Add(new FemMeshNode { NodeTag = S(200 + k), X = 0, Y = 0, Z = k, SourceNodeTag = k == 6 ? "3" : null });
+        for (int k = 3; k < 6; k++)
+            meshElements.Add(new FemElement { ElemTag = S(6000 + k), ElemType = "beam", SourceMemberTag = "C2", NodeIdsJson = $"[{Up(k)},{Up(k + 1)}]" });
+        db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
+        db.LoadAll();
+        var parent = db.FemSchemas.Single(s => s.Id == schema.Id);
+        db.CrossSections.Add(column);
+        var lc = db.GetFemLoadCases(parent.Id);
+        var stages = lc.Select(c => new FemAnalysisStage
+        {
+            Tag = c.Tag, LoadFactorStep = 1, MaxLoadFactor = 1,
+            LoadExpressionJson = new FemLoadExpression { Mode = FemLoadExpressionMode.Single, LoadCaseIds = [c.Id] }.ToJson(),
+        }).ToList();
+        return new Setup(db, parent, SaveLinear(db, parent, stages));
+    }
+
+    /// <summary>
+    /// Колонна над сваями (п. 2, С1): сваи у колонны в основании пирамиды — узел проверяется, их сила вычитается из
+    /// продавливающей; сила по стержням (колонна + нагрузка основания со сваями) = сила по разрезу.
+    /// </summary>
+    [Fact]
+    public void PiledRaft_ColumnAbove_PilesInBaseSubtracted()
+    {
+        var s = CreatePiled();
+        using var db = s.Db;
+        var data = PunchingFemService.Load(s.Db, s.Schema, new PunchingFemOptions());
+        var joint = data.Joints.Single(j => j.Bars.Any(b => !b.Below));
+        Assert.True(joint.NoCheck == null, joint.NoCheckText);
+        Assert.Equal(4, joint.BaseBars.Count);
+        var diag = new List<FemValidationDiagnostic>();
+        var source = PunchingFemService.OpenCsfea(s.Db, s.Schema, s.Analysis.Id, diag)!;
+        Assert.NotNull(source.Nodal);
+        var forces = PunchingFemService.Evaluate(data, source, joint);
+        Assert.True(forces.CutFailure == null, forces.CutFailure);
+        var f = forces.ByKey[source.Keys.Single().Key];
+
+        Assert.Equal(-500.0, f.ColumnAction!.Value, 2);
+        double slabInBase = Q / 1e3 * Math.Pow(0.4 + 2 * joint.H0, 2);
+        double piles = f.BaseLoad!.Value - slabInBase;
+        // Сваи у колонны жёстче угловых: берут больше груза колонны (≈ 665 из 860 кН) — сила через контур колонны
+        // меняет знак (плита вокруг висит на внутренних сваях), это равновесие, а не ошибка.
+        Assert.True(piles > 500, $"сваи в основании {piles:0.#} кН");
+        Assert.Equal(f.ColumnForce!.Value, f.ContourForce!.Value, 2);
+        Assert.Equal(Math.Abs(-500 + f.BaseLoad!.Value), f.F, 2);
+        Assert.True(f.F < 500, $"F = {f.F:0.#} кН");
+
+        // Тот же узел способом «по стержням» — та же сила.
+        var col = PunchingFemService.Evaluate(data, source, joint, PunchingFemForceMethod.Column).ByKey[source.Keys.Single().Key];
+        Assert.Equal(f.F, col.F, 2);
+    }
+
     [Fact]
     public void ColumnAbove_NetForceIsDifference()
     {
@@ -1135,6 +1291,33 @@ public sealed class PunchingFemServiceTests : IDisposable
         Assert.Equal(post.ColumnAction!.Value, f.ColumnAction!.Value, 3);
         Assert.Equal(post.Mx, f.Mx, 3);
         Assert.Equal(post.My, f.My, 3);
+    }
+
+    /// <summary>
+    /// Сваи-точки (пружины Kz в узлах плиты) в основании пирамиды (п. 2, С1): у CSfea их реакция — в нагрузке основания,
+    /// у снимка — тот же отпор K·u по перемещениям снимка.
+    /// </summary>
+    [Fact]
+    public void Imported_PileSprings_BaseLoadIncludesSpringReaction()
+    {
+        var s = Create(pileKz: 5e7);
+        using var db = s.Db;
+        var lc = db.GetFemLoadCases(s.Schema.Id);
+        var csfea = Evaluate(s);
+        var post = csfea.Forces.ByKey[csfea.Source.Keys.Single(k => k.Label == "Пост.").Key];
+        double slabInBase = Q / 1e3 * Math.Pow(0.4 + 2 * csfea.Joint.H0, 2);
+        Assert.True(post.BaseLoad!.Value - slabInBase > 1, $"отпор свай {post.BaseLoad - slabInBase:0.###} кН");
+        Assert.Contains(csfea.Joint.Warnings, w => w.Code == "fem_supports_in_base");
+
+        ScadSnapshotFromCsfea(db, s.Schema, s.Analysis, lc);
+        var diag = new List<FemValidationDiagnostic>();
+        var source = PunchingFemService.OpenImported(db, s.Schema, CScore.Fem.Fragment.Masks.FragmentMaskSet.SourceScad, diag);
+        Assert.True(source != null, string.Join("; ", diag.Select(d => d.Message)));
+        Assert.DoesNotContain(diag, d => d.Code == "punching_fem_foundation_no_displacements");
+        var data = PunchingFemService.Load(db, s.Schema, new PunchingFemOptions());
+        var f = PunchingFemService.Evaluate(data, source!, Assert.Single(data.Joints)).ByKey[source!.Keys.Single(k => k.Label == "Пост.").Key];
+        Assert.Equal(post.BaseLoad!.Value, f.BaseLoad!.Value, 3);
+        Assert.Equal(post.ColumnForce!.Value, f.ColumnForce!.Value, 3);
     }
 
     /// <summary>

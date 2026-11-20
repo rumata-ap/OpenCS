@@ -163,6 +163,11 @@ public sealed record PunchingFemJoint
     public IReadOnlyList<string> JunctionNodes { get; init; } = [];
     /// <summary>В основании пирамиды есть стержни в плоскости плиты (балки): сила по стержню колонны завышена.</summary>
     public bool Ribs { get; init; }
+    /// <summary>
+    /// Стержни с другой стороны плиты, чей узел у плиты в основании пирамиды (сваи под фундаментной плитой, колонна над
+    /// сваей): их сила на плиту входит в нагрузку основания (п. 2, С1).
+    /// </summary>
+    public IReadOnlyList<PunchingFemBar> BaseBars { get; init; } = [];
     public string? NoCheck { get; init; }
     public string? NoCheckText { get; init; }
     public IReadOnlyList<PunchingWarning> Warnings { get; init; } = [];

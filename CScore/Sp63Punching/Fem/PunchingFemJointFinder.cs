@@ -293,13 +293,17 @@ public static class PunchingFemJointFinder
                     Warnings = warnings,
                 };
 
-            // Прочие элементы и опоры в основании пирамиды.
+            // Прочие элементы и опоры в основании пирамиды. Сторона своих КЭ узла (колонны, пилона, стены) — по их центрам:
+            // стержни с другой стороны плиты (сваи под фундаментной плитой, колонна над сваей) сила узла учитывает
+            // нагрузкой основания (п. 2, С1), стержни с той же стороны и при КЭ с обеих сторон — «нет проверки».
             var barTags = own;
             var junctionSet = junction.ToHashSet(StringComparer.Ordinal);
+            bool? ownBelow = OwnSide(junction, own, slab);
             var supportBars = new SortedSet<string>(FemNodeRigidBodies.TagComparer);
+            var baseBars = new List<PunchingFemBar>();
             var walls = new SortedSet<string>(FemNodeRigidBodies.TagComparer);
             var ribs = new SortedSet<string>(FemNodeRigidBodies.TagComparer);
-            foreach (var t in insideNodes.Concat(junction))
+            foreach (var t in insideNodes.Concat(junction).Distinct(StringComparer.Ordinal))
             {
                 if (!_at.TryGetValue(t, out var es)) continue;
                 foreach (var (e, g) in es)
@@ -313,7 +317,13 @@ public static class PunchingFemJointFinder
                     if (!g.IsBar) continue;
                     var d = g.Points[1] - g.Points[0];
                     bool inPlane = d.Length > 1e-12 && Math.Abs(d.Normalize().Dot(n)) < SinAngle;
-                    (inPlane ? ribs : supportBars).Add(e.ElemTag);
+                    if (inPlane) { ribs.Add(e.ElemTag); continue; }
+                    // Стержень поперёк плиты — по его узлу у плиты внутри основания (узлы КЭ основания шире на ячейку).
+                    if (Position(t) is not { } pt || !junctionSet.Contains(t) && !Contains(basePoly, joint.ToLocal(pt), 1e-6)) continue;
+                    int k = g.NodeTags[0] == t ? 0 : 1;
+                    bool below = (g.Points[1 - k] - g.Points[k]).Dot(n) < 0;
+                    if (ownBelow is bool ob && below != ob && !junctionSet.Contains(t)) baseBars.Add(new PunchingFemBar(e.ElemTag, t, below));
+                    else supportBars.Add(e.ElemTag);
                 }
             }
             if (walls.Count > 0 || supportBars.Count > 0)
@@ -329,12 +339,43 @@ public static class PunchingFemJointFinder
                 warnings.Add(new("fem_beam_in_base",
                     $"В основании пирамиды есть стержни в плоскости плиты ({string.Join(", ", ribs.Take(6))}{(ribs.Count > 6 ? ", …" : "")}): " +
                     "часть силы колонны идёт в них, сила по стержню колонны завышена — точнее сила по контуру."));
+            if (baseBars.Count > 0)
+            {
+                baseBars.Sort((a, b) => FemNodeRigidBodies.TagComparer.Compare(a.ElemTag, b.ElemTag));
+                var tags = baseBars.Select(b => b.ElemTag).ToList();
+                warnings.Add(new("fem_piles_in_base", string.Create(Ru,
+                    $"В основании пирамиды {(ownBelow == false ? "под плитой" : "над плитой")} {tags.Count} стерж. ({string.Join(", ", tags.Take(6))}{(tags.Count > 6 ? ", …" : "")}) — " +
+                    $"сваи или колонна с другой стороны плиты: их сила на плиту вычтена из продавливающей (нагрузка основания).")));
+            }
             int supported = insideNodes.Count(t => !junctionSet.Contains(t) && Model.SupportedNodes.Contains(t));
             if (supported > 0)
                 warnings.Add(new("fem_supports_in_base", string.Create(Ru,
-                    $"В основании пирамиды {supported} узлов с опорами или пружинами (упругое основание): их отпор вычитается из силы только при расчёте по контуру.")));
+                    $"В основании пирамиды {supported} узлов с опорами или пружинами (упругое основание, сваи-точки): их отпор вычитается из силы " +
+                    $"по разрезу всегда, по стержням — если источник даёт реакции (CSfea; у импорта — пружины и C1 по перемещениям, жёсткие связи — нет, в запас).")));
 
-            return joint with { Ribs = ribs.Count > 0, Warnings = warnings };
+            return joint with { Ribs = ribs.Count > 0, BaseBars = baseBars, Warnings = warnings };
+        }
+
+        /// <summary>
+        /// Сторона своих КЭ узла относительно плиты по центрам КЭ, примыкающих к узлам <paramref name="junction"/>:
+        /// true — все под плитой, false — все над, null — с обеих сторон или не определить.
+        /// </summary>
+        bool? OwnSide(IReadOnlyList<string> junction, IReadOnlySet<string> own, PunchingFemSlab slab)
+        {
+            bool above = false, below = false;
+            foreach (var t in junction)
+            {
+                if (!_at.TryGetValue(t, out var es)) continue;
+                foreach (var (e, g) in es)
+                {
+                    if (!own.Contains(e.ElemTag) || g.Points.Count == 0) continue;
+                    var c = g.Points.Aggregate(PlanarVector3.Zero, (s, p) => s + p) * (1.0 / g.Points.Count);
+                    double dist = slab.Distance(c);
+                    if (dist < -1e-9) below = true;
+                    else if (dist > 1e-9) above = true;
+                }
+            }
+            return above == below ? null : below;
         }
 
         /// <summary>
