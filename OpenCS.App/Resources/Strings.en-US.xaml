@@ -6874,6 +6874,13 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemColLira">LIRA</system:String>
    <system:String x:Key="PunchingFemLiraAswKsw">Asw {0:0.00} cm²; Ksw {1:0.00}</system:String>
    <system:String x:Key="PunchingFemLiraKsw">Ksw {0:0.00}</system:String>
+   <system:String x:Key="PunchingFemLira170">not checked (N ≥ 0, #170)</system:String>
+   <system:String x:Key="PunchingFemLiraCode">message #{0}</system:String>
+   <system:String x:Key="PunchingFemFinding">Searching column–slab joints…</system:String>
+   <system:String x:Key="PunchingFemFindError">Joints not found: {0}</system:String>
+   <system:String x:Key="PunchingFemNodeSearch">Node #</system:String>
+   <system:String x:Key="PunchingFemNodeSearchHint">Node number: the row is selected and scrolled into view. The beginning of the number is enough.</system:String>
+   <system:String x:Key="PunchingFemNodeSearchMissing">not in the table</system:String>
    <system:String x:Key="PunchingFemLiraHint">LIRA, row {0} of the table «Reinforcement for punching perimeters»: U = {1:0} mm</system:String>
    <system:String x:Key="PunchingFemLiraNoAsp">LIRA selected reinforcement (*.asp) is not attached to the schema — attach it to compare joints with LIRA.</system:String>
    <system:String x:Key="PunchingFemLiraNoAspFragment">LIRA selected reinforcement (*.asp) is not attached to the fragment's parent schema — no comparison with LIRA.</system:String>

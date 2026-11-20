@@ -100,6 +100,12 @@
                                 Padding="10,3" Margin="0,6,0,0"/>
                      </StackPanel>
                   </Border>
+                  <DockPanel DockPanel.Dock="Top" Margin="0,0,0,4" ToolTip="{DynamicResource PunchingFemNodeSearchHint}">
+                     <TextBlock Text="{DynamicResource PunchingFemNodeSearch}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                     <TextBox Width="80" Text="{Binding NodeSearch, UpdateSourceTrigger=PropertyChanged}" VerticalContentAlignment="Center"/>
+                     <TextBlock Text="{DynamicResource PunchingFemNodeSearchMissing}" Foreground="#B00020" VerticalAlignment="Center" Margin="6,0,0,0"
+                                Visibility="{Binding NodeSearchMissing, Converter={StaticResource BoolToVisibility}}"/>
+                  </DockPanel>
                   <DataGrid x:Name="JointsListGrid" ItemsSource="{Binding Joints}" SelectedItem="{Binding SelectedJoint}"
                             AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column"
                             SelectionMode="Single" GridLinesVisibility="Horizontal" MouseDoubleClick="JointsGrid_MouseDoubleClick">

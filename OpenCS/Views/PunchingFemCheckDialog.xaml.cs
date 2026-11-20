@@ -24,6 +24,12 @@ public partial class PunchingFemCheckDialog : Window
         finally { Cursor = null; }
         DataContext = _vm;
         ResultCheck = existing;
+        // Выбор узла поиском по номеру или после «Найти узлы» — строка в видимой части таблицы.
+        _vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PunchingFemCheckVM.SelectedJoint) && _vm.SelectedJoint is { } j)
+                Dispatcher.BeginInvoke(() => JointsGrid.ScrollIntoView(j), System.Windows.Threading.DispatcherPriority.Background);
+        };
     }
 
     /// <summary>Загрузка *.asp ЛИРЫ к схеме (как в меню схемы) для кнопки «Приложить *.asp…»; true — приложен.</summary>

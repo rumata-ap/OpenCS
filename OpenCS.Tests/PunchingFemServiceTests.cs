@@ -694,7 +694,7 @@ public sealed class PunchingFemServiceTests : IDisposable
     }
 
     [Fact]
-    public void CheckWindow_ColumnsWithoutSections_OfferBarSections()
+    public async Task CheckWindow_ColumnsWithoutSections_OfferBarSections()
     {
         var s = Create();
         using var db = s.Db;
@@ -703,12 +703,14 @@ public sealed class PunchingFemServiceTests : IDisposable
         s.Schema.SourceType = "lira";
 
         var vm = new OpenCS.ViewModels.PunchingFemCheckVM(db, null, s.Schema);
+        await vm.Finding;
         Assert.True(vm.HasBarSectionsHint);
         Assert.False(vm.CanOfferBarSections);   // команды ещё нет
         int calls = 0;
         vm.CreateBarSections = _ => { calls++; db.CrossSections.Add(column); return true; };
         Assert.True(vm.CanOfferBarSections);
         vm.CreateBarSectionsCommand.Execute(null);
+        await vm.Finding;
         Assert.Equal(1, calls);
         // Сечения назначены — узлы найдены заново, подсказки нет.
         Assert.False(vm.HasBarSectionsHint);
@@ -718,6 +720,7 @@ public sealed class PunchingFemServiceTests : IDisposable
         db.CrossSections.Remove(column);
         s.Schema.SourceType = "internal";
         var own = new OpenCS.ViewModels.PunchingFemCheckVM(db, null, s.Schema) { CreateBarSections = _ => true };
+        await own.Finding;
         Assert.True(own.HasBarSectionsHint);
         Assert.False(own.CanOfferBarSections);
     }
@@ -931,11 +934,13 @@ public sealed class PunchingFemServiceTests : IDisposable
     }
 
     [Fact]
-    public void CheckVM_FindsJointsAndBuildsParams()
+    public async Task CheckVM_FindsJointsAndBuildsParams()
     {
         var s = Create();
         using var db = s.Db;
         var vm = new OpenCS.ViewModels.PunchingFemCheckVM(db, null, s.Schema);
+        await vm.Finding;
+        Assert.False(vm.IsFinding);
         var pick = Assert.Single(vm.Joints);
         Assert.True(pick.Checkable);
         Assert.Same(pick, vm.SelectedJoint);
@@ -956,6 +961,7 @@ public sealed class PunchingFemServiceTests : IDisposable
         Assert.Equal(PunchingFemCheckParams.NormCode, check.NormCode);
         Assert.Equal(s.Schema.Id, check.SchemaId);
         var back = new OpenCS.ViewModels.PunchingFemCheckVM(db, check);
+        await back.Finding;
         Assert.False(Assert.Single(back.Joints).Include);
         Assert.Equal(50, back.Joints[0].Ax);
     }

@@ -225,6 +225,24 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
     }
 }
 
+/// <summary>Поиск узла по номеру в таблицах продавливания по МКЭ.</summary>
+public static class PunchingFemNodeSearch
+{
+    /// <summary>
+    /// Узел с номером <paramref name="text"/>; нет точного совпадения — первый по порядку номеров, начинающийся с
+    /// введённого; пусто или нет такого — null.
+    /// </summary>
+    public static T? Find<T>(IEnumerable<T> rows, Func<T, string> node, string? text) where T : class
+    {
+        text = text?.Trim() ?? "";
+        if (text.Length == 0) return null;
+        var list = rows as IReadOnlyCollection<T> ?? rows.ToList();
+        return list.FirstOrDefault(r => string.Equals(node(r), text, StringComparison.OrdinalIgnoreCase))
+               ?? list.Where(r => node(r).StartsWith(text, StringComparison.OrdinalIgnoreCase))
+                   .OrderBy(node, FemNodeRigidBodies.TagComparer).FirstOrDefault();
+    }
+}
+
 /// <summary>Текст результата ЛИРЫ по узлу продавливания (таблица 47) для окон проверки и результата.</summary>
 public static class PunchingFemLiraText
 {
@@ -234,7 +252,8 @@ public static class PunchingFemLiraText
     public static string Short(int errorCode, double asw, double ksw)
     {
         var c = CultureInfo.CurrentCulture;
-        if (errorCode != 0) return "#" + errorCode.ToString(c);
+        if (errorCode == 170) return Loc.S("PunchingFemLira170", "не считала (N ≥ 0, #170)");
+        if (errorCode != 0) return string.Format(c, Loc.S("PunchingFemLiraCode", "сообщение #{0}"), errorCode);
         return asw > 0
             ? string.Format(c, Loc.S("PunchingFemLiraAswKsw", "Asw {0:0.00} см²; Ksw {1:0.00}"), asw, ksw)
             : string.Format(c, Loc.S("PunchingFemLiraKsw", "Ksw {0:0.00}"), ksw);
@@ -339,17 +358,17 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         LiraContour = p.LiraContour;
         _loading = false;
 
-        FindJointsCommand = new RelayCommand(_ => FindJoints(), _ => _schema != null);
+        FindJointsCommand = new RelayCommand(_ => FindJoints(), _ => _schema != null && !IsFinding);
         IncludeAllCommand = new RelayCommand(_ => { foreach (var j in Joints) j.Include = true; });
         ExcludeAllCommand = new RelayCommand(_ => { foreach (var j in Joints) j.Include = false; });
         LiraOnlyCommand = new RelayCommand(_ => { foreach (var j in Joints) j.Include = j.Lira != null; }, _ => HasLiraJoints);
         AttachAspCommand = new RelayCommand(_ =>
         {
-            if (_schema != null && AttachLiraAsp?.Invoke(_schema) == true) FindJoints();
+            if (_schema != null && AttachLiraAsp?.Invoke(_schema) == true) StartFind(reloadAsp: true);
         }, _ => _schema != null && AttachLiraAsp != null && !_isFragment);
         CreateBarSectionsCommand = new RelayCommand(_ =>
         {
-            if (_schema != null && CreateBarSections?.Invoke(_schema) == true) FindJoints();
+            if (_schema != null && CreateBarSections?.Invoke(_schema) == true) StartFind(reloadModel: true);
         }, _ => _schema != null && CreateBarSections != null && IsImportedSchema);
         LiraSetsCommand = new RelayCommand(async _ =>
         {
@@ -362,7 +381,7 @@ public sealed class PunchingFemCheckVM : ViewModelBase
                 _liraBusy = false;
                 CommandManager.InvalidateRequerySuggested();
             }
-        }, _ => _schema != null && CreateLiraForceSets != null && !_liraBusy && !_isFragment && _analysis?.Kind == FragmentMaskSet.SourceLira
+        }, _ => _schema != null && CreateLiraForceSets != null && !_liraBusy && !IsFinding && !_isFragment && _analysis?.Kind == FragmentMaskSet.SourceLira
                && LiraSetJoints().Count > 0);
         if (_schema != null) FindJoints();
     }
@@ -618,13 +637,76 @@ public sealed class PunchingFemCheckVM : ViewModelBase
     }
 
     /// <summary>Поиск узлов схемы с текущими настройками; включение и переопределения узлов сохраняются.</summary>
-    public void FindJoints()
+    /// <remarks>Не ждёт окончания: поиск идёт в фоне (<see cref="Finding"/>).</remarks>
+    public void FindJoints() => StartFind();
+
+    /// <summary>Последний запущенный поиск узлов (для ожидания в тестах и перед действиями с узлами).</summary>
+    public Task Finding { get; private set; } = Task.CompletedTask;
+
+    void StartFind(bool reloadModel = false, bool reloadAsp = false) => Finding = FindJointsAsync(reloadModel, reloadAsp);
+
+    /// <summary>Модель сетки схемы <see cref="_cacheSchemaId"/> — без перечитывания при смене настроек поиска.</summary>
+    PunchingFemModel? _cachedModel;
+    /// <summary>Подбор ЛИРЫ (*.asp) схемы <see cref="_cacheSchemaId"/>; <see cref="_aspCached"/> — уже прочитан (в т. ч. «нет файла»).</summary>
+    (string FileName, CScore.Import.LiraAspFile? File, string? Error)? _cachedAsp;
+    bool _aspCached;
+    int _cacheSchemaId;
+    /// <summary>Номер последнего запроса поиска: результат устаревшего запроса отбрасывается.</summary>
+    int _findVersion;
+
+    /// <summary>Идёт поиск узлов (в фоне).</summary>
+    public bool IsFinding { get; private set; }
+
+    /// <summary>
+    /// Поиск узлов в фоне: сетка схемы и *.asp ЛИРЫ читаются один раз на схему, при смене настроек поиска — только
+    /// поиск по готовой модели. Пока идёт поиск, сводка — «Поиск узлов…»; результат устаревшего запроса отбрасывается.
+    /// </summary>
+    /// <param name="reloadModel">Перечитать сетку (после создания сечений стержней).</param>
+    /// <param name="reloadAsp">Перечитать *.asp (после «Приложить *.asp…»).</param>
+    async Task FindJointsAsync(bool reloadModel, bool reloadAsp)
     {
-        if (_schema == null) return;
+        if (_schema is not { } schema) return;
+        foreach (var j in Joints) if (j.ToOverride(Common()) is { } o) _overrides[j.Node] = o; else _overrides.Remove(j.Node);
+        if (_cacheSchemaId != schema.Id) { _cacheSchemaId = schema.Id; reloadModel = reloadAsp = true; }
+        if (reloadModel) _cachedModel = null;
+        if (reloadAsp) { _cachedAsp = null; _aspCached = false; }
+        int version = ++_findVersion;
+        SetFinding(true);
+        var options = ToParams().FinderOptions;
+        var model = _cachedModel;
+        bool aspCached = _aspCached;
+        var cachedAsp = _cachedAsp;
+        PunchingFemSchemaData data;
+        (string FileName, CScore.Import.LiraAspFile? File, string? Error)? asp;
+        bool isFragment;
+        try
+        {
+            (data, asp, isFragment) = await Task.Run(() =>
+            {
+                var m = model ?? PunchingFemService.BuildModel(_db, schema.Id);
+                var d = PunchingFemService.Load(schema, m, options);
+                var a = aspCached ? cachedAsp : PunchingFemService.LoadLiraAsp(_db, schema.Id);
+                return (d, a, _db.GetFemSchemaFragmentSource(schema.Id).IsFragment);
+            });
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            if (version != _findVersion) return;
+            SetFinding(false);
+            JointsSummary = string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingFemFindError", "Узлы не найдены: {0}"), ex.Message);
+            OnPropertyChanged(nameof(JointsSummary));
+            return;
+        }
+        if (version != _findVersion || !ReferenceEquals(schema, _schema)) return;
+        _cachedModel = data.Model;
+        _cachedAsp = asp;
+        _aspCached = true;
+        _isFragment = isFragment;
+
+        // Правки строк, сделанные во время поиска, не теряются.
         foreach (var j in Joints) if (j.ToOverride(Common()) is { } o) _overrides[j.Node] = o; else _overrides.Remove(j.Node);
         string? keep = _selectedJoint?.Node;
         Joints.Clear();
-        var data = PunchingFemService.Load(_db, _schema, ToParams().FinderOptions);
         foreach (var joint in data.Joints)
         {
             var row = new PunchingFemJointPickVM(joint, _overrides.GetValueOrDefault(joint.NodeTag));
@@ -636,20 +718,52 @@ public sealed class PunchingFemCheckVM : ViewModelBase
             ? Loc.S("PunchingFemNoJoints", "Узлов «колонна — плита» не найдено: нужен стержень под углом к горизонтальной плите с концом в её узле или в теле АЖТ.")
             : string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingFemJointsFound", "Найдено узлов: {0}, из них не проверяются по геометрии: {1}, плит: {2}. При расчёте без проверки останутся и узлы без усилий в результате."),
                 data.Joints.Count, noCheck, data.Slabs.Count(s => data.Joints.Any(j => j.SlabIndex == s.Index)));
-        OnPropertyChanged(nameof(JointsSummary));
         UpdateBarSectionsHint(data.Joints);
-        MatchLira(data.Joints);
-        SelectedJoint =Joints.FirstOrDefault(j => j.Node == keep) ?? Joints.FirstOrDefault(j => j.Checkable) ?? Joints.FirstOrDefault();
+        MatchLira(data.Joints, asp);
+        SetFinding(false);
+        OnPropertyChanged(nameof(JointsSummary));
+        SelectedJoint = Joints.FirstOrDefault(j => j.Node == keep) ?? Joints.FirstOrDefault(j => j.Checkable) ?? Joints.FirstOrDefault();
+        if (_nodeSearch.Length > 0) ApplyNodeSearch();
+    }
+
+    void SetFinding(bool value)
+    {
+        IsFinding = value;
+        OnPropertyChanged(nameof(IsFinding));
+        if (value)
+        {
+            JointsSummary = Loc.S("PunchingFemFinding", "Поиск узлов «колонна — плита»…");
+            OnPropertyChanged(nameof(JointsSummary));
+        }
+        CommandManager.InvalidateRequerySuggested();
+    }
+
+    // ── Поиск узла по номеру ───────────────────────────────────────────────
+
+    string _nodeSearch = "";
+    /// <summary>Номер узла для перехода в таблице: точное совпадение, иначе первый узел, начинающийся с введённого.</summary>
+    public string NodeSearch
+    {
+        get => _nodeSearch;
+        set { if (SetField(ref _nodeSearch, (value ?? "").Trim())) ApplyNodeSearch(); }
+    }
+    /// <summary>Введённого номера нет среди найденных узлов.</summary>
+    public bool NodeSearchMissing { get; private set; }
+
+    void ApplyNodeSearch()
+    {
+        var hit = PunchingFemNodeSearch.Find(Joints, j => j.Node, _nodeSearch);
+        if (hit != null) SelectedJoint = hit;
+        NodeSearchMissing = _nodeSearch.Length > 0 && hit == null && !IsFinding;
+        OnPropertyChanged(nameof(NodeSearchMissing));
     }
 
     bool _isFragment;
 
     /// <summary>Сопоставить найденные узлы с узлами продавливания ЛИРЫ из *.asp схемы.</summary>
-    void MatchLira(IReadOnlyList<PunchingFemJoint> joints)
+    void MatchLira(IReadOnlyList<PunchingFemJoint> joints, (string FileName, CScore.Import.LiraAspFile? File, string? Error)? asp)
     {
         var c = CultureInfo.CurrentCulture;
-        _isFragment = _schema != null && _db.GetFemSchemaFragmentSource(_schema.Id).IsFragment;
-        var asp = _schema == null ? null : PunchingFemService.LoadLiraAsp(_db, _schema.Id);
         var match = PunchingFemService.MatchLira(asp?.File, joints);
         foreach (var j in Joints) j.SetLira(match.ByNode.GetValueOrDefault(j.Node));
         LiraAspText = asp switch

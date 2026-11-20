@@ -430,4 +430,21 @@ public sealed class PunchingFemResultVM : ViewModelBase
     {
         if (Joints.FirstOrDefault(j => j.Node == node) is { } j) SelectedJoint = j;
     }
+
+    string _nodeSearch = "";
+    /// <summary>Номер узла для перехода: точное совпадение, иначе первый узел, начинающийся с введённого.</summary>
+    public string NodeSearch
+    {
+        get => _nodeSearch;
+        set
+        {
+            if (!SetField(ref _nodeSearch, (value ?? "").Trim())) return;
+            var hit = PunchingFemNodeSearch.Find(Joints, j => j.Node, _nodeSearch);
+            if (hit != null) SelectedJoint = hit;
+            NodeSearchMissing = _nodeSearch.Length > 0 && hit == null;
+            OnPropertyChanged(nameof(NodeSearchMissing));
+        }
+    }
+    /// <summary>Введённого номера нет среди узлов результата.</summary>
+    public bool NodeSearchMissing { get; private set; }
 }

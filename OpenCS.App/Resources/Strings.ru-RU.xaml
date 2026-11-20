@@ -6874,6 +6874,13 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemColLira">ЛИРА</system:String>
    <system:String x:Key="PunchingFemLiraAswKsw">Asw {0:0.00} см²; Ksw {1:0.00}</system:String>
    <system:String x:Key="PunchingFemLiraKsw">Ksw {0:0.00}</system:String>
+   <system:String x:Key="PunchingFemLira170">не считала (N ≥ 0, #170)</system:String>
+   <system:String x:Key="PunchingFemLiraCode">сообщение #{0}</system:String>
+   <system:String x:Key="PunchingFemFinding">Поиск узлов «колонна — плита»…</system:String>
+   <system:String x:Key="PunchingFemFindError">Узлы не найдены: {0}</system:String>
+   <system:String x:Key="PunchingFemNodeSearch">Узел №</system:String>
+   <system:String x:Key="PunchingFemNodeSearchHint">Номер узла: строка выделяется и прокручивается в видимую часть таблицы. Можно ввести начало номера.</system:String>
+   <system:String x:Key="PunchingFemNodeSearchMissing">нет в таблице</system:String>
    <system:String x:Key="PunchingFemLiraHint">ЛИРА, запись {0} таблицы «Арматура для контуров продавливания»: U = {1:0} мм</system:String>
    <system:String x:Key="PunchingFemLiraNoAsp">Подбор ЛИРЫ (*.asp) к схеме не приложен — приложите его, чтобы сверить узлы с ЛИРОЙ.</system:String>
    <system:String x:Key="PunchingFemLiraNoAspFragment">Подбор ЛИРЫ (*.asp) не приложен к исходной схеме фрагмента — сверки с ЛИРОЙ нет.</system:String>

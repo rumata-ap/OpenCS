@@ -35,7 +35,14 @@ public partial class PunchingFemResultView : UserControl
         _vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(PunchingFemResultVM.SelectedRow)) UpdateCreateTask();
-            if (e.PropertyName == nameof(PunchingFemResultVM.SelectedJoint)) UpdateRowsColumns();
+            if (e.PropertyName == nameof(PunchingFemResultVM.SelectedJoint))
+            {
+                UpdateRowsColumns();
+                // Поиск по номеру и щелчок на плане — строка узла в видимой части обеих таблиц.
+                if (_vm.SelectedJoint is { } j)
+                    Dispatcher.BeginInvoke(() => { JointsListGrid.ScrollIntoView(j); JointsGrid.ScrollIntoView(j); },
+                        System.Windows.Threading.DispatcherPriority.Background);
+            }
         };
     }
 

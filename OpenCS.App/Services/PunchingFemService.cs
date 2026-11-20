@@ -128,7 +128,14 @@ public static class PunchingFemService
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(schema);
-        var model = BuildModel(db, schema.Id);
+        return Load(schema, BuildModel(db, schema.Id), options);
+    }
+
+    /// <summary>Найденные узлы продавливания по готовой модели сетки (<see cref="BuildModel"/>) — без чтения базы.</summary>
+    public static PunchingFemSchemaData Load(FemSchema schema, PunchingFemModel model, PunchingFemOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(schema);
+        ArgumentNullException.ThrowIfNull(model);
         var joints = PunchingFemJointFinder.Find(model, options, out var slabs, out var walls);
         return new PunchingFemSchemaData
         {
