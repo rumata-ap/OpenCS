@@ -57,6 +57,8 @@ public sealed class PunchingPlanCanvas : FrameworkElement
     static readonly Pen HolePen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0x47, 0x55, 0x69)), 1.4));
     static readonly Pen AreaPen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0x11, 0x18, 0x27)), 1.6));
     static readonly Brush BarBrush = Frozen(new SolidColorBrush(Color.FromRgb(0x25, 0x63, 0xEB)));
+    static readonly Brush HangerBrush = Frozen(new SolidColorBrush(Color.FromRgb(0x11, 0x18, 0x27)));
+    static readonly Pen HangerPen = Frozen(new Pen(Brushes.White, 1));
     static readonly Pen ArmedPen = Frozen(new Pen(new SolidColorBrush(Color.FromArgb(0x70, 0x25, 0x63, 0xEB)), 8)
         { StartLineCap = PenLineCap.Flat, EndLineCap = PenLineCap.Flat });
     static readonly Brush AreaBrush = Frozen(new DrawingBrush(new GeometryDrawing(null,
@@ -158,6 +160,13 @@ public sealed class PunchingPlanCanvas : FrameworkElement
             foreach (var b in bars) dc.DrawEllipse(BarBrush, null, M(b), r, r);
         }
 
+        // Крайние подвешивающие стержни подвешенной плиты (СП 430, рис. 6.3).
+        if (scene.HangerRods is { Count: > 0 } rods)
+        {
+            double r = Math.Clamp(scale * 0.01, 2.0, 4.5);
+            foreach (var b in rods) dc.DrawEllipse(HangerBrush, HangerPen, M(b), r, r);
+        }
+
         string? selected = SelectedVariantId ?? scene.Variants.FirstOrDefault(v => v.Governs)?.Id;
         if (scene.Variants.FirstOrDefault(v => v.Id == selected)?.Armed is { Count: > 0 } armed)
             foreach (var e in armed)
@@ -197,6 +206,7 @@ public sealed class PunchingPlanCanvas : FrameworkElement
         string legend = string.Format(CultureInfo.CurrentCulture, Utilites.Loc.S("PunchingCanvasLegend", "h0 = {0:0} мм; + — центр тяжести контура"), scene.H0 * 1000);
         if (scene.SwCross) legend += Utilites.Loc.S("PunchingCanvasLegendCross", "; синим — стержни и участки контура под лучами креста");
         else if (scene.SwBars is { Count: > 0 }) legend += Utilites.Loc.S("PunchingCanvasLegendBars", "; синим — стержни поперечной арматуры");
+        if (scene.HangerRods is { Count: > 0 }) legend += Utilites.Loc.S("PunchingCanvasLegendHanger", "; чёрным — крайние подвешивающие стержни");
         dc.DrawText(Text(legend, 11, gray), new Point(pad, ActualHeight - footer));
     }
 

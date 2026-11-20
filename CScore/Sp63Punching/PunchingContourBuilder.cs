@@ -28,7 +28,10 @@ public enum PunchingVariantKind
     WallEndEdge,
 
     /// <summary>Контур у угла стены (рис. 6.2): наружный Г и диагональ у внутреннего угла.</summary>
-    WallCorner
+    WallCorner,
+
+    /// <summary>П-контур подвешенной плиты у торца стены (рис. 6.3): на h0/2 от крайних подвешивающих стержней.</summary>
+    WallHanging
 }
 
 /// <summary>Где проверяется контур.</summary>
@@ -188,8 +191,8 @@ public static class PunchingContourBuilder
                 warnings.Add(end
                     ? new("wall_end_clipped", "Край плиты ближе h0/2 к торцу или граням стены — П-контур обрезан краем, учитывается часть в пределах плиты.")
                     : new("wall_corner_clipped", "Край плиты пересекает контур у угла стен — учитывается часть контура в пределах плиты."));
-            variants.Add(ApplyHoles(input, new PunchingVariant(prefix + (end ? "wall_end" : "wall_corner"),
-                end ? PunchingVariantKind.WallEnd : PunchingVariantKind.WallCorner, zone,
+            variants.Add(ApplyHoles(input, new PunchingVariant(prefix + (wall.IsHanging ? "wall_hanging" : end ? "wall_end" : "wall_corner"),
+                wall.IsHanging ? PunchingVariantKind.WallHanging : end ? PunchingVariantKind.WallEnd : PunchingVariantKind.WallCorner, zone,
                 PunchingContour.FromElements(kept), Array.Empty<ContourElement>(), Array.Empty<int>()), warnings));
         }
         if (!end) return;
@@ -207,7 +210,7 @@ public static class PunchingContourBuilder
     /// <summary>Центр, из которого проводятся касательные к отверстиям и считается эксцентриситет: центр тяжести площади
     /// или центр площадки передачи нагрузки узла стены.</summary>
     public static PlanPoint LoadCenter(PunchingInput input)
-        => input.Wall is { } w ? PunchingWallGeometry.LoadCenter(w) : AreaCentroid(input.LoadArea);
+        => input.Wall is { } w ? PunchingWallGeometry.LoadCenter(w, input.H0) : AreaCentroid(input.LoadArea);
 
     /// <summary>Основание пирамиды узла (колонна — площадь, смещённая на h0; стена — по <see cref="PunchingWallGeometry.BasePolygon"/>).</summary>
     public static List<PlanPoint> PyramidBasePolygon(PunchingInput input)

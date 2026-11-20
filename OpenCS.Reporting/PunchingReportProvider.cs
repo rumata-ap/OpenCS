@@ -301,6 +301,14 @@ public sealed class PunchingReportProvider : IReportProvider
             Text("—", "торец стены (СП 430, п. 6.3.8, рис. 6.1)", "узел");
             Row("a_1", N(i, "a1"), "м", "толщина стены");
         }
+        else if (wallKind == "hanging")
+        {
+            Text("—", "плита подвешена к торцу вышележащей стены (СП 430, п. 6.3.8, рис. 6.3)", "узел");
+            Row("a_1", N(i, "a1"), "м", "толщина стены");
+            Row("b_s", N(i, "hangerWidth"), "м", "расстояние между осями крайних рядов подвешивающих стержней");
+            Row("c_s", N(i, "hangerOffset"), "м", "расстояние от торца стены до оси крайнего стержня");
+            Text("—", S(i, "hangerLegs") == "a_h0" ? "a1 + h0, как у торца стены (рис. 6.1)" : "a1 — по рис. 6.3", "длина ветвей П-контура");
+        }
         else if (wallKind == "corner")
         {
             Text("—", "угол стен под 90° (СП 430, п. 6.3.8, рис. 6.2 " + (PunchingReportText.IsAmd2(i) ? "по проекту Изм. № 2)" : "ред. с Изм. № 1)"), "узел");
@@ -367,11 +375,13 @@ public sealed class PunchingReportProvider : IReportProvider
         }
         else Text("—", "нет", "поперечная арматура");
         bool mloc = i.TryGetProperty("momentsAreMloc", out var ml) && ml.ValueKind == JsonValueKind.True;
-        if (wallKind is "end" or "corner")
+        if (wallKind is "end" or "corner" or "hanging")
         {
             bool single = i.TryGetProperty("F", out _);
-            if (single) Row("F", N(i, "F"), "кН", "продавливающая сила (равнодействующая поперечных сил по контуру)");
-            if (wallKind == "end")
+            if (single) Row("F", N(i, "F"), "кН", wallKind == "hanging"
+                ? "сила отрыва (нагрузка на подвеску, равнодействующая поперечных сил по контуру)"
+                : "продавливающая сила (равнодействующая поперечных сил по контуру)");
+            if (wallKind is "end" or "hanging")
             {
                 if (single) Row("ΔM", N(i, "Mx"), "кН·м", "разность изгибающих моментов плиты по сторонам стены (в расчёт — ½ΔM)");
                 else Text("F, ΔM", "строки набора", "усилия: F = |N|, ΔM = Mx строки (в расчёт — ½ΔM), My не учитывается");
@@ -448,7 +458,7 @@ public sealed class PunchingReportProvider : IReportProvider
                 data.Variants.Select(v =>
                 {
                     // У торца стены My не участвует, у угла — моменты вовсе (СП 430, п. 6.3.8).
-                    bool noMy = v.Kind is PunchingVariantKind.WallEnd or PunchingVariantKind.WallEndEdge or PunchingVariantKind.WallCorner;
+                    bool noMy = v.Kind is PunchingVariantKind.WallEnd or PunchingVariantKind.WallEndEdge or PunchingVariantKind.WallCorner or PunchingVariantKind.WallHanging;
                     bool noMx = v.Kind == PunchingVariantKind.WallCorner;
                     string Num(string key, bool skip) => skip ? "—" : Sig(v.Numbers.GetValueOrDefault(key));
                     return (IReadOnlyList<string>)

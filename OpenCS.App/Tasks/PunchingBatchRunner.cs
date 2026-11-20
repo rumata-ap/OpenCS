@@ -211,6 +211,7 @@ public static class PunchingBatchRunner
             PunchingVariantKind.PylonBroken => "СП 430.1325800, п. 6.3.8, рис. 6.1а",
             PunchingVariantKind.WallEnd => "СП 430.1325800, п. 6.3.8, рис. 6.1а",
             PunchingVariantKind.WallEndEdge => "СП 430.1325800, п. 6.3.8, рис. 6.1б",
+            PunchingVariantKind.WallHanging => "СП 430.1325800, п. 6.3.8, рис. 6.3",
             PunchingVariantKind.WallCorner => "СП 430.1325800, п. 6.3.8, рис. 6.2 " + (amd2 ? "(проект Изм. № 2)" : "(ред. с Изм. № 1)"),
             _ => "СП 63.13330.2018, п. 8.1.46"
         };

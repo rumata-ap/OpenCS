@@ -10,6 +10,25 @@ public enum PunchingWallKind
     Corner
 }
 
+/// <summary>Длина ветвей П-контура подвешенной плиты (СП 430, рис. 6.3) вдоль стены.</summary>
+public enum PunchingHangerLegs
+{
+    /// <summary>По рис. 6.3: ветви длиной a — толщина стены — от торцевого отрезка контура.</summary>
+    WallThickness,
+
+    /// <summary>Как у торца стены (рис. 6.1): ветви длиной a1 + h0 от торцевого отрезка (у торца — квадрат).</summary>
+    AsWallEnd
+}
+
+/// <summary>
+/// Подвешивающая плиту арматура у торца вышележащей стены (СП 430 п. 6.3.8, рис. 6.3): контур отстоит на h0/2 от
+/// крайних стержней, а не от граней стены. Ряды стержней — симметрично оси стены.
+/// </summary>
+/// <param name="Width">Расстояние между осями крайних рядов поперёк стены, м (0 — один ряд по оси стены).</param>
+/// <param name="EndOffset">Расстояние от торца стены до оси крайнего стержня вдоль стены, м.</param>
+/// <param name="Legs">Длина ветвей П-контура.</param>
+public sealed record PunchingHanger(double Width, double EndOffset, PunchingHangerLegs Legs = PunchingHangerLegs.WallThickness);
+
 /// <summary>Редакция рисунка 6.2 (угол стены).</summary>
 public enum PunchingWallFigure
 {
@@ -35,9 +54,13 @@ public enum PunchingWallFigure
 /// <param name="A1">Толщина стены (у угла — стены вдоль X), м.</param>
 /// <param name="A2">У угла — толщина стены вдоль Y, м; у торца не используется.</param>
 /// <param name="Figure">Редакция рисунка 6.2.</param>
+/// <param name="Hanger">У торца — подвешенная плита (рис. 6.3): контур от крайних подвешивающих стержней; null — обычный торец.</param>
 public sealed record PunchingWall(PunchingWallKind Kind, double A1, double? A2 = null,
-    PunchingWallFigure Figure = PunchingWallFigure.Sp430Amd1)
+    PunchingWallFigure Figure = PunchingWallFigure.Sp430Amd1, PunchingHanger? Hanger = null)
 {
+    /// <summary>Подвешенная плита у торца стены (рис. 6.3).</summary>
+    public bool IsHanging => Kind == PunchingWallKind.End && Hanger is not null;
+
     /// <summary>Толщина второй стены угла (по умолчанию — как первой), м.</summary>
     public double T2 => A2 ?? A1;
 
@@ -59,7 +82,8 @@ public static class PunchingWallGeometry
         double a1 = wall.A1;
         if (wall.Kind == PunchingWallKind.End)
         {
-            double l = a1 + h0;
+            // У подвешенной плиты основание пирамиды может уходить вдоль стены дальше a1 + h0.
+            double l = Math.Max(a1 + h0, -EndFrame(wall, h0, h0).X0);
             return [new(-l, -a1 / 2), new(0, -a1 / 2), new(0, a1 / 2), new(-l, a1 / 2)];
         }
         double a2 = wall.T2, ext = a1 + a2 + h0 / 2;
@@ -68,10 +92,40 @@ public static class PunchingWallGeometry
 
     /// <summary>
     /// Центр «площадки передачи нагрузки» узла: торец — центр квадрата a1 × a1 у торца, угол — центр квадрата
-    /// a2 × a1 в углу. Из него проводятся касательные к отверстиям (п. 8.1.46 СП 63).
+    /// a2 × a1 в углу, подвешенная плита — середина ветвей П-контура на оси стены. Из него проводятся касательные к
+    /// отверстиям (п. 8.1.46 СП 63). <paramref name="h0"/> нужна только подвешенной плите.
     /// </summary>
-    public static PlanPoint LoadCenter(PunchingWall wall)
-        => wall.Kind == PunchingWallKind.End ? new PlanPoint(-wall.A1 / 2, 0) : new PlanPoint(wall.T2 / 2, wall.A1 / 2);
+    public static PlanPoint LoadCenter(PunchingWall wall, double h0 = 0)
+    {
+        if (wall.Kind != PunchingWallKind.End) return new PlanPoint(wall.T2 / 2, wall.A1 / 2);
+        if (!wall.IsHanging) return new PlanPoint(-wall.A1 / 2, 0);
+        var f = EndFrame(wall, h0 / 2, h0);
+        return new PlanPoint((f.XEnd + f.X0) / 2, 0);
+    }
+
+    /// <summary>
+    /// П-контур торца на отступе <paramref name="d"/>: полуширина (ветви при y = ±W), x торцевого отрезка и x начала
+    /// ветвей. Обычный торец — от граней стены, ветви a1 + 2d. Подвешенная плита — от крайних стержней (ряды на
+    /// ±Width/2, крайний стержень на x = −EndOffset); ветви при d = h0/2 длиной a1 (рис. 6.3) или a1 + h0 (как рис. 6.1)
+    /// и на большем отступе удлиняются на 2(d − h0/2), как у торца.
+    /// </summary>
+    public static (double W, double XEnd, double X0) EndFrame(PunchingWall wall, double d, double h0)
+    {
+        double a1 = wall.A1;
+        if (wall.Hanger is not { } hg) return (a1 / 2 + d, d, d - (a1 + 2 * d));
+        double xe = -hg.EndOffset + d;
+        double leg = (hg.Legs == PunchingHangerLegs.WallThickness ? a1 : a1 + h0) + 2 * (d - h0 / 2);
+        return (hg.Width / 2 + d, xe, xe - leg);
+    }
+
+    /// <summary>Оси крайних подвешивающих стержней в плане (для рисунка): у торца, на ±Width/2; пусто — не подвешенная плита.</summary>
+    public static IReadOnlyList<PlanPoint> HangerRods(PunchingWall wall)
+    {
+        if (!wall.IsHanging) return [];
+        var hg = wall.Hanger!;
+        double x = -hg.EndOffset, y = hg.Width / 2;
+        return y > Tol ? [new(x, -y), new(x, y)] : [new(x, 0)];
+    }
 
     /// <summary>
     /// Контур узла на отступе <paramref name="d"/> от граней стены (при d = h0/2 — рис. 6.1, а и 6.2 СП 430). Торец —
@@ -84,9 +138,9 @@ public static class PunchingWallGeometry
         double a1 = wall.A1;
         if (wall.Kind == PunchingWallKind.End)
         {
-            double w = a1 / 2 + d, x0 = d - (a1 + 2 * d);
+            var (w, xe, x0) = EndFrame(wall, d, h0);
             // Обход против часовой стрелки: нижняя ветвь к торцу, торцевой отрезок, верхняя ветвь назад.
-            return [new LineElement(new(x0, -w), new(d, -w)), new LineElement(new(d, -w), new(d, w)), new LineElement(new(d, w), new(x0, w))];
+            return [new LineElement(new(x0, -w), new(xe, -w)), new LineElement(new(xe, -w), new(xe, w)), new LineElement(new(xe, w), new(x0, w))];
         }
         double a2 = wall.T2, leg = CornerLegEnd(wall, h0);
         var (k1, k2) = CornerDiagonalLegs(wall, h0);
@@ -118,8 +172,8 @@ public static class PunchingWallGeometry
 
     /// <summary>
     /// Контур 1′ у торца стены возле края плиты (рис. 6.1, б): два отрезка на отступе <paramref name="d"/> (по норме
-    /// h0/2) от граней стены — от точки на расстоянии a1 от торца (внутрь стены) до края. null — край не пересекает
-    /// обе линии за торцом.
+    /// h0/2) от граней стены — от точки на расстоянии a1 от торца (внутрь стены) до края. У подвешенной плиты — от
+    /// крайних рядов стержней, начало — на a1 от крайнего стержня. null — край не пересекает обе линии за торцом.
     /// </summary>
     public static List<ContourElement>? EdgeLines(PunchingWall wall, PunchingSlabEdge edge, double d)
     {
@@ -127,6 +181,7 @@ public static class PunchingWallGeometry
         var n = edge.N;
         if (n.X > -Tol) return null;    // край должен лежать за торцом (плита — со стороны стены)
         double a1 = wall.A1, w = a1 / 2 + d, x0 = -a1;
+        if (wall.Hanger is { } hg) { w = hg.Width / 2 + d; x0 = -hg.EndOffset - a1; }
         var list = new List<ContourElement>();
         foreach (double y in new[] { -w, w })
         {
@@ -165,10 +220,10 @@ public static class PunchingWallGeometry
     /// Ветви П-контура торца, параллельные стене, на отступе <paramref name="d"/>: (−Y, +Y). На них п. 6.3.8 берёт
     /// изгибающие моменты плиты по обе стороны стены (ΔM).
     /// </summary>
-    public static (LineElement Minus, LineElement Plus) EndBranches(PunchingWall wall, double d)
+    public static (LineElement Minus, LineElement Plus) EndBranches(PunchingWall wall, double d, double h0 = 0)
     {
-        double w = wall.A1 / 2 + d, x0 = d - (wall.A1 + 2 * d);
-        return (new LineElement(new(x0, -w), new(d, -w)), new LineElement(new(x0, w), new(d, w)));
+        var (w, xe, x0) = EndFrame(wall, d, h0);
+        return (new LineElement(new(x0, -w), new(xe, -w)), new LineElement(new(x0, w), new(xe, w)));
     }
 
     /// <summary>
@@ -182,8 +237,8 @@ public static class PunchingWallGeometry
         List<PlanPoint> pts;
         if (wall.Kind == PunchingWallKind.End)
         {
-            double w = a1 / 2 + h0, x0 = -(a1 + h0);
-            pts = [new(x0, -w), new(h0, -w), new(h0, w), new(x0, w)];
+            var (w, xe, x0) = EndFrame(wall, h0, h0);
+            pts = [new(x0, -w), new(xe, -w), new(xe, w), new(x0, w)];
         }
         else
         {

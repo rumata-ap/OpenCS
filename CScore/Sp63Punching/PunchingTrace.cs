@@ -65,12 +65,13 @@ internal static class PunchingTrace
             ("Iby", g.Iby, CalculationUnit.CubicMeter), ("xmax", xmax, CalculationUnit.Meter), ("Wby", d.Wby, CalculationUnit.SquareMeter)));
 
         // Узел стены (СП 430 п. 6.3.8): какие моменты учитываются.
-        bool wallNode = d.Wall is not null && v.Kind is PunchingVariantKind.WallEnd or PunchingVariantKind.WallEndEdge or PunchingVariantKind.WallCorner;
+        bool wallNode = d.Wall is not null && v.Kind is PunchingVariantKind.WallEnd or PunchingVariantKind.WallEndEdge or PunchingVariantKind.WallCorner or PunchingVariantKind.WallHanging;
         bool corner = wallNode && d.Wall!.Kind == PunchingWallKind.Corner;
         if (wallNode)
             steps.Add(corner
                 ? Step($"{p}.wall", "СП 430 п. 6.3.8, рис. 6.2 " + PunchingWallGeometry.FigureEdition(d.Wall!), "Punching_Trace_WallCorner", @"M_x = M_y = 0", "", "", ("F", d.F, CalculationUnit.Kilonewton))
-                : Step($"{p}.wall", "СП 430 п. 6.3.8, рис. 6.1", "Punching_Trace_WallEnd",
+                : Step($"{p}.wall", d.Wall!.IsHanging ? "СП 430 п. 6.3.8, рис. 6.3" : "СП 430 п. 6.3.8, рис. 6.1",
+                    d.Wall!.IsHanging ? "Punching_Trace_WallHanging" : "Punching_Trace_WallEnd",
                     @"M_x = \frac{\Delta M}{2},\ M_y = 0,\ e_x = 0", @"{dM} / 2", "{Mx}",
                     ("dM", 2 * d.Mx0, CalculationUnit.KilonewtonMeter), ("Mx", d.Mx0, CalculationUnit.KilonewtonMeter)));
 

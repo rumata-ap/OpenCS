@@ -66,7 +66,7 @@ public sealed class PunchingResultVM : ViewModelBase
             double k = v.Ratio ?? double.PositiveInfinity;
             string title = CustomTitle(v.Kind, v.Id, data.Inputs) ?? Variants.Title(v.Kind, v.Zone, v.Id, edgeCount);
             // У торца стены My не участвует, у угла — моменты вовсе (СП 430, п. 6.3.8): «—», а не нули.
-            bool noMy = v.Kind is PunchingVariantKind.WallEnd or PunchingVariantKind.WallEndEdge or PunchingVariantKind.WallCorner;
+            bool noMy = v.Kind is PunchingVariantKind.WallEnd or PunchingVariantKind.WallEndEdge or PunchingVariantKind.WallCorner or PunchingVariantKind.WallHanging;
             bool noMx = v.Kind == PunchingVariantKind.WallCorner;
             Rows.Add(new PunchingVariantRowVM
             {
@@ -293,7 +293,7 @@ public sealed class PunchingResultVM : ViewModelBase
             return string.Format(c, Loc.S("PunchingSummaryWall",
                     "Узел: {0} мм; h = {1:0} мм, h0 = {2:0.#} мм; бетон {3}, Rbt = {4:0.###} МПа; {5}; F = {6:0.#} кН{7}"),
                 wall, D("h") * 1000, D("h0") * 1000, concrete, D("rbt") / 1000, sw, D("F"),
-                S("wall") == "end" ? string.Format(c, ", ΔM = {0:0.#} кН·м", D("Mx")) : "");
+                S("wall") is "end" or "hanging" ? string.Format(c, ", ΔM = {0:0.#} кН·м", D("Mx")) : "");
         return string.Format(c, Loc.S("PunchingSummary",
                 "Площадь {0} мм; h = {1:0} мм, h0 = {2:0.#} мм; бетон {3}, Rbt = {4:0.###} МПа; {5}; F = {6:0.#} кН, Mx = {7:0.#} кН·м, My = {8:0.#} кН·м"),
             area, D("h") * 1000, D("h0") * 1000, concrete, D("rbt") / 1000, sw, D("F"), D("Mx"), D("My"));
@@ -303,6 +303,7 @@ public sealed class PunchingResultVM : ViewModelBase
     internal static string? WallText(string kind, double a1, double a2, CultureInfo c) => kind switch
     {
         "end" => string.Format(c, Loc.S("PunchingSummaryWallEnd", "торец стены, a1 = {0:0}"), a1 * 1000),
+        "hanging" => string.Format(c, Loc.S("PunchingSummaryWallHanging", "плита подвешена к торцу стены, a1 = {0:0}"), a1 * 1000),
         "corner" => string.Format(c, Loc.S("PunchingSummaryWallCorner", "угол стен, a1 = {0:0}, a2 = {1:0}"), a1 * 1000, a2 * 1000),
         _ => null
     };

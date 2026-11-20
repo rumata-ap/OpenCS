@@ -6829,6 +6829,19 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingErr_wall_kind">Неизвестный вид узла.</system:String>
    <system:String x:Key="PunchingSummaryWall">Узел: {0} мм; h = {1:0} мм, h0 = {2:0.#} мм; бетон {3}, Rbt = {4:0.###} МПа; {5}; F = {6:0.#} кН{7}</system:String>
    <system:String x:Key="PunchingSummaryWallEnd">торец стены, a1 = {0:0}</system:String>
+   <system:String x:Key="PunchingNodeKind_hanging">плита подвешена к торцу стены (СП 430, рис. 6.3)</system:String>
+   <system:String x:Key="PunchingHangerLegs_a">a1 — по рис. 6.3</system:String>
+   <system:String x:Key="PunchingHangerLegs_a_h0">a1 + h0 — как у торца (рис. 6.1)</system:String>
+   <system:String x:Key="PunchingHangerLegs">Ветви П</system:String>
+   <system:String x:Key="PunchingHangerLegsHint">Длина участков контура вдоль стены от торцевого участка. На рис. 6.3 СП 430 — a (толщина стены); у торца стены на рис. 6.1 — a1 + h0. Проект Изм. № 2 рис. 6.3 не меняет.</system:String>
+   <system:String x:Key="PunchingHangerWidthHint">Расстояние между осями крайних рядов подвешивающих стержней поперёк стены (0 — один ряд по оси стены); ряды симметричны оси стены</system:String>
+   <system:String x:Key="PunchingHangerOffsetHint">Расстояние от торца стены до оси крайнего подвешивающего стержня вдоль стены</system:String>
+   <system:String x:Key="PunchingHangerHint">Контур — на h0/2 от крайних подвешивающих стержней (СП 430, п. 6.3.8, рис. 6.3). F — усилие отрыва (нагрузка, передаваемая на подвеску). Подвешивающие стержни в поперечной арматуре на продавливание не учитываются.</system:String>
+   <system:String x:Key="PunchingErr_hanger_size">Подвешивающие стержни должны лежать в стене: 0 ≤ bs &lt; a1, cs ≥ 0.</system:String>
+   <system:String x:Key="PunchingSummaryWallHanging">плита подвешена к торцу стены, a1 = {0:0}</system:String>
+   <system:String x:Key="PunchingVariant_WallHanging">П-контур подвешенной плиты (СП 430, рис. 6.3)</system:String>
+   <system:String x:Key="PunchingVariantShort_WallHanging">подвеска, П</system:String>
+   <system:String x:Key="PunchingCanvasLegendHanger">; чёрным — крайние подвешивающие стержни</system:String>
    <system:String x:Key="PunchingSummaryWallCorner">угол стен, a1 = {0:0}, a2 = {1:0}</system:String>
    <system:String x:Key="PunchingBatchSummaryWall">Набор «{0}», строк: {1}. Узел: {2} мм; h = {3:0} мм, h0 = {4:0.#} мм; бетон {5}, Rbt = {6:0.###} МПа; {7}</system:String>
    <system:String x:Key="PunchingVariantShortOuterSuffix">, за арматурой</system:String>

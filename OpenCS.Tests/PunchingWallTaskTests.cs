@@ -224,6 +224,81 @@ public sealed class PunchingWallTaskTests
         Assert.Contains(end.Edge2Side, new[] { "+y", "-y" });
     }
 
+    /// <summary>Подвешенная плита (СП 430, рис. 6.3): F = 60, ΔM = 4, ряды ±50 мм, крайний стержень в 50 мм от торца.</summary>
+    static PunchingTaskParams Hanging(string legs = "a") => End() with
+    {
+        Wall = new PunchingWallParams { Kind = "hanging", A1 = 0.2, HangerWidth = 0.1, HangerOffset = 0.05, HangerLegs = legs },
+        Forces = new PunchingForceParams { F = 60, Mx = 4 }
+    };
+
+    [Fact]
+    public void Hanging_ParamsValidateRunReport()
+    {
+        var p = Hanging();
+        Assert.Equal(p.ToJson(), PunchingTaskParams.Parse(p.ToJson()).ToJson());
+        Assert.Empty(p.Validate());
+        Assert.Contains("hanger_size", (p with { Wall = p.Wall with { HangerWidth = 0.2 } }).Validate());
+        Assert.Contains("hanger_size", (p with { Wall = p.Wall with { HangerOffset = -0.01 } }).Validate());
+        Assert.Empty((p with { Edges = [new PunchingEdgeParams { Side = "+x", C = 0.3 }] }).Validate());
+        Assert.Contains("wall_edge_side", (p with { Edges = [new PunchingEdgeParams { Side = "-x", C = 0.3 }] }).Validate());
+
+        var task = Task(p);
+        var result = PunchingRunner.Run(task, CalcSettings.Default, null);
+        using var doc = JsonDocument.Parse(result.DataJson);
+        var root = doc.RootElement;
+        Assert.Equal("hanging", root.GetProperty("inputs").GetProperty("wall").GetString());
+        Assert.Equal("a", root.GetProperty("inputs").GetProperty("hangerLegs").GetString());
+        var detail = root.GetProperty("details").EnumerateArray().Single(d => d.GetProperty("id").GetString() == "wall_hanging");
+        // Ручной расчёт — PunchingWallHangingTests.Contour_FromOuterBars_LegsWallThickness_HandCalc: 0,6201.
+        Assert.Equal(0.6201, detail.GetProperty("ratio").GetDouble(), 4);
+
+        var report = new PunchingReportProvider().Build(new ReportContext(task, result));
+        var texts = report.Blocks.Select(b => b switch { ReportHeading h => h.Text, ReportParagraph pp => pp.Text, _ => "" }).ToList();
+        Assert.Contains(texts, t => t.StartsWith("П-образный контур подвешенной плиты", StringComparison.Ordinal));
+        Assert.Contains(texts, t => t.Contains("Подвешивающие стержни в поперечной арматуре", StringComparison.Ordinal));
+        var table = report.Blocks.OfType<ReportTable>().First();
+        Assert.Contains(table.Rows, r => r[0] == "b_s");
+        Assert.Contains(table.Rows, r => r[0] == "c_s");
+        Assert.Contains(table.Rows, r => r[0] == "ΔM");
+
+        var resultVm = new PunchingResultVM(result, task);
+        Assert.All(resultVm.Rows, r => Assert.Equal("—", r.MyStar));
+        Assert.Equal("СП 430.1325800, п. 6.3.8, рис. 6.3", PunchingBatchRunner.Reference(PunchingVariantKind.WallHanging, PunchingZone.Main));
+
+        // Ветви a1 + h0: u = 0,28 + 2·0,38 = 1,04 м.
+        var wide = PunchingChecker.Check(Hanging("a_h0").ToInput(1050, 0), includeTrace: false);
+        Assert.Equal(1.04, wide.Variants.Single(v => v.Variant.Id == "wall_hanging").Geometry.U, 12);
+    }
+
+    [Fact]
+    public void Vm_Hanging_FieldsRoundTrip()
+    {
+        var vm = new PunchingParamsVM(Task(End()), [], [], null);
+        vm.NodeKind = "hanging";
+        Assert.True(vm.IsHanging);
+        Assert.True(vm.IsWallEnd);
+        Assert.Equal("ΔM", vm.MxLabel);
+        Assert.Equal(["+x", "+y", "-y"], vm.Sides.Select(s => s.Id));
+        vm.HangerWidth = 100;
+        vm.HangerOffset = 50;
+        vm.HangerLegs = "a_h0";
+        Assert.False(vm.HasErrors, vm.ErrorText);
+        Assert.Contains(vm.Preview!.Rows, r => r.Id == "wall_hanging");
+        var back = vm.ToParams();
+        Assert.Equal("hanging", back.Wall.Kind);
+        Assert.Equal(0.1, back.Wall.HangerWidth, 12);
+        Assert.Equal(0.05, back.Wall.HangerOffset, 12);
+        Assert.Equal("a_h0", back.Wall.HangerLegs);
+
+        var loaded = new PunchingParamsVM(Task(back), [], [], null);
+        Assert.Equal("hanging", loaded.NodeKind);
+        Assert.Equal(100, loaded.HangerWidth, 9);
+        Assert.Equal("a_h0", loaded.HangerLegs);
+
+        vm.HangerWidth = 250;                  // стержни вне стены 200 мм
+        Assert.True(vm.HasErrors);
+    }
+
     /// <summary>У торца My не участвует, у угла — моменты вовсе: в таблице вариантов и сводке отчёта «—», а не нули.</summary>
     [Fact]
     public void ResultAndReport_WallVariants_DashForUnusedMoments()

@@ -22,22 +22,34 @@ public sealed record PunchingAreaParams
 }
 
 /// <summary>
-/// Узел стены по СП 430.1325800, п. 6.3.8: торец (рис. 6.1) или угол двух стен под 90° (рис. 6.2). Оси узла: у торца —
-/// начало в центре торца, стена идёт в −X; у угла — начало в наружном углу, стена a1 — вдоль +X, стена a2 — вдоль +Y.
+/// Узел стены по СП 430.1325800, п. 6.3.8: торец (рис. 6.1), угол двух стен под 90° (рис. 6.2) или плита, подвешенная к
+/// торцу вышележащей стены (рис. 6.3). Оси узла: у торца — начало в центре торца, стена идёт в −X; у угла — начало в
+/// наружном углу, стена a1 — вдоль +X, стена a2 — вдоль +Y.
 /// </summary>
 public sealed record PunchingWallParams
 {
-    /// <summary>"none" — колонна или пилон | "end" — торец стены | "corner" — угол стен.</summary>
+    /// <summary>"none" — колонна или пилон | "end" — торец стены | "corner" — угол стен | "hanging" — подвешенная плита у торца.</summary>
     public string Kind { get; init; } = "none";
+    /// <summary>Подвешенная плита: расстояние между осями крайних рядов подвешивающих стержней поперёк стены, м.</summary>
+    public double HangerWidth { get; init; } = 0.1;
+    /// <summary>Подвешенная плита: расстояние от торца стены до оси крайнего стержня, м.</summary>
+    public double HangerOffset { get; init; } = 0.05;
+    /// <summary>Длина ветвей П-контура подвешенной плиты: "a" — толщина стены (рис. 6.3) | "a_h0" — a1 + h0, как у торца (рис. 6.1).</summary>
+    public string HangerLegs { get; init; } = "a";
     /// <summary>Толщина стены (у угла — стены вдоль X), м.</summary>
     public double A1 { get; init; } = 0.2;
     /// <summary>У угла — толщина стены вдоль Y, м.</summary>
     public double A2 { get; init; } = 0.2;
 
     /// <summary>Узел стены (торец или угол).</summary>
-    [JsonIgnore] public bool IsWall => Kind is "end" or "corner";
-    /// <summary>Торец стены.</summary>
-    [JsonIgnore] public bool IsEnd => Kind == "end";
+    [JsonIgnore] public bool IsWall => Kind is "end" or "corner" or "hanging";
+    /// <summary>Торец стены (в том числе с подвешенной плитой): П-контур, ΔM, контур 1′.</summary>
+    [JsonIgnore] public bool IsEnd => Kind is "end" or "hanging";
+    /// <summary>Плита подвешена к торцу стены (рис. 6.3).</summary>
+    [JsonIgnore] public bool IsHanging => Kind == "hanging";
+    /// <summary>Подвешивающие стержни лежат в стене: 0 ≤ расстояние между рядами &lt; a1, отступ от торца ≥ 0.</summary>
+    [JsonIgnore] public bool HangerOk => !IsHanging
+        || HangerWidth >= 0 && HangerWidth < A1 && HangerOffset >= 0 && double.IsFinite(HangerWidth) && double.IsFinite(HangerOffset);
     /// <summary>Угол стен.</summary>
     [JsonIgnore] public bool IsCorner => Kind == "corner";
 
@@ -45,6 +57,8 @@ public sealed record PunchingWallParams
     public PunchingWall? ToCore(string? figure = null) => Kind switch
     {
         "end" => new PunchingWall(PunchingWallKind.End, A1),
+        "hanging" => new PunchingWall(PunchingWallKind.End, A1, Hanger: new PunchingHanger(HangerWidth, HangerOffset,
+            HangerLegs == "a_h0" ? PunchingHangerLegs.AsWallEnd : PunchingHangerLegs.WallThickness)),
         "corner" => new PunchingWall(PunchingWallKind.Corner, A1, A2, PunchingOptionParams.ParseWallFigure(figure)),
         _ => null
     };
@@ -52,7 +66,7 @@ public sealed record PunchingWallParams
     /// <summary>Стороны узла, у которых допустим край плиты: у торца — за торцом (+x) и вдоль стены (±y), у угла — снаружи (−x, −y).</summary>
     public static IReadOnlyList<string> EdgeSides(string kind) => kind switch
     {
-        "end" => ["+x", "+y", "-y"],
+        "end" or "hanging" => ["+x", "+y", "-y"],
         "corner" => ["-x", "-y"],
         _ => ["+x", "-x", "+y", "-y"]
     };
@@ -423,8 +437,9 @@ public sealed record PunchingTaskParams
             "polygon" => Area.Points.Count >= 3 && Area.Points.All(p => p.Length == 2 && p.All(double.IsFinite)) && PolygonArea() > 1e-12,
             _ => Area.Bx > 0 && Area.By > 0
         };
-        if (Wall.Kind is not ("none" or "end" or "corner")) errors.Add("wall_kind");
+        if (Wall.Kind is not ("none" or "end" or "corner" or "hanging")) errors.Add("wall_kind");
         if (!areaOk) errors.Add(Wall.IsWall ? "wall_size" : Area.Shape == "polygon" ? "polygon_points" : "area_size");
+        else if (!Wall.HangerOk) errors.Add("hanger_size");
 
         if (Edges.Count > 2) errors.Add("edges_too_many");
         if (Edges.Select(e => e.Side).Distinct().Count() < Edges.Count) errors.Add("edges_same_side");

@@ -162,7 +162,14 @@ public sealed class PunchingParamsVM : ViewModelBase
     [
         new("none", Loc.S("PunchingNodeKind_none", "колонна / пилон")),
         new("end", Loc.S("PunchingNodeKind_end", "торец стены (СП 430, рис. 6.1)")),
-        new("corner", Loc.S("PunchingNodeKind_corner", "угол стен 90° (СП 430, рис. 6.2)"))
+        new("corner", Loc.S("PunchingNodeKind_corner", "угол стен 90° (СП 430, рис. 6.2)")),
+        new("hanging", Loc.S("PunchingNodeKind_hanging", "плита подвешена к торцу стены (СП 430, рис. 6.3)"))
+    ];
+    /// <summary>Длина ветвей П-контура подвешенной плиты.</summary>
+    public IReadOnlyList<PunchingChoice> HangerLegsChoices { get; } =
+    [
+        new("a", Loc.S("PunchingHangerLegs_a", "a1 — по рис. 6.3")),
+        new("a_h0", Loc.S("PunchingHangerLegs_a_h0", "a1 + h0 — как у торца (рис. 6.1)"))
     ];
     /// <summary>Редакция рис. 6.2 СП 430 для угла стен.</summary>
     public IReadOnlyList<PunchingChoice> WallFigures { get; } =
@@ -217,10 +224,10 @@ public sealed class PunchingParamsVM : ViewModelBase
     PunchingHoleRowVM? _selectedHole;
     PunchingPointRowVM? _selectedPoint;
 
-    string _nodeKind = "none";
-    double _wallA1, _wallA2, _wallMPlus, _wallMMinus;
+    string _nodeKind = "none", _hangerLegs = "a";
+    double _wallA1, _wallA2, _wallMPlus, _wallMMinus, _hangerWidth, _hangerOffset;
 
-    /// <summary>Вид узла: "none" | "end" | "corner".</summary>
+    /// <summary>Вид узла: "none" | "end" | "corner" | "hanging".</summary>
     public string NodeKind
     {
         get => _nodeKind;
@@ -235,16 +242,25 @@ public sealed class PunchingParamsVM : ViewModelBase
                 NormalizeEdgeSides();
             }
             finally { _loading = wasLoading; }
-            foreach (var n in new[] { nameof(IsWallNode), nameof(IsWallEnd), nameof(IsWallCorner), nameof(IsColumnNode), nameof(Sides),
+            foreach (var n in new[] { nameof(IsWallNode), nameof(IsWallEnd), nameof(IsWallCorner), nameof(IsHanging), nameof(IsColumnNode), nameof(Sides),
                          nameof(ShowMy), nameof(ShowMlocOption), nameof(MxLabel), nameof(MxHint), nameof(BatchForcesText), nameof(ShowWallHint),
                          nameof(ShowMx), nameof(Edge1Side), nameof(Edge2Side), nameof(ShowFCapital) })
                 OnPropertyChanged(n);
             if (!_loading) Recalculate();
         }
     }
-    /// <summary>Узел стены (торец или угол).</summary>
-    public bool IsWallNode => NodeKind is "end" or "corner";
-    public bool IsWallEnd => NodeKind == "end";
+    /// <summary>Узел стены (торец, угол или подвешенная плита).</summary>
+    public bool IsWallNode => NodeKind is "end" or "corner" or "hanging";
+    /// <summary>Торец стены, в том числе с подвешенной плитой: П-контур, ΔM, контур 1′.</summary>
+    public bool IsWallEnd => NodeKind is "end" or "hanging";
+    /// <summary>Плита подвешена к торцу стены (СП 430, рис. 6.3).</summary>
+    public bool IsHanging => NodeKind == "hanging";
+    /// <summary>Расстояние между осями крайних рядов подвешивающих стержней поперёк стены, мм.</summary>
+    public double HangerWidth { get => _hangerWidth; set => SetField(ref _hangerWidth, value); }
+    /// <summary>Расстояние от торца стены до оси крайнего подвешивающего стержня, мм.</summary>
+    public double HangerOffset { get => _hangerOffset; set => SetField(ref _hangerOffset, value); }
+    /// <summary>Длина ветвей П-контура подвешенной плиты: "a" | "a_h0".</summary>
+    public string HangerLegs { get => _hangerLegs; set => SetField(ref _hangerLegs, value); }
     public bool IsWallCorner => NodeKind == "corner";
     /// <summary>Колонна или пилон — форма площади и настройки пилона.</summary>
     public bool IsColumnNode => !IsWallNode;
@@ -644,8 +660,10 @@ public sealed class PunchingParamsVM : ViewModelBase
         _loading = true;
         try
         {
-            NodeKind = p.Wall.Kind is "end" or "corner" ? p.Wall.Kind : "none";
+            NodeKind = p.Wall.Kind is "end" or "corner" or "hanging" ? p.Wall.Kind : "none";
             WallA1 = Mm(p.Wall.A1); WallA2 = Mm(p.Wall.A2);
+            HangerWidth = Mm(p.Wall.HangerWidth); HangerOffset = Mm(p.Wall.HangerOffset);
+            HangerLegs = p.Wall.HangerLegs == "a_h0" ? "a_h0" : "a";
             WallMPlus = 0; WallMMinus = 0;
             AreaShape = p.Area.Shape;
             Bx = Mm(p.Area.Bx); By = Mm(p.Area.By); D = Mm(p.Area.D); T = Mm(p.Area.T);
@@ -746,7 +764,11 @@ public sealed class PunchingParamsVM : ViewModelBase
                 CustomReplacesMain = _customReplacesMain,
             },
             CustomContours = _customContours,
-            Wall = new PunchingWallParams { Kind = NodeKind, A1 = M(WallA1), A2 = M(WallA2) },
+            Wall = new PunchingWallParams
+            {
+                Kind = NodeKind, A1 = M(WallA1), A2 = M(WallA2),
+                HangerWidth = M(HangerWidth), HangerOffset = M(HangerOffset), HangerLegs = HangerLegs,
+            },
             Capital = new PunchingCapitalParams
             {
                 Enabled = CapitalEnabled && IsColumnNode, Bx = M(CapitalBx), By = M(CapitalBy), D = M(CapitalD), Hc = M(CapitalHc),
@@ -994,7 +1016,7 @@ public sealed class PunchingParamsVM : ViewModelBase
             SetField(ref _edge2Side, allowed.FirstOrDefault(s => SideOk(_edge1Side, s)) ?? _edge2Side, nameof(Edge2Side));
     }
 
-    static string DefaultEdge1Side(string nodeKind) => nodeKind switch { "corner" => "-x", "end" => "+x", _ => "+y" };
+    static string DefaultEdge1Side(string nodeKind) => nodeKind switch { "corner" => "-x", "end" or "hanging" => "+x", _ => "+y" };
 
     static string Perpendicular(string side) => side is "+y" or "-y" ? "+x" : "+y";
     /// <summary>Два края с этих сторон допустимы (разные и не противоположные).</summary>

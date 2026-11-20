@@ -6829,6 +6829,19 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingErr_wall_kind">Unknown joint type.</system:String>
    <system:String x:Key="PunchingSummaryWall">Joint: {0} mm; h = {1:0} mm, h0 = {2:0.#} mm; concrete {3}, Rbt = {4:0.###} MPa; {5}; F = {6:0.#} kN{7}</system:String>
    <system:String x:Key="PunchingSummaryWallEnd">wall end, a1 = {0:0}</system:String>
+   <system:String x:Key="PunchingNodeKind_hanging">slab hung from a wall end (SP 430, Fig. 6.3)</system:String>
+   <system:String x:Key="PunchingHangerLegs_a">a1 — per Fig. 6.3</system:String>
+   <system:String x:Key="PunchingHangerLegs_a_h0">a1 + h0 — as at a wall end (Fig. 6.1)</system:String>
+   <system:String x:Key="PunchingHangerLegs">U legs</system:String>
+   <system:String x:Key="PunchingHangerLegsHint">Length of the contour legs along the wall from the end segment. SP 430 Fig. 6.3 shows a (wall thickness); at a wall end, Fig. 6.1, it is a1 + h0. Draft Amendment No. 2 does not change Fig. 6.3.</system:String>
+   <system:String x:Key="PunchingHangerWidthHint">Distance between the axes of the outermost rows of hanger bars across the wall (0 — a single row on the wall axis); rows are symmetric about the wall axis</system:String>
+   <system:String x:Key="PunchingHangerOffsetHint">Distance from the wall end to the axis of the outermost hanger bar along the wall</system:String>
+   <system:String x:Key="PunchingHangerHint">The contour is at h0/2 from the outermost hanger bars (SP 430, cl. 6.3.8, Fig. 6.3). F is the pull-out force (load carried by the hangers). Hanger bars are not counted as punching shear reinforcement.</system:String>
+   <system:String x:Key="PunchingErr_hanger_size">Hanger bars must lie within the wall: 0 ≤ bs &lt; a1, cs ≥ 0.</system:String>
+   <system:String x:Key="PunchingSummaryWallHanging">slab hung from a wall end, a1 = {0:0}</system:String>
+   <system:String x:Key="PunchingVariant_WallHanging">U-contour of the hung slab (SP 430, Fig. 6.3)</system:String>
+   <system:String x:Key="PunchingVariantShort_WallHanging">hanger, U</system:String>
+   <system:String x:Key="PunchingCanvasLegendHanger">; black — outermost hanger bars</system:String>
    <system:String x:Key="PunchingSummaryWallCorner">wall corner, a1 = {0:0}, a2 = {1:0}</system:String>
    <system:String x:Key="PunchingBatchSummaryWall">Set "{0}", rows: {1}. Joint: {2} mm; h = {3:0} mm, h0 = {4:0.#} mm; concrete {5}, Rbt = {6:0.###} MPa; {7}</system:String>
    <system:String x:Key="PunchingVariantShortOuterSuffix">, beyond reinforcement</system:String>

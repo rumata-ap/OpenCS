@@ -104,6 +104,25 @@
                            <TextBlock Text="мм" Style="{StaticResource Unit}"/>
                         </StackPanel>
                      </WrapPanel>
+                     <!-- Подвешенная плита (СП 430, рис. 6.3): контур — от крайних подвешивающих стержней. -->
+                     <StackPanel Visibility="{Binding IsHanging, Converter={StaticResource BoolToVisibility}}">
+                        <WrapPanel>
+                           <TextBlock Text="bs" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingHangerWidthHint}"/>
+                           <TextBox Style="{StaticResource Num}" ToolTip="{DynamicResource PunchingHangerWidthHint}"
+                                    Text="{Binding HangerWidth, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                           <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                           <TextBlock Text="cs" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingHangerOffsetHint}"/>
+                           <TextBox Style="{StaticResource Num}" ToolTip="{DynamicResource PunchingHangerOffsetHint}"
+                                    Text="{Binding HangerOffset, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                           <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        </WrapPanel>
+                        <StackPanel Orientation="Horizontal">
+                           <TextBlock Text="{DynamicResource PunchingHangerLegs}" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingHangerLegsHint}"/>
+                           <ComboBox Width="250" ItemsSource="{Binding HangerLegsChoices}" DisplayMemberPath="Label" SelectedValuePath="Id"
+                                     SelectedValue="{Binding HangerLegs}" ToolTip="{DynamicResource PunchingHangerLegsHint}"/>
+                        </StackPanel>
+                        <TextBlock Text="{DynamicResource PunchingHangerHint}" Style="{StaticResource Hint}"/>
+                     </StackPanel>
                      <TextBlock Text="{DynamicResource PunchingWallEndHint}" Style="{StaticResource Hint}"
                                 Visibility="{Binding IsWallEnd, Converter={StaticResource BoolToVisibility}}"/>
                      <StackPanel Orientation="Horizontal" Visibility="{Binding IsWallCorner, Converter={StaticResource BoolToVisibility}}">

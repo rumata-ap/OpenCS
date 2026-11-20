@@ -51,6 +51,7 @@ public static class PunchingReportText
             PunchingVariantKind.WallEnd => "П-образный контур у торца стены (СП 430, рис. 6.1а)",
             PunchingVariantKind.WallEndEdge => $"Контур 1′ у торца стены возле края{edgeNo} (СП 430, рис. 6.1б)",
             PunchingVariantKind.WallCorner => "Контур у угла стен (СП 430, рис. 6.2)",
+            PunchingVariantKind.WallHanging => "П-образный контур подвешенной плиты у торца стены (СП 430, рис. 6.3)",
             _ => "Контур пользователя"
         };
         return zone switch
@@ -63,7 +64,7 @@ public static class PunchingReportText
 
     /// <summary>Вариант узла стены (СП 430 п. 6.3.8).</summary>
     public static bool IsWall(PunchingVariantKind kind)
-        => kind is PunchingVariantKind.WallEnd or PunchingVariantKind.WallEndEdge or PunchingVariantKind.WallCorner;
+        => kind is PunchingVariantKind.WallEnd or PunchingVariantKind.WallEndEdge or PunchingVariantKind.WallCorner or PunchingVariantKind.WallHanging;
 
     /// <summary>Расчёт угла стен по проекту Изменения № 2 (поле «wallFigure» исходных данных результата).</summary>
     public static bool IsAmd2(JsonElement? inputs)
@@ -85,6 +86,12 @@ public static class PunchingReportText
         PunchingVariantKind.WallEndEdge => "Торец стены у края плиты (СП 430.1325800, п. 6.3.8, рис. 6.1б): помимо П-образного контура "
             + "рассматривается контур 1′ — два участка от края плиты на расстоянии h0/2 от граней стены вдоль её длины на расстояние a1 от "
             + "торца; в расчёт принимается контур с меньшей несущей способностью.",
+        PunchingVariantKind.WallHanging => "Плита, подвешенная к торцу вышележащей стены (СП 430.1325800, п. 6.3.8, рис. 6.3): расчёт на "
+            + "продавливание (отрыв) — как у торца стены, но контур отстоит на h0/2 от крайних подвешивающих стержней: торцевой участок — "
+            + "за крайним стержнем, участки вдоль стены — за крайними рядами. Длина участков вдоль стены — по выбору: a1 (толщина стены, "
+            + "как на рис. 6.3) или a1 + h0 (как у торца стены, рис. 6.1). Момент — ½ΔM из плоскости стены, эксцентриситет вдоль стены не "
+            + "учитывается. Подвешивающие стержни в поперечной арматуре на продавливание не учитываются. Проект Изменения № 2 к СП 430 "
+            + "рис. 6.3 не меняет.",
         PunchingVariantKind.WallCorner => amd2
             ? "Плита у угла стен (СП 430.1325800, п. 6.3.8, рис. 6.2 по проекту Изменения № 2 — не утверждён, расчёт справочный): "
               + "наружный контур на расстоянии h0/2 от наружных граней с участками до a1 + a2 от граней (длиной h0/2 + a1 + a2) и диагональ "
@@ -109,6 +116,7 @@ public static class PunchingReportText
             PunchingVariantKind.WallEnd => "торец, П",
             PunchingVariantKind.WallEndEdge => "торец, 1′" + (edgeCount > 1 ? EdgeNumber(id) : ""),
             PunchingVariantKind.WallCorner => "угол стен",
+            PunchingVariantKind.WallHanging => "подвеска, П",
             _ => "пользователя " + CustomNumber(id)
         };
         return zone switch
@@ -256,6 +264,17 @@ public sealed class PunchingPlanSvgRenderer
             }
             svg.AppendLine();
         }
+        // Крайние подвешивающие стержни подвешенной плиты (рис. 6.3) — тёмные кружки с белым ободком.
+        if (scene.HangerRods is { Count: > 0 } rods)
+        {
+            double hr = Math.Clamp(scale * 0.01, 2.0, 4.5);
+            foreach (var b in rods)
+            {
+                var (bx, by) = M(b);
+                svg.Append(CultureInfo.InvariantCulture, $"<circle cx=\"{F(bx)}\" cy=\"{F(by)}\" r=\"{F(hr)}\" fill=\"#111827\" stroke=\"white\" stroke-width=\"1\"/>");
+            }
+            svg.AppendLine();
+        }
         var armedOf = variantId is not null ? shown.FirstOrDefault() : scene.Variants.FirstOrDefault(v => v.Governs);
         foreach (var e in armedOf?.Armed ?? [])
             svg.Append("<polyline points=\"").Append(Pts(PunchingScene.Tessellate(e), M))
@@ -313,6 +332,8 @@ public sealed class PunchingPlanSvgRenderer
         // Пояснение арматуры — второй строкой: в одну строку шириной 640 оно не помещается.
         string swNote = scene.SwCross ? "синим — стержни и участки контура под лучами креста"
             : scene.SwBars is { Count: > 0 } ? "синим — стержни поперечной арматуры" : "";
+        if (scene.HangerRods is { Count: > 0 })
+            swNote += (swNote.Length > 0 ? "; " : "") + "чёрным — крайние подвешивающие стержни";
         svg.Append(CultureInfo.InvariantCulture,
             $"<text x=\"{Pad}\" y=\"{Height - (swNote.Length > 0 ? 22 : 10)}\" font-family=\"Segoe UI,Arial,sans-serif\" font-size=\"11\" fill=\"#6b7280\">{E($"h0 = {F(scene.H0 * 1000)} мм; + — центр тяжести контура; серым — вне плиты; серый пунктир — исключено у отверстий")}</text>");
         if (swNote.Length > 0)

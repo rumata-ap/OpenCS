@@ -173,6 +173,8 @@ public static class PunchingChecker
         if (input.Reinforcement is { } rr) ValidateReinforcement(rr);
         if (input.Wall is { } wl && (!(wl.A1 > 0) || wl.A2 is <= 0))
             throw new ArgumentException("Толщина стены должна быть больше нуля.", nameof(input));
+        if (input.Wall is { Hanger: { } hg } wh && (!(hg.Width >= 0) || hg.Width >= wh.A1 || !(hg.EndOffset >= 0) || !double.IsFinite(hg.EndOffset)))
+            throw new ArgumentException("Подвешивающие стержни должны лежать в стене: 0 ≤ расстояние между рядами < a1, отступ от торца ≥ 0.", nameof(input));
         bool wallCrossIgnored = input.Wall is not null && input.Reinforcement?.Cross is not null;
         input = input.Normalized();
 
@@ -287,7 +289,7 @@ public static class PunchingChecker
         // СП 430 п. 6.3.8: у торца стены — момент только из плоскости стены (Mx, вектор вдоль стены), эксцентриситет
         // вдоль стены не учитывается; у угла — только сила.
         var wall = input.Wall;
-        bool wallNode = wall is not null && v.Kind is PunchingVariantKind.WallEnd or PunchingVariantKind.WallEndEdge or PunchingVariantKind.WallCorner;
+        bool wallNode = wall is not null && v.Kind is PunchingVariantKind.WallEnd or PunchingVariantKind.WallEndEdge or PunchingVariantKind.WallCorner or PunchingVariantKind.WallHanging;
         if (wallNode)
         {
             my0 = 0; ex = 0;
