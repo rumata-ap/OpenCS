@@ -53,6 +53,12 @@ public sealed class PunchingFemSource
     public Func<FragmentBounds, PlanarVector3, IReadOnlyList<FragmentMaskKey>, IReadOnlyDictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>>? BaseLoads { get; init; }
 
     /// <summary>
+    /// Реакция опоры узла сетки на схему по ключу, Н и Н·м (момент — относительно узла): у CSfea — реакция связи или
+    /// пружины, у импорта — отпор пружины −K·u. null — реакции нет (жёсткая связь импорта, узел без опоры). Для свай-точек.
+    /// </summary>
+    public Func<string, FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)?>? NodeReaction { get; init; }
+
+    /// <summary>
     /// Снимок импорта: номер загружения в программе → Id загружения схемы. У таких источников результат —
     /// суперпозиция загружений, и годится любой ключ-сочетание (<see cref="WithKeys"/>). null — не снимок импорта.
     /// </summary>
@@ -71,7 +77,7 @@ public sealed class PunchingFemSource
         {
             Kind = Kind, Label = Label, Keys = keys, Result = combined.WithKeys(keys.Select(k => k.Key).ToList()),
             Nodal = Nodal, NodalUnavailable = NodalUnavailable, ShellCut = ShellCut, BaseLoads = BaseLoads,
-            ProgramLoadCases = ProgramLoadCases,
+            NodeReaction = NodeReaction, ProgramLoadCases = ProgramLoadCases,
         };
     }
 }
@@ -191,16 +197,38 @@ public static class PunchingFemService
             return s;
         }
 
+        const int dofZ = 1 << 2;
         var supported = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var s in db.GetFemMeshNodeSupports(schemaId)) if (s.Mask != 0) supported.Add(s.NodeTag);
-        foreach (var s in db.GetFemSprings(schemaId)) if (s.TargetKind == FemSpringTargetKinds.MeshNode) supported.Add(s.NodeTag);
-        var fixedSchemaNodes = db.GetFemNodes(schemaId).Where(n => n.DofMask != 0).Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal);
-        foreach (var n in nodes.Values) if (n.SourceNodeTag is { } t && fixedSchemaNodes.Contains(t)) supported.Add(n.NodeTag);
+        // Сваи (п. 2, С2): связь или пружина по Z — кандидат в сваю-точку; пружина — низ сваи-стержня.
+        var vertical = new HashSet<string>(StringComparer.Ordinal);
+        var springNodes = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var s in db.GetFemMeshNodeSupports(schemaId))
+        {
+            if (s.Mask != 0) supported.Add(s.NodeTag);
+            if ((s.Mask & dofZ) != 0) vertical.Add(s.NodeTag);
+        }
+        var meshBySource = nodes.Values.Where(n => n.SourceNodeTag != null).ToLookup(n => n.SourceNodeTag!, n => n.NodeTag, StringComparer.Ordinal);
+        foreach (var s in FemFieldService.EffectiveSprings(db, schemaId))
+        {
+            IEnumerable<string> tags = s.TargetKind == FemSpringTargetKinds.MeshNode ? [s.NodeTag] : meshBySource[s.NodeTag];
+            foreach (var t in tags)
+            {
+                if (s.TargetKind == FemSpringTargetKinds.MeshNode) supported.Add(t);
+                if (s.Kz > 0) vertical.Add(t);
+                if (s.Kx > 0 || s.Ky > 0 || s.Kz > 0) springNodes.Add(t);
+            }
+        }
+        foreach (var fn in db.GetFemNodes(schemaId).Where(n => n.DofMask != 0))
+            foreach (var t in meshBySource[fn.NodeTag])
+            {
+                supported.Add(t);
+                if ((fn.DofMask & dofZ) != 0) vertical.Add(t);
+            }
 
         return new PunchingFemModel
         {
             Nodes = nodes, Elements = elements, RigidBodies = db.GetFemRigidBodies(schemaId),
-            ShellProps = Shell, BarSection = Bar, SupportedNodes = supported,
+            ShellProps = Shell, BarSection = Bar, SupportedNodes = supported, VerticalSupports = vertical, SpringNodes = springNodes,
         };
     }
 
@@ -273,6 +301,8 @@ public static class PunchingFemService
             ? nodalDiag.FirstOrDefault()?.Message.Replace("Силы кромок пластин — МНК по центрам КЭ: ", "", StringComparison.Ordinal) ?? "нет данных"
             : null;
         var loadsModel = parent.Adapted.HasErrors ? StoreyFragmentMaskService.ParentModelOf(db, schema.Id, setup, sections: false) : parent;
+        // Реакции по узлу — индекс узлов реакций на шаг (для свай-точек).
+        var reactionIndex = new Dictionary<FragmentMaskKey, Dictionary<string, int>>();
         bool loadsKnown = loadsModel.Adapted.Model.LoadCases.Count > 0;
         // Разбор нагрузок готовится один раз на источник: на узел — только отсечение по основанию.
         var preparedLoads = new Lazy<FragmentBandLoads.Prepared>(() => new FragmentBandLoads.Prepared(loadsModel.Input, loadsModel.Loads));
@@ -301,6 +331,20 @@ public static class PunchingFemService
                     byKey[key] = (f + rf, m + rm);
                 }
                 return byKey;
+            },
+            NodeReaction = (tag, key) =>
+            {
+                if (!fieldsByKey.TryGetValue(key, out var fields)) return null;
+                if (!reactionIndex.TryGetValue(key, out var index))
+                {
+                    index = new Dictionary<string, int>(StringComparer.Ordinal);
+                    for (int i = 0; i < fields.ReactionNodeIds.Length; i++)
+                        index.TryAdd(fields.ReactionNodeIds[i].ToString(CultureInfo.InvariantCulture), i);
+                    reactionIndex[key] = index;
+                }
+                if (!index.TryGetValue(tag, out int k)) return null;
+                var r = fields.Reactions.AsSpan(RcSecantStepFields.NodeComponents * k, 6);
+                return (new PlanarVector3(r[0], r[1], r[2]), new PlanarVector3(r[3], r[4], r[5]));
             },
         };
     }
@@ -372,6 +416,7 @@ public static class PunchingFemService
         }
 
         Func<FragmentBounds, PlanarVector3, IReadOnlyList<FragmentMaskKey>, IReadOnlyDictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>>? baseLoads = null;
+        Func<string, FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)?>? nodeReaction = null;
         try
         {
             var model = StoreyFragmentMaskService.ParentModelOf(db, schema.Id, new FemCsfeaSetup(), sections: false);
@@ -379,6 +424,18 @@ public static class PunchingFemService
             // Отпор упругого основания C1 — по перемещениям снимка, как реакция основания у CSfea (−K·u).
             var foundation = FoundationSprings(model.Adapted.Model);
             var displacements = new PunchingFemCombinedResult(inner, []);
+            // Сваи-точки: отпор пружины узла по перемещениям снимка; жёсткая связь реакции не даёт.
+            var springByTag = foundation.GroupBy(s => s.Tag, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+            if (springByTag.Count > 0)
+                nodeReaction = (tag, key) =>
+                {
+                    if (!springByTag.TryGetValue(tag, out var s) || !displacements.TryNodeDisplacement(key, tag, out var d)) return null;
+                    double[] u = [d.X, d.Y, d.Z];
+                    var r = new double[3];
+                    for (int a = 0; a < 3; a++)
+                        for (int b = 0; b < 3; b++) r[a] -= s.K[a, b] * u[b];
+                    return (new PlanarVector3(r[0], r[1], r[2]), PlanarVector3.Zero);
+                };
             if (foundation.Count > 0)
             {
                 var firstKey = FragmentMaskKey.OfLoadCase(known.Min());
@@ -422,6 +479,7 @@ public static class PunchingFemService
             NodalUnavailable = $"импорт {program} — узловых сил КЭ программы нет",
             ShellCut = true,
             BaseLoads = baseLoads,
+            NodeReaction = nodeReaction,
             ProgramLoadCases = byNum,
         };
     }
@@ -588,12 +646,16 @@ public static class PunchingFemService
         foreach (var key in keys)
         {
             bool shells = joint.Kind == PunchingFemJointKind.PylonShells;
-            var action = shells
+            bool pilePoint = joint.IsPilePoint;
+            var action = pilePoint ? PileReaction(joint, data, source, key)
+                : shells
                 ? source.Nodal is { } nodal ? PunchingFemColumnAction.ComputeShells(joint, data.Model.Nodes, nodal, key) : null
                 : PunchingFemColumnAction.Compute(joint, data.Model.Nodes, data.ElementsByTag, source.Result, key);
             if (action is not var (af, am))
             {
-                missing ??= shells
+                missing ??= pilePoint
+                    ? "нет реакции опоры сваи-точки в результате (у импорта реакцию даёт только пружина узла, жёсткая связь — нет)"
+                    : shells
                     ? source.Nodal == null
                         ? "пилон из пластин проверяется только по расчёту CSfea: силу стены на плиту дают узловые силы КЭ, а у источника их нет"
                         : "нет узловых сил пластин пилона"
@@ -602,6 +664,8 @@ public static class PunchingFemService
             }
             double colAction = af.Dot(joint.Normal) / 1e3;
             double? baseLoad = baseLoads != null && baseLoads.TryGetValue(key, out var bl) ? bl.F.Dot(joint.Normal) / 1e3 : null;
+            // Свая-точка: её реакция — «действие сваи»; из нагрузки основания (там все реакции в основании) она исключается.
+            if (pilePoint && baseLoad is double b1) baseLoad = b1 - colAction;
             // Стержни с другой стороны плиты в основании (сваи, колонна над сваей) — их действие на плиту входит в
             // нагрузку основания (п. 2, С1); нет сил концов — нагрузка основания неизвестна (сила без вычета, в запас).
             if (joint.BaseBars.Count > 0 && baseLoad is double b0)
@@ -621,6 +685,14 @@ public static class PunchingFemService
             };
         }
         return new PunchingFemNodeForces(byKey, cutFailure, missing);
+    }
+
+    /// <summary>Реакция опоры сваи-точки на плиту в общих осях, Н и Н·м относительно начала осей узла; null — нет.</summary>
+    static (PlanarVector3 F, PlanarVector3 M)? PileReaction(PunchingFemJoint joint, PunchingFemSchemaData data, PunchingFemSource source, FragmentMaskKey key)
+    {
+        if (source.NodeReaction?.Invoke(joint.NodeTag, key) is not var (f, m)) return null;
+        var p = data.Model.Nodes.TryGetValue(joint.NodeTag, out var n) ? new PlanarVector3(n.X, n.Y, n.Z) : joint.Origin;
+        return (f, m + (p - joint.Origin).Cross(f));
     }
 
     // ------------------------------------------------------------------ параметры задачи

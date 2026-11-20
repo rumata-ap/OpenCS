@@ -107,9 +107,12 @@ sealed class PunchingFemTestMesh
     public static readonly PunchingFemCover Cover = new(0.035, 0.045);
 
     public PunchingFemModel Model(PunchingFemBarSection? section = null,
-        Func<FemElement, PunchingFemBarSection?>? sections = null, Func<FemElement, PunchingFemShellProps?>? props = null) => new()
+        Func<FemElement, PunchingFemBarSection?>? sections = null, Func<FemElement, PunchingFemShellProps?>? props = null,
+        IEnumerable<string>? vertical = null, IEnumerable<string>? springs = null) => new()
     {
         Nodes = Nodes, Elements = Elements, RigidBodies = Bodies,
+        VerticalSupports = (vertical ?? []).ToHashSet(StringComparer.Ordinal),
+        SpringNodes = (springs ?? []).ToHashSet(StringComparer.Ordinal),
         BarSection = sections ?? (_ => section ?? Rect(0.4, 0.4)),
         ShellProps = props ?? (e => e.ThicknessM is double h
             ? new PunchingFemShellProps("h" + h.ToString(CultureInfo.InvariantCulture), h, 1, Cover, Cover, $"h = {h * 1000:0}")

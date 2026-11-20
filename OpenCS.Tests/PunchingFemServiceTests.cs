@@ -554,7 +554,7 @@ public sealed class PunchingFemServiceTests : IDisposable
     (PunchingFemSchemaData Data, PunchingFemSource Source, PunchingFemJoint Joint, PunchingFemNodeForces Forces) Evaluate(Setup s)
     {
         var data = PunchingFemService.Load(s.Db, s.Schema, new PunchingFemOptions());
-        var joint = Assert.Single(data.Joints);
+        var joint = Assert.Single(data.Joints, j => !j.IsPilePoint);
         Assert.True(joint.NoCheck == null, joint.NoCheckText);
         var diag = new List<FemValidationDiagnostic>();
         var source = PunchingFemService.OpenCsfea(s.Db, s.Schema, s.Analysis.Id, diag);
@@ -789,7 +789,8 @@ public sealed class PunchingFemServiceTests : IDisposable
     /// (заделка низа на z = 0): 4 у колонны — в основании пирамиды (±0,25 м), 4 по углам (±2,5 м). «Пост.» — −10 кПа на
     /// плиту и груз колонны.
     /// </summary>
-    Setup CreatePiled()
+    /// <param name="points">Сваи — опоры узлов плиты (связь X, Y, Z) без стержней: сваи-точки (п. 2, С2).</param>
+    Setup CreatePiled(bool points = false)
     {
         var db = new DatabaseService(_path);
         var schema = new FemSchema { Tag = "Плита на сваях" };
@@ -842,6 +843,11 @@ public sealed class PunchingFemServiceTests : IDisposable
         for (int p = 0; p < piles.Length; p++)
         {
             double x = -Half + Step * piles[p].I, y = -Half + Step * piles[p].J;
+            if (points)
+            {
+                nodes.Add(new FemNode { Id = -101 - 2 * p, NodeTag = S(101 + 2 * p), X = x, Y = y, Z = Zs, DofMask = 7 });
+                continue;
+            }
             nodes.Add(new FemNode { Id = -100 - 2 * p, NodeTag = S(100 + 2 * p), X = x, Y = y, Z = 0, DofMask = 63 });
             nodes.Add(new FemNode { Id = -101 - 2 * p, NodeTag = S(101 + 2 * p), X = x, Y = y, Z = Zs });
             members.Add(new FemMember { Id = -100 - p, ElemTag = $"P{p + 1}", ElemType = "beam", NodeIdsJson = $"[{100 + 2 * p},{101 + 2 * p}]", CrossSectionId = column.Id });
@@ -872,7 +878,7 @@ public sealed class PunchingFemServiceTests : IDisposable
                     ElemTag = S(1 + j * N + i), ElemType = "shell", SourceMemberTag = "S1", ThicknessM = 0.2,
                     NodeIdsJson = $"[{SlabNode(i, j)},{SlabNode(i + 1, j)},{SlabNode(i, j + 1)},{SlabNode(i + 1, j + 1)}]",
                 });
-        for (int p = 0; p < piles.Length; p++)
+        for (int p = 0; p < piles.Length && !points; p++)
         {
             double x = -Half + Step * piles[p].I, y = -Half + Step * piles[p].J;
             string top = S(SlabNode(piles[p].I, piles[p].J));
@@ -934,6 +940,54 @@ public sealed class PunchingFemServiceTests : IDisposable
         // Тот же узел способом «по стержням» — та же сила.
         var col = PunchingFemService.Evaluate(data, source, joint, PunchingFemForceMethod.Column).ByKey[source.Keys.Single().Key];
         Assert.Equal(f.F, col.F, 2);
+    }
+
+    /// <summary>
+    /// Продавливание сваей-точкой (п. 2, С2): опоры узлов плиты без стержней — узлы «свая» 300×300; сила по реакции
+    /// опоры и нагрузке основания без неё равна силе по разрезу; у сваи у колонны колонна сверху — в нагрузке основания;
+    /// правка размера узла меняет площадь.
+    /// </summary>
+    [Fact]
+    public void PilePoints_ForceIsReactionMinusBase()
+    {
+        var s = CreatePiled(points: true);
+        using var db = s.Db;
+        var data = PunchingFemService.Load(s.Db, s.Schema, new PunchingFemOptions());
+        var piles = data.Joints.Where(j => j.IsPilePoint).ToList();
+        Assert.Equal(8, piles.Count);
+        var diag = new List<FemValidationDiagnostic>();
+        var source = PunchingFemService.OpenCsfea(s.Db, s.Schema, s.Analysis.Id, diag)!;
+        var key = source.Keys.Single().Key;
+
+        var corner = piles.Single(j => j.NodeTag == S(SlabNode(2, 2)));
+        Assert.True(corner.NoCheck == null, corner.NoCheckText);
+        var area = Assert.IsType<PunchingLoadArea.Rectangle>(corner.Area);
+        Assert.Equal(0.3, area.Bx, 12);
+        var f = PunchingFemService.Evaluate(data, source, corner).ByKey[key];
+        Assert.True(f.ColumnAction > 0, $"реакция {f.ColumnAction:0.#} кН");
+        Assert.Equal(f.ColumnForce!.Value, f.ContourForce!.Value, 2);
+        Assert.Equal(PunchingLoadSide.FromBelow, f.Side);
+        // Без соседей в основании нагрузка основания — только плита (−10 кПа) по площади основания.
+        Assert.Equal(Q / 1e3 * Math.Pow(0.3 + 2 * corner.H0, 2), f.BaseLoad!.Value, 2);
+        var col = PunchingFemService.Evaluate(data, source, corner, PunchingFemForceMethod.Column).ByKey[key];
+        Assert.Equal(f.ColumnAction!.Value + f.BaseLoad!.Value, col.F, 2);
+
+        var inner = piles.Single(j => j.NodeTag == S(SlabNode(N / 2 + 1, N / 2 + 1)));
+        Assert.Contains(inner.BaseBars, b => !b.Below);
+        var fi = PunchingFemService.Evaluate(data, source, inner).ByKey[key];
+        Assert.Equal(fi.ColumnForce!.Value, fi.ContourForce!.Value, 2);
+
+        var check = new PunchingFemCheckParams
+        {
+            PileShape = "circle", PileSize = 0.35,
+            Overrides = [new PunchingFemJointOverride { Node = corner.NodeTag, PileShape = "square", PileSize = 0.4 }],
+        };
+        var edited = PunchingFemService.Load(s.Db, s.Schema, check.FinderOptions);
+        Assert.Equal(0.4, Assert.IsType<PunchingLoadArea.Rectangle>(edited.Joints.Single(j => j.NodeTag == corner.NodeTag).Area).By, 12);
+        Assert.Equal(0.35, Assert.IsType<PunchingLoadArea.Circle>(edited.Joints.Single(j => j.NodeTag == inner.NodeTag).Area).D, 12);
+        var round = PunchingFemCheckParams.Parse(check.ToJson());
+        Assert.Equal(0.4, round.Overrides.Single().PileSize);
+        Assert.Equal("circle", round.PileShape);
     }
 
     [Fact]
@@ -1315,9 +1369,18 @@ public sealed class PunchingFemServiceTests : IDisposable
         Assert.True(source != null, string.Join("; ", diag.Select(d => d.Message)));
         Assert.DoesNotContain(diag, d => d.Code == "punching_fem_foundation_no_displacements");
         var data = PunchingFemService.Load(db, s.Schema, new PunchingFemOptions());
-        var f = PunchingFemService.Evaluate(data, source!, Assert.Single(data.Joints)).ByKey[source!.Keys.Single(k => k.Label == "Пост.").Key];
+        var f = PunchingFemService.Evaluate(data, source!, Assert.Single(data.Joints, j => !j.IsPilePoint)).ByKey[source!.Keys.Single(k => k.Label == "Пост.").Key];
         Assert.Equal(post.BaseLoad!.Value, f.BaseLoad!.Value, 3);
         Assert.Equal(post.ColumnForce!.Value, f.ColumnForce!.Value, 3);
+
+        // Сваи-точки (п. 2, С2): реакция у снимка — отпор K·u, как у CSfea.
+        var pile = data.Joints.First(j => j.IsPilePoint && j.NoCheck == null);
+        var fi = PunchingFemService.Evaluate(data, source!, pile).ByKey[source!.Keys.Single(k => k.Label == "Пост.").Key];
+        var fc = PunchingFemService.Evaluate(csfea.Data, csfea.Source, csfea.Data.Joints.Single(j => j.NodeTag == pile.NodeTag))
+            .ByKey[csfea.Source.Keys.Single(k => k.Label == "Пост.").Key];
+        Assert.True(fc.ColumnAction > 0.1, $"реакция сваи {fc.ColumnAction:0.###} кН");
+        Assert.Equal(fc.ColumnAction!.Value, fi.ColumnAction!.Value, 3);
+        Assert.Equal(fc.ColumnForce!.Value, fi.ColumnForce!.Value, 3);
     }
 
     /// <summary>

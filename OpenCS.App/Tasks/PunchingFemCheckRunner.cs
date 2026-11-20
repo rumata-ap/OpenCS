@@ -48,7 +48,7 @@ public sealed record PunchingFemRow
 public sealed record PunchingFemJointResult
 {
     public string Node { get; init; } = "";
-    /// <summary>Вид узла: "bar" | "pylon_shells" | "wall_end" | "wall_corner".</summary>
+    /// <summary>Вид узла: "bar" | "pylon_shells" | "wall_end" | "wall_corner" | "pile" (свая-стержень или свая-точка).</summary>
     public string Kind { get; init; } = "bar";
     public int Slab { get; init; }
     /// <summary>Центр грузовой площади в общих осях, м.</summary>
@@ -415,6 +415,7 @@ public static class PunchingFemCheckRunner
                 PunchingFemJointKind.PylonShells => "pylon_shells",
                 PunchingFemJointKind.WallEnd => "wall_end",
                 PunchingFemJointKind.WallCorner => "wall_corner",
+                PunchingFemJointKind.Pile => "pile",
                 _ => "bar",
             },
             Origin = [joint.Origin.X, joint.Origin.Y, joint.Origin.Z], AxisX = [joint.AxisX.X, joint.AxisX.Y, joint.AxisX.Z],

@@ -282,6 +282,83 @@ public class PunchingFemJointFinderTests
         Assert.Contains(pile.BaseBars, b => b.ElemTag == col.ElemTag && !b.Below);
     }
 
+    /// <summary>
+    /// Свая-точка (п. 2, С2): одиночная опора узла плиты без стержня — узел вида «свая» с сечением из настроек (300×300 по
+    /// умолчанию), привязки верхней арматуры (продавливание снизу), правка размера по узлу; угловая свая — два края.
+    /// </summary>
+    [Fact]
+    public void PilePoints_FoundAsPiles_AreaFromOptions()
+    {
+        var m = Plate();
+        string mid = m.Node(3, 3, Z), corner = m.Node(5.6, 5.6, Z);
+        var model = m.Model(props: e => new PunchingFemShellProps("s", 0.3, 1,
+            new PunchingFemCover(0.05, 0.06), new PunchingFemCover(0.07, 0.08), "Ф"), vertical: [mid, corner]);
+
+        var joints = PunchingFemJointFinder.Find(model);
+        Assert.Equal(2, joints.Count);
+        var j = joints.Single(x => x.NodeTag == mid);
+        Assert.True(j.NoCheck == null, j.NoCheckText);
+        Assert.Equal(PunchingFemJointKind.Pile, j.Kind);
+        Assert.True(j.IsPilePoint);
+        Assert.Empty(j.Bars);
+        var r = Assert.IsType<PunchingLoadArea.Rectangle>(j.Area);
+        Assert.Equal(0.3, r.Bx, 12);
+        Assert.Equal(0.3, r.By, 12);
+        Assert.Equal(0.05, j.Ax, 12);
+        Assert.Equal(3.0, j.Origin.X, 9);
+        Assert.Contains(j.Warnings, w => w.Code == "fem_pile_point");
+        Assert.Empty(j.Edges);
+        var c = joints.Single(x => x.NodeTag == corner);
+        Assert.True(c.NoCheck == null, c.NoCheckText);
+        Assert.Equal(2, c.Edges.Count);
+
+        var edited = PunchingFemJointFinder.Find(model, new PunchingFemOptions(PileArea: new PunchingLoadArea.Circle(0.35),
+            PileAreas: new Dictionary<string, PunchingLoadArea> { [mid] = new PunchingLoadArea.Rectangle(0.4, 0.5) }));
+        var e = Assert.IsType<PunchingLoadArea.Rectangle>(edited.Single(x => x.NodeTag == mid).Area);
+        Assert.Equal(0.5, e.By, 12);
+        Assert.Equal(0.35, Assert.IsType<PunchingLoadArea.Circle>(edited.Single(x => x.NodeTag == corner).Area).D, 12);
+    }
+
+    /// <summary>Опоры подряд по краю (линейная опора) и опора у колонны — не сваи-точки.</summary>
+    [Fact]
+    public void LineSupportAndColumnNode_NotPilePoints()
+    {
+        var m = Plate();
+        var edge = Enumerable.Range(0, 31).Select(i => m.Node(0, i * 0.2, Z)).ToArray();
+        string col = m.Node(3, 3, Z);
+        m.Bar(m.Node(3, 3, 0), col);
+        var joints = PunchingFemJointFinder.Find(m.Model(vertical: [.. edge, col]));
+        var j = Assert.Single(joints);
+        Assert.Equal(col, j.NodeTag);
+        Assert.Equal(PunchingFemJointKind.Bar, j.Kind);
+    }
+
+    /// <summary>
+    /// Свая-стержень (п. 2, С2): стержни под плитой цепочкой до пружины — «свая»; колонна на жёсткой опоре — «колонна».
+    /// Соседняя свая в основании сваи — нагрузка основания, а не «нет проверки».
+    /// </summary>
+    [Fact]
+    public void BarPile_ReachesSpring_IsPile()
+    {
+        var m = Plate();
+        string head = m.Node(3, 3, Z), mid = m.Node(3, 3, 1.5), toe = m.Node(3, 3, 0);
+        m.Bar(mid, head);
+        m.Bar(toe, mid);
+        string head2 = m.Node(3.2, 3, Z);
+        var near = m.Bar(m.Node(3.2, 3, 0), head2);
+        string col = m.Node(1, 1, Z);
+        m.Bar(m.Node(1, 1, 0), col);
+        var model = m.Model(springs: [toe, m.Node(3.2, 3, 0)]);
+
+        var joints = PunchingFemJointFinder.Find(model);
+        var p = joints.Single(x => x.NodeTag == head);
+        Assert.Equal(PunchingFemJointKind.Pile, p.Kind);
+        Assert.False(p.IsPilePoint);
+        Assert.True(p.NoCheck == null, p.NoCheckText);
+        Assert.Contains(p.BaseBars, b => b.ElemTag == near.ElemTag);
+        Assert.Equal(PunchingFemJointKind.Bar, joints.Single(x => x.NodeTag == col).Kind);
+    }
+
     /// <summary>Колонны сверху и снизу (перекрытие): у узла нет «другой стороны» — стержень в основании по-прежнему «нет проверки».</summary>
     [Fact]
     public void ColumnsBothSides_OtherBarInsideBase_NoCheck()

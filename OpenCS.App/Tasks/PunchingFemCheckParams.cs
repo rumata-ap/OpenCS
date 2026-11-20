@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CScore.Fem.Fragment.Masks;
+using CScore.Sp63Punching;
 using CScore.Sp63Punching.Fem;
 
 namespace OpenCS.Tasks;
@@ -23,6 +24,10 @@ public sealed record PunchingFemJointOverride
     public PunchingCapitalParams? CapitalManual { get; init; }
     /// <summary>Основной контур узла: null — по проверке (<see cref="PunchingFemCheckParams.LiraContour"/>), "opencs", "lira".</summary>
     public string? Contour { get; init; }
+    /// <summary>Сечение сваи-точки узла: "square" | "circle"; null — общее (<see cref="PunchingFemCheckParams.PileShape"/>).</summary>
+    public string? PileShape { get; init; }
+    /// <summary>Сторона квадрата или диаметр сваи-точки узла, м; null — общий (<see cref="PunchingFemCheckParams.PileSize"/>).</summary>
+    public double? PileSize { get; init; }
 }
 
 /// <summary>
@@ -67,6 +72,16 @@ public sealed record PunchingFemCheckParams
     /// узел без записи ЛИРЫ — контур OpenCS. Узлу можно задать своё (<see cref="PunchingFemJointOverride.Contour"/>).
     /// </summary>
     public bool LiraContour { get; init; }
+    /// <summary>Сечение свай-точек (опора узла плиты без стержня, п. 2 С2): "square" — квадрат, "circle" — круг.</summary>
+    public string PileShape { get; init; } = "square";
+    /// <summary>Сторона квадрата или диаметр свай-точек, м.</summary>
+    public double PileSize { get; init; } = 0.3;
+    /// <summary>Сечение сваи-точки ядра по форме и размеру; размер ≤ 0 — 300 мм.</summary>
+    public static PunchingLoadArea PileArea(string? shape, double size)
+    {
+        double a = size > 0 && double.IsFinite(size) ? size : 0.3;
+        return shape == "circle" ? new PunchingLoadArea.Circle(a) : new PunchingLoadArea.Rectangle(a, a);
+    }
     /// <summary>Основной контур узла — ЛИРЫ: по переопределению узла, иначе по проверке.</summary>
     public bool UsesLiraContour(string node) => Overrides.FirstOrDefault(o => o.Node == node)?.Contour switch
     {
@@ -95,6 +110,7 @@ public sealed record PunchingFemCheckParams
         {
             Reinforcement = p.Reinforcement ?? new(), Options = p.Options ?? new(), Overrides = p.Overrides ?? [],
             SourceKind = p.SourceKind ?? FragmentMaskSet.SourceCsfeaLinear, SourceRef = p.SourceRef ?? "", Method = p.Method ?? "auto",
+            PileShape = p.PileShape ?? "square",
         };
     }
 
@@ -102,7 +118,10 @@ public sealed record PunchingFemCheckParams
     [JsonIgnore]
     public PunchingFemOptions FinderOptions => new(AngleDeg: AngleDeg, EdgeInfluence: EdgeInfluence,
         HoleInfluence: Options.HoleInfluence, WallRatio: WallRatio, DefaultCover: new PunchingFemCover(DefaultAx, DefaultAy),
-        WallFigure: PunchingOptionParams.ParseWallFigure(Options.WallFigure));
+        WallFigure: PunchingOptionParams.ParseWallFigure(Options.WallFigure),
+        PileArea: PileArea(PileShape, PileSize),
+        PileAreas: Overrides.Where(o => o.PileShape != null || o.PileSize != null)
+            .ToDictionary(o => o.Node, o => PileArea(o.PileShape ?? PileShape, o.PileSize ?? PileSize), StringComparer.Ordinal));
 
     /// <summary>Главный способ ядра; null — по источнику.</summary>
     [JsonIgnore]

@@ -41,6 +41,13 @@ public sealed class PunchingFemModel
     public Func<FemElement, double> BarRotationDeg { get; init; } = e => e.BeamRotationDeg ?? 0;
     /// <summary>Узлы с закреплениями или пружинами (для сообщений об опорах в основании пирамиды).</summary>
     public IReadOnlySet<string> SupportedNodes { get; init; } = new HashSet<string>(StringComparer.Ordinal);
+    /// <summary>
+    /// Узлы со связью или пружиной по вертикали (поступательная Z) — кандидаты в сваи-точки (п. 2, С2): одиночный такой
+    /// узел плиты без стержней — свая, заданная опорой (КЭ 56/57 ЛИРЫ, КЭ 51 SCAD, пружина узла CSfea).
+    /// </summary>
+    public IReadOnlySet<string> VerticalSupports { get; init; } = new HashSet<string>(StringComparer.Ordinal);
+    /// <summary>Узлы с пружинами (поступательными): стержень под плитой, дошедший до пружины, — свая, а не колонна.</summary>
+    public IReadOnlySet<string> SpringNodes { get; init; } = new HashSet<string>(StringComparer.Ordinal);
 }
 
 /// <summary>Настройки поиска узлов продавливания.</summary>
@@ -52,13 +59,23 @@ public sealed class PunchingFemModel
 /// <param name="WallRatio">Площадь с Lmax &gt; WallRatio·Lmin — стена, а не пилон (срез 5).</param>
 /// <param name="DefaultCover">Привязки, если у сечения пластины их нет.</param>
 /// <param name="WallFigure">Редакция рис. 6.2 СП 430 для углов стен.</param>
+/// <param name="PileArea">Сечение свай-точек (опора без стержня); null — 300×300 мм (<see cref="StandardPileArea"/>).</param>
+/// <param name="PileAreas">Сечения свай-точек по узлам (правка пользователя); узла нет — <see cref="PileArea"/>.</param>
 public sealed record PunchingFemOptions(
     double AngleDeg = 10, double HorizontalTolDeg = 3, double PlaneTolM = 1e-3,
     double EdgeInfluence = 6, double HoleInfluence = 6, double WallRatio = 4,
-    PunchingFemCover? DefaultCover = null, PunchingWallFigure WallFigure = PunchingWallFigure.Sp430Amd1)
+    PunchingFemCover? DefaultCover = null, PunchingWallFigure WallFigure = PunchingWallFigure.Sp430Amd1,
+    PunchingLoadArea? PileArea = null, IReadOnlyDictionary<string, PunchingLoadArea>? PileAreas = null)
 {
     /// <summary>Привязки по умолчанию, м (как у одиночной задачи).</summary>
     public static readonly PunchingFemCover StandardCover = new(0.035, 0.045);
+
+    /// <summary>Сечение сваи-точки по умолчанию — 300×300 мм.</summary>
+    public static readonly PunchingLoadArea StandardPileArea = new PunchingLoadArea.Rectangle(0.3, 0.3);
+
+    /// <summary>Сечение сваи-точки в узле.</summary>
+    public PunchingLoadArea PileAreaOf(string node) =>
+        PileAreas != null && PileAreas.TryGetValue(node, out var a) ? a : PileArea ?? StandardPileArea;
 }
 
 /// <summary>Линия стены у плиты (ось примыкания) для плана перекрытия.</summary>
@@ -79,6 +96,11 @@ public enum PunchingFemJointKind
     WallEnd,
     /// <summary>Угол двух стен под 90° (рис. 6.2).</summary>
     WallCorner,
+    /// <summary>
+    /// Свая под фундаментной плитой (п. 2, С2): стержень снизу, доходящий до пружины (<see cref="PunchingFemModel.SpringNodes"/>),
+    /// или свая-точка — одиночная опора плиты без стержня (<see cref="PunchingFemJoint.Bars"/> пуст), сечение из настроек.
+    /// </summary>
+    Pile,
 }
 
 /// <summary>Стержень, примыкающий к плите в узле: КЭ, конец у плиты и сторона.</summary>
@@ -168,6 +190,8 @@ public sealed record PunchingFemJoint
     /// сваей): их сила на плиту входит в нагрузку основания (п. 2, С1).
     /// </summary>
     public IReadOnlyList<PunchingFemBar> BaseBars { get; init; } = [];
+    /// <summary>Свая-точка: опора узла плиты без стержня, сила — реакция опоры (п. 2, С2).</summary>
+    public bool IsPilePoint => Kind == PunchingFemJointKind.Pile && Bars.Count == 0;
     public string? NoCheck { get; init; }
     public string? NoCheckText { get; init; }
     public IReadOnlyList<PunchingWarning> Warnings { get; init; } = [];

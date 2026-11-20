@@ -47,6 +47,7 @@ public static class PunchingFemJointFinder
         }
         joints.AddRange(ctx.ShellPylons());
         joints.AddRange(ctx.ShellWalls());
+        joints.AddRange(ctx.PilePoints());
         slabs = ctx.Slabs;
         walls = ctx.WallLines;
         return joints.OrderBy(j => j.NodeTag, FemNodeRigidBodies.TagComparer).ToList();
@@ -200,10 +201,13 @@ public static class PunchingFemJointFinder
                     $"Сечение {r.Bx:0.###}×{r.By:0.###} м вытянуто больше чем в {Options.WallRatio:0.#} раза — это стена, а не пилон: продавливание у стен (СП 430) пока не проверяется."),
                     axisX, axisY, origin) with { Area = area, SectionLabel = pick.Section.Label };
 
+            // Свая-стержень (п. 2, С2): все стержни узла под плитой и цепочка стержней вниз доходит до пружины.
+            bool pile = bars.All(b => b.Below) && bars.Any(b => ReachesSpring(b, slab));
             var joint = new PunchingFemJoint
             {
                 NodeTag = node, SlabIndex = slab.Index, Origin = origin, AxisX = axisX, AxisY = axisY, Normal = n,
                 Bars = bars, JunctionNodes = junction, Area = area, SectionLabel = pick.Section.Label,
+                Kind = pile ? PunchingFemJointKind.Pile : PunchingFemJointKind.Bar,
             };
             return Complete(joint, slab, area, bars.All(b => !b.Below), warnings,
                 bars.Select(b => b.ElemTag).ToHashSet(StringComparer.Ordinal));
@@ -214,7 +218,7 @@ public static class PunchingFemJointFinder
         /// основание пирамиды, КЭ основания, сечения в основании и прочие опоры (<paramref name="own"/> — свои КЭ узла).
         /// </summary>
         PunchingFemJoint Complete(PunchingFemJoint joint, PunchingFemSlab slab, PunchingLoadArea? area, bool onlyAbove,
-            List<PunchingWarning> warnings, IReadOnlySet<string> own)
+            List<PunchingWarning> warnings, IReadOnlySet<string> own, bool? ownSide = null)
         {
             var wall = joint.Wall;
             string node = joint.NodeTag;
@@ -298,7 +302,8 @@ public static class PunchingFemJointFinder
             // нагрузкой основания (п. 2, С1), стержни с той же стороны и при КЭ с обеих сторон — «нет проверки».
             var barTags = own;
             var junctionSet = junction.ToHashSet(StringComparer.Ordinal);
-            bool? ownBelow = OwnSide(junction, own, slab);
+            bool? ownBelow = ownSide ?? OwnSide(junction, own, slab);
+            bool pile = joint.Kind == PunchingFemJointKind.Pile;
             var supportBars = new SortedSet<string>(FemNodeRigidBodies.TagComparer);
             var baseBars = new List<PunchingFemBar>();
             var walls = new SortedSet<string>(FemNodeRigidBodies.TagComparer);
@@ -322,7 +327,8 @@ public static class PunchingFemJointFinder
                     if (Position(t) is not { } pt || !junctionSet.Contains(t) && !Contains(basePoly, joint.ToLocal(pt), 1e-6)) continue;
                     int k = g.NodeTags[0] == t ? 0 : 1;
                     bool below = (g.Points[1 - k] - g.Points[k]).Dot(n) < 0;
-                    if (ownBelow is bool ob && below != ob && !junctionSet.Contains(t)) baseBars.Add(new PunchingFemBar(e.ElemTag, t, below));
+                    // У сваи и соседние сваи в основании — нагрузка основания: сила через контур с их реакциями (в запас).
+                    if (ownBelow is bool ob && (below != ob || pile) && !junctionSet.Contains(t)) baseBars.Add(new PunchingFemBar(e.ElemTag, t, below));
                     else supportBars.Add(e.ElemTag);
                 }
             }
@@ -343,9 +349,12 @@ public static class PunchingFemJointFinder
             {
                 baseBars.Sort((a, b) => FemNodeRigidBodies.TagComparer.Compare(a.ElemTag, b.ElemTag));
                 var tags = baseBars.Select(b => b.ElemTag).ToList();
-                warnings.Add(new("fem_piles_in_base", string.Create(Ru,
-                    $"В основании пирамиды {(ownBelow == false ? "под плитой" : "над плитой")} {tags.Count} стерж. ({string.Join(", ", tags.Take(6))}{(tags.Count > 6 ? ", …" : "")}) — " +
-                    $"сваи или колонна с другой стороны плиты: их сила на плиту вычтена из продавливающей (нагрузка основания).")));
+                string list = $"{tags.Count} стерж. ({string.Join(", ", tags.Take(6))}{(tags.Count > 6 ? ", …" : "")})";
+                warnings.Add(new("fem_piles_in_base", pile
+                    ? $"В основании пирамиды сваи {list} — соседние сваи или колонна: их сила на плиту входит в нагрузку основания " +
+                      "(сила через контур — вместе с реакциями соседних свай, в запас)."
+                    : $"В основании пирамиды {(ownBelow == false ? "под плитой" : "над плитой")} {list} — " +
+                      "сваи или колонна с другой стороны плиты: их сила на плиту вычтена из продавливающей (нагрузка основания)."));
             }
             int supported = insideNodes.Count(t => !junctionSet.Contains(t) && Model.SupportedNodes.Contains(t));
             if (supported > 0)
@@ -354,6 +363,71 @@ public static class PunchingFemJointFinder
                     $"по разрезу всегда, по стержням — если источник даёт реакции (CSfea; у импорта — пружины и C1 по перемещениям, жёсткие связи — нет, в запас).")));
 
             return joint with { Ribs = ribs.Count > 0, BaseBars = baseBars, Warnings = warnings };
+        }
+
+        /// <summary>
+        /// Стержень под плитой — свая: идя по стержням вниз от плиты (через узлы без пластин, без ветвлений), доходит до
+        /// узла с пружиной. Колонна нижнего этажа на жёсткой опоре сваей не считается.
+        /// </summary>
+        bool ReachesSpring(PunchingFemBar start, PunchingFemSlab slab)
+        {
+            if (Model.SpringNodes.Count == 0) return false;
+            var visited = new HashSet<string>(StringComparer.Ordinal) { start.NodeTag };
+            var bar = _bars[start.ElemTag];
+            string at = start.NodeTag;
+            for (int step = 0; step < 1000; step++)
+            {
+                string next = bar.G.NodeTags[0] == at ? bar.G.NodeTags[1] : bar.G.NodeTags[0];
+                if (!visited.Add(next)) return false;
+                if (Model.SpringNodes.Contains(next)) return true;
+                if (!_at.TryGetValue(next, out var es) || es.Any(x => x.E.ElemType == "shell")) return false;
+                double level = slab.Distance(Position(next)!.Value);
+                var down = es.Where(x => x.E.ElemTag != bar.E.ElemTag && _bars.ContainsKey(x.E.ElemTag))
+                    .Select(x => _bars[x.E.ElemTag])
+                    .Where(x => slab.Distance(x.G.Points[x.G.NodeTags[0] == next ? 1 : 0]) < level - 1e-9)
+                    .ToList();
+                if (down.Count != 1) return false;
+                bar = down[0];
+                at = next;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Сваи-точки (п. 2, С2): узел горизонтальной плиты со связью или пружиной по вертикали
+        /// (<see cref="PunchingFemModel.VerticalSupports"/>), без стержней, тел АЖТ и чужих пластин; у соседних узлов плиты
+        /// таких опор нет (линейная опора по краю — не сваи). Грузовая площадь — сечение из настроек
+        /// (<see cref="PunchingFemOptions.PileAreaOf"/>) с центром в узле; продавливание снизу.
+        /// </summary>
+        public List<PunchingFemJoint> PilePoints()
+        {
+            var joints = new List<PunchingFemJoint>();
+            if (Model.VerticalSupports.Count == 0) return joints;
+            foreach (var slab in Slabs.Where(s => s.TiltDeg <= Options.HorizontalTolDeg))
+                foreach (var node in slab.NodeTags.Where(Model.VerticalSupports.Contains))
+                {
+                    if (_bodyOf.ContainsKey(node) || !_at.TryGetValue(node, out var es)) continue;
+                    if (es.Any(x => _bars.ContainsKey(x.E.ElemTag)
+                            || x.E.ElemType == "shell" && (!_slabOfShell.TryGetValue(x.E.ElemTag, out int si) || si != slab.Index))) continue;
+                    if (es.Where(x => x.E.ElemType == "shell").SelectMany(x => x.G.NodeTags)
+                            .Any(t => t != node && Model.VerticalSupports.Contains(t))) continue;
+                    var n = slab.Normal;
+                    var p = Position(node)!.Value;
+                    var (ax, ay) = Basis(n);
+                    var area = Options.PileAreaOf(node);
+                    string size = PileSizeText(area);
+                    var joint = new PunchingFemJoint
+                    {
+                        NodeTag = node, SlabIndex = slab.Index, Origin = p - n * slab.Distance(p), AxisX = ax, AxisY = ay, Normal = n,
+                        Kind = PunchingFemJointKind.Pile, JunctionNodes = [node], Area = area, SectionLabel = $"свая-точка {size}",
+                    };
+                    var warnings = new List<PunchingWarning>
+                    {
+                        new("fem_pile_point", $"Свая задана опорой узла без стержня: сечение {size} мм — из настроек проверки или правки узла, сила — реакция опоры."),
+                    };
+                    joints.Add(Complete(joint, slab, area, false, warnings, new HashSet<string>(StringComparer.Ordinal), ownSide: true));
+                }
+            return joints;
         }
 
         /// <summary>
@@ -814,6 +888,14 @@ public static class PunchingFemJointFinder
             return (chosen, holes);
         }
     }
+
+    /// <summary>Размер сечения сваи, мм: «300×300» или «d = 300».</summary>
+    public static string PileSizeText(PunchingLoadArea area) => area switch
+    {
+        PunchingLoadArea.Rectangle r => string.Create(Ru, $"{r.Bx * 1000:0}×{r.By * 1000:0}"),
+        PunchingLoadArea.Circle c => string.Create(Ru, $"d = {c.D * 1000:0}"),
+        _ => "",
+    };
 
     /// <summary>Край с этой стороны узла стены учитывается: у торца — кроме −x (за стеной), у угла — только −x и −y.</summary>
     static bool WallEdgeSide(PunchingWall wall, PlanPoint side)
