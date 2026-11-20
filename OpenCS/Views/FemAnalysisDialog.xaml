@@ -5,6 +5,11 @@
         Title="{DynamicResource FemAnalysisCreate}" Width="760" SizeToContent="Height"
         WindowStartupLocation="CenterOwner">
     <Window.Resources>
+       <ResourceDictionary>
+          <!-- Группы окна — карточками (общий словарь). -->
+          <ResourceDictionary.MergedDictionaries>
+             <ResourceDictionary Source="/OpenCS;component/Resources/CardStyles.xaml"/>
+          </ResourceDictionary.MergedDictionaries>
         <util:AnyDoubleConverter x:Key="AnyDoubleConverter"/>
 
         <!-- Нагрузка стадии/расчёта (DataContext — StageRow): бейдж типа, имя, формула серым и «…» — окно выбора.
@@ -45,6 +50,7 @@
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
+       </ResourceDictionary>
     </Window.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="780">
     <StackPanel Margin="12">

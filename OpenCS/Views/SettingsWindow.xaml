@@ -3,6 +3,14 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="{DynamicResource SettingsTitle}" Width="720" MinWidth="720" Height="680"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    <Window.Resources>
+        <!-- Группы окна — карточками (общий словарь). -->
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/OpenCS;component/Resources/CardStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>

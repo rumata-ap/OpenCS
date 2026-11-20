@@ -7,6 +7,11 @@
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <!-- Элемент несовершенства (по образцу RFEM «Задать или изменить несовершенство»): FemImperfectionDialogVM. -->
     <Window.Resources>
+       <ResourceDictionary>
+          <!-- Группы окна — карточками (общий словарь). -->
+          <ResourceDictionary.MergedDictionaries>
+             <ResourceDictionary Source="/OpenCS;component/Resources/CardStyles.xaml"/>
+          </ResourceDictionary.MergedDictionaries>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <Style x:Key="Hint" TargetType="TextBlock">
             <Setter Property="Foreground" Value="Gray"/>
@@ -25,10 +30,10 @@
         <Style TargetType="ComboBox">
             <Setter Property="Margin" Value="0,2"/>
         </Style>
-        <Style TargetType="GroupBox">
+        <Style TargetType="GroupBox" BasedOn="{StaticResource CardGroupBox}">
             <Setter Property="Margin" Value="0,6,0,0"/>
-            <Setter Property="Padding" Value="6,4"/>
         </Style>
+       </ResourceDictionary>
     </Window.Resources>
     <StackPanel Margin="12">
         <Grid>

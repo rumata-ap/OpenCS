@@ -2,12 +2,18 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
    <UserControl.Resources>
+      <ResourceDictionary>
+         <!-- Группы окна — карточками (общий словарь). -->
+         <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="/OpenCS;component/Resources/CardStyles.xaml"/>
+         </ResourceDictionary.MergedDictionaries>
       <BooleanToVisibilityConverter x:Key="BoolToVis"/>
       <Style x:Key="Hint" TargetType="TextBlock">
          <Setter Property="Foreground" Value="Gray"/>
          <Setter Property="TextWrapping" Value="Wrap"/>
          <Setter Property="Margin" Value="0,2,0,4"/>
       </Style>
+      </ResourceDictionary>
    </UserControl.Resources>
    <!-- Две колонки: слева этапы, справа разрушение, роли и способ продолжения — диалог не выше экрана -->
    <Grid>

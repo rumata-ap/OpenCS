@@ -3,6 +3,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!-- Редактор параметров СП 16 (DataContext — SteelDesignParamsEditorVM) -->
     <UserControl.Resources>
+       <ResourceDictionary>
+          <!-- Группы окна — карточками (общий словарь). -->
+          <ResourceDictionary.MergedDictionaries>
+             <ResourceDictionary Source="/OpenCS;component/Resources/CardStyles.xaml"/>
+          </ResourceDictionary.MergedDictionaries>
         <Style x:Key="Lbl" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
             <Setter Property="Width" Value="{Binding LabelWidth, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
@@ -15,10 +20,11 @@
         <Style x:Key="Chk" TargetType="CheckBox">
             <Setter Property="Margin" Value="0,2,0,4"/>
         </Style>
-        <Style x:Key="Exp" TargetType="Expander">
-            <Setter Property="Margin" Value="0,4,0,0"/>
+        <Style x:Key="Exp" TargetType="Expander" BasedOn="{StaticResource CardExpander}">
+            <Setter Property="Margin" Value="0,0,0,6"/>
         </Style>
         <BooleanToVisibilityConverter x:Key="B2V"/>
+       </ResourceDictionary>
     </UserControl.Resources>
 
     <StackPanel>
