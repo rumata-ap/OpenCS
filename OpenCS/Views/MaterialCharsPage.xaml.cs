@@ -26,10 +26,12 @@ namespace OpenCS.Views
       {
          if (DataContext is MaterialCharsVM charsVM)
          {
-            parentMaterial.SetJson();
-            mvm.db.SaveMaterial(parentMaterial);
+            var errors = OpenCS.Services.MaterialAuthoring.Save(mvm.db, parentMaterial);
+            foreach (var error in errors)
+               mvm.LogService.Error(string.Format(Loc.S("MaterialNotSaved"), parentMaterial.Tag, error.Message));
+            if (errors.Count > 0) return;
             mvm.MaterialsSort();
-             mvm.LogService.Info(string.Format(Loc.S("CharsSaved"), charsVM.Tag, charsVM.TypeCalc));
+            mvm.LogService.Info(string.Format(Loc.S("CharsSaved"), charsVM.Tag, charsVM.TypeCalc));
          }
       }
 

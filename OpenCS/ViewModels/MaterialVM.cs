@@ -96,13 +96,13 @@ namespace OpenCS.ViewModels
       {
          if (IsSaved)
          {
-            mvm.LogService.Warning($"Материал '{material.Tag}' уже сохранен");
+            mvm.LogService.Warning(string.Format(Loc.S("MaterialAlreadySaved"), material.Tag));
          }
          else
          {
             if (!SaveThroughService()) return;
             IsSaved = true;
-            mvm.LogService.Info($"Материал '{material.Tag}' успешно сохранен");
+            mvm.LogService.Info(string.Format(Loc.S("MaterialSavedMsg"), material.Tag));
          }
       }
       /// <summary>
@@ -113,13 +113,13 @@ namespace OpenCS.ViewModels
       {
          if (!IsSaved)
          {
-            mvm.LogService.Warning($"Сначала нужно сохранить материал. Материал '{material.Tag}' не изменен");
+            mvm.LogService.Warning(string.Format(Loc.S("MaterialSaveFirst"), material.Tag));
          }
          else
          {
             if (!SaveThroughService()) return;
             mvm.MaterialsSort();
-            mvm.LogService.Info($"Материал '{material.Tag}' успешно изменен");
+            mvm.LogService.Info(string.Format(Loc.S("MaterialChangedMsg"), material.Tag));
          }
       }
 
@@ -175,6 +175,28 @@ namespace OpenCS.ViewModels
          material.Tag, material.Description, material.Type, material.E,
          material.C, material.CL, material.N, material.NL
       });
+
+      /// <summary>
+      /// Запоминает материал для отмены выбора в справочнике: возвращённое действие восстанавливает обозначение,
+      /// описание, тип, модуль и все наборы характеристик и обновляет привязки страницы.
+      /// </summary>
+      internal System.Action CaptureState()
+      {
+         var m = material;
+         string tag = m.Tag, description = m.Description;
+         var type = m.Type;
+         double e = m.E;
+         var chars = m.MaterialChars.Select(c => c.Clone()).ToList();
+         return () =>
+         {
+            m.Tag = tag;
+            m.Description = description;
+            m.Type = type;
+            m.E = e;
+            m.MaterialChars = chars.Select(c => c.Clone()).ToList();
+            OnPropertyChanged(string.Empty);
+         };
+      }
 
       /// <summary>
       /// Сбрасывает ViewModel в начальное состояние: очищает флаг сохранения,

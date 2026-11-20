@@ -8,7 +8,7 @@
         xmlns:vm="clr-namespace:OpenCS.ViewModels"
         mc:Ignorable="d"
         Title="{DynamicResource DataSourceTitle}"
-        Height="500" Width="500" 
+        Height="500" Width="500" MinWidth="420" MinHeight="300"
         WindowStartupLocation="CenterScreen" 
         SizeToContent="Height" 
         Icon="/Images/database_icon_174569.png">
@@ -18,8 +18,12 @@
     </Window.DataContext>
 
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
-        <TabControl Margin="5,5,5,5">
+        <TabControl Grid.Row="0" Margin="5,5,5,5">
 
             <TabItem x:Name="concreteTab" 
                      IsSelected="{Binding ConcreteTabIsSelected}">
@@ -78,7 +82,8 @@
                     <ListBox Grid.Row="3"
                              x:Name="concreteListBox" 
                              SelectedItem="{Binding SelectedMaterial}"
-                             ItemsSource="{Binding N}"/>
+                             ItemsSource="{Binding N}"
+                             MouseDoubleClick="List_MouseDoubleClick"/>
 
                     </Grid>
 
@@ -113,7 +118,8 @@
                     <ListBox Grid.Row="2"
                              x:Name="rfsteelListBox" 
                              SelectedItem="{Binding SelectedMaterial}"
-                             ItemsSource="{Binding N}"/>
+                             ItemsSource="{Binding N}"
+                             MouseDoubleClick="List_MouseDoubleClick"/>
 
                 </Grid>
 
@@ -140,7 +146,7 @@
                     </Grid.RowDefinitions>
 
                     <DockPanel Margin="5">
-                        <TextBlock Text="Норма:" VerticalAlignment="Center" MinWidth="80"/>
+                        <TextBlock Text="{DynamicResource SteelNormLabel}" VerticalAlignment="Center" MinWidth="80"/>
                         <ComboBox Margin="5,0,0,0" Width="280"
                                   ItemsSource="{Binding SteelNorms}"
                                   SelectedIndex="{Binding SteelNormIndex}"
@@ -148,7 +154,7 @@
                     </DockPanel>
 
                     <DockPanel Margin="5" Grid.Row="1">
-                        <TextBlock Text="Тип проката:" VerticalAlignment="Center" MinWidth="80"/>
+                        <TextBlock Text="{DynamicResource SteelRolledTypeLabel}" VerticalAlignment="Center" MinWidth="80"/>
                         <ComboBox Margin="5,0,0,0" Width="280"
                                   ItemsSource="{Binding SteelProkatTypes}"
                                   SelectedIndex="{Binding SteelProkatTypeIndex}"
@@ -156,7 +162,7 @@
                     </DockPanel>
 
                     <DockPanel Margin="5" Grid.Row="2">
-                        <TextBlock Text="Марка:" VerticalAlignment="Center" MinWidth="80"/>
+                        <TextBlock Text="{DynamicResource SteelGradeLabel}" VerticalAlignment="Center" MinWidth="80"/>
                         <ComboBox Margin="5,0,0,0" Width="280"
                                   ItemsSource="{Binding SteelMarks}"
                                   SelectedIndex="{Binding SteelMarkIndex}"
@@ -166,12 +172,19 @@
                     <ListBox Grid.Row="3"
                              x:Name="steelListBox" 
                              SelectedItem="{Binding SelectedMaterial}"
-                             ItemsSource="{Binding N}"/>
+                             ItemsSource="{Binding N}"
+                             MouseDoubleClick="List_MouseDoubleClick"/>
 
                 </Grid>
 
             </TabItem>
 
         </TabControl>
+
+        <!-- Выбор в списке сразу виден на странице материала; «Отмена» и крестик возвращают материал как был. -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="5,0,5,8">
+            <Button Content="{DynamicResource OK}" IsDefault="True" Click="Ok_Click" MinWidth="80" Margin="0,0,8,0"/>
+            <Button Content="{DynamicResource Cancel}" IsCancel="True" MinWidth="80"/>
+        </StackPanel>
     </Grid>
 </Window>

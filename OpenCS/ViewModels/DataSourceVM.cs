@@ -227,17 +227,19 @@ namespace OpenCS.ViewModels
          }
       }
 
-      /// <summary>Список типов арматурной стали для ComboBox.</summary>
-      public List<string> RfSteelTypes { get; set; } = new()
-      { "Стальная","Полимерная композитная"};
+      /// <summary>
+      /// Список типов арматуры для ComboBox. Композитной арматуры в справочнике нет (раньше пункт подставлял строки
+      /// стальной под описанием «композитная»), поэтому только стальная.
+      /// </summary>
+      public List<string> RfSteelTypes { get; set; } = [Loc.S("DataSourceRebarSteel")];
 
-      /// <summary>Список типов бетона для ComboBox.</summary>
-      public List<string> ConcreteTypes { get; set; } = new()
-      { "Тяжелый","Мелкозернистый группы А", "Мелкозернистый группы Б"};
+      /// <summary>Список типов бетона для ComboBox (порядок = <see cref="Services.ConcreteKind"/>).</summary>
+      public List<string> ConcreteTypes { get; set; } =
+         [Loc.S("DataSourceConcreteHeavy"), Loc.S("DataSourceConcreteFineA"), Loc.S("DataSourceConcreteFineB")];
 
       /// <summary>Список типов конструкций для ComboBox.</summary>
-      public List<string> ConstructionTypes { get; set; } = new()
-      { "Железобетонная","Бетонная" };
+      public List<string> ConstructionTypes { get; set; } =
+         [Loc.S("DataSourceConstructionRc"), Loc.S("DataSourceConstructionPlain")];
 
       /// <summary>Список норм конструкционной стали для ComboBox.</summary>
       public List<string> SteelNorms { get; set; } = new()
@@ -294,10 +296,8 @@ namespace OpenCS.ViewModels
          if (selectedMaterial == null) return;
          int i = n.IndexOf(selectedMaterial);
 
-         if (rfsteelTabIsSelected && rfSteelTypeIndex == 0)
+         if (rfsteelTabIsSelected)
             Material.Description = "Арматура стальная по СП 63.13330";
-         if (rfsteelTabIsSelected && rfSteelTypeIndex == 1)
-            Material.Description = "Арматура композитная по ";
          if (steelTabIsSelected)
          {
             var normName = SteelNorms[steelNormIndex];
