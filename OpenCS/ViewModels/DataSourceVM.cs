@@ -3,6 +3,7 @@ using CScore;
 using CsvHelper.Configuration;
 using CsvHelper;
 
+using OpenCS.Services;
 using OpenCS.Utilites;
 
 using System;
@@ -293,12 +294,6 @@ namespace OpenCS.ViewModels
          if (selectedMaterial == null) return;
          int i = n.IndexOf(selectedMaterial);
 
-         if (concreteTabIsSelected && concreteTypeIndex == 0)
-            Material.Description = "Бетон тяжелый по СП 63.13330";
-         if (concreteTabIsSelected && concreteTypeIndex == 1)
-            Material.Description = "Бетон мелкозернистый группы А (естественного твердения) по СП 63.13330";
-         if (concreteTabIsSelected && concreteTypeIndex == 2)
-            Material.Description = "Бетон мелкозернистый группы Б (автоклавного твердения) по СП 63.13330";
          if (rfsteelTabIsSelected && rfSteelTypeIndex == 0)
             Material.Description = "Арматура стальная по СП 63.13330";
          if (rfsteelTabIsSelected && rfSteelTypeIndex == 1)
@@ -313,37 +308,17 @@ namespace OpenCS.ViewModels
 
          if (concreteTabIsSelected)
          {
-            // Введённые коэффициенты — в описании: материал хранит уже умноженное Rb,
-            // а флаги окна при следующем открытии не восстанавливаются.
-            var factors = new List<string>();
-            if (isRC == 1) factors.Add("бетонная конструкция, γb2 = 0,9");
-            if (isH1_5) factors.Add("слой бетонирования > 1,5 м, γb3 = 0,85");
-            if (isTerm && isTermEnable) factors.Add("тепловая обработка, E × 0,89");
-            if (factors.Count > 0)
-               Material.Description += "; " + string.Join("; ", factors);
-
-            var cc = c[i].Clone();
-            cc.E *= kE;
-            cc.Fc *= gb2 * gb3;
-            cc.Et1 = 0.6 * cc.Ft / cc.E;
-            cc.Ec1 = 0.6 * cc.Fc / cc.E;
+            // Общий расчёт со справочником CLI: коэффициенты и их запись в описании (материал хранит уже
+            // умноженное Rb, а флаги окна при следующем открытии не восстанавливаются).
+            var recipe = new ConcreteRecipe(n[i].Tag, (ConcreteKind)concreteTypeIndex,
+               Material.NL?.Dampness ?? Dampness.от40_до70, Plain: isRC == 1, TallLayer: isH1_5,
+               HeatTreated: isTerm && isTermEnable);
+            var (cc, ccl, cn, cnl) = MaterialCatalog.ApplyConcreteFactors(c[i], cl[i], n[i], nl[i], recipe);
             Material.C = cc;
-            var cn = n[i].Clone();
-            cn.E *= kE;
-            cn.Et1 = 0.6 * cn.Ft / cn.E;
-            cn.Ec1 = 0.6 * cn.Fc / cn.E;
-            Material.N = cn;
-            var cnl = nl[i].Clone();
-            cnl.E *= kE;
-            cnl.Et1 = 0.6 * cnl.Ft / cnl.E;
-            cnl.Ec1 = 0.6 * cnl.Fc / cnl.E;
-            Material.NL = cnl;
-            var ccl = cl[i].Clone();
-            ccl.E *= kE;
-            ccl.Fc *= gb2 * gb3;
-            ccl.Et1 = 0.6 * ccl.Ft / ccl.E;
-            ccl.Ec1 = 0.6 * ccl.Fc / ccl.E;
             Material.CL = ccl;
+            Material.N = cn;
+            Material.NL = cnl;
+            Material.Description = MaterialCatalog.ConcreteDescription(recipe);
          }
          else if (steelTabIsSelected)
          {

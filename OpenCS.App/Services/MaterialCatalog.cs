@@ -43,24 +43,8 @@ public static partial class MaterialCatalog
     }
 
     /// <summary>Тяжёлый бетон заданного класса; null — класса нет в справочнике.</summary>
-    public static Material? CreateHeavyConcrete(string concreteClass, string? directory = null)
-    {
-        directory ??= DefaultDirectory;
-        string key = ClassKey(concreteClass);
-        var c = Find(directory, $"{HeavyConcretePrefix}_C.csv", key);
-        var cl = Find(directory, $"{HeavyConcretePrefix}_CL.csv", key);
-        var n = Find(directory, $"{HeavyConcretePrefix}_N.csv", key);
-        var nl = Find(directory, $"{HeavyConcretePrefix}_NL_2.csv", key);
-        if (c == null || cl == null || n == null || nl == null) return null;
-
-        // Как в справочнике материалов: приведённые деформации εb1/εbt1 — по 0,6·R/E.
-        foreach (var chars in (MaterialChars[])[c, cl, n, nl])
-        {
-            chars.Et1 = 0.6 * chars.Ft / chars.E;
-            chars.Ec1 = 0.6 * chars.Fc / chars.E;
-        }
-        return Make(n.Tag, "Бетон тяжелый по СП 63.13330", MatType.Concrete, c, cl, n, nl);
-    }
+    public static Material? CreateHeavyConcrete(string concreteClass, string? directory = null) =>
+        CreateConcrete(new ConcreteRecipe(concreteClass), directory);
 
     /// <summary>Стальная арматура заданного класса; null — класса нет в справочнике.</summary>
     public static Material? CreateRebar(string rebarClass, string? directory = null)
