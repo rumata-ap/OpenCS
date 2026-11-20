@@ -50,6 +50,23 @@ public class PunchingCapitalTests
     }
 
     [Fact]
+    public void FCapital_GoesOnlyToBeyondCapitalVariants()
+    {
+        // Сила у колонны 900, за капителью — своя 850 (у МКЭ — со своим основанием пирамиды).
+        var input = Node(900, Cap()) with { Forces = new PunchingForces(900, 0, 0, FCapital: 850) };
+        var r = PunchingChecker.Check(input, includeTrace: true);
+        Assert.Equal(900, V(r, "closed").Fred, 12);
+        Assert.Equal(850, V(r, "cap_closed").Fred, 12);
+        Assert.Equal(850 / (Rbt * 5.48 * 0.17), V(r, "cap_closed").Utilization, 9);
+        Assert.Contains(V(r, "cap_closed").Trace, s => s.TitleKey == "Punching_Trace_FCapital");
+        Assert.DoesNotContain(V(r, "closed").Trace, s => s.TitleKey == "Punching_Trace_FCapital");
+        // Отпор вычитается из своей силы каждой проверки.
+        var q = PunchingChecker.Check(input with { Forces = new PunchingForces(900, 0, 0, CounterPressure: 10, FCapital: 850) });
+        Assert.Equal(850 - 10 * 2.3716, V(q, "cap_closed").Fred, 9);
+        Assert.Equal(900 - 10 * 1.0816, V(q, "closed").Fred, 9);
+    }
+
+    [Fact]
     public void CounterPressure_EachCheckUsesItsOwnPyramidBase()
     {
         var r = PunchingChecker.Check(Node(900, Cap(), q: 10));

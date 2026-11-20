@@ -589,6 +589,57 @@ public sealed class PunchingFemServiceTests : IDisposable
         Assert.True(Math.Abs(f.Mx) < 1e-3 && Math.Abs(f.My) < 1e-3, $"Mx = {f.Mx}, My = {f.My}");
     }
 
+    /// <summary>
+    /// Капитель 1,2×1,2, hc = 0,15 (задана вручную): у колонны основание пирамиды от грани колонны на h0 + hc, за
+    /// капителью — от грани капители на h0; у обеих частей сила по разрезу = сила колонны − нагрузка своего основания.
+    /// </summary>
+    [Fact]
+    public void Capital_ColumnBaseAtH0PlusHc_OwnForceBeyondCapital()
+    {
+        var s = Create();
+        using var db = s.Db;
+        var data = PunchingFemService.Load(s.Db, s.Schema, new PunchingFemOptions());
+        var joint = Assert.Single(data.Joints);
+        var source = PunchingFemService.OpenCsfea(s.Db, s.Schema, s.Analysis.Id, [])!;
+        var over = new PunchingFemJointOverride
+        {
+            Node = joint.NodeTag, Capital = "manual", CapitalManual = new PunchingCapitalParams { Bx = 1.2, By = 1.2, Hc = 0.15 },
+        };
+        var cap = PunchingFemService.EffectiveCapital(joint, over);
+        Assert.NotNull(cap);
+        var forces = PunchingFemService.Evaluate(data, source, joint, null, cap);
+        Assert.True(forces.CutFailure == null, forces.CutFailure);
+
+        var f = forces.ByKey[source.Keys.Single(k => k.Label == "Пост.").Key];
+        double total = -Q * 2 * Half * 2 * Half / 1e3;
+        double colBase = Math.Pow(0.4 + 2 * (joint.H0 + 0.15), 2);
+        double capBase = Math.Pow(1.2 + 2 * joint.H0, 2);
+        Assert.Equal(Q / 1e3 * colBase, f.BaseLoad!.Value, 6);
+        Assert.Equal(Q / 1e3 * capBase, f.BaseLoadCapital!.Value, 6);
+        Assert.Equal(f.ColumnForce!.Value, f.ContourForce!.Value, 3);
+        Assert.Equal(total + Q / 1e3 * capBase, f.ContourForceCapital!.Value, 3);
+        Assert.Equal(total + Q / 1e3 * colBase, f.F, 3);
+        Assert.Equal(total + Q / 1e3 * capBase, f.FCapital!.Value, 3);
+
+        // Без капители — прежнее основание на h0, силы за капителью нет.
+        var plain = PunchingFemService.Evaluate(data, source, joint).ByKey[source.Keys.Single(k => k.Label == "Пост.").Key];
+        Assert.Null(plain.FCapital);
+        Assert.Equal(Q / 1e3 * Math.Pow(0.4 + 2 * joint.H0, 2), plain.BaseLoad!.Value, 6);
+
+        // Проверка по МКЭ: строка несёт силу за капителью, задача по строке — тоже; «нет» капители — силы за ней нет.
+        var check = new PunchingFemCheckParams { SourceRef = s.Analysis.Id.ToString(CultureInfo.InvariantCulture), Overrides = [over] };
+        var jr = Assert.Single(PunchingFemCheckRunner.Compute(db, s.Schema.Id, check, CalcType.C).Joints);
+        Assert.True(jr.NoCheck == null, jr.NoCheckText);
+        var row = jr.Rows.Single(r => r.Key == "Пост.");
+        Assert.Equal(f.FCapital!.Value, row.FCapital!.Value, 3);
+        var tp = PunchingFemCheckRunner.RowParams(jr, row)!;
+        Assert.Equal(row.FCapital, tp.Forces.FCapital);
+        Assert.Equal(row.FCapital!.Value, tp.ToInput(1050, 0).Forces.FCapital!.Value, 12);
+        var none = check with { Overrides = [over with { Capital = "none" }] };
+        var jn = Assert.Single(PunchingFemCheckRunner.Compute(db, s.Schema.Id, none, CalcType.C).Joints);
+        Assert.All(jn.Rows, r => Assert.Null(r.FCapital));
+    }
+
     [Fact]
     public void EccentricLoad_ColumnMomentAndContourAgree()
     {

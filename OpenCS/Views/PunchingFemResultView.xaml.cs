@@ -53,6 +53,7 @@ public partial class PunchingFemResultView : UserControl
         RowsMismatchCol.Header = _vm.RowsMismatchHeader;
         RowsMxCol.Header = _vm.RowsMxHeader;
         RowsPylonCol.Visibility = _vm.IsWallJoint ? Visibility.Collapsed : Visibility.Visible;
+        RowsCapitalCol.Visibility = _vm.HasCapitalRows ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>Окно по готовой VM без приложения — проверка разметки в тестах (кнопки выключены).</summary>

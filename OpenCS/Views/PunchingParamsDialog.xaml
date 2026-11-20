@@ -447,6 +447,14 @@
                      <TextBlock Text="{DynamicResource PunchingLoadSide}" Style="{StaticResource Lbl}"/>
                      <ComboBox Width="290" ItemsSource="{Binding LoadSides}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding LoadSide}"/>
                   </StackPanel>
+                  <StackPanel Visibility="{Binding ShowFCapital, Converter={StaticResource BoolToVisibility}}">
+                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource PunchingFCapital}" Style="{StaticResource Lbl}"/>
+                        <TextBox Style="{StaticResource Num}" Text="{Binding FCapitalText, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                        <TextBlock Text="кН" Style="{StaticResource Unit}"/>
+                     </StackPanel>
+                     <TextBlock Text="{DynamicResource PunchingFCapitalHint}" Style="{StaticResource Hint}"/>
+                  </StackPanel>
                   <StackPanel Orientation="Horizontal">
                      <TextBlock Text="{DynamicResource PunchingCounterPressure}" Style="{StaticResource Lbl}"/>
                      <TextBox Style="{StaticResource Num}" Text="{Binding CounterPressure, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>

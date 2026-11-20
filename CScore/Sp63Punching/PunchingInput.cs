@@ -69,11 +69,14 @@ public enum SectionModulusMode
 /// <param name="MomentsAreMloc">true — заданы полные Mloc узла, в продавливание идёт половина (п. 8.1.46).</param>
 /// <param name="LoadSide">Сторона приложения силы — нужна для знаков в режиме Auto.</param>
 /// <param name="CounterPressure">Нагрузка против F в основании пирамиды продавливания, кПа.</param>
+/// <param name="FCapital">Продавливающая сила проверки за капителью, кН (у МКЭ — со своим основанием пирамиды у грани
+/// капители); null — та же <paramref name="F"/>. Без капители не действует.</param>
 public sealed record PunchingForces(
     double F, double Mx, double My,
     bool MomentsAreMloc = false,
     PunchingLoadSide LoadSide = PunchingLoadSide.FromBelow,
-    double CounterPressure = 0.0);
+    double CounterPressure = 0.0,
+    double? FCapital = null);
 
 /// <summary>
 /// Ряды поперечной арматуры поперёк сторон контура, считая от грани грузовой площади (п. 10.3.17, рис. 8.13).

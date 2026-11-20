@@ -49,7 +49,7 @@ public static class PunchingBatchRunner
 
     /// <summary>Параметры одиночной задачи с усилиями строки набора: F = |N|, Mx, My.</summary>
     public static PunchingTaskParams RowParams(PunchingTaskParams p, LoadItem item)
-        => p with { Forces = p.Forces with { F = Math.Abs(item.N), Mx = item.Mx, My = item.My } };
+        => p with { Forces = p.Forces with { F = Math.Abs(item.N), Mx = item.Mx, My = item.My, FCapital = null } };
 
     /// <summary>Преобладающий знак N набора (по сумме модулей); +1 при пустом или нулевом наборе.</summary>
     public static int DominantSign(IEnumerable<LoadItem> items)
@@ -109,7 +109,7 @@ public static class PunchingBatchRunner
         var geometry = items.Count > 0 ? PunchingGeometryCache.Prepare(baseInput) : null;
         void Body(int i) => results[i] = PunchingChecker.Check(baseInput with
         {
-            Forces = baseInput.Forces with { F = Math.Abs(items[i].N), Mx = items[i].Mx, My = items[i].My }
+            Forces = baseInput.Forces with { F = Math.Abs(items[i].N), Mx = items[i].Mx, My = items[i].My, FCapital = null }
         }, includeTrace: false, geometry);
         if (settings is not null) BatchProgress.ForEachRow(items.Count, settings, ctx, Body);
         else if (items.Count > 256) Parallel.For(0, items.Count, Body);
@@ -122,7 +122,7 @@ public static class PunchingBatchRunner
             if (results[i].UtilizationConcreteOnly <= 1.0) return;
             designs[i] = PunchingDesign.Solve(baseInput with
             {
-                Forces = baseInput.Forces with { F = Math.Abs(items[i].N), Mx = items[i].Mx, My = items[i].My }
+                Forces = baseInput.Forces with { F = Math.Abs(items[i].N), Mx = items[i].Mx, My = items[i].My, FCapital = null }
             }, includeZone: false, geometry);
         }
         if (items.Count > 64) Parallel.For(0, items.Count, DesignBody);

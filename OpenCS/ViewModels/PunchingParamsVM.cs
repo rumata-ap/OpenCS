@@ -112,7 +112,7 @@ public sealed class PunchingParamsVM : ViewModelBase
                 }
             };
             if (_forceRow is not null)
-                p = p with { Forces = p.Forces with { F = Math.Abs(_forceRow.N), Mx = _forceRow.Mx, My = _forceRow.My } };
+                p = p with { Forces = p.Forces with { F = Math.Abs(_forceRow.N), Mx = _forceRow.Mx, My = _forceRow.My, FCapital = null } };
         }
 
         Holes.CollectionChanged += RowsChanged;
@@ -237,7 +237,7 @@ public sealed class PunchingParamsVM : ViewModelBase
             finally { _loading = wasLoading; }
             foreach (var n in new[] { nameof(IsWallNode), nameof(IsWallEnd), nameof(IsWallCorner), nameof(IsColumnNode), nameof(Sides),
                          nameof(ShowMy), nameof(ShowMlocOption), nameof(MxLabel), nameof(MxHint), nameof(BatchForcesText), nameof(ShowWallHint),
-                         nameof(ShowMx), nameof(Edge1Side), nameof(Edge2Side) })
+                         nameof(ShowMx), nameof(Edge1Side), nameof(Edge2Side), nameof(ShowFCapital) })
                 OnPropertyChanged(n);
             if (!_loading) Recalculate();
         }
@@ -287,9 +287,14 @@ public sealed class PunchingParamsVM : ViewModelBase
     public bool IsNotRound => !IsRound;
 
     bool _capitalEnabled;
+    string _fCapital = "";
     double _capitalBx, _capitalBy, _capitalD, _capitalHc, _capitalDx, _capitalDy;
     /// <summary>Капитель задана (только у колонны).</summary>
-    public bool CapitalEnabled { get => _capitalEnabled; set => SetField(ref _capitalEnabled, value); }
+    public bool CapitalEnabled
+    {
+        get => _capitalEnabled;
+        set { if (SetField(ref _capitalEnabled, value)) OnPropertyChanged(nameof(ShowFCapital)); }
+    }
     /// <summary>Размеры капители, мм.</summary>
     public double CapitalBx { get => _capitalBx; set => SetField(ref _capitalBx, value); }
     public double CapitalBy { get => _capitalBy; set => SetField(ref _capitalBy, value); }
@@ -539,6 +544,15 @@ public sealed class PunchingParamsVM : ViewModelBase
     public bool MomentsAreMloc { get => _mloc; set => SetField(ref _mloc, value); }
     public string LoadSide { get => _loadSide; set => SetField(ref _loadSide, value); }
     public double CounterPressure { get => _q; set => SetField(ref _q, value); }
+    /// <summary>
+    /// Сила проверки за капителью, кН, текстом: пусто — та же F. Задача по строке проверки по МКЭ приходит с силой
+    /// своего основания пирамиды у грани капители.
+    /// </summary>
+    public string FCapitalText { get => _fCapital; set => SetField(ref _fCapital, value ?? ""); }
+    /// <summary>Поле «F за капителью»: одиночная задача у колонны с капителью.</summary>
+    public bool ShowFCapital => CapitalEnabled && IsColumnNode && IsSingle;
+    /// <summary>Сила за капителью из текста; пусто или не число — null (та же F).</summary>
+    double? FCapitalValue() => Pars.ParseAny(_fCapital.Trim(), out double v) && double.IsFinite(v) ? v : null;
     /// <summary>Есть строка набора — источник усилий.</summary>
     public bool HasForceRow => _forceRow is not null;
     /// <summary>Показывать строку набора и кнопку «Взять из строки» (только одиночная задача).</summary>
@@ -674,6 +688,7 @@ public sealed class PunchingParamsVM : ViewModelBase
             F = p.Forces.F; Mx = p.Forces.Mx; My = p.Forces.My; MomentsAreMloc = p.Forces.MomentsAreMloc;
             LoadSide = p.Forces.LoadSide == "from_above" ? "from_above" : "from_below";
             CounterPressure = p.Forces.CounterPressure;
+            FCapitalText = p.Forces.FCapital is double fc ? fc.ToString("0.###", CultureInfo.CurrentCulture) : "";
 
             EccentricityX = p.Options.EccentricityX; EccentricityY = p.Options.EccentricityY;
             Wb = p.Options.Wb; Pylon = p.Options.Pylon; HoleInfluence = p.Options.HoleInfluence;
@@ -720,7 +735,8 @@ public sealed class PunchingParamsVM : ViewModelBase
             },
             Forces = new PunchingForceParams
             {
-                F = F, Mx = Mx, My = My, MomentsAreMloc = MomentsAreMloc, LoadSide = LoadSide, CounterPressure = CounterPressure
+                F = F, Mx = Mx, My = My, MomentsAreMloc = MomentsAreMloc, LoadSide = LoadSide, CounterPressure = CounterPressure,
+                FCapital = IsSingle ? FCapitalValue() : null,
             },
             Options = new PunchingOptionParams
             {
@@ -931,7 +947,7 @@ public sealed class PunchingParamsVM : ViewModelBase
     {
         if (_forceRow is null) return;
         _loading = true;
-        try { F = Math.Abs(_forceRow.N); Mx = _forceRow.Mx; My = _forceRow.My; }
+        try { F = Math.Abs(_forceRow.N); Mx = _forceRow.Mx; My = _forceRow.My; FCapitalText = ""; }
         finally { _loading = false; }
         Recalculate();
     }

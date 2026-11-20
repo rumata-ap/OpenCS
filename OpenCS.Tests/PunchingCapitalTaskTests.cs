@@ -159,6 +159,22 @@ public sealed class PunchingCapitalTaskTests
     };
 
     [Fact]
+    public void ParamsVM_FCapital_LoadedSavedAndClearedByEmptyText()
+    {
+        var p = Node() with { Forces = new PunchingForceParams { F = 900, FCapital = 850 } };
+        var vm = new OpenCS.ViewModels.PunchingParamsVM(Task(p), [], [], null);
+        Assert.True(vm.ShowFCapital);
+        Assert.Equal(850, vm.ToParams().Forces.FCapital);
+        vm.FCapitalText = "";
+        Assert.Null(vm.ToParams().Forces.FCapital);
+        vm.FCapitalText = "800";
+        Assert.Equal(800, vm.ToParams().Forces.FCapital);
+        vm.CapitalEnabled = false;
+        Assert.False(vm.ShowFCapital);
+        Assert.Null(vm.ToParams().ToInput(1050, 0).Forces.FCapital);   // без капители не действует
+    }
+
+    [Fact]
     public void ParamsVM_DefaultRowsFollowCapital()
     {
         var vm = new OpenCS.ViewModels.PunchingParamsVM(Task(WithRows()), [], [], null);

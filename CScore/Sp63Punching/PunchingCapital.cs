@@ -70,6 +70,7 @@ public static class PunchingCapitalCheck
     /// <summary>
     /// Вход проверки за капителью: грузовая площадь — капитель, h0 плиты, без поперечной арматуры, пилона и
     /// контуров пользователя; эксцентриситет — от центра колонны.
+    /// Сила — <see cref="PunchingForces.FCapital"/>, если задана.
     /// </summary>
     public static PunchingInput CapitalPart(PunchingInput input)
     {
@@ -82,6 +83,7 @@ public static class PunchingCapitalCheck
             Reinforcement = null,
             CustomContours = null,
             Options = o with { Pylon = PylonMode.Off, PylonReducedPerimeter = false, PylonReducedGoverns = false },
+            Forces = input.Forces.FCapital is double fc ? input.Forces with { F = fc, FCapital = null } : input.Forces,
             ForcePoint = PunchingContourBuilder.LoadCenter(input),
             IsCapitalPart = true,
         };

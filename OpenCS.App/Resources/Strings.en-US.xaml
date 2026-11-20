@@ -6623,6 +6623,9 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingLoadSide_from_below">column below the slab (top face in tension)</system:String>
    <system:String x:Key="PunchingLoadSide_from_above">load from above (bottom face in tension)</system:String>
    <system:String x:Key="PunchingCounterPressure">Counter pressure q at the pyramid base</system:String>
+   <system:String x:Key="PunchingFCapital">F beyond the capital</system:String>
+   <system:String x:Key="PunchingFCapitalHint">Empty — the same F. A task created from an FE check row gets the force with the pyramid base at the capital face (at the column the base is at h0 + hc).</system:String>
+   <system:String x:Key="PunchingFemColFCapital">F beyond capital, kN</system:String>
    <system:String x:Key="PunchingForceRowLine">Row "{0}": N = {1:0.#} kN, Mx = {2:0.#} kN·m, My = {3:0.#} kN·m</system:String>
    <system:String x:Key="PunchingTakeFromRow">Take from force set row</system:String>
    <system:String x:Key="PunchingTakeFromRowHint">F = |N|, Mx and My of the row; column axes must match slab axes.</system:String>

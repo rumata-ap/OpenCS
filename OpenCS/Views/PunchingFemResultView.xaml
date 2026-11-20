@@ -207,6 +207,7 @@
                   <DataGrid.Columns>
                      <DataGridTextColumn Header="{DynamicResource PunchingFemColKey}" Binding="{Binding Key}" Width="*" MinWidth="120"/>
                      <DataGridTextColumn Header="F, кН" Binding="{Binding F}" Width="Auto"/>
+                     <DataGridTextColumn x:Name="RowsCapitalCol" Header="{DynamicResource PunchingFemColFCapital}" Binding="{Binding FCapital}" Width="Auto"/>
                      <DataGridTextColumn x:Name="RowsMxCol" Header="Mx" Binding="{Binding Mx}" Width="Auto"/>
                      <DataGridTextColumn Header="My" Binding="{Binding My}" Width="Auto"/>
                      <DataGridTextColumn Header="{DynamicResource PunchingFemColSide}" Binding="{Binding Side}" Width="Auto"/>

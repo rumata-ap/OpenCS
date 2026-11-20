@@ -568,14 +568,23 @@ public static class PunchingFemService
     /// Усилия узла по всем ключам источника: S — действие стержней плюс нагрузка основания; C — разрез основания по
     /// узловым силам (если источник их даёт). Главный способ: <paramref name="main"/> или, при null, C у источника с
     /// узловыми силами и S у прочих. Разрез не удался — главный S.
+    /// Капитель (<paramref name="capital"/>, у колонны): основание пирамиды у колонны — от грани колонны на h0 + hc
+    /// (если контур у колонны в капители, как в ядре), и своя сила за капителью — основание от грани капители на h0 плиты.
     /// </summary>
     public static PunchingFemNodeForces Evaluate(PunchingFemSchemaData data, PunchingFemSource source, PunchingFemJoint joint,
-        PunchingFemForceMethod? main = null)
+        PunchingFemForceMethod? main = null, PunchingCapital? capital = null)
     {
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(joint);
         var keys = source.Keys.Select(k => k.Key).ToList();
+
+        PunchingFemJoint? capJoint = null;
+        if (!joint.IsWall && capital != null && CapitalBases(joint, capital) is var (colBase, capBase))
+        {
+            joint = joint with { PyramidBase = colBase };
+            capJoint = joint with { PyramidBase = capBase };
+        }
 
         // Нагрузки основания: тонкая полоса у плиты (стержни колонн в неё почти не попадают).
         IReadOnlyDictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>? baseLoads =
@@ -643,6 +652,16 @@ public static class PunchingFemService
             }
             return new PunchingFemNodeForces(byKey, cutFailure, missing);
         }
+        // За капителью: нагрузки и разрез своего основания.
+        IReadOnlyDictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>? capBaseLoads = null;
+        PunchingFemCutResult? capCut = null;
+        if (capJoint != null)
+        {
+            capBaseLoads = source.BaseLoads?.Invoke(PunchingFemColumnAction.BaseBounds(capJoint, BaseLoadHalfBand), capJoint.Origin, keys);
+            if (source.Nodal != null)
+                capCut = PunchingFemCut.Compute(capJoint, data.Model.Nodes, data.CutIndex, data.SlabShells[capJoint.SlabIndex], keys, source.Nodal);
+        }
+
         foreach (var key in keys)
         {
             bool shells = joint.Kind == PunchingFemJointKind.PylonShells;
@@ -663,29 +682,68 @@ public static class PunchingFemService
                 continue;
             }
             double colAction = af.Dot(joint.Normal) / 1e3;
-            double? baseLoad = baseLoads != null && baseLoads.TryGetValue(key, out var bl) ? bl.F.Dot(joint.Normal) / 1e3 : null;
-            // Свая-точка: её реакция — «действие сваи»; из нагрузки основания (там все реакции в основании) она исключается.
-            if (pilePoint && baseLoad is double b1) baseLoad = b1 - colAction;
-            // Стержни с другой стороны плиты в основании (сваи, колонна над сваей) — их действие на плиту входит в
-            // нагрузку основания (п. 2, С1); нет сил концов — нагрузка основания неизвестна (сила без вычета, в запас).
-            if (joint.BaseBars.Count > 0 && baseLoad is double b0)
-                baseLoad = PunchingFemColumnAction.Compute(joint with { Bars = joint.BaseBars }, data.Model.Nodes, data.ElementsByTag, source.Result, key)
-                    is var (pf, _) ? b0 + pf.Dot(joint.Normal) / 1e3 : null;
-            double? contour = cut?.Failure == null && cut?.ByKey.TryGetValue(key, out var cf) == true ? cf.Force
-                : cut == null && source.ShellCut ? PunchingFemShellCut.Compute(joint, data.Model.Nodes, data.ElementsByTag, source.Result, key)
-                : null;
+            var (baseLoad, contour) = Part(joint, baseLoads, cut);
             var method = main ?? (source.Nodal != null ? PunchingFemForceMethod.Contour : PunchingFemForceMethod.Column);
             if (method == PunchingFemForceMethod.Contour && contour == null) method = PunchingFemForceMethod.Column;
             double signed = method == PunchingFemForceMethod.Contour ? contour!.Value : colAction + (baseLoad ?? 0);
+            // За капителью — тем же способом (нет разреза — по стержням), с той же стороны, что сила у колонны.
+            double? fCap = null, capBaseLoad = null, capContour = null;
+            if (capJoint != null)
+            {
+                (capBaseLoad, capContour) = Part(capJoint, capBaseLoads, capCut);
+                double capSigned = method == PunchingFemForceMethod.Contour && capContour is double cc ? cc : colAction + (capBaseLoad ?? 0);
+                fCap = Math.Max(0, signed >= 0 ? capSigned : -capSigned);
+            }
             byKey[key] = new PunchingFemForces(Math.Abs(signed), signed >= 0 ? PunchingLoadSide.FromBelow : PunchingLoadSide.FromAbove,
                 am.Dot(joint.AxisX) / 1e3, am.Dot(joint.AxisY) / 1e3, method, colAction, baseLoad, contour)
             {
                 PylonParts = cut?.Failure == null && cut?.ByKey.TryGetValue(key, out var pc) == true
                     ? PunchingFemColumnAction.PylonParts(joint, pc.Terms) : null,
+                FCapital = fCap, BaseLoadCapital = capBaseLoad, ContourForceCapital = capContour,
             };
+
+            // Нагрузка основания и сила по разрезу для основания узла j.
+            (double? BaseLoad, double? Contour) Part(PunchingFemJoint j,
+                IReadOnlyDictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>? loads, PunchingFemCutResult? c)
+            {
+                double? bload = loads != null && loads.TryGetValue(key, out var bl) ? bl.F.Dot(j.Normal) / 1e3 : null;
+                // Свая-точка: её реакция — «действие сваи»; из нагрузки основания (там все реакции в основании) она исключается.
+                if (pilePoint && bload is double b1) bload = b1 - colAction;
+                // Стержни с другой стороны плиты в основании (сваи, колонна над сваей) — их действие на плиту входит в
+                // нагрузку основания (п. 2, С1); нет сил концов — нагрузка основания неизвестна (сила без вычета, в запас).
+                if (j.BaseBars.Count > 0 && bload is double b0)
+                    bload = PunchingFemColumnAction.Compute(j with { Bars = j.BaseBars }, data.Model.Nodes, data.ElementsByTag, source.Result, key)
+                        is var (pf, _) ? b0 + pf.Dot(j.Normal) / 1e3 : null;
+                double? cforce = c?.Failure == null && c?.ByKey.TryGetValue(key, out var cf) == true ? cf.Force
+                    : c == null && source.ShellCut ? PunchingFemShellCut.Compute(j, data.Model.Nodes, data.ElementsByTag, source.Result, key)
+                    : null;
+                return (bload, cforce);
+            }
         }
         return new PunchingFemNodeForces(byKey, cutFailure, missing);
     }
+
+    /// <summary>
+    /// Основания пирамид узла с капителью в осях узла: у колонны — от грани колонны на h0 + hc (если контур у колонны в
+    /// капители, иначе на h0), за капителью — от грани капители на h0 плиты; края плиты отсекают. null — капитель не
+    /// годится (не содержит колонну и т. п.) или основание вне плиты: тогда сила считается как без капители.
+    /// </summary>
+    public static (List<PlanPoint> Column, List<PlanPoint> Capital)? CapitalBases(PunchingFemJoint joint, PunchingCapital capital)
+    {
+        ArgumentNullException.ThrowIfNull(joint);
+        ArgumentNullException.ThrowIfNull(capital);
+        if (joint.Area is not { } area || joint.IsWall || !(joint.H0 > 0)) return null;
+        var probe = new PunchingInput(area, joint.H0, 1, new PunchingForces(0, 0, 0), Edges: joint.Edges, H: joint.H, Capital: capital);
+        try { PunchingCapitalCheck.Validate(probe); }
+        catch (ArgumentException) { return null; }
+        var col = PunchingContourBuilder.PyramidBasePolygon(area, PunchingCapitalCheck.ColumnH0(probe), joint.Edges);
+        var cap = PunchingContourBuilder.PyramidBasePolygon(PunchingCapitalCheck.CapitalArea(probe), joint.H0, joint.Edges);
+        return col.Count >= 3 && cap.Count >= 3 ? (col, cap) : null;
+    }
+
+    /// <summary>Капитель узла для расчёта: переопределение пользователя или распознанная по схеме; null — нет или узел стены.</summary>
+    public static PunchingCapital? EffectiveCapital(PunchingFemJoint joint, PunchingFemJointOverride? o)
+        => joint.IsWall || joint.Area == null ? null : CapitalParams(joint, o).ToCore(AreaParams(joint.Area).Shape);
 
     /// <summary>Реакция опоры сваи-точки на плиту в общих осях, Н и Н·м относительно начала осей узла; null — нет.</summary>
     static (PlanarVector3 F, PlanarVector3 M)? PileReaction(PunchingFemJoint joint, PunchingFemSchemaData data, PunchingFemSource source, FragmentMaskKey key)
@@ -779,6 +837,7 @@ public static class PunchingFemService
             {
                 // До 1 Н и 1 Н·м: в окне задачи по строке — читаемые числа; проверка считает по тем же значениям.
                 F = Math.Round(forces.F, 3), Mx = Math.Round(forces.Mx, 3), My = Math.Round(forces.My, 3),
+                FCapital = forces.FCapital is double fc && !wall.IsWall && CapitalParams(joint, o).Enabled ? Math.Round(fc, 3) : null,
                 MomentsAreMloc = check.MomentsAreMloc,
                 LoadSide = forces.Side == PunchingLoadSide.FromAbove ? "from_above" : "from_below",
             },
@@ -788,6 +847,7 @@ public static class PunchingFemService
                 Schema = schemaTag, Node = joint.NodeTag, Key = keyLabel,
                 Method = forces.Method == PunchingFemForceMethod.Contour ? "contour" : "column",
                 ColumnAction = forces.ColumnAction, BaseLoad = forces.BaseLoad, ContourForce = forces.ContourForce,
+                BaseLoadCapital = forces.BaseLoadCapital, ContourForceCapital = forces.ContourForceCapital,
             },
         };
     }

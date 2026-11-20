@@ -146,6 +146,10 @@ public sealed record PunchingSourceParams
     public double? BaseLoad { get; init; }
     /// <summary>Сила по разрезу основания пирамиды, кН (со знаком силы продавливания).</summary>
     public double? ContourForce { get; init; }
+    /// <summary>Капитель: нагрузка в основании пирамиды за капителью (от грани капители на h0 плиты), кН (+ вверх).</summary>
+    public double? BaseLoadCapital { get; init; }
+    /// <summary>Капитель: сила по разрезу основания пирамиды за капителью, кН (со знаком силы продавливания).</summary>
+    public double? ContourForceCapital { get; init; }
 }
 
 /// <summary>Лучи крестообразной арматуры вдоль одной оси (рис. 8.11г СП 63).</summary>
@@ -232,6 +236,11 @@ public sealed record PunchingForceParams
     public string LoadSide { get; init; } = "from_below";
     /// <summary>Нагрузка против F в основании пирамиды, кПа.</summary>
     public double CounterPressure { get; init; }
+    /// <summary>
+    /// Продавливающая сила проверки за капителью, кН (модуль; у задачи по строке МКЭ — со своим основанием пирамиды у
+    /// грани капители); null — та же <see cref="F"/>. Без капители не действует.
+    /// </summary>
+    public double? FCapital { get; init; }
 }
 
 /// <summary>Настройки расчёта.</summary>
@@ -453,6 +462,7 @@ public sealed record PunchingTaskParams
         }
 
         if (Forces.F < 0 || !double.IsFinite(Forces.F)) errors.Add("force_negative");
+        if (Forces.FCapital is double fc && (fc < 0 || !double.IsFinite(fc))) errors.Add("force_negative");
         if (!double.IsFinite(Forces.Mx) || !double.IsFinite(Forces.My) || !double.IsFinite(Forces.CounterPressure)) errors.Add("force_invalid");
         if (!(Options.HoleInfluence >= 0)) errors.Add("hole_influence");
         if (Capital.Enabled)
@@ -531,7 +541,7 @@ public sealed record PunchingTaskParams
             BuildArea(), H0, rbt,
             new PunchingForces(Forces.F, Forces.Mx, Forces.My, Forces.MomentsAreMloc,
                 Forces.LoadSide == "from_above" ? PunchingLoadSide.FromAbove : PunchingLoadSide.FromBelow,
-                Forces.CounterPressure),
+                Forces.CounterPressure, Capital.Enabled && !Wall.IsWall ? Forces.FCapital : null),
             reinforcement, BuildEdges(), BuildHoles(), custom.Count > 0 ? custom : null,
             new PunchingOptions(
                 Eccentricity(Options.EccentricityX), Eccentricity(Options.EccentricityY),

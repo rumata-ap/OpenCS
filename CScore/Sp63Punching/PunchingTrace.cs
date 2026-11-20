@@ -320,9 +320,12 @@ internal static class PunchingTrace
         {
             steps.Add(Step($"{p}.capital", "п. 8.1.46", "Punching_Trace_CapitalBeyond", @"h_0", "", "{h0}",
                 ("h0", v.H0, CalculationUnit.Meter)));
+            if (input.Forces.FCapital is double fc)
+                steps.Add(Step($"{p}.fcap", "п. 8.1.46", "Punching_Trace_FCapital", @"F_{cap}", "", "{F}",
+                    ("F", fc, CalculationUnit.Kilonewton)));
             if (input.Forces.CounterPressure != 0)
                 steps.Add(Step($"{p}.fred", "п. 8.1.46", "Punching_Trace_Fred", @"F = F_0 - q\,A_b", @"{F0} - {q} \cdot {Ab}", "{F}",
-                    ("F0", input.Forces.F, CalculationUnit.Kilonewton), ("q", input.Forces.CounterPressure, CalculationUnit.Kilopascal),
+                    ("F0", input.Forces.FCapital ?? input.Forces.F, CalculationUnit.Kilonewton), ("q", input.Forces.CounterPressure, CalculationUnit.Kilopascal),
                     ("Ab", v.BaseArea, CalculationUnit.SquareMeter), ("F", v.Fred, CalculationUnit.Kilonewton)));
         }
         else if (v.H0 > input.H0)

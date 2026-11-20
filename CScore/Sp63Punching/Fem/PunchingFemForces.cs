@@ -49,6 +49,18 @@ public sealed record PunchingFemForces(
     /// </summary>
     public (double Plate, double Nodal, double Scale)? WallDeltaMCheck { get; init; }
 
+    /// <summary>
+    /// Капитель: сила проверки за капителью, кН (модуль, с той же стороны, что <see cref="F"/>; основание пирамиды —
+    /// от грани капители на h0 плиты, у <see cref="F"/> — от грани колонны на h0 + hc); null — капители нет.
+    /// </summary>
+    public double? FCapital { get; init; }
+
+    /// <summary>Капитель: нагрузка в основании пирамиды за капителью по нормали, кН (+ — вверх); null — неизвестна.</summary>
+    public double? BaseLoadCapital { get; init; }
+
+    /// <summary>Капитель: сила по разрезу основания пирамиды за капителью, кН; null — не считалась.</summary>
+    public double? ContourForceCapital { get; init; }
+
     /// <summary>Сила по стержням со знаком: действие стержней плюс нагрузка основания, кН; null — нет данных.</summary>
     public double? ColumnForce => ColumnAction is double a ? a + (BaseLoad ?? 0) : null;
 

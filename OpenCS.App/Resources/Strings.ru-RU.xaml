@@ -6623,6 +6623,9 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingLoadSide_from_below">колонна под плитой (растянута верхняя грань)</system:String>
    <system:String x:Key="PunchingLoadSide_from_above">нагрузка сверху (растянута нижняя грань)</system:String>
    <system:String x:Key="PunchingCounterPressure">Отпор q в основании пирамиды</system:String>
+   <system:String x:Key="PunchingFCapital">F за капителью</system:String>
+   <system:String x:Key="PunchingFCapitalHint">Пусто — та же F. У задачи по строке проверки по МКЭ — сила с основанием пирамиды у грани капители (у колонны основание — на h0 + hc).</system:String>
+   <system:String x:Key="PunchingFemColFCapital">F за капит., кН</system:String>
    <system:String x:Key="PunchingForceRowLine">Строка «{0}»: N = {1:0.#} кН, Mx = {2:0.#} кН·м, My = {3:0.#} кН·м</system:String>
    <system:String x:Key="PunchingTakeFromRow">Взять из строки набора</system:String>
    <system:String x:Key="PunchingTakeFromRowHint">F = |N|, Mx и My строки; оси колонны должны совпадать с осями плиты.</system:String>

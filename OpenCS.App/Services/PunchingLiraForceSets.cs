@@ -159,7 +159,9 @@ public static class PunchingLiraForceSets
                 keys.Add((key, f.Duplicates > 0 ? $"{f.Label} (+{f.Duplicates})" : f.Label, kind));
             }
 
-            var forces = PunchingFemService.Evaluate(data, source.WithKeys(keys.Select(k => (k.Key, k.Label)).ToList()), joint, method);
+            // Капитель: сила у колонны — с основанием h0 + hc; за капителью в пакете та же F (в запас).
+            var forces = PunchingFemService.Evaluate(data, source.WithKeys(keys.Select(k => (k.Key, k.Label)).ToList()), joint, method,
+                PunchingFemService.EffectiveCapital(joint, check.Overrides.FirstOrDefault(x => x.Node == joint.NodeTag)));
             var items = new List<LoadItem>();
             var counts = new Dictionary<string, int>(StringComparer.Ordinal);
             PunchingFemForces? first = null;
@@ -205,7 +207,7 @@ public static class PunchingLiraForceSets
             // Пакетная задача: геометрия узла, сторона — по преобладающему знаку N набора.
             int sign = PunchingBatchRunner.DominantSign(items);
             var side = sign >= 0 ? PunchingLoadSide.FromBelow : PunchingLoadSide.FromAbove;
-            var p = PunchingFemService.TaskParams(joint, first with { Side = side }, check, data.Schema.Tag, $"ЛИРА «{lira.DocumentName}»");
+            var p = PunchingFemService.TaskParams(joint, first with { Side = side, FCapital = null }, check, data.Schema.Tag, $"ЛИРА «{lira.DocumentName}»");
             var task = set.Id > 0
                 ? existingTasks.FirstOrDefault(t => t.Kind == PunchingBatchRunner.Kind && t.ForceSetId == set.Id)
                 : null;

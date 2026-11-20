@@ -159,6 +159,7 @@ public sealed class PunchingFemKeyRowVM
         Column = Num(row.ColumnAction);
         BaseLoad = Num(row.BaseLoad);
         Contour = Num(row.ContourForce);
+        FCapital = row.FCapital is double fc ? fc.ToString("0.0", c) : "";
         // У стены вместо невязки — сила граней основания поперёк стены (самопроверка: стена ≈ разрез + грани поперёк).
         Mismatch = wallEnd || wallCorner ? Num(row.WallExcluded)
             : row.ColumnAction is double a && row.ContourForce is double cf ? (a + (row.BaseLoad ?? 0) - cf).ToString("0.00", c) : "";
@@ -193,6 +194,8 @@ public sealed class PunchingFemKeyRowVM
     public string Column { get; }
     public string BaseLoad { get; }
     public string Contour { get; }
+    /// <summary>Сила проверки за капителью, кН; пусто — капители нет.</summary>
+    public string FCapital { get; }
     public string Mismatch { get; }
     public string Method { get; }
     public string K { get; }
@@ -306,7 +309,8 @@ public sealed class PunchingFemResultVM : ViewModelBase
             OnPropertyChanged(nameof(JointCard));
             OnPropertyChanged(nameof(JointTabHeader));
             OnPropertyChanged(nameof(HasSelectedJoint));
-            foreach (var n in new[] { nameof(IsWallJoint), nameof(RowsColumnHeader), nameof(RowsMismatchHeader), nameof(RowsMxHeader), nameof(RowsHint) })
+            foreach (var n in new[] { nameof(IsWallJoint), nameof(RowsColumnHeader), nameof(RowsMismatchHeader), nameof(RowsMxHeader), nameof(RowsHint),
+                         nameof(HasCapitalRows) })
                 OnPropertyChanged(n);
             if (Levels != null) FollowLevel(value);
             SelectedRow = Rows.FirstOrDefault();
@@ -325,6 +329,8 @@ public sealed class PunchingFemResultVM : ViewModelBase
 
     /// <summary>Выбран узел стены (торец или угол): у таблицы ключей свои столбцы, «Торцы пилона» скрыты.</summary>
     public bool IsWallJoint => _selectedJoint?.Data.Kind is "wall_end" or "wall_corner";
+    /// <summary>У строк выбранного узла есть сила за капителью — столбец «F за капит.».</summary>
+    public bool HasCapitalRows => _selectedJoint?.Data.Rows.Any(r => r.FCapital != null) == true;
     /// <summary>Столбец действия опоры: «Колонны» или «Стена в основании».</summary>
     public string RowsColumnHeader => IsWallJoint ? Loc.S("PunchingFemColWallBase", "Стена в основании, кН") : Loc.S("PunchingFemColColumn", "Колонны, кН");
     /// <summary>Столбец невязки; у стены — сила граней основания поперёк стены.</summary>

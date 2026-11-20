@@ -25,6 +25,12 @@ public sealed record PunchingFemRow
     public double? ColumnAction { get; init; }
     public double? BaseLoad { get; init; }
     public double? ContourForce { get; init; }
+    /// <summary>Капитель: сила проверки за капителью, кН (модуль); null — капители нет.</summary>
+    public double? FCapital { get; init; }
+    /// <summary>Капитель: нагрузка в основании пирамиды за капителью, кН (+ вверх).</summary>
+    public double? BaseLoadCapital { get; init; }
+    /// <summary>Капитель: сила по разрезу основания пирамиды за капителью, кН.</summary>
+    public double? ContourForceCapital { get; init; }
     /// <summary>Узел стены: сила на гранях основания поперёк стены, кН (в силу продавливания не входит).</summary>
     public double? WallExcluded { get; init; }
     public double Ratio { get; init; }
@@ -451,7 +457,8 @@ public static class PunchingFemCheckRunner
                     : joint.NoCheckText,
             };
 
-        var forces = PunchingFemService.Evaluate(data, source, joint, p.MainMethod);
+        var forces = PunchingFemService.Evaluate(data, source, joint, p.MainMethod,
+            PunchingFemService.EffectiveCapital(joint, p.Overrides.FirstOrDefault(x => x.Node == joint.NodeTag)));
         if (joint.IsWall && source.Nodal == null && source.ShellCut)
             warnings.Add(new("punching_fem_wall_shell_cut",
                 "Узел стены: сила — по интегралу поперечных сил пластин по контуру, ΔM — по моментам пластин (импорт, справочно; поперечные силы программ и CSfea расходятся до четверти)."));
@@ -513,6 +520,7 @@ public static class PunchingFemCheckRunner
                 Key = label, F = tp.Forces.F, Mx = tp.Forces.Mx, My = tp.Forces.My, Side = tp.Forces.LoadSide,
                 Method = f.Method == PunchingFemForceMethod.Contour ? "contour" : "column",
                 ColumnAction = f.ColumnAction, BaseLoad = f.BaseLoad, ContourForce = f.ContourForce, WallExcluded = f.WallExcluded,
+                FCapital = tp.Forces.FCapital, BaseLoadCapital = f.BaseLoadCapital, ContourForceCapital = f.ContourForceCapital,
             };
             var errors = tp.Validate();
             if (errors.Count == 0 && strengths == null)
@@ -667,10 +675,11 @@ public static class PunchingFemCheckRunner
         var p = PunchingTaskParams.Parse(joint.ParamsJson);
         return p with
         {
-            Forces = p.Forces with { F = row.F, Mx = row.Mx, My = row.My, LoadSide = row.Side },
+            Forces = p.Forces with { F = row.F, Mx = row.Mx, My = row.My, LoadSide = row.Side, FCapital = row.FCapital },
             Source = (p.Source ?? new PunchingSourceParams()) with
             {
                 Key = row.Key, Method = row.Method, ColumnAction = row.ColumnAction, BaseLoad = row.BaseLoad, ContourForce = row.ContourForce,
+                BaseLoadCapital = row.BaseLoadCapital, ContourForceCapital = row.ContourForceCapital,
             },
         };
     }
