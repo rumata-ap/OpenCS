@@ -3,9 +3,9 @@
                "fragments", "import", "settings", "results"],
   "closedSections": [],
   "operations": [
-    { "window": "MaterialPage", "kind": "page", "section": "materials", "xaml": ["OpenCS/Views/MaterialPage.xaml"], "tables": ["materials"], "service": null, "audit": "pending", "cli": null, "note": "Страница материала: C/CL/N/NL, огнестойкость, custom" },
-    { "window": "MaterialCharsPage", "kind": "page", "section": "materials", "xaml": ["OpenCS/Views/MaterialCharsPage.xaml"], "tables": ["materials"], "service": null, "audit": "pending", "cli": null, "note": "Один набор характеристик (из дерева)" },
-    { "window": "FromDataSourceWindow", "kind": "window", "section": "materials", "xaml": ["OpenCS/Views/FromDataSourceWindow.xaml"], "tables": ["materials"], "service": null, "audit": "pending", "cli": null, "note": "Справочник: бетон, арматура, сталь" },
+    { "window": "MaterialPage", "kind": "page", "section": "materials", "xaml": ["OpenCS/Views/MaterialPage.xaml"], "tables": ["materials"], "service": "MaterialAuthoring", "audit": "pending", "cli": "apply/export model: materials", "note": "Страница материала: C/CL/N/NL, огнестойкость, custom" },
+    { "window": "MaterialCharsPage", "kind": "page", "section": "materials", "xaml": ["OpenCS/Views/MaterialCharsPage.xaml"], "tables": ["materials"], "service": "MaterialAuthoring", "audit": "pending", "cli": "apply/export model: materials", "note": "Один набор характеристик (из дерева)" },
+    { "window": "FromDataSourceWindow", "kind": "window", "section": "materials", "xaml": ["OpenCS/Views/FromDataSourceWindow.xaml"], "tables": ["materials"], "service": "MaterialAuthoring", "audit": "pending", "cli": "apply/export model: materials", "note": "Справочник: бетон, арматура, сталь" },
     { "window": "SteelMaterialChoiceDialog", "kind": "window", "section": "import", "xaml": ["OpenCS/Views/SteelMaterialChoiceDialog.xaml"], "tables": [], "service": null, "audit": "pending", "cli": null, "note": null },
     { "window": "MaterialWindow", "kind": "window", "section": "materials", "xaml": ["OpenCS/Views/MaterialWindow.xaml"], "tables": [], "service": null, "audit": "pending", "cli": null, "note": "Похоже, не используется — проверить в задаче 8" },
     { "window": "DiagramPage", "kind": "page", "section": "diagrams", "xaml": ["OpenCS/Views/DiagramPage.xaml"], "tables": [], "service": null, "audit": "pending", "cli": null, "note": "Пул диаграмм проекта" },

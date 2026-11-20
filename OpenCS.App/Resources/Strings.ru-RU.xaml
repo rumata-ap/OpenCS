@@ -7040,4 +7040,13 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliModelActionUpdate">обновить</system:String>
    <system:String x:Key="CliModelNothing">Изменений нет</system:String>
    <system:String x:Key="CliModelDryRun">Пробный прогон: в проект ничего не записано</system:String>
+   <system:String x:Key="CliMaterialErrCatalogAndExplicit">при catalog поле не задаётся</system:String>
+   <system:String x:Key="CliMaterialErrCatalogKind">укажите concrete, rebar или steel</system:String>
+   <system:String x:Key="CliMaterialErrCustom">материалы custom пока не поддержаны документом (раздел «Диаграммы»)</system:String>
+   <system:String x:Key="CliMaterialErrNotInCatalog">«{0}» нет в справочнике</system:String>
+   <system:String x:Key="CliMaterialSkipped">Материал «{0}» (custom) не выгружен: диаграммы пока не входят в документ</system:String>
+   <system:String x:Key="CliModelErrOneOf">допустимо: {0}</system:String>
+   <system:String x:Key="CliModelErrBadValue">неверный тип значения</system:String>
+   <system:String x:Key="CliModelErrDuplicateKey">«{0}» уже есть в документе</system:String>
+   <system:String x:Key="CliModelErrAmbiguousKey">в проекте {0} объектов «{1}» — ключ неоднозначен</system:String>
 </ResourceDictionary>

@@ -11,7 +11,7 @@ static class ModelDocument
     public const string Format = "opencs-model";
     public const int Version = 1;
 
-    public static IReadOnlyList<IModelKind> Kinds { get; } = [];
+    public static IReadOnlyList<IModelKind> Kinds { get; } = [new MaterialsKind()];
 
     public static IModelKind? Find(string name) => Kinds.FirstOrDefault(k => k.Name == name);
 

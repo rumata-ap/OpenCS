@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "opencs-model: materials[]",
+  "description": "Материал проекта. Ключ — tag. Либо catalog (справочник), либо type + chars (явно). Единицы как в окне материала: прочности МПа (сжатие положительным), модуль ГПа, деформации сжатия положительными.",
+  "type": "object",
+  "properties": {
+    "tag": { "type": "string", "description": "Обозначение; ключ материала в проекте. Для catalog по умолчанию — строка справочника" },
+    "description": { "type": "string" },
+    "aggregate": { "enum": ["silicate", "carbonate", "lightweight"], "description": "Заполнитель бетона (огнестойкость)" },
+    "fireRebarClass": { "type": "string", "description": "Группа арматуры по табл. 5.6 СП 468; пусто — автоматически" },
+    "catalog": {
+      "type": "object",
+      "description": "Материал из справочника: укажите concrete, rebar или steel",
+      "properties": {
+        "concrete": { "type": "string", "description": "Класс бетона, например B25" },
+        "kind": { "enum": ["heavy", "fineA", "fineB"], "default": "heavy", "description": "Тяжёлый, мелкозернистый группы А или Б" },
+        "dampness": { "enum": ["below40", "40to75", "above75"], "default": "40to75", "description": "Влажность среды для набора NL" },
+        "plain": { "type": "boolean", "description": "Бетонная конструкция, γb2 = 0,9" },
+        "tallLayer": { "type": "boolean", "description": "Слой бетонирования > 1,5 м, γb3 = 0,85" },
+        "heatTreated": { "type": "boolean", "description": "Тепловая обработка, E × 0,89 (только fineA)" },
+        "rebar": { "type": "string", "description": "Класс арматуры, например A500C" },
+        "steel": { "type": "string", "description": "Марка стали по СП 16.13330.2017, например С255" },
+        "thicknessMm": { "type": "number", "description": "Толщина проката, мм, для выбора строки марки" },
+        "shaped": { "type": "boolean", "description": "Фасонный прокат" }
+      }
+    },
+    "type": { "enum": ["concrete", "rebarF", "rebarU", "steel"] },
+    "e": { "type": "number", "description": "Модуль упругости материала, ГПа; по умолчанию — из набора N" },
+    "chars": {
+      "type": "object",
+      "description": "Наборы характеристик по видам расчёта C, CL, N, NL — все четыре обязательны",
+      "properties": {
+        "C": { "$ref": "#/$defs/chars" },
+        "CL": { "$ref": "#/$defs/chars" },
+        "N": { "$ref": "#/$defs/chars" },
+        "NL": { "$ref": "#/$defs/chars" }
+      }
+    }
+  },
+  "$defs": {
+    "chars": {
+      "type": "object",
+      "properties": {
+        "tag": { "type": "string" },
+        "class": { "type": "number" },
+        "fc": { "type": "number", "description": "Прочность на сжатие, МПа, положительная (у арматуры — Rsc)" },
+        "ft": { "type": "number", "description": "Прочность на растяжение, МПа" },
+        "ry": { "type": "number", "description": "Предел текучести, МПа" },
+        "ru": { "type": "number", "description": "Временное сопротивление, МПа" },
+        "e": { "type": "number", "description": "Модуль упругости, ГПа" },
+        "ec0": { "type": "number", "description": "Деформация сжатия при fc, положительная" },
+        "ec1": { "type": "number", "description": "Деформация сжатия при 0,6 fc, положительная" },
+        "ec2": { "type": "number", "description": "Предельная деформация сжатия, положительная" },
+        "ec1Red": { "type": "number", "description": "Деформация сжатия двухлинейной диаграммы, положительная" },
+        "et1Red": { "type": "number" },
+        "et0": { "type": "number" },
+        "et1": { "type": "number" },
+        "et2": { "type": "number" },
+        "dampness": { "enum": ["below40", "40to75", "above75", "any"] }
+      }
+    }
+  }
+}

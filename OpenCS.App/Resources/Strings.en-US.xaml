@@ -7040,4 +7040,13 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliModelActionUpdate">update</system:String>
    <system:String x:Key="CliModelNothing">No changes</system:String>
    <system:String x:Key="CliModelDryRun">Dry run: nothing written to the project</system:String>
+   <system:String x:Key="CliMaterialErrCatalogAndExplicit">not allowed together with catalog</system:String>
+   <system:String x:Key="CliMaterialErrCatalogKind">specify concrete, rebar or steel</system:String>
+   <system:String x:Key="CliMaterialErrCustom">custom materials are not supported by the document yet (section 'Diagrams')</system:String>
+   <system:String x:Key="CliMaterialErrNotInCatalog">'{0}' is not in the catalog</system:String>
+   <system:String x:Key="CliMaterialSkipped">Material '{0}' (custom) not exported: diagrams are not in the document yet</system:String>
+   <system:String x:Key="CliModelErrOneOf">allowed: {0}</system:String>
+   <system:String x:Key="CliModelErrBadValue">wrong value type</system:String>
+   <system:String x:Key="CliModelErrDuplicateKey">'{0}' is already in the document</system:String>
+   <system:String x:Key="CliModelErrAmbiguousKey">the project has {0} objects '{1}' — the key is ambiguous</system:String>
 </ResourceDictionary>
