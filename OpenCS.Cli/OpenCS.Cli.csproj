@@ -26,6 +26,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- JSON-схемы видов документа opencs-model: opencs schema <вид>. -->
+    <EmbeddedResource Include="Model\Schemas\*.json" LogicalName="OpenCS.Cli.Model.Schemas.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Triangle.dll объявлен raw-ссылкой в CSTriangulation: в bin потребителя копируется,
          но не попадает в .deps.json (нужно для рантайм-резолва в .NET). -->
     <Reference Include="Triangle">

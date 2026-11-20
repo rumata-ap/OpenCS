@@ -7019,4 +7019,25 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="MaterialErrEPositive">Модуль упругости должен быть больше нуля</system:String>
    <system:String x:Key="MaterialErrConcreteFc">Прочность бетона на сжатие должна быть больше нуля</system:String>
    <system:String x:Key="MaterialNotSaved">Материал «{0}» не сохранён: {1}</system:String>
+   <system:String x:Key="CliCmdExportModel">Выгрузить исходные данные проекта в документ opencs-model (JSON)</system:String>
+   <system:String x:Key="CliCmdApply">Создать или обновить данные проекта по документу opencs-model</system:String>
+   <system:String x:Key="CliCmdSchema">Показать JSON-схему вида данных документа</system:String>
+   <system:String x:Key="CliArgModelFile">Документ opencs-model (JSON)</system:String>
+   <system:String x:Key="CliOptModelTo">Куда записать документ</system:String>
+   <system:String x:Key="CliOptModelOnly">Только эти виды через запятую (например, materials)</system:String>
+   <system:String x:Key="CliOptDryRun">Показать изменения без записи в проект</system:String>
+   <system:String x:Key="CliArgSchemaKind">Вид данных (например, materials)</system:String>
+   <system:String x:Key="CliModelErrBadJson">документ не разобран как JSON: {0}</system:String>
+   <system:String x:Key="CliModelErrNotObject">ожидается JSON-объект</system:String>
+   <system:String x:Key="CliModelErrFormat">ожидается «{0}»</system:String>
+   <system:String x:Key="CliModelErrVersion">ожидается версия {0}</system:String>
+   <system:String x:Key="CliModelErrUnknownSection">неизвестный раздел документа</system:String>
+   <system:String x:Key="CliModelErrNotArray">раздел должен быть массивом</system:String>
+   <system:String x:Key="CliModelErrUnknownKind">неизвестный вид «{0}»; есть: {1}</system:String>
+   <system:String x:Key="CliModelExported">Документ записан: {0}</system:String>
+   <system:String x:Key="CliModelChange">{0}: {1} «{2}»</system:String>
+   <system:String x:Key="CliModelActionCreate">создать</system:String>
+   <system:String x:Key="CliModelActionUpdate">обновить</system:String>
+   <system:String x:Key="CliModelNothing">Изменений нет</system:String>
+   <system:String x:Key="CliModelDryRun">Пробный прогон: в проект ничего не записано</system:String>
 </ResourceDictionary>

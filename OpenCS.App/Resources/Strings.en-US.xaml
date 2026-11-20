@@ -7019,4 +7019,25 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="MaterialErrEPositive">Elastic modulus must be positive</system:String>
    <system:String x:Key="MaterialErrConcreteFc">Concrete compressive strength must be positive</system:String>
    <system:String x:Key="MaterialNotSaved">Material '{0}' was not saved: {1}</system:String>
+   <system:String x:Key="CliCmdExportModel">Export project input data to an opencs-model document (JSON)</system:String>
+   <system:String x:Key="CliCmdApply">Create or update project data from an opencs-model document</system:String>
+   <system:String x:Key="CliCmdSchema">Print the JSON schema of a document data kind</system:String>
+   <system:String x:Key="CliArgModelFile">opencs-model document (JSON)</system:String>
+   <system:String x:Key="CliOptModelTo">Where to write the document</system:String>
+   <system:String x:Key="CliOptModelOnly">Only these kinds, comma-separated (e.g. materials)</system:String>
+   <system:String x:Key="CliOptDryRun">Show changes without writing to the project</system:String>
+   <system:String x:Key="CliArgSchemaKind">Data kind (e.g. materials)</system:String>
+   <system:String x:Key="CliModelErrBadJson">document is not valid JSON: {0}</system:String>
+   <system:String x:Key="CliModelErrNotObject">a JSON object is expected</system:String>
+   <system:String x:Key="CliModelErrFormat">expected '{0}'</system:String>
+   <system:String x:Key="CliModelErrVersion">expected version {0}</system:String>
+   <system:String x:Key="CliModelErrUnknownSection">unknown document section</system:String>
+   <system:String x:Key="CliModelErrNotArray">section must be an array</system:String>
+   <system:String x:Key="CliModelErrUnknownKind">unknown kind '{0}'; available: {1}</system:String>
+   <system:String x:Key="CliModelExported">Document written: {0}</system:String>
+   <system:String x:Key="CliModelChange">{0}: {1} '{2}'</system:String>
+   <system:String x:Key="CliModelActionCreate">create</system:String>
+   <system:String x:Key="CliModelActionUpdate">update</system:String>
+   <system:String x:Key="CliModelNothing">No changes</system:String>
+   <system:String x:Key="CliModelDryRun">Dry run: nothing written to the project</system:String>
 </ResourceDictionary>
