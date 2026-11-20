@@ -239,6 +239,10 @@ public sealed class PunchingParamsVM : ViewModelBase
             try
             {
                 SetField(ref _nodeKind, value);
+                // Края ещё не заданы (узел внутри плиты) — сторона по умолчанию для нового вида узла: у торца и
+                // подвешенной плиты — за торцом (+X, контур 1′), у угла — снаружи (−X). Заданный край не трогаем.
+                if (!wasLoading && Position == "inside")
+                    SetField(ref _edge1Side, DefaultEdge1Side(value), nameof(Edge1Side));
                 NormalizeEdgeSides();
             }
             finally { _loading = wasLoading; }

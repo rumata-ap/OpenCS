@@ -299,6 +299,28 @@ public sealed class PunchingWallTaskTests
         Assert.True(vm.HasErrors);
     }
 
+    /// <summary>
+    /// Ручная проверка 20.11 (п. 7): у новой задачи-колонны после выбора «подвешенная плита» и «у края» край был +Y (вдоль
+    /// стены). Пока края не заданы, смена вида узла ставит сторону по умолчанию: у торца и подвески — +X, у угла — −X.
+    /// </summary>
+    [Fact]
+    public void Vm_NodeKindChange_InsideSlab_DefaultEdgeSideFollows()
+    {
+        var column = End() with { Wall = new PunchingWallParams(), Area = new PunchingAreaParams { Bx = 0.4, By = 0.4 } };
+        foreach (var (kind, side) in new[] { ("hanging", "+x"), ("end", "+x"), ("corner", "-x") })
+        {
+            var vm = new PunchingParamsVM(Task(column), [], [], null);
+            Assert.Equal("+y", vm.Edge1Side);
+            vm.NodeKind = kind;
+            vm.Position = "edge";
+            Assert.Equal(side, vm.Edge1Side);
+        }
+        // Заданный край вдоль стены при смене вида узла не сбрасывается.
+        var end = new PunchingParamsVM(Task(End(new PunchingEdgeParams { Side = "+y", C = 0.1 })), [], [], null);
+        end.NodeKind = "hanging";
+        Assert.Equal("+y", end.Edge1Side);
+    }
+
     /// <summary>У торца My не участвует, у угла — моменты вовсе: в таблице вариантов и сводке отчёта «—», а не нули.</summary>
     [Fact]
     public void ResultAndReport_WallVariants_DashForUnusedMoments()
