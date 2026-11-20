@@ -206,8 +206,8 @@ public static class PunchingFemJointFinder
             var joint = new PunchingFemJoint
             {
                 NodeTag = node, SlabIndex = slab.Index, Origin = origin, AxisX = axisX, AxisY = axisY, Normal = n,
-                Bars = bars, JunctionNodes = junction, Area = area, SectionLabel = pick.Section.Label,
-                Kind = pile ? PunchingFemJointKind.Pile : PunchingFemJointKind.Bar,
+                Bars = bars, JunctionNodes = junction, Area = area, SectionLabel = pile ? "свая " + pick.Section.Label : pick.Section.Label,
+                Kind = pile ?PunchingFemJointKind.Pile : PunchingFemJointKind.Bar,
             };
             return Complete(joint, slab, area, bars.All(b => !b.Below), warnings,
                 bars.Select(b => b.ElemTag).ToHashSet(StringComparer.Ordinal));

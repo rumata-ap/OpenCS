@@ -272,6 +272,14 @@
                      <TextBlock Text="{DynamicResource PunchingFemWallRatio}" Style="{StaticResource Lbl}"/>
                      <TextBox Style="{StaticResource Num}" Width="44" Text="{Binding WallRatio, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=600}"/>
                   </WrapPanel>
+                  <WrapPanel ToolTip="{DynamicResource PunchingFemPileHint}">
+                     <TextBlock Text="{DynamicResource PunchingFemPileSection}" Style="{StaticResource Lbl}"/>
+                     <ComboBox ItemsSource="{Binding PileShapes}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding PileShape}"
+                               MinWidth="80" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                     <TextBox Style="{StaticResource Num}" Width="44" Text="{Binding PileSize, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=600}"/>
+                     <TextBlock Text="{DynamicResource UnitMm}" Style="{StaticResource Unit}"/>
+                  </WrapPanel>
+                  <TextBlock Text="{DynamicResource PunchingFemPileHint}" Style="{StaticResource Hint}"/>
                   <TextBlock Text="{DynamicResource PunchingFemFinderHint}" Style="{StaticResource Hint}"/>
                </StackPanel>
             </Expander>
@@ -385,6 +393,29 @@
                <DataGridTextColumn Header="bc,x, мм" Binding="{Binding CapBx, Converter={StaticResource AnyDoubleConv}, TargetNullValue=''}" Width="Auto"/>
                <DataGridTextColumn Header="bc,y, мм" Binding="{Binding CapBy, Converter={StaticResource AnyDoubleConv}, TargetNullValue=''}" Width="Auto"/>
                <DataGridTextColumn Header="hc, мм" Binding="{Binding CapHc, Converter={StaticResource AnyDoubleConv}, TargetNullValue=''}" Width="Auto"/>
+               <DataGridTemplateColumn Header="{DynamicResource PunchingFemColPile}" Width="Auto" SortMemberPath="PileShape">
+                  <DataGridTemplateColumn.HeaderStyle>
+                     <Style TargetType="DataGridColumnHeader"><Setter Property="ToolTip" Value="{DynamicResource PunchingFemPileRowHint}"/></Style>
+                  </DataGridTemplateColumn.HeaderStyle>
+                  <DataGridTemplateColumn.CellTemplate>
+                     <DataTemplate>
+                        <!-- Только у свай-точек: у прочих узлов сечение — по стержню или стене. -->
+                        <ComboBox ItemsSource="{x:Static vm:PunchingFemJointPickVM.PileShapes}" DisplayMemberPath="Label" SelectedValuePath="Id"
+                                  SelectedValue="{Binding PileShape, UpdateSourceTrigger=PropertyChanged}" MinWidth="80" Margin="2,0"
+                                  Visibility="{Binding IsPilePoint, Converter={StaticResource BoolToVisibility}}" ToolTip="{DynamicResource PunchingFemPileRowHint}"/>
+                     </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+               </DataGridTemplateColumn>
+               <DataGridTemplateColumn Header="{DynamicResource PunchingFemColPileSize}" Width="Auto" SortMemberPath="PileSizeText">
+                  <DataGridTemplateColumn.CellTemplate>
+                     <DataTemplate>
+                        <!-- Пусто — общий размер; применяется при выходе из поля (повторный поиск узлов). -->
+                        <TextBox Text="{Binding PileSizeText, UpdateSourceTrigger=LostFocus}"
+                                 MinWidth="50" Margin="2,0" VerticalContentAlignment="Center" HorizontalContentAlignment="Right"
+                                 Visibility="{Binding IsPilePoint, Converter={StaticResource BoolToVisibility}}" ToolTip="{DynamicResource PunchingFemPileRowHint}"/>
+                     </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+               </DataGridTemplateColumn>
                <DataGridTemplateColumn Header="{DynamicResource PunchingFemColOwnSw}" Width="Auto" SortMemberPath="OwnSw">
                   <DataGridTemplateColumn.CellTemplate>
                      <DataTemplate>

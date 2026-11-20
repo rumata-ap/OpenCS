@@ -6921,6 +6921,15 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemCapital_auto">from model</system:String>
    <system:String x:Key="PunchingFemCapital_none">none</system:String>
    <system:String x:Key="PunchingFemCapital_manual">manual</system:String>
+   <system:String x:Key="PunchingFemPileSection">Point pile section</system:String>
+   <system:String x:Key="PunchingFemPileHint">A point pile is a vertical support of a slab node without a bar (LIRA FE 56/57, SCAD FE 51, node spring): its section is a square with a side or a circle with a diameter; a node can get its own in the table. A bar pile is a bar below the slab reaching a spring: section from the bar. Punching by a pile acts from below, the force is the pile reaction minus the base load.</system:String>
+   <system:String x:Key="PunchingFemPile_check">common</system:String>
+   <system:String x:Key="PunchingFemPile_square">square</system:String>
+   <system:String x:Key="PunchingFemPile_circle">circle</system:String>
+   <system:String x:Key="PunchingFemColPile">Pile</system:String>
+   <system:String x:Key="PunchingFemColPileSize">Pile a / d, mm</system:String>
+   <system:String x:Key="PunchingFemPileRowHint">Point pile section of the node: shape and square side or diameter, mm; "common" and an empty size are taken from the check parameters (group "Joint search").</system:String>
+   <system:String x:Key="PunchingFemErrPileSize">The point pile section size must be greater than zero.</system:String>
    <system:String x:Key="PunchingFemColStatus">State</system:String>
    <system:String x:Key="PunchingFemOverrideCoverHint">Joint cover, mm; empty — from the slab section</system:String>
    <system:String x:Key="PunchingFemCreateTask">Create task</system:String>

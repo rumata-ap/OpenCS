@@ -23,7 +23,8 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
 {
     bool _include = true, _ownSw;
     double? _ax, _ay;
-    string _capitalMode = "auto", _contourMode = "check";
+    string _capitalMode = "auto", _contourMode = "check", _pileShape = "check";
+    double? _pileSize;
     double _capBx, _capBy, _capHc;
     double _swDiameter = 8, _swStep = 60;
     int _swCount = 2, _swRows = 5;
@@ -65,6 +66,8 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
             if (o.Capital is "none" or "manual") _capitalMode = o.Capital;
             if (o.CapitalManual is { } cm) { _capBx = cm.Bx * 1000; _capBy = cm.By * 1000; _capHc = cm.Hc * 1000; }
             if (o.Contour is "opencs" or "lira") _contourMode = o.Contour;
+            if (o.PileShape is "square" or "circle") _pileShape = o.PileShape;
+            if (o.PileSize is > 0) _pileSize = o.PileSize * 1000;
             if (o.Reinforcement is { } r)
             {
                 _ownSw = true;
@@ -180,6 +183,54 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
     /// <summary>Выбор контура доступен у узлов ЛИРЫ; у прочих — только чтобы вернуть «по проверке».</summary>
     public bool CanPickContour => Lira != null || _contourMode != "check";
 
+    /// <summary>Свая-точка (опора узла плиты без стержня): сечение задаётся в строке.</summary>
+    public bool IsPilePoint => Joint.IsPilePoint;
+
+    /// <summary>Форма сечения сваи-точки узла: "check" — общая из параметров проверки, "square", "circle".</summary>
+    public string PileShape
+    {
+        get => _pileShape;
+        set { if (SetPile(ref _pileShape, value is "square" or "circle" ? value : "check")) PileChanged?.Invoke(); }
+    }
+    /// <summary>Формы сечения сваи-точки для списка.</summary>
+    /// <remarks>Строится при каждом открытии окна — подписи на текущем языке.</remarks>
+    public static IReadOnlyList<PunchingChoice> PileShapes =>
+    [
+        new("check", Loc.S("PunchingFemPile_check", "общее")), new("square", Loc.S("PunchingFemPile_square", "квадрат")),
+        new("circle", Loc.S("PunchingFemPile_circle", "круг")),
+    ];
+    /// <summary>Сторона квадрата или диаметр сваи-точки узла, мм; null — общий из параметров проверки.</summary>
+    public double? PileSize
+    {
+        get => _pileSize;
+        set { if (SetPile(ref _pileSize, value is > 0 && double.IsFinite(value.Value) ? value : null)) PileChanged?.Invoke(); }
+    }
+
+    /// <summary>Размер сваи-точки строкой для поля таблицы: пусто — общий; нечисло не меняет размер.</summary>
+    public string PileSizeText
+    {
+        get => _pileSize is double v ? v.ToString("0.#", CultureInfo.CurrentCulture) : "";
+        set
+        {
+            string t = value?.Trim() ?? "";
+            if (t.Length == 0) PileSize = null;
+            else if (Pars.ParseAny(t, out double v) && v > 0 && double.IsFinite(v)) PileSize = v;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PileSizeText)));
+        }
+    }
+
+    /// <summary>Сечение сваи-точки изменено — узлы ищутся заново (от сечения зависят основание пирамиды и края).</summary>
+    public event Action? PileChanged;
+
+    /// <summary>Правка сечения сваи — только у свай-точек; без <see cref="Changed"/> (рисунок обновит повторный поиск).</summary>
+    bool SetPile<T>(ref T field, T value, [CallerMemberName] string? name = null)
+    {
+        if (!IsPilePoint || EqualityComparer<T>.Default.Equals(field, value)) return false;
+        field = value;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        return true;
+    }
+
     /// <summary>Узел продавливания ЛИРЫ из приложенного *.asp; null — ЛИРА этот узел не считала или файла нет.</summary>
     public CScore.Import.LiraAspPunching? Lira { get; private set; }
     /// <summary>Результат ЛИРЫ кратко: «Asw 6,08 см²», «Ksw 2,00», «#170»; пусто — нет.</summary>
@@ -199,9 +250,11 @@ public sealed class PunchingFemJointPickVM : INotifyPropertyChanged
 
     /// <summary>Переопределение узла; null — переопределять нечего.</summary>
     public PunchingFemJointOverride? ToOverride(PunchingReinforcementParams common) =>
-        _include && _ax == null && _ay == null && !_ownSw && _capitalMode == "auto" && _contourMode == "check" ? null : new PunchingFemJointOverride
+        _include && _ax == null && _ay == null && !_ownSw && _capitalMode == "auto" && _contourMode == "check" && _pileShape == "check"
+        && _pileSize == null ? null : new PunchingFemJointOverride
         {
             Node = Node, Excluded = !_include, Ax = _ax / 1000, Ay = _ay / 1000,
+            PileShape = _pileShape == "check" ? null : _pileShape, PileSize = _pileSize / 1000,
             Capital = _capitalMode == "auto" ? null : _capitalMode,
             Contour = _contourMode == "check" ? null : _contourMode,
             CapitalManual = _capitalMode != "manual" ? null : new PunchingCapitalParams
@@ -356,6 +409,8 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         EdgeInfluence = p.EdgeInfluence;
         WallRatio = p.WallRatio;
         LiraContour = p.LiraContour;
+        PileShape = p.PileShape == "circle" ? "circle" : "square";
+        PileSize = p.PileSize * 1000;
         _loading = false;
 
         FindJointsCommand = new RelayCommand(_ => FindJoints(), _ => _schema != null && !IsFinding);
@@ -517,6 +572,16 @@ public sealed class PunchingFemCheckVM : ViewModelBase
     public double AngleDeg { get => _angle; set { if (SetField(ref _angle, value)) Refind(); } }
     public double EdgeInfluence { get => _edgeInfluence; set { if (SetField(ref _edgeInfluence, value)) Refind(); } }
     public double WallRatio { get => _wallRatio; set { if (SetField(ref _wallRatio, value)) Refind(); } }
+
+    string _pileShape = "square";
+    double _pileSize = 300;
+    /// <summary>Формы сечения свай-точек.</summary>
+    public IReadOnlyList<PunchingChoice> PileShapes { get; } =
+        [new("square", Loc.S("PunchingFemPile_square", "квадрат")), new("circle", Loc.S("PunchingFemPile_circle", "круг"))];
+    /// <summary>Сечение свай-точек (опора узла плиты без стержня): "square" | "circle"; меняет грузовую площадь — поиск заново.</summary>
+    public string PileShape { get => _pileShape; set { if (SetField(ref _pileShape, value == "circle" ? "circle" : "square")) Refind(); } }
+    /// <summary>Сторона квадрата или диаметр свай-точек, мм.</summary>
+    public double PileSize { get => _pileSize; set { if (SetField(ref _pileSize, value) && value > 0) Refind(); } }
 
     bool _liraContour;
     /// <summary>
@@ -711,6 +776,7 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         {
             var row = new PunchingFemJointPickVM(joint, _overrides.GetValueOrDefault(joint.NodeTag));
             row.Changed += () => { if (row == _selectedJoint) Preview(); };
+            row.PileChanged += Refind;
             Joints.Add(row);
         }
         int noCheck = data.Joints.Count(j => j.NoCheck != null);
@@ -819,6 +885,7 @@ public sealed class PunchingFemCheckVM : ViewModelBase
                 PylonReduced = PylonReduced, WallFigure = WallFigure,
             },
             AngleDeg = AngleDeg, EdgeInfluence = EdgeInfluence, WallRatio = WallRatio, LiraContour = LiraContour,
+            PileShape = PileShape, PileSize = PileSize / 1000,
             Overrides = overrides.Values.OrderBy(o => o.Node, FemNodeRigidBodies.TagComparer).ToList(),
         };
     }
@@ -834,6 +901,7 @@ public sealed class PunchingFemCheckVM : ViewModelBase
             foreach (var code in new PunchingTaskParams { Reinforcement = Common() }.Validate().Where(c => c.StartsWith("sw_", StringComparison.Ordinal)).Distinct())
                 e.Add(Loc.S("PunchingErr_" + code, "Неверные параметры поперечной арматуры."));
         if (!(DefaultAx >= 0 && DefaultAy >= 0)) e.Add(Loc.S("PunchingErr_h0_nonpositive", "Неверные привязки."));
+        if (!(PileSize > 0)) e.Add(Loc.S("PunchingFemErrPileSize", "Размер сечения свай-точек должен быть больше нуля."));
         return e;
     }
 

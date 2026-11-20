@@ -991,6 +991,47 @@ public sealed class PunchingFemServiceTests : IDisposable
     }
 
     [Fact]
+    public void PilePointRow_SectionOverride_OnlyForPilePoints()
+    {
+        var joint = new PunchingFemJoint
+        {
+            NodeTag = "12", Origin = default, AxisX = new(1, 0, 0), AxisY = new(0, 1, 0), Normal = new(0, 0, 1),
+            Kind = PunchingFemJointKind.Pile, Area = new PunchingLoadArea.Rectangle(0.3, 0.3),
+        };
+        var row = new OpenCS.ViewModels.PunchingFemJointPickVM(joint, null);
+        int refind = 0;
+        row.PileChanged += () => refind++;
+        Assert.True(row.IsPilePoint);
+        Assert.Equal("check", row.PileShape);
+        Assert.Equal("", row.PileSizeText);
+        Assert.Null(row.ToOverride(new PunchingReinforcementParams()));
+
+        row.PileShape = "circle";
+        row.PileSizeText = "350";
+        Assert.Equal(2, refind);
+        var o = row.ToOverride(new PunchingReinforcementParams())!;
+        Assert.Equal("circle", o.PileShape);
+        Assert.Equal(0.35, o.PileSize!.Value, 12);
+        row.PileSizeText = "abc";   // нечисло не меняет размер
+        Assert.Equal(350, row.PileSize);
+        row.PileSizeText = "";
+        row.PileShape = "check";
+        Assert.Null(row.ToOverride(new PunchingReinforcementParams()));
+
+        // Восстановление из сохранённого переопределения.
+        var back = new OpenCS.ViewModels.PunchingFemJointPickVM(joint, o);
+        Assert.Equal("circle", back.PileShape);
+        Assert.Equal(350, back.PileSize);
+
+        // У колонны (свая-стержень тоже) сечение сваи не правится.
+        var bar = new OpenCS.ViewModels.PunchingFemJointPickVM(joint with { Kind = PunchingFemJointKind.Bar }, null);
+        bar.PileShape = "circle";
+        bar.PileSizeText = "400";
+        Assert.False(bar.IsPilePoint);
+        Assert.Null(bar.ToOverride(new PunchingReinforcementParams()));
+    }
+
+    [Fact]
     public void ColumnAbove_NetForceIsDifference()
     {
         var s = Create(above: true);

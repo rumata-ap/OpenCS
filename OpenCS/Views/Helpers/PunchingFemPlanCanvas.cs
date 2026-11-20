@@ -179,6 +179,9 @@ public sealed class PunchingFemPlanCanvas : FrameworkElement
                 else DrawMarker(dc, brush, at, r, j.Node == SelectedNode);
             }
             else DrawMarker(dc, brush, at, r, j.Node == SelectedNode);
+            // Свая — крест по рамке значка (сечение или кружок поверх: размер на плане тот же).
+            // Круг — значок-кружок или сечение не из 4 точек (круглая свая).
+            if (j.Kind == "pile") DrawPileCross(dc, box, round: box.Width <= 2 * 7 + 1e-9 || j.Area.Count != 4, j.Node == SelectedNode);
             _hit.Add((j.Node, at, Math.Max(r, 8)));
             // Пунктир ЛИРЫ шире значка: подпись — справа от него, а не впритык к контуру.
             if (j.Lira is { Contour.Count: > 0 } lira)
@@ -238,6 +241,18 @@ public sealed class PunchingFemPlanCanvas : FrameworkElement
         }
         geo.Freeze();
         dc.DrawGeometry(brush, pen, geo);
+    }
+
+    /// <summary>Значок сваи: диагонали рамки сечения (как у свай на планах свайного поля).</summary>
+    static void DrawPileCross(DrawingContext dc, Rect box, bool round, bool selected)
+    {
+        var pen = selected ? SelectPen : MarkerPen;
+        // У круга — диагонали вписанного квадрата, чтобы крест не выходил за сечение.
+        double k = round ? 0.707 : 1;
+        var c = new Point(box.X + box.Width / 2, box.Y + box.Height / 2);
+        double hx = box.Width / 2 * k, hy = box.Height / 2 * k;
+        dc.DrawLine(pen, new Point(c.X - hx, c.Y - hy), new Point(c.X + hx, c.Y + hy));
+        dc.DrawLine(pen, new Point(c.X - hx, c.Y + hy), new Point(c.X + hx, c.Y - hy));
     }
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)

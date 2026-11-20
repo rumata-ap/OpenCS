@@ -6921,6 +6921,15 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemCapital_auto">по схеме</system:String>
    <system:String x:Key="PunchingFemCapital_none">нет</system:String>
    <system:String x:Key="PunchingFemCapital_manual">вручную</system:String>
+   <system:String x:Key="PunchingFemPileSection">Сечение свай-точек</system:String>
+   <system:String x:Key="PunchingFemPileHint">Свая-точка — опора узла плиты по вертикали без стержня (КЭ 56/57 ЛИРЫ, КЭ 51 SCAD, пружина узла): сечение — квадрат со стороной или круг диаметром, узлу можно задать своё в таблице. Свая-стержень — стержень под плитой, доходящий до пружины: сечение по стержню. Продавливание сваей — снизу, сила — реакция сваи минус нагрузка основания.</system:String>
+   <system:String x:Key="PunchingFemPile_check">общее</system:String>
+   <system:String x:Key="PunchingFemPile_square">квадрат</system:String>
+   <system:String x:Key="PunchingFemPile_circle">круг</system:String>
+   <system:String x:Key="PunchingFemColPile">Свая</system:String>
+   <system:String x:Key="PunchingFemColPileSize">a / d сваи, мм</system:String>
+   <system:String x:Key="PunchingFemPileRowHint">Сечение сваи-точки узла: форма и сторона квадрата или диаметр, мм; «общее» и пустой размер — из параметров проверки (группа «Поиск узлов»).</system:String>
+   <system:String x:Key="PunchingFemErrPileSize">Размер сечения свай-точек должен быть больше нуля.</system:String>
    <system:String x:Key="PunchingFemColStatus">Состояние</system:String>
    <system:String x:Key="PunchingFemOverrideCoverHint">Своя привязка узла, мм; пусто — из сечения плиты</system:String>
    <system:String x:Key="PunchingFemCreateTask">Создать задачу</system:String>
