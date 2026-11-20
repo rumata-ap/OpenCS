@@ -93,7 +93,7 @@ namespace OpenCS.Utilites
 
       public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
       {
-         return 0.001 * double.Parse((string)value, CultureInfo.InvariantCulture);
+         return 0.001 * NumberInput.Parse((string)value);
       }
    }
    public class MPaConvert : IValueConverter
@@ -106,7 +106,7 @@ namespace OpenCS.Utilites
 
       public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
       {
-         return 1000 * double.Parse((string)value, CultureInfo.InvariantCulture);
+         return 1000 * NumberInput.Parse((string)value);
       }
    }
    public class GPaConvert : IValueConverter
@@ -119,7 +119,7 @@ namespace OpenCS.Utilites
 
       public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
       {
-         return 1000000 * double.Parse((string)value, CultureInfo.InvariantCulture);
+         return 1000000 * NumberInput.Parse((string)value);
       }
    }
 
@@ -133,7 +133,7 @@ namespace OpenCS.Utilites
 
       public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
       {
-         return -1000 * double.Parse((string)value, CultureInfo.InvariantCulture);
+         return -1000 * NumberInput.Parse((string)value);
       }
    }
 
@@ -146,7 +146,7 @@ namespace OpenCS.Utilites
 
       public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
       {
-         return -double.Parse((string)value, CultureInfo.InvariantCulture);
+         return -NumberInput.Parse((string)value);
       }
    }
 
@@ -160,7 +160,7 @@ namespace OpenCS.Utilites
 
       public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
       {
-         return 1000 * double.Parse((string)value, CultureInfo.InvariantCulture);
+         return 1000 * NumberInput.Parse((string)value);
       }
    }
 
