@@ -63,11 +63,14 @@ public sealed record LiraBinaryLoad(
 /// <param name="LoadCases">Загружения (номер и имя). Пусто — имена не прочитаны.</param>
 /// <param name="Loads">Записи физических нагрузок в порядке файла.</param>
 /// <param name="Notes">Диагностические сообщения о том, какие блоки прочитать не удалось и почему.</param>
+/// <param name="StiffnessDefinitions">Определения жёсткостей из таблицы перед массивом номеров (документ 3 TXT).
+/// Пусто — таблица не найдена или содержит неразобранный тип.</param>
 public sealed record LiraBinaryExtras(
     int[] StiffnessByElement,
     List<LiraLoadCaseRecord> LoadCases,
     List<LiraBinaryLoad> Loads,
-    List<string> Notes);
+    List<string> Notes,
+    List<LiraStiffnessDefinition>? StiffnessDefinitions = null);
 
 /// <summary>
 /// Чтение дополнительных блоков бинарного .lir после разбора геометрии: назначение жёсткостей КЭ,
@@ -208,8 +211,12 @@ public static class LiraBinaryExtrasReader
         var notes = new List<string>();
         int elementsEnd = elementsStart + elementCount * ElementRecordSize;
 
+        int stiffnessArrayStart = -1;
         int[] stiffness = readStiffness
-            ? LocateStiffness(bytes, elementsStart, elementCount, notes)
+            ? LocateStiffness(bytes, elementsStart, elementCount, notes, out stiffnessArrayStart)
+            : [];
+        var definitions = stiffnessArrayStart > 0
+            ? LiraStiffnessDefinitionsReader.Read(bytes, stiffnessArrayStart, elementsEnd, notes)
             : [];
 
         var loads     = new List<LiraBinaryLoad>();
@@ -235,7 +242,7 @@ public static class LiraBinaryExtrasReader
             }
         }
 
-        return new LiraBinaryExtras(stiffness, loadCases, loads, notes);
+        return new LiraBinaryExtras(stiffness, loadCases, loads, notes, definitions);
     }
 
     // ------------------------------------------------------------------ Жёсткости
@@ -261,8 +268,9 @@ public static class LiraBinaryExtrasReader
     /// отвергала <c>0xFFFF</c> и при совпадении значения перед массивом с последним сдвигала начало
     /// на одно значение — каждый КЭ получал жёсткость соседа.</para>
     /// </remarks>
-    static int[] LocateStiffness(byte[] bytes, int elementsStart, int elementCount, List<string> notes)
+    static int[] LocateStiffness(byte[] bytes, int elementsStart, int elementCount, List<string> notes, out int arrayStart)
     {
+        arrayStart = -1;
         if (elementCount <= 0) return [];
         int elementsEnd = elementsStart + elementCount * ElementRecordSize;
 
@@ -301,6 +309,7 @@ public static class LiraBinaryExtrasReader
             return [];
         }
 
+        arrayStart = found;
         var result = new int[elementCount];
         int unassigned = 0;
         for (int i = 0; i < elementCount; i++)

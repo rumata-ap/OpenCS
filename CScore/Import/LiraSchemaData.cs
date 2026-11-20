@@ -118,6 +118,12 @@ public class LiraSchemaData
     public List<string>                      BinaryNotes        { get; } = [];
 
     /// <summary>
+    /// Определения жёсткостей из бинарного .lir (таблица перед массивом номеров; аналог документа 3 TXT).
+    /// Пусто — таблица не найдена или не разобрана (причина — в <see cref="BinaryNotes"/>).
+    /// </summary>
+    public List<LiraStiffnessDefinition>     StiffnessDefinitions { get; } = [];
+
+    /// <summary>
     /// Углы согласования местных осей пластин из таблицы 18 «местные оси пластин»: номер КЭ → угол поворота
     /// оси X1 от направления «узел 1 → узел 2» вокруг Z1, град. Пусто — таблица не прочитана.
     /// </summary>

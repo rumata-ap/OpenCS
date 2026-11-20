@@ -213,6 +213,7 @@ public static class LiraFileParser
             data.LoadCases.AddRange(extra.LoadCases);
             data.BinaryLoads.AddRange(extra.Loads);
             data.BinaryNotes.AddRange(extra.Notes);
+            if (extra.StiffnessDefinitions is { } definitions) data.StiffnessDefinitions.AddRange(definitions);
         }
 
         data.Nodes.AddRange(nodes);
