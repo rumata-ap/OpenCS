@@ -7013,4 +7013,10 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemSnapshotSource">Снимок результатов {0} ({1})</system:String>
    <system:String x:Key="PunchingFemRowTaskTag">{0} — узел {1}, {2}</system:String>
    <system:String x:Key="PunchingShape_hole_polygon">контур из схемы</system:String>
+   <system:String x:Key="MaterialErrTypeNotSet">Не задан тип материала</system:String>
+   <system:String x:Key="MaterialErrTagEmpty">Не задано обозначение материала</system:String>
+   <system:String x:Key="MaterialErrCharsMissing">Нет характеристик для вида расчёта {0}</system:String>
+   <system:String x:Key="MaterialErrEPositive">Модуль упругости должен быть больше нуля</system:String>
+   <system:String x:Key="MaterialErrConcreteFc">Прочность бетона на сжатие должна быть больше нуля</system:String>
+   <system:String x:Key="MaterialNotSaved">Материал «{0}» не сохранён: {1}</system:String>
 </ResourceDictionary>

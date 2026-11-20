@@ -7013,4 +7013,10 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemSnapshotSource">{0} results snapshot ({1})</system:String>
    <system:String x:Key="PunchingFemRowTaskTag">{0} — joint {1}, {2}</system:String>
    <system:String x:Key="PunchingShape_hole_polygon">contour from model</system:String>
+   <system:String x:Key="MaterialErrTypeNotSet">Material type is not set</system:String>
+   <system:String x:Key="MaterialErrTagEmpty">Material designation is empty</system:String>
+   <system:String x:Key="MaterialErrCharsMissing">No characteristics for design case {0}</system:String>
+   <system:String x:Key="MaterialErrEPositive">Elastic modulus must be positive</system:String>
+   <system:String x:Key="MaterialErrConcreteFc">Concrete compressive strength must be positive</system:String>
+   <system:String x:Key="MaterialNotSaved">Material '{0}' was not saved: {1}</system:String>
 </ResourceDictionary>

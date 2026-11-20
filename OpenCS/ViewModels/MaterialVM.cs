@@ -1,6 +1,7 @@
 using CsvHelper;
 using CsvHelper.Configuration;
 using CScore;
+using OpenCS.Services;
 using OpenCS.Utilites;
 using OpenCS.Views;
 
@@ -99,15 +100,8 @@ namespace OpenCS.ViewModels
          }
          else
          {
-            material.SetJson();
-            if (Type==MatType.None)
-            {
-               mvm.LogService.Error("Не задан тип материала. Материал не сохранен");
-               return;
-            }
-            mvm.db.AddMaterial(material);
+            if (!SaveThroughService()) return;
             IsSaved = true;
-
             mvm.LogService.Info($"Материал '{material.Tag}' успешно сохранен");
          }
       }
@@ -123,13 +117,19 @@ namespace OpenCS.ViewModels
          }
          else
          {
-            material.SetJson();
-            mvm.db.SaveMaterial(material);
-
+            if (!SaveThroughService()) return;
             mvm.MaterialsSort();
-
             mvm.LogService.Info($"Материал '{material.Tag}' успешно изменен");
          }
+      }
+
+      /// <summary>Сохраняет через <see cref="MaterialAuthoring"/>; ошибки — в журнал, материал не записан.</summary>
+      bool SaveThroughService()
+      {
+         var errors = MaterialAuthoring.Save(mvm.db, material);
+         foreach (var e in errors)
+            mvm.LogService.Error(string.Format(Loc.S("MaterialNotSaved"), material.Tag, e.Message));
+         return errors.Count == 0;
       }
 
       /// <summary>
