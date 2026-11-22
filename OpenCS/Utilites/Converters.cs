@@ -109,6 +109,15 @@ namespace OpenCS.Utilites
          return NumberInput.Scaled(value, 1000);
       }
    }
+   /// <summary>Число как есть; обратно — через <see cref="NumberInput"/> («,» и «.»), нечисло — красная рамка.</summary>
+   public class NumberConvert : IValueConverter
+   {
+      public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => value;
+
+      public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+         => NumberInput.Scaled(value, 1);
+   }
+
    public class GPaConvert : IValueConverter
    {
       public object Convert(object value, Type targetType, object parameter, CultureInfo culture)

@@ -2124,8 +2124,9 @@ namespace OpenCS
             Type         = CScore.DiagrammType.Custom,
             CalcType     = CScore.CalcType.C,
             MaterialType = CScore.MatType.Concrete,
-            Ic           = new CSmath.LSpline(new[] { -0.003, 0.0 }, new[] { -30.0, 0.0 }),
-            It           = new CSmath.LSpline(new[] { 0.0, 0.001  }, new[] {   0.0, 15.0 })
+            // σ в кПа (единицы базы и расчёта); на странице — МПа: двухлинейная, близкая к B25.
+            Ic           = new CSmath.LSpline(new[] { -0.0035, -0.002, 0.0 }, new[] { -14500.0, -14500.0, 0.0 }),
+            It           = new CSmath.LSpline(new[] { 0.0, 0.0001, 0.00015 }, new[] { 0.0, 1050.0, 1050.0 })
          };
          CurrentPage = new Views.DiagramPage(d, this, isNew: true);
       }

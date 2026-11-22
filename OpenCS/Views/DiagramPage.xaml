@@ -5,9 +5,19 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="clr-namespace:OpenCS.Views"
              xmlns:h="clr-namespace:OpenCS.Views.Helpers"
+             xmlns:ut="clr-namespace:OpenCS.Utilites"
              mc:Ignorable="d"
              d:DesignHeight="500" d:DesignWidth="700"
              Background="White">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/OpenCS;component/Resources/EnumItemTemplates.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <ut:NumberConvert x:Key="num"/>
+        </ResourceDictionary>
+    </UserControl.Resources>
 
     <Grid Margin="10">
         <Grid.RowDefinitions>
@@ -19,7 +29,7 @@
 
         <!-- Заголовок -->
         <Border Grid.Row="0" Background="#FF2813EB" CornerRadius="4" Padding="8" Margin="0,0,0,8">
-            <TextBlock x:Name="titleText" Foreground="White" FontSize="15" FontWeight="SemiBold"
+            <TextBlock Text="{Binding Title}" Foreground="White" FontSize="15" FontWeight="SemiBold"
                        HorizontalAlignment="Center"/>
         </Border>
 
@@ -28,15 +38,17 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="80"/>
-                <ColumnDefinition Width="110"/>
+                <ColumnDefinition Width="260"/>
             </Grid.ColumnDefinitions>
             <TextBox Grid.Column="0" x:Name="tagBox" Margin="0,0,8,0"
                      Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}"
                      ToolTip="{DynamicResource DiagramTag}"/>
-            <ComboBox Grid.Column="1" x:Name="calcTypeCombo"
-                      SelectedItem="{Binding CalcType}" Margin="0,0,8,0"/>
-            <ComboBox Grid.Column="2" x:Name="matTypeCombo"
-                      SelectedItem="{Binding MaterialType}"/>
+            <ComboBox Grid.Column="1" ItemsSource="{Binding CalcTypes}"
+                      SelectedItem="{Binding CalcType}" Margin="0,0,8,0"
+                      ToolTip="{DynamicResource CalcType}"/>
+            <ComboBox Grid.Column="2" ItemsSource="{Binding MaterialTypes}" ItemTemplate="{StaticResource MatTypeItem}"
+                      SelectedItem="{Binding MaterialType}"
+                      ToolTip="{DynamicResource MaterialType}"/>
         </Grid>
 
         <!-- Вкладки: канвас и таблица -->
@@ -56,10 +68,10 @@
                               HorizontalAlignment="Stretch" GridLinesVisibility="All">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="ε"
-                                Binding="{Binding Eps, StringFormat=F6, UpdateSourceTrigger=PropertyChanged}"
+                                Binding="{Binding Eps, Converter={StaticResource num}, StringFormat=F6, UpdateSourceTrigger=LostFocus}"
                                 Width="*"/>
-                            <DataGridTextColumn Header="σ, МПа"
-                                Binding="{Binding Sig, StringFormat=F2, UpdateSourceTrigger=PropertyChanged}"
+                            <DataGridTextColumn Header="{DynamicResource DiagramSigmaMPa}"
+                                Binding="{Binding Sig, Converter={StaticResource num}, StringFormat=F2, UpdateSourceTrigger=LostFocus}"
                                 Width="*"/>
                             <DataGridTextColumn Header="{DynamicResource Branch}"
                                 Binding="{Binding Branch}" IsReadOnly="True" Width="65"/>

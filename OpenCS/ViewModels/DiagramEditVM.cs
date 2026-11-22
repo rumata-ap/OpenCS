@@ -1,17 +1,19 @@
 using CScore;
-using CSmath;
+using OpenCS.Services;
 using OpenCS.Utilites;
 
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace OpenCS.ViewModels
 {
-   /// <summary>Одна точка σ(ε)-кривой. Уведомляет об изменении для DataGrid и DiagramCanvas.</summary>
+   /// <summary>Одна точка σ(ε)-кривой на странице: ε безразмерная, σ в МПа. Уведомляет DataGrid и DiagramCanvas.</summary>
    public class DiagramPoint : ViewModelBase
    {
       double _eps, _sig;
@@ -22,6 +24,7 @@ namespace OpenCS.ViewModels
          set { _eps = value; OnPropertyChanged(); OnPropertyChanged(nameof(Branch)); }
       }
 
+      /// <summary>Напряжение, МПа (в базе и расчёте — кПа).</summary>
       public double Sig
       {
          get => _sig;
@@ -42,120 +45,200 @@ namespace OpenCS.ViewModels
    }
 
    /// <summary>
-   /// ViewModel редактора пользовательской диаграммы σ(ε).
-   /// Коллекция точек, построение сплайнов, CSV-импорт, сохранение в БД.
+   /// ViewModel страницы диаграммы пула σ(ε). Правится черновик (обозначение, вид расчёта, тип материала, точки
+   /// в МПа); диаграмма пула меняется только по «Сохранить» после проверки <see cref="DiagramAuthoring"/>.
    /// </summary>
-   public class DiagramEditVM : ViewModelBase
+   public class DiagramEditVM : ViewModelBase, IUnsavedChanges
    {
+      const double KPaPerMPa = 1000;
+
       readonly AppViewModel _app;
       readonly Diagramm _diagram;
-      readonly bool _isNew;
+      bool _isNew;
+      string _tag = "";
+      CalcType _calcType;
+      MatType _materialType;
+      string _saved = "";
 
       public DiagramEditVM(Diagramm diagram, AppViewModel app, bool isNew = false)
       {
          _diagram = diagram;
          _app     = app;
          _isNew   = isNew;
-         Points   = LoadPoints(diagram);
+         Points   = [];
+         Points.CollectionChanged += (_, e) =>
+         {
+            if (e.NewItems != null) foreach (DiagramPoint p in e.NewItems) p.PropertyChanged += OnPointChanged;
+            if (e.OldItems != null) foreach (DiagramPoint p in e.OldItems) p.PropertyChanged -= OnPointChanged;
+            Touch();
+         };
+         Load();
       }
 
       public Diagramm Diagram => _diagram;
       public ObservableCollection<DiagramPoint> Points { get; }
 
+      /// <summary>Виды расчёта для списка.</summary>
+      public IReadOnlyList<CalcType> CalcTypes { get; } = Enum.GetValues<CalcType>();
+
+      /// <summary>Типы материала, для которых диаграмма пула имеет смысл.</summary>
+      public IReadOnlyList<MatType> MaterialTypes { get; } = DiagramAuthoring.MaterialTypes;
+
+      /// <summary>Диаграмма ещё не записана в проект.</summary>
+      public bool IsNew => _isNew;
+
       public string Tag
       {
-         get => _diagram.Tag;
-         set { _diagram.Tag = value; OnPropertyChanged(); }
+         get => _tag;
+         set { _tag = value; OnPropertyChanged(); Touch(); }
       }
 
       public CalcType CalcType
       {
-         get => _diagram.CalcType;
-         set { _diagram.CalcType = value; OnPropertyChanged(); }
+         get => _calcType;
+         set { _calcType = value; OnPropertyChanged(); Touch(); }
       }
 
       public MatType MaterialType
       {
-         get => _diagram.MaterialType;
-         set { _diagram.MaterialType = value; OnPropertyChanged(); }
+         get => _materialType;
+         set { _materialType = value; OnPropertyChanged(); Touch(); }
+      }
+
+      /// <summary>Заголовок страницы: обозначение записанной диаграммы и «*», пока есть несохранённые правки.</summary>
+      public string Title => (_isNew ? Loc.S("NewDiagram") : _diagram.Tag) + (IsDirty ? " *" : "");
+
+      public bool IsDirty => Snapshot() != _saved;
+
+      public string DisplayName => string.IsNullOrWhiteSpace(_tag) ? Loc.S("NewDiagram") : _tag;
+
+      void OnPointChanged(object? s, PropertyChangedEventArgs e)
+      {
+         if (e.PropertyName != nameof(DiagramPoint.Branch)) Touch();
+      }
+
+      void Touch()
+      {
+         OnPropertyChanged(nameof(IsDirty));
+         OnPropertyChanged(nameof(Title));
+      }
+
+      string Snapshot() => string.Join("|", _tag, _calcType, _materialType,
+         string.Join(";", Points.Select(p => FormattableString.Invariant($"{p.Eps:R},{p.Sig:R},{p.IsCharacteristic}"))));
+
+      /// <summary>Заполняет черновик из диаграммы пула.</summary>
+      void Load()
+      {
+         _tag = _diagram.Tag;
+         _calcType = _diagram.CalcType;
+         _materialType = _diagram.MaterialType;
+         var cs = _diagram.CharacteristicStrains ?? [];
+         Points.Clear();
+         foreach (var p in DiagramAuthoring.ToPoints(_diagram))
+            Points.Add(new DiagramPoint
+            {
+               Eps = p.Eps,
+               Sig = p.Sig / KPaPerMPa,
+               IsCharacteristic = cs.Any(e => Math.Abs(e - p.Eps) < 1e-12)
+            });
+         _saved = Snapshot();
+         OnPropertyChanged(string.Empty);
       }
 
       /// <summary>
-      /// Строит Ic и It из текущей коллекции Points.
-      /// Ic ← точки с Eps ≤ 0, отсортированные по Eps (возрастание).
-      /// It ← точки с Eps ≥ 0, отсортированные по Eps (возрастание).
-      /// Точка Eps=0 входит в обе ветви.
+      /// Проверяет черновик и записывает его в диаграмму пула (новая — добавляется в пул). Ошибки — в журнал,
+      /// диаграмма пула не меняется.
       /// </summary>
-      public void BuildSplines()
+      public IReadOnlyList<FieldError> Save()
       {
-         var sorted = Points.OrderBy(p => p.Eps).ToList();
-
-         // Добавить начало координат если его нет
-         if (!sorted.Any(p => Math.Abs(p.Eps) < 1e-15))
+         var pts = Points.Select(p => new DiagramPointData(p.Eps, p.Sig * KPaPerMPa)).ToList();
+         var errors = DiagramAuthoring.ValidatePoints(pts).ToList();
+         var draft = new Diagramm
          {
-            int idx = sorted.FindIndex(p => p.Eps > 0);
-            if (idx < 0) idx = sorted.Count;
-            sorted.Insert(idx, new DiagramPoint { Eps = 0, Sig = 0 });
+            Id = _diagram.Id, Tag = _tag, Type = _diagram.Type, CalcType = _calcType, MaterialType = _materialType
+         };
+         if (errors.Count == 0)
+         {
+            DiagramAuthoring.Apply(draft, pts, Points.Where(p => p.IsCharacteristic).Select(p => p.Eps));
+            errors.AddRange(DiagramAuthoring.Validate(draft));
+         }
+         if (errors.Count > 0)
+         {
+            foreach (var e in errors) _app.LogService.Warning(Describe(e));
+            return errors;
          }
 
-         var icPts = sorted.Where(p => p.Eps <= 1e-15).ToList();
-         var itPts = sorted.Where(p => p.Eps >= -1e-15).ToList();
-
-         if (icPts.Count >= 2)
-            _diagram.Ic = new LSpline(
-               icPts.Select(p => p.Eps).ToArray(),
-               icPts.Select(p => p.Sig).ToArray());
-
-         if (itPts.Count >= 2)
-            _diagram.It = new LSpline(
-               itPts.Select(p => p.Eps).ToArray(),
-               itPts.Select(p => p.Sig).ToArray());
-
-         // Характерные точки — явно помеченные пользователем деформации
-         _diagram.CharacteristicStrains = Points
-            .Where(p => p.IsCharacteristic)
-            .Select(p => p.Eps)
-            .OrderBy(e => e)
-            .ToList();
-      }
-
-      /// <summary>Вызвать BuildSplines и сохранить диаграмму в БД. Добавить в пул если новая.</summary>
-      public void Save()
-      {
-         BuildSplines();
-         _app.db.SaveDiagram(_diagram);
-         if (_isNew && !_app.db.Diagrams.Contains(_diagram))
+         _diagram.Tag = draft.Tag;
+         _diagram.CalcType = draft.CalcType;
+         _diagram.MaterialType = draft.MaterialType;
+         _diagram.Ic = draft.Ic;
+         _diagram.It = draft.It;
+         _diagram.CharacteristicStrains = draft.CharacteristicStrains;
+         var saveErrors = DiagramAuthoring.Save(_app.db, _diagram);
+         if (saveErrors.Count > 0)
          {
-            _app.db.Diagrams.Add(_diagram);
+            foreach (var e in saveErrors) _app.LogService.Warning(Describe(e));
+            return saveErrors;
+         }
+         if (_isNew && !_app.DiagramsLive.Contains(_diagram))
             _app.DiagramsLive.Add(_diagram);
-         }
-         _app.LogService.Info($"Диаграмма '{_diagram.Tag}' сохранена");
+         _isNew = false;
+         _saved = Snapshot();
+         Touch();
+         OnPropertyChanged(nameof(IsNew));
+         _app.LogService.Info(string.Format(Loc.S("DiagramSaved"), _diagram.Tag));
+         return [];
       }
 
+      /// <summary>Текст ошибки для журнала: «Строка N: …» для точек таблицы.</summary>
+      string Describe(FieldError e)
+      {
+         if (e.Path.StartsWith("points[") && int.TryParse(e.Path[7..^1], out int i) && i >= 0 && i < Points.Count)
+            return string.Format(Loc.S("DiagramErrRow"), i + 1, e.Message);
+         return e.Message;
+      }
+
+      bool IUnsavedChanges.SaveChanges() => Save().Count == 0;
+
+      void IUnsavedChanges.DiscardChanges() => Load();
+
       /// <summary>
-      /// Импортирует точки из CSV-файла.
-      /// Формат: заголовок (пропускается), затем строки «ε;σ» или «ε,σ».
+      /// Импортирует точки из CSV: заголовок (пропускается), затем строки «ε;σ» (σ в МПа). Разделитель полей —
+      /// «;» или табуляция; «,» — только если их нет (тогда запятая не может быть десятичной). Десятичный
+      /// разделитель — «,» или «.». Возвращает число пропущенных строк.
       /// </summary>
-      public void ImportCsv(string path)
+      public int ImportCsv(string path)
       {
          var lines = File.ReadAllLines(path);
-         char delim = lines.Any(l => l.Contains(';')) ? ';' : ',';
+         char delim = lines.Any(l => l.Contains(';')) ? ';' : lines.Any(l => l.Contains('\t')) ? '\t' : ',';
          var newPoints = new List<DiagramPoint>();
-
+         int skipped = 0;
          foreach (var line in lines.Skip(1))
          {
+            if (string.IsNullOrWhiteSpace(line)) continue;
             var parts = line.Split(delim);
-            if (parts.Length < 2) continue;
-            if (!double.TryParse(parts[0].Trim(), NumberStyles.Float,
-                    CultureInfo.InvariantCulture, out double eps)) continue;
-            if (!double.TryParse(parts[1].Trim(), NumberStyles.Float,
-                    CultureInfo.InvariantCulture, out double sig)) continue;
+            if (parts.Length < 2 || !NumberInput.TryParse(parts[0], out double eps) || !NumberInput.TryParse(parts[1], out double sig))
+            {
+               skipped++;
+               continue;
+            }
             newPoints.Add(new DiagramPoint { Eps = eps, Sig = sig });
          }
 
          Points.Clear();
          foreach (var p in newPoints.OrderBy(p => p.Eps))
             Points.Add(p);
+         return skipped;
+      }
+
+      /// <summary>Текст CSV для выгрузки: заголовок и строки «ε;σ, МПа», числа с точкой.</summary>
+      public string ExportCsv(string delimiter)
+      {
+         var sb = new StringBuilder();
+         sb.AppendLine(string.Join(delimiter, "ε", Loc.S("DiagramSigmaMPa")));
+         foreach (var p in Points.OrderBy(p => p.Eps))
+            sb.AppendLine($"{p.Eps.ToString(CultureInfo.InvariantCulture)}{delimiter}{p.Sig.ToString(CultureInfo.InvariantCulture)}");
+         return sb.ToString();
       }
 
       /// <summary>Добавить новую точку (0, 0) в конец коллекции.</summary>
@@ -163,33 +246,5 @@ namespace OpenCS.ViewModels
 
       /// <summary>Удалить точку из коллекции.</summary>
       public void RemovePoint(DiagramPoint p) => Points.Remove(p);
-
-      // ─── helpers ───
-
-      static ObservableCollection<DiagramPoint> LoadPoints(Diagramm d)
-      {
-         var list   = new List<DiagramPoint>();
-         bool seenZero = false;
-
-         void AddBranch(ISpline? sp)
-         {
-            if (sp?.X == null) return;
-            for (int i = 0; i < sp.X.Length; i++)
-            {
-               bool isZero = Math.Abs(sp.X[i]) < 1e-15 && Math.Abs(sp.Y[i]) < 1e-15;
-               if (isZero) { if (seenZero) continue; seenZero = true; }
-               list.Add(new DiagramPoint { Eps = sp.X[i], Sig = sp.Y[i] });
-            }
-         }
-
-         AddBranch(d.Ic);
-         AddBranch(d.It);
-
-         var cs = d.CharacteristicStrains ?? new List<double>();
-         foreach (var p in list)
-            p.IsCharacteristic = cs.Any(e => Math.Abs(e - p.Eps) < 1e-12);
-
-         return new ObservableCollection<DiagramPoint>(list.OrderBy(p => p.Eps));
-      }
    }
 }

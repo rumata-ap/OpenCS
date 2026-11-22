@@ -7030,6 +7030,10 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="DiagramErrMaterialType">Тип материала диаграммы — бетон, арматура или сталь</system:String>
    <system:String x:Key="DiagramErrCalcType">Неизвестный вид расчёта</system:String>
    <system:String x:Key="DiagramErrCharacteristicRange">Характерная деформация вне диапазона диаграммы [{0}; {1}]</system:String>
+   <system:String x:Key="DiagramSaved">Диаграмма «{0}» сохранена</system:String>
+   <system:String x:Key="DiagramSigmaMPa">σ, МПа</system:String>
+   <system:String x:Key="DiagramErrRow">Строка {0}: {1}</system:String>
+   <system:String x:Key="DiagramCsvRowsSkipped">Импорт CSV: пропущено строк без двух чисел — {0}</system:String>
    <system:String x:Key="DiagramUsedByMaterialsSkipped">Диаграмма «{0}» не удалена: используется материалами {1}</system:String>
    <system:String x:Key="MaterialNotSaved">Материал «{0}» не сохранён: {1}</system:String>
    <system:String x:Key="CliCmdExportModel">Выгрузить исходные данные проекта в документ opencs-model (JSON)</system:String>

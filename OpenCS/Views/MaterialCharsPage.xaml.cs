@@ -75,23 +75,16 @@ namespace OpenCS.Views
          }
 
            diagram.CalcType = materialChars.TypeCalc;
-          diagram.Tag ??= $"{parentMaterial.Tag} [{dialog.SelectedType}] {materialChars.TypeCalc}";
+          if (string.IsNullOrWhiteSpace(diagram.Tag))
+             diagram.Tag = $"{parentMaterial.Tag} [{dialog.SelectedType}] {materialChars.TypeCalc}";
 
-          if (diagram.Ic != null)
+          var errors = OpenCS.Services.DiagramAuthoring.Save(mvm.db, diagram);
+          if (errors.Count > 0)
           {
-             var xi = diagram.Ic.X;
-             var yi = diagram.Ic.Y;
-             mvm.LogService.Info($"Сжатие: {xi.Length} точек, x=[{string.Join("; ", xi.Select(v => v.ToString("F6")))}], y=[{string.Join("; ", yi.Select(v => v.ToString("F2")))}]");
+             foreach (var error in errors)
+                mvm.LogService.Error(string.Format(Loc.S("DiagramCreateError"), error.Message));
+             return;
           }
-          if (diagram.It != null)
-          {
-             var xi = diagram.It.X;
-             var yi = diagram.It.Y;
-             mvm.LogService.Info($"Растяжение: {xi.Length} точек, x=[{string.Join("; ", xi.Select(v => v.ToString("F6")))}], y=[{string.Join("; ", yi.Select(v => v.ToString("F2")))}]");
-          }
-
-          mvm.db.SaveDiagram(diagram);
-          mvm.Diagrams.Add(diagram);
           mvm.DiagramsLive.Add(diagram);
            mvm.LogService.Info(string.Format(Loc.S("DiagramBuilt"), diagram.Tag));
           mvm.CurrentDiagram = diagram;

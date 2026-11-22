@@ -481,9 +481,18 @@ namespace OpenCS
          var res = MessageBox.Show(Loc.S("ConfirmDeleteDiagram"), Loc.S("Confirmation"),
             MessageBoxButton.YesNo, MessageBoxImage.Warning);
          if (res != MessageBoxResult.Yes) return;
-         vm.db.DeleteDiagram(ctx);
-         vm.Diagrams.Remove(ctx);
+         if (!OpenCS.Services.DiagramAuthoring.TryDelete(vm.db, ctx, out var usedBy))
+         {
+            MessageBox.Show(string.Format(Loc.S("DiagramUsedByMaterials"), string.Join(", ", usedBy)),
+               Loc.S("Error"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
          vm.DiagramsLive.Remove(ctx);
+         if (vm.CurrentPage is Views.DiagramPage { DataContext: ViewModels.DiagramEditVM page } && page.Diagram == ctx)
+         {
+            ((IUnsavedChanges)page).DiscardChanges();
+            vm.CurrentPage = null!;
+         }
          vm.LogService.Info(string.Format(Loc.S("DiagramDeleted"), ctx.Tag));
       }
 
@@ -493,13 +502,23 @@ namespace OpenCS
              MessageBoxButton.YesNo, MessageBoxImage.Warning);
           if (res != MessageBoxResult.Yes) return;
 
+          if (vm.CurrentPage is Views.DiagramPage { DataContext: IUnsavedChanges open })
+          {
+             open.DiscardChanges();
+             vm.CurrentPage = null!;
+          }
+          int kept = 0;
           foreach (var d in vm.Diagrams.ToList())
           {
-             vm.db.DeleteDiagram(d);
-             vm.Diagrams.Remove(d);
+             if (OpenCS.Services.DiagramAuthoring.TryDelete(vm.db, d, out var usedBy))
+                vm.DiagramsLive.Remove(d);
+             else
+             {
+                kept++;
+                vm.LogService.Warning(string.Format(Loc.S("DiagramUsedByMaterialsSkipped"), d.Tag, string.Join(", ", usedBy)));
+             }
           }
-          vm.DiagramsLive.Clear();
-          vm.LogService.Info(Loc.S("AllDiagramsDeleted"));
+          if (kept == 0) vm.LogService.Info(Loc.S("AllDiagramsDeleted"));
       }
 
       bool closeAfterCleanup;

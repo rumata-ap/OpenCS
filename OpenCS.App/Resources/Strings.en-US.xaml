@@ -7030,6 +7030,10 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="DiagramErrMaterialType">Diagram material type must be concrete, rebar or steel</system:String>
    <system:String x:Key="DiagramErrCalcType">Unknown calculation type</system:String>
    <system:String x:Key="DiagramErrCharacteristicRange">Characteristic strain is outside the diagram range [{0}; {1}]</system:String>
+   <system:String x:Key="DiagramSaved">Diagram '{0}' saved</system:String>
+   <system:String x:Key="DiagramSigmaMPa">σ, MPa</system:String>
+   <system:String x:Key="DiagramErrRow">Row {0}: {1}</system:String>
+   <system:String x:Key="DiagramCsvRowsSkipped">CSV import: rows without two numbers skipped — {0}</system:String>
    <system:String x:Key="DiagramUsedByMaterialsSkipped">Diagram '{0}' not deleted: used by materials {1}</system:String>
    <system:String x:Key="MaterialNotSaved">Material '{0}' was not saved: {1}</system:String>
    <system:String x:Key="CliCmdExportModel">Export project input data to an opencs-model document (JSON)</system:String>
