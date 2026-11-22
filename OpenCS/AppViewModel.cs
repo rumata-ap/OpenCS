@@ -1602,6 +1602,8 @@ namespace OpenCS
          femChecksRoot?.RefreshLanguage();
          femSchemasGroup?.RefreshLanguage();
          if (activeFemSchemaEditor?.Session is { } session) OverlayFemEditorSupports(session.Schema.Id);
+         // Заголовок рамки страницы — строка из Loc, не DynamicResource: без уведомления остаётся на прежнем языке.
+         OnPropertyChanged(nameof(CurrentPageTitle));
          LangID = lang;
       }
 
