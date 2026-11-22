@@ -7030,6 +7030,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="DiagramErrMaterialType">Тип материала диаграммы — бетон, арматура или сталь</system:String>
    <system:String x:Key="DiagramErrCalcType">Неизвестный вид расчёта</system:String>
    <system:String x:Key="DiagramErrCharacteristicRange">Характерная деформация вне диапазона диаграммы [{0}; {1}]</system:String>
+   <system:String x:Key="PageConfirmSaveOnLeave" xml:space="preserve">«{0}»: правки не сохранены. Сохранить?&#x0a;&#x0a;«Да» — сохранить, «Нет» — отбросить правки, «Отмена» — вернуться к странице.</system:String>
    <system:String x:Key="DiagramSaved">Диаграмма «{0}» сохранена</system:String>
    <system:String x:Key="DiagramSigmaMPa">σ, МПа</system:String>
    <system:String x:Key="DiagramErrRow">Строка {0}: {1}</system:String>
@@ -7057,9 +7058,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliModelActionUpdate">обновить</system:String>
    <system:String x:Key="CliModelNothing">Изменений нет</system:String>
    <system:String x:Key="CliModelDryRun">Пробный прогон: в проект ничего не записано</system:String>
-   <system:String x:Key="MaterialAlreadySaved">Материал «{0}» уже сохранён — для правки нажмите «Изменить»</system:String>
    <system:String x:Key="MaterialSavedMsg">Материал «{0}» сохранён</system:String>
-   <system:String x:Key="MaterialSaveFirst">Материал «{0}» ещё не сохранён — нажмите «Сохранить»</system:String>
    <system:String x:Key="MaterialChangedMsg">Материал «{0}» изменён</system:String>
    <system:String x:Key="DataSourceRebarSteel">Стальная</system:String>
    <system:String x:Key="DataSourceConcreteHeavy">Тяжёлый</system:String>

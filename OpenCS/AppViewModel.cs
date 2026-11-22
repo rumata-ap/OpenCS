@@ -1299,7 +1299,10 @@ namespace OpenCS
          {
             if (ReferenceEquals(currentPage, value)) return;
             if (!TryLeaveFemSchemaEditor()) return;
+            if (!TryLeaveUnsavedPage()) return;
+            if (currentPage?.DataContext is IUnsavedChanges oldPage) oldPage.PropertyChanged -= OnPageDirtyChanged;
             currentPage = value;
+            if (currentPage?.DataContext is IUnsavedChanges newPage) newPage.PropertyChanged += OnPageDirtyChanged;
             OnPropertyChanged();
             OnPropertyChanged(nameof(CurrentPageTitle));
          }
@@ -1308,7 +1311,36 @@ namespace OpenCS
       /// <summary>
       /// Заголовок текущей вьюхи для отображения в GroupBox центральной области.
       /// </summary>
-      public string CurrentPageTitle => currentPage switch
+      public string CurrentPageTitle => PageKindTitle +
+         (currentPage?.DataContext is IUnsavedChanges { IsDirty: true } ? " *" : "");
+
+      void OnPageDirtyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+      {
+         if (e.PropertyName is nameof(IUnsavedChanges.IsDirty) or "" or null)
+            OnPropertyChanged(nameof(CurrentPageTitle));
+      }
+
+      /// <summary>
+      /// Вопрос при уходе со страницы с несохранёнными правками (материал, диаграмма): «Да» — сохранить (проверка не
+      /// прошла — остаться), «Нет» — отбросить правки, «Отмена» — остаться. Заменяется в тестах.
+      /// </summary>
+      public Func<string, MessageBoxResult> AskSaveOnLeave { get; set; } = name => MessageBox.Show(
+         string.Format(Loc.S("PageConfirmSaveOnLeave"), name), Loc.S("Confirmation"),
+         MessageBoxButton.YesNoCancel, MessageBoxImage.Warning);
+
+      /// <summary>Можно ли уйти с текущей страницы (смена страницы, закрытие программы).</summary>
+      public bool TryLeaveUnsavedPage()
+      {
+         if (currentPage?.DataContext is not IUnsavedChanges page || !page.IsDirty) return true;
+         switch (AskSaveOnLeave(page.DisplayName))
+         {
+            case MessageBoxResult.Yes: return page.SaveChanges();
+            case MessageBoxResult.No: page.DiscardChanges(); return true;
+            default: return false;
+         }
+      }
+
+      string PageKindTitle => currentPage switch
       {
           Views.ContourPlot               => Loc.S("VT_Contour"),
           Views.MaterialPage              => Loc.S("VT_Material"),
@@ -2108,10 +2140,13 @@ namespace OpenCS
        {
           var material = new Material(0);
           var vm = new MaterialVM() { Material = material, mvm = this };
-          CurrentPage = new MaterialPage(material, this, vm);
+          var page = new MaterialPage(material, this, vm);
+          CurrentPage = page;
+          if (!ReferenceEquals(CurrentPage, page)) return;   // остались на прежней странице с правками
 
           var window = new Views.FromDataSourceWindow(vm, tabIndex);
-          window.ShowDialog();
+          if (window.ShowDialog() != true) vm.CloseIfBlank();
+          vm.RefreshDirty();
        }
 
       /// <summary>
@@ -2862,8 +2897,6 @@ namespace OpenCS
       {
          if (CurrentMaterial == null) return;
          CurrentPage = new MaterialPage(CurrentMaterial, this);
-         MaterialVM vm = (MaterialVM)CurrentPage.DataContext;
-         vm.IsSaved = true;
       }
 
       /// <summary>

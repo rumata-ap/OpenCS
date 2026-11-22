@@ -72,7 +72,8 @@
                       SelectedItem="{Binding Type}"/>
 
             <TextBlock Text="{DynamicResource BaseType}" Foreground="#FF2813EB" Margin="0,0,0,4"/>
-            <ComboBox x:Name="baseTypeCombo" ItemTemplate="{StaticResource MatTypeItem}" Width="200" HorizontalAlignment="Left" Margin="0,0,0,12"/>
+            <ComboBox x:Name="baseTypeCombo" ItemTemplate="{StaticResource MatTypeItem}" Width="200" HorizontalAlignment="Left" Margin="0,0,0,12"
+                      SelectedItem="{Binding BaseType}"/>
 
             <TextBlock Text="{DynamicResource DiagramsForCalcTypes}" Foreground="#FF2813EB" Margin="0,0,0,4"/>
             <Grid>
@@ -101,23 +102,16 @@
       <Grid Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="5">
          <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="0.08*"/>
+            <ColumnDefinition Width="0.04*"/>
          </Grid.ColumnDefinitions>
 
          <DockPanel Grid.Column="0">
             <Button Height="25"
                         Margin="5,0,5,5"
-                        Command="{Binding EditCommand}" Content="{DynamicResource Change}"/>
+                        Command="{Binding SaveCommand}" Content="{DynamicResource Save}"/>
          </DockPanel>
 
          <DockPanel Grid.Column="1">
-            <Button Height="25"
-                        Margin="0,0,5,5"
-                        Command="{Binding AddCommand}" Content="{DynamicResource Save}"/>
-         </DockPanel>
-
-         <DockPanel Grid.Column="2">
             <Button Height="25"
                         Command="{Binding DataSourceCommand}"
                         Margin="0,0,5,5">

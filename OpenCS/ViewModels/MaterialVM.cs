@@ -19,7 +19,7 @@ namespace OpenCS.ViewModels
    /// добавления, редактирования и загрузки материала из справочника.
    /// Используется в представлениях <see cref="MaterialPage"/> и <see cref="FromDataSourceWindow"/>.
    /// </summary>
-   public class MaterialVM : ViewModelBase
+   public class MaterialVM : ViewModelBase, IUnsavedChanges
    {
       /// <summary>
       /// Ссылка на главную ViewModel приложения. Используется для доступа
@@ -42,6 +42,7 @@ namespace OpenCS.ViewModels
          set
          {
             material = value;
+            MarkClean();
             OnPropertyChanged(nameof(ConcreteDampness));
          }
       }
@@ -53,29 +54,16 @@ namespace OpenCS.ViewModels
       public MaterialVM()
       {
          material = new Material();
-         AddCommand = new RelayCommand(Add);
-         EditCommand = new RelayCommand(Edit);
+         SaveCommand = new RelayCommand(_ => Save());
          DelCommand = new RelayCommand(_ => { });
          DataSourceCommand = new RelayCommand(DataSource);
       }
 
-      /// <summary>
-      /// Флаг, указывающий, сохранён ли материал в базу данных.
-      /// Используется для различения операций добавления и редактирования.
-      /// </summary>
-      public bool IsSaved {  get; set; }
+      /// <summary>Материал записан в проект (есть Id): «Сохранить» записывает правки на место.</summary>
+      public bool IsSaved => material.Id > 0;
 
-      /// <summary>
-      /// Команда привязки для добавления нового материала в базу данных.
-      /// Вызывает метод <c>Add</c>.
-      /// </summary>
-      public ICommand AddCommand { get; set; }
-
-      /// <summary>
-      /// Команда привязки для сохранения изменений существующего материала.
-      /// Вызывает метод <c>Edit</c>.
-      /// </summary>
-      public ICommand EditCommand { get; set; }
+      /// <summary>«Сохранить»: новый материал — добавить в проект, записанный — записать правки.</summary>
+      public ICommand SaveCommand { get; }
 
       /// <summary>
       /// Команда привязки для удаления материала (не реализована в данном классе).
@@ -89,38 +77,53 @@ namespace OpenCS.ViewModels
       public ICommand DataSourceCommand { get; set; }
 
       /// <summary>
-      /// Добавляет новый материал в базу данных. Проверяет, что материал ещё не сохранён
-      /// и что тип материала задан. После сохранения устанавливает <see cref="IsSaved"/> в true.
+      /// Проверяет и записывает материал через <see cref="MaterialAuthoring"/>: новый — добавляется в проект,
+      /// записанный — обновляется на месте. Ошибки — в журнал, материал не записан. true — записан.
       /// </summary>
-      private void Add(object? obj)
+      public bool Save()
       {
-         if (IsSaved)
-         {
-            mvm.LogService.Warning(string.Format(Loc.S("MaterialAlreadySaved"), material.Tag));
-         }
-         else
-         {
-            if (!SaveThroughService()) return;
-            IsSaved = true;
-            mvm.LogService.Info(string.Format(Loc.S("MaterialSavedMsg"), material.Tag));
-         }
+         bool created = !IsSaved;
+         if (!SaveThroughService()) return false;
+         mvm.MaterialsSort();
+         mvm.LogService.Info(string.Format(Loc.S(created ? "MaterialSavedMsg" : "MaterialChangedMsg"), material.Tag));
+         MarkClean();
+         OnPropertyChanged(nameof(IsSaved));
+         return true;
       }
-      /// <summary>
-      /// Сохраняет изменения существующего материала в базу данных.
-      /// Проверяет, что материал был предварительно сохранён.
-      /// </summary>
-      private void Edit(object? obj)
+
+      // ─── Несохранённые правки ───
+
+      string _cleanSnapshot = "";
+      System.Action _restoreClean = () => { };
+
+      /// <summary>Запоминает текущее состояние материала как записанное (после загрузки и сохранения).</summary>
+      void MarkClean()
       {
-         if (!IsSaved)
-         {
-            mvm.LogService.Warning(string.Format(Loc.S("MaterialSaveFirst"), material.Tag));
-         }
-         else
-         {
-            if (!SaveThroughService()) return;
-            mvm.MaterialsSort();
-            mvm.LogService.Info(string.Format(Loc.S("MaterialChangedMsg"), material.Tag));
-         }
+         _cleanSnapshot = Snapshot();
+         _restoreClean = CaptureState();
+         RefreshDirty();
+      }
+
+      /// <summary>
+      /// Есть правки, не записанные в проект: у записанного — отличие от состояния после загрузки/сохранения,
+      /// у нового — заданы обозначение или тип.
+      /// </summary>
+      public bool IsDirty => IsSaved ? Snapshot() != _cleanSnapshot : !IsBlank;
+
+      /// <summary>Новый материал без обозначения и типа — пустая страница.</summary>
+      public bool IsBlank => material.Id == 0 && material.Type == MatType.None && string.IsNullOrWhiteSpace(material.Tag);
+
+      /// <summary>Пересчитать <see cref="IsDirty"/> для «*» (правки идут и мимо свойств VM — в наборы характеристик).</summary>
+      public void RefreshDirty() => OnPropertyChanged(nameof(IsDirty));
+
+      public string DisplayName => string.IsNullOrWhiteSpace(material.Tag) ? Loc.S("VT_Material") : material.Tag;
+
+      bool IUnsavedChanges.SaveChanges() => Save();
+
+      void IUnsavedChanges.DiscardChanges()
+      {
+         if (IsSaved) _restoreClean();
+         RefreshDirty();
       }
 
       /// <summary>Сохраняет через <see cref="MaterialAuthoring"/>; ошибки — в журнал, материал не записан.</summary>
@@ -152,7 +155,9 @@ namespace OpenCS.ViewModels
             {
                Material = previous;
                restorePrevious();
+               CloseIfBlank();
             }
+            RefreshDirty();
             return;
          }
 
@@ -174,13 +179,25 @@ namespace OpenCS.ViewModels
          OnPropertyChanged(nameof(Tag));
          OnPropertyChanged(nameof(Description));
          OnPropertyChanged(nameof(E));
-         Edit(null);
+         Save();
+      }
+
+      /// <summary>
+      /// «Отмена» справочника у ещё пустого нового материала: закрыть его страницу (решение пользователя 22.11.2026) —
+      /// пустая страница нового материала после отказа от выбора не нужна.
+      /// </summary>
+      internal void CloseIfBlank()
+      {
+         if (IsBlank && mvm?.CurrentPage?.DataContext == this)
+            mvm.CurrentPage = null!;
       }
 
       /// <summary>Снимок характеристик материала — понять, выбрал ли пользователь что-то в хранилище.</summary>
       string Snapshot() => System.Text.Json.JsonSerializer.Serialize(new
       {
          material.Tag, material.Description, material.Type, material.E,
+         material.AggregateType, material.FireRebarClass, material.BaseType,
+         Diagrams = material.CustomDiagramIds.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}={kv.Value}").ToList(),
          material.C, material.CL, material.N, material.NL
       });
 
@@ -194,6 +211,9 @@ namespace OpenCS.ViewModels
          string tag = m.Tag, description = m.Description;
          var type = m.Type;
          double e = m.E;
+         string aggregate = m.AggregateType, fireClass = m.FireRebarClass;
+         var baseType = m.BaseType;
+         var diagrams = new Dictionary<CalcType, int>(m.CustomDiagramIds);
          var chars = m.MaterialChars.Select(c => c.Clone()).ToList();
          return () =>
          {
@@ -201,6 +221,10 @@ namespace OpenCS.ViewModels
             m.Description = description;
             m.Type = type;
             m.E = e;
+            m.AggregateType = aggregate;
+            m.FireRebarClass = fireClass;
+            m.BaseType = baseType;
+            m.CustomDiagramIds = new Dictionary<CalcType, int>(diagrams);
             m.MaterialChars = chars.Select(c => c.Clone()).ToList();
             OnPropertyChanged(string.Empty);
          };
@@ -212,7 +236,6 @@ namespace OpenCS.ViewModels
       /// </summary>
       void Reset()
       {
-         IsSaved = false;
          Material = new Material(0);
          Tag = ""; Description = ""; Type = MatType.None; AggregateType = "silicate";
          material.BaseType = MatType.None;

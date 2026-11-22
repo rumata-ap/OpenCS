@@ -16,6 +16,16 @@ namespace OpenCS.Views
          var vm = existingVm ?? new MaterialVM() { Material = material, mvm = mvm };
          DataContext = vm;
 
+         // «*» несохранённых правок: ячейки наборов характеристик правят объекты мимо свойств VM — пересчитывать
+         // признак после любого ввода на странице (после обновления привязок).
+         void Refresh() =>
+            Dispatcher.BeginInvoke(vm.RefreshDirty, System.Windows.Threading.DispatcherPriority.Background);
+         AddHandler(System.Windows.Controls.Primitives.TextBoxBase.TextChangedEvent, new TextChangedEventHandler((_, _) => Refresh()));
+         AddHandler(System.Windows.Controls.Primitives.Selector.SelectionChangedEvent, new SelectionChangedEventHandler((_, _) => Refresh()));
+         AddHandler(System.Windows.Controls.Primitives.ToggleButton.CheckedEvent, new RoutedEventHandler((_, _) => Refresh()));
+         AddHandler(System.Windows.Controls.Primitives.ToggleButton.UncheckedEvent, new RoutedEventHandler((_, _) => Refresh()));
+         AddHandler(LostKeyboardFocusEvent, new System.Windows.Input.KeyboardFocusChangedEventHandler((_, _) => Refresh()));
+
          // Заполнить ComboBox типа материала (в блоке Custom) и базового типа
          customTypeCombo.ItemsSource = new[]
          {
@@ -35,7 +45,6 @@ namespace OpenCS.Views
          // Если материал уже Custom — восстановить выбранные диаграммы и показать блок
          if (material.Type == MatType.Custom)
          {
-            baseTypeCombo.SelectedItem = material.BaseType;
             SetDiagramCombo(diagramC,  mvm, material.CustomDiagramIds.GetValueOrDefault(CalcType.C));
             SetDiagramCombo(diagramCL, mvm, material.CustomDiagramIds.GetValueOrDefault(CalcType.CL));
             SetDiagramCombo(diagramN,  mvm, material.CustomDiagramIds.GetValueOrDefault(CalcType.N));

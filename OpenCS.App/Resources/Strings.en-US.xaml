@@ -7030,6 +7030,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="DiagramErrMaterialType">Diagram material type must be concrete, rebar or steel</system:String>
    <system:String x:Key="DiagramErrCalcType">Unknown calculation type</system:String>
    <system:String x:Key="DiagramErrCharacteristicRange">Characteristic strain is outside the diagram range [{0}; {1}]</system:String>
+   <system:String x:Key="PageConfirmSaveOnLeave" xml:space="preserve">'{0}': changes are not saved. Save?&#x0a;&#x0a;Yes — save, No — discard changes, Cancel — return to the page.</system:String>
    <system:String x:Key="DiagramSaved">Diagram '{0}' saved</system:String>
    <system:String x:Key="DiagramSigmaMPa">σ, MPa</system:String>
    <system:String x:Key="DiagramErrRow">Row {0}: {1}</system:String>
@@ -7057,9 +7058,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliModelActionUpdate">update</system:String>
    <system:String x:Key="CliModelNothing">No changes</system:String>
    <system:String x:Key="CliModelDryRun">Dry run: nothing written to the project</system:String>
-   <system:String x:Key="MaterialAlreadySaved">Material '{0}' is already saved — press 'Change' to edit it</system:String>
    <system:String x:Key="MaterialSavedMsg">Material '{0}' saved</system:String>
-   <system:String x:Key="MaterialSaveFirst">Material '{0}' is not saved yet — press 'Save'</system:String>
    <system:String x:Key="MaterialChangedMsg">Material '{0}' changed</system:String>
    <system:String x:Key="DataSourceRebarSteel">Steel</system:String>
    <system:String x:Key="DataSourceConcreteHeavy">Normal-weight</system:String>

@@ -538,7 +538,7 @@ namespace OpenCS
          }
 
          // Несохранённая схема МКЭ — до сохранения проекта: её правки живут только в редакторе.
-         if (!vm.TryLeaveFemSchemaEditor() || !vm.ConfirmSaveIfNeeded())
+         if (!vm.TryLeaveFemSchemaEditor() || !vm.TryLeaveUnsavedPage() || !vm.ConfirmSaveIfNeeded())
          {
             e.Cancel = true;
             return;
