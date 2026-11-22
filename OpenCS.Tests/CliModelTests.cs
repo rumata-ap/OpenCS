@@ -209,6 +209,8 @@ public sealed class CliModelTests : IDisposable
         var b = JsonNode.Parse(File.ReadAllText(exported2))!;
         Assert.Equal(4, a["materials"]!.AsArray().Count);
         AssertJsonClose(a, b, "$");
+        // Нулевая деформация арматуры (ec1 = 0 в модели, множитель −1) не выгружается как «-0».
+        Assert.DoesNotContain("-0,", File.ReadAllText(exported).Replace(" ", ""));
     }
 
     [Fact]

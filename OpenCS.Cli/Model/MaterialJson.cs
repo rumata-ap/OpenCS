@@ -47,7 +47,8 @@ static class MaterialJson
         {
             if (m.GetChars(ct) is not { } ch) continue;
             var o = new JsonObject { ["tag"] = ch.Tag, ["class"] = ch.Class };
-            foreach (var f in Fields) o[f.Json] = f.Get(ch) / f.K;
+            // «+ 0.0» превращает −0 (ноль, делённый на отрицательный множитель) в 0: в документе не будет «-0».
+            foreach (var f in Fields) o[f.Json] = f.Get(ch) / f.K + 0.0;
             o["dampness"] = Dampnesses.FirstOrDefault(d => d.Value == ch.Dampness).Json ?? "any";
             chars[ct.ToString()] = o;
         }
