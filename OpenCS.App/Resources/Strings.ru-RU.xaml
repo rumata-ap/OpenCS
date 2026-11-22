@@ -7018,6 +7018,19 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="MaterialErrCharsMissing">Нет характеристик для вида расчёта {0}</system:String>
    <system:String x:Key="MaterialErrEPositive">Модуль упругости должен быть больше нуля</system:String>
    <system:String x:Key="MaterialErrConcreteFc">Прочность бетона на сжатие должна быть больше нуля</system:String>
+   <system:String x:Key="MaterialErrBaseType">Не задан базовый тип материала (бетон, арматура или сталь)</system:String>
+   <system:String x:Key="MaterialErrCustomDiagramMissing">Не выбрана диаграмма для вида расчёта {0}</system:String>
+   <system:String x:Key="MaterialErrCustomDiagramNotInPool">Диаграммы для вида расчёта {0} нет в пуле проекта</system:String>
+   <system:String x:Key="DiagramErrNotFinite">Значение не является числом</system:String>
+   <system:String x:Key="DiagramErrOriginStress">При ε = 0 напряжение должно быть равно нулю</system:String>
+   <system:String x:Key="DiagramErrDuplicateEps">Деформация {0} повторяется (точка {1})</system:String>
+   <system:String x:Key="DiagramErrNoCompression">Нужна хотя бы одна точка сжатия (ε &lt; 0)</system:String>
+   <system:String x:Key="DiagramErrNoTension">Нужна хотя бы одна точка растяжения (ε &gt; 0)</system:String>
+   <system:String x:Key="DiagramErrTagEmpty">Не задано обозначение диаграммы</system:String>
+   <system:String x:Key="DiagramErrMaterialType">Тип материала диаграммы — бетон, арматура или сталь</system:String>
+   <system:String x:Key="DiagramErrCalcType">Неизвестный вид расчёта</system:String>
+   <system:String x:Key="DiagramErrCharacteristicRange">Характерная деформация вне диапазона диаграммы [{0}; {1}]</system:String>
+   <system:String x:Key="DiagramUsedByMaterialsSkipped">Диаграмма «{0}» не удалена: используется материалами {1}</system:String>
    <system:String x:Key="MaterialNotSaved">Материал «{0}» не сохранён: {1}</system:String>
    <system:String x:Key="CliCmdExportModel">Выгрузить исходные данные проекта в документ opencs-model (JSON)</system:String>
    <system:String x:Key="CliCmdApply">Создать или обновить данные проекта по документу opencs-model</system:String>

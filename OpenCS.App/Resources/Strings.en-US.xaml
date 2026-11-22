@@ -7018,6 +7018,19 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="MaterialErrCharsMissing">No characteristics for design case {0}</system:String>
    <system:String x:Key="MaterialErrEPositive">Elastic modulus must be positive</system:String>
    <system:String x:Key="MaterialErrConcreteFc">Concrete compressive strength must be positive</system:String>
+   <system:String x:Key="MaterialErrBaseType">Base material type is not set (concrete, rebar or steel)</system:String>
+   <system:String x:Key="MaterialErrCustomDiagramMissing">No diagram selected for calculation type {0}</system:String>
+   <system:String x:Key="MaterialErrCustomDiagramNotInPool">The diagram for calculation type {0} is not in the project pool</system:String>
+   <system:String x:Key="DiagramErrNotFinite">Value is not a number</system:String>
+   <system:String x:Key="DiagramErrOriginStress">Stress must be zero at ε = 0</system:String>
+   <system:String x:Key="DiagramErrDuplicateEps">Strain {0} is repeated (point {1})</system:String>
+   <system:String x:Key="DiagramErrNoCompression">At least one compression point (ε &lt; 0) is required</system:String>
+   <system:String x:Key="DiagramErrNoTension">At least one tension point (ε &gt; 0) is required</system:String>
+   <system:String x:Key="DiagramErrTagEmpty">Diagram name is not set</system:String>
+   <system:String x:Key="DiagramErrMaterialType">Diagram material type must be concrete, rebar or steel</system:String>
+   <system:String x:Key="DiagramErrCalcType">Unknown calculation type</system:String>
+   <system:String x:Key="DiagramErrCharacteristicRange">Characteristic strain is outside the diagram range [{0}; {1}]</system:String>
+   <system:String x:Key="DiagramUsedByMaterialsSkipped">Diagram '{0}' not deleted: used by materials {1}</system:String>
    <system:String x:Key="MaterialNotSaved">Material '{0}' was not saved: {1}</system:String>
    <system:String x:Key="CliCmdExportModel">Export project input data to an opencs-model document (JSON)</system:String>
    <system:String x:Key="CliCmdApply">Create or update project data from an opencs-model document</system:String>

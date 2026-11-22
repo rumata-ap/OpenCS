@@ -14,12 +14,30 @@ public static class MaterialAuthoring
 {
     static readonly CalcType[] Sets = [CalcType.C, CalcType.CL, CalcType.N, CalcType.NL];
 
-    public static IReadOnlyList<FieldError> Validate(Material m)
+    /// <summary>
+    /// Проверка материала. У custom — базовый тип и диаграммы пула для всех четырёх видов расчёта; наличие
+    /// диаграмм в пуле проверяется, если пул передан (<paramref name="pool"/>).
+    /// </summary>
+    public static IReadOnlyList<FieldError> Validate(Material m, IReadOnlyList<Diagramm>? pool = null)
     {
         var errors = new List<FieldError>();
         if (m.Type == MatType.None) errors.Add(new("type", Loc.S("MaterialErrTypeNotSet")));
         if (string.IsNullOrWhiteSpace(m.Tag)) errors.Add(new("tag", Loc.S("MaterialErrTagEmpty")));
-        if (m.Type is MatType.None or MatType.Custom) return errors;
+        if (m.Type == MatType.Custom)
+        {
+            if (!DiagramAuthoring.MaterialTypes.Contains(m.BaseType))
+                errors.Add(new("custom.baseType", Loc.S("MaterialErrBaseType")));
+            foreach (var ct in Sets)
+            {
+                string path = $"custom.diagrams.{ct}";
+                if (!m.CustomDiagramIds.TryGetValue(ct, out int id) || id <= 0)
+                    errors.Add(new(path, string.Format(Loc.S("MaterialErrCustomDiagramMissing"), ct)));
+                else if (pool != null && !pool.Any(d => d.Id == id))
+                    errors.Add(new(path, string.Format(Loc.S("MaterialErrCustomDiagramNotInPool"), ct)));
+            }
+            return errors;
+        }
+        if (m.Type == MatType.None) return errors;
         foreach (var ct in Sets)
         {
             string path = $"chars.{ct}";
@@ -50,8 +68,13 @@ public static class MaterialAuthoring
     /// <summary>Проверяет и сохраняет (новый — добавляет в проект). Ошибки — ничего не записано.</summary>
     public static IReadOnlyList<FieldError> Save(DatabaseService db, Material m)
     {
-        var errors = Validate(m);
+        var errors = Validate(m, db.Diagrams);
         if (errors.Count > 0) return errors;
+        if (m.Type != MatType.Custom)
+        {
+            m.BaseType = MatType.None;
+            m.CustomDiagramIds = [];
+        }
         Normalize(m);
         m.SetJson();
         if (m.Id == 0) db.AddMaterial(m);
