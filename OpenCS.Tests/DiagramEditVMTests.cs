@@ -102,6 +102,35 @@ public class DiagramEditVMTests
         Assert.False(vm.IsNew);
     });
 
+    /// <summary>Ручная проверка B4: пустое обозначение → «Сохранить» на странице → предупреждение в журнале.</summary>
+    [Fact]
+    public void Page_SaveButton_EmptyTag_WarnsInLog()
+    {
+        Exception? error = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                WithApp(app =>
+                {
+                    var page = new OpenCS.Views.DiagramPage(Pool(app), app);
+                    var vm = (DiagramEditVM)page.DataContext;
+                    vm.Tag = "";
+                    var save = (System.Windows.Controls.Button)page.FindName("saveButton");
+                    save.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                    var log = ((LogService)app.LogService).LogEntries.Select(e => e.Message).ToList();
+                    Assert.Contains(OpenCS.Utilites.Loc.S("DiagramErrTagEmpty"), log);
+                    Assert.True(vm.IsDirty);
+                });
+            }
+            catch (Exception ex) { error = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        Assert.Null(error);
+    }
+
     [Fact]
     public void ImportCsv_SemicolonWithDecimalComma() => WithApp(app =>
     {

@@ -63,6 +63,8 @@ namespace OpenCS.Utilites
             mvm.Armatures[i].Num = i + 1;
          for (int i = 0; i < mvm.Steels.Count; i++)
             mvm.Steels[i].Num = i + 1;
+         for (int i = 0; i < mvm.CustomMaterials.Count; i++)
+            mvm.CustomMaterials[i].Num = i + 1;
       }
    }
 }

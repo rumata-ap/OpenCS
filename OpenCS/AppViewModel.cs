@@ -70,6 +70,7 @@ namespace OpenCS
       /// отфильтрованная из <see cref="Materials"/>.
       /// </summary>
       ObservableCollection<Material> steels = [];
+      ObservableCollection<Material> customMaterials = [];
 
       /// <summary>
       /// Активная (выделенная) коллекция точек контура, отображаемая в текущем представлении.
@@ -2886,6 +2887,7 @@ namespace OpenCS
          Armatures.Clear(); Armatures.AddRange(a);
          var s = from m in Materials where m.Type == MatType.Steel select m;
          Steels.Clear(); Steels.AddRange(s);
+         CustomMaterials.Clear(); CustomMaterials.AddRange(Materials.Where(m => m.Type == MatType.Custom));
          this.MaterialsRenumber();
       }
 
@@ -2964,6 +2966,16 @@ namespace OpenCS
       {
          get { return steels; }
          set { steels = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Материалы со своими диаграммами пула (<see cref="MatType.Custom"/>) — отдельный узел дерева; в списки
+      /// выбора бетона и арматуры не входят (у них нет наборов характеристик).
+      /// </summary>
+      public ObservableCollection<Material> CustomMaterials
+      {
+         get { return customMaterials; }
+         set { customMaterials = value; OnPropertyChanged(); }
       }
 
       void CrossSectionsRenumber()
