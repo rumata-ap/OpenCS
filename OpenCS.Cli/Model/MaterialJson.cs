@@ -40,8 +40,37 @@ static class MaterialJson
         ("et2", c => c.Et2, (c, v) => c.Et2 = v, 1),
     ];
 
-    public static JsonObject ToJson(Material m)
+    /// <summary>Обозначения диаграмм пула custom-материала по видам расчёта; null — ссылки на отсутствующие диаграммы.</summary>
+    public static Dictionary<CalcType, string>? CustomDiagramTags(Material m, IReadOnlyList<Diagramm> pool)
     {
+        var tags = new Dictionary<CalcType, string>();
+        foreach (var (ct, id) in m.CustomDiagramIds)
+        {
+            var d = pool.FirstOrDefault(x => x.Id == id);
+            if (d == null) return null;
+            tags[ct] = d.Tag;
+        }
+        return tags;
+    }
+
+    public static JsonObject ToJson(Material m, IReadOnlyList<Diagramm> pool)
+    {
+        if (m.Type == MatType.Custom)
+        {
+            var diagrams = new JsonObject();
+            foreach (var (ct, tag) in CustomDiagramTags(m, pool)!.OrderBy(kv => kv.Key)) diagrams[ct.ToString()] = tag;
+            return new JsonObject
+            {
+                ["tag"] = m.Tag,
+                ["type"] = "custom",
+                ["description"] = m.Description,
+                ["custom"] = new JsonObject
+                {
+                    ["baseType"] = Types.FirstOrDefault(t => t.Value == m.BaseType).Json ?? "",
+                    ["diagrams"] = diagrams
+                }
+            };
+        }
         var chars = new JsonObject();
         foreach (var ct in Sets)
         {
@@ -65,12 +94,27 @@ static class MaterialJson
     }
 
     /// <summary>Материал из элемента документа; null — ошибки записаны в <paramref name="errors"/>.</summary>
-    public static Material? FromJson(JsonObject item, string path, ModelErrors errors)
+    /// <summary>
+    /// Материал из элемента документа; null — ошибки записаны в <paramref name="errors"/>. У custom — обозначения
+    /// диаграмм пула в <paramref name="diagramTags"/> (Id — после записи раздела diagrams), иначе null.
+    /// </summary>
+    public static Material? FromJson(JsonObject item, string path, ModelErrors errors, out Dictionary<CalcType, string>? diagramTags)
     {
         int before = errors.Count;
+        diagramTags = null;
         Material? m;
         try
         {
+            if (item["type"] is JsonValue tv0 && tv0.TryGetValue(out string? t0) && t0 == "custom")
+            {
+                m = FromCustom(item, path, errors, out diagramTags);
+                if (m == null || errors.Count > before) return null;
+                if (item["description"] is JsonValue cd) m.Description = cd.GetValue<string>();
+                // Проверка без пула (Id временные): ссылки по обозначениям проверяет MaterialsKind.
+                foreach (var e in MaterialAuthoring.Validate(m)) errors.Add($"{path}.{e.Path}", e.Message);
+                m.CustomDiagramIds = [];
+                return errors.Count > before ? null : m;
+            }
             if (item["catalog"] is JsonObject catalog)
             {
                 foreach (var forbidden in new[] { "type", "chars", "e" })
@@ -121,14 +165,36 @@ static class MaterialJson
         return null;
     }
 
+    /// <summary>
+    /// Материал custom: <c>{"tag", "type": "custom", "custom": {"baseType", "diagrams": {"C": "обозначение", …}}}</c>.
+    /// Id диаграмм — временные (1), чтобы общая проверка видела, какие виды расчёта заданы.
+    /// </summary>
+    static Material? FromCustom(JsonObject item, string path, ModelErrors errors, out Dictionary<CalcType, string>? tags)
+    {
+        tags = null;
+        foreach (var forbidden in new[] { "catalog", "chars", "e" })
+            if (item.ContainsKey(forbidden)) errors.Add($"{path}.{forbidden}", Loc.S("CliMaterialErrCustomExplicit"));
+        if (item["custom"] is not JsonObject c)
+        {
+            errors.Add($"{path}.custom", Loc.S("CliModelErrNotObject"));
+            return null;
+        }
+        var m = new Material(0) { Type = MatType.Custom, Tag = item["tag"] is JsonValue t ? t.GetValue<string>().Trim() : "" };
+        m.BaseType = Pick(c, "baseType", Types, MatType.None, $"{path}.custom", errors);
+        tags = [];
+        if (c["diagrams"] is JsonObject ds)
+            foreach (var ct in Sets)
+                if (ds[ct.ToString()] is JsonValue v && v.GetValue<string>().Trim() is { Length: > 0 } tag)
+                {
+                    tags[ct] = tag;
+                    m.CustomDiagramIds[ct] = 1;
+                }
+        return m;
+    }
+
     static Material? FromExplicit(JsonObject item, string path, ModelErrors errors)
     {
         string? typeName = item["type"] is JsonValue tv ? tv.GetValue<string>() : null;
-        if (typeName == "custom")
-        {
-            errors.Add($"{path}.type", Loc.S("CliMaterialErrCustom"));
-            return null;
-        }
         var type = Types.FirstOrDefault(t => t.Json == typeName);
         if (type.Json == null)
         {

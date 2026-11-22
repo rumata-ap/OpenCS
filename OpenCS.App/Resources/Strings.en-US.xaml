@@ -7078,9 +7078,12 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="SteelGradeLabel">Grade:</system:String>
    <system:String x:Key="CliMaterialErrCatalogAndExplicit">not allowed together with catalog</system:String>
    <system:String x:Key="CliMaterialErrCatalogKind">specify concrete, rebar or steel</system:String>
-   <system:String x:Key="CliMaterialErrCustom">custom materials are not supported by the document yet (section 'Diagrams')</system:String>
    <system:String x:Key="CliMaterialErrNotInCatalog">'{0}' is not in the catalog</system:String>
-   <system:String x:Key="CliMaterialSkipped">Material '{0}' (custom) not exported: diagrams are not in the document yet</system:String>
+   <system:String x:Key="CliMaterialCustomSkipped">Material '{0}' (custom) not exported: a referenced pool diagram is missing</system:String>
+   <system:String x:Key="CliMaterialErrDiagramNotFound">diagram '{0}' is not found in the diagrams section or in the project</system:String>
+   <system:String x:Key="CliMaterialErrCustomExplicit">not allowed for a custom material — properties come from diagrams</system:String>
+   <system:String x:Key="CliDiagramErrPoint">a point is a pair of numbers [ε, σ]</system:String>
+   <system:String x:Key="CliMaterialSkipped">Material '{0}' not exported: material type is not set</system:String>
    <system:String x:Key="CliModelErrOneOf">allowed: {0}</system:String>
    <system:String x:Key="CliModelErrBadValue">wrong value type</system:String>
    <system:String x:Key="CliModelErrDuplicateKey">'{0}' is already in the document</system:String>

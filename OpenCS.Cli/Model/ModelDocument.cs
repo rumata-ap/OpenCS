@@ -11,7 +11,7 @@ static class ModelDocument
     public const string Format = "opencs-model";
     public const int Version = 1;
 
-    public static IReadOnlyList<IModelKind> Kinds { get; } = [new MaterialsKind()];
+    public static IReadOnlyList<IModelKind> Kinds { get; } = [new DiagramsKind(), new MaterialsKind()];   // диаграммы — раньше материалов custom
 
     public static IModelKind? Find(string name) => Kinds.FirstOrDefault(k => k.Name == name);
 
@@ -63,7 +63,7 @@ static class ModelDocument
         var changes = new List<ModelChange>();
         foreach (var kind in Kinds)
             if (doc[kind.Name] is JsonArray items)
-                changes.AddRange(kind.Plan(items, ctx, errors));
+                changes.AddRange(kind.Plan(items, doc, ctx, errors));
         return changes;
     }
 

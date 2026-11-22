@@ -16,6 +16,9 @@ interface IModelKind
 
     JsonArray Export(HeadlessProjectContext ctx, Action<string> warn);
 
-    /// <summary>Проверяет и разрешает элементы без записи в проект; ошибки — в <paramref name="errors"/>.</summary>
-    IReadOnlyList<ModelChange> Plan(JsonArray items, HeadlessProjectContext ctx, ModelErrors errors);
+    /// <summary>
+    /// Проверяет и разрешает элементы без записи в проект; ошибки — в <paramref name="errors"/>. Весь документ
+    /// (<paramref name="doc"/>) — для ссылок на объекты других разделов, создаваемые тем же документом.
+    /// </summary>
+    IReadOnlyList<ModelChange> Plan(JsonArray items, JsonObject doc, HeadlessProjectContext ctx, ModelErrors errors);
 }

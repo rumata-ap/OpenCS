@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "opencs-model: materials[]",
-  "description": "Материал проекта. Ключ — tag. Либо catalog (справочник), либо type + chars (явно). Единицы как в окне материала: прочности МПа (сжатие положительным), модуль ГПа, деформации сжатия положительными.",
+  "description": "Материал проекта. Ключ — tag. Либо catalog (справочник), либо type + chars (явно), либо type = custom + custom (диаграммы пула). Единицы как в окне материала: прочности МПа (сжатие положительным), модуль ГПа, деформации сжатия положительными.",
   "type": "object",
   "properties": {
     "tag": { "type": "string", "description": "Обозначение; ключ материала в проекте. Для catalog по умолчанию — строка справочника" },
@@ -24,7 +24,25 @@
         "shaped": { "type": "boolean", "description": "Фасонный прокат" }
       }
     },
-    "type": { "enum": ["concrete", "rebarF", "rebarU", "steel"] },
+    "type": { "enum": ["concrete", "rebarF", "rebarU", "steel", "custom"], "description": "custom — материал со своими диаграммами пула (поле custom; chars, e, catalog не задаются)" },
+    "custom": {
+      "type": "object",
+      "description": "Материал custom: базовый тип поведения σ(ε) и диаграммы пула по видам расчёта (ссылки по обозначению диаграммы из раздела diagrams или проекта)",
+      "required": ["baseType", "diagrams"],
+      "properties": {
+        "baseType": { "enum": ["concrete", "rebarF", "rebarU", "steel"] },
+        "diagrams": {
+          "type": "object",
+          "description": "Все четыре обязательны",
+          "properties": {
+            "C": { "type": "string" },
+            "CL": { "type": "string" },
+            "N": { "type": "string" },
+            "NL": { "type": "string" }
+          }
+        }
+      }
+    },
     "e": { "type": "number", "description": "Модуль упругости материала, ГПа; по умолчанию — из набора N" },
     "chars": {
       "type": "object",

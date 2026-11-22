@@ -152,7 +152,7 @@ public sealed class CliModelTests : IDisposable
         Assert.Equal(CliExitCode.Usage, r.Code);
         Assert.Contains("materials[0].catalog.concrete", r.Err);
         Assert.Contains("materials[1].chars.CL", r.Err);
-        Assert.Contains("materials[2].type", r.Err);
+        Assert.Contains("materials[2].custom", r.Err);
         Assert.Contains("materials[3].type", r.Err);
         Assert.Contains("materials[4].catalog.kind", r.Err);
         Assert.Contains("materials[5].chars.N", r.Err);
@@ -211,6 +211,133 @@ public sealed class CliModelTests : IDisposable
         AssertJsonClose(a, b, "$");
         // Нулевая деформация арматуры (ec1 = 0 в модели, множитель −1) не выгружается как «-0».
         Assert.DoesNotContain("-0,", File.ReadAllText(exported).Replace(" ", ""));
+    }
+
+    const string DiagramsSeed = """
+        { "format": "opencs-model", "version": 1,
+          "diagrams": [
+            { "tag": "Ручная C", "materialType": "concrete", "calcType": "C",
+              "points": [[-0.0035, -14.5], [-0.002, -14.5], [0, 0], [0.0001, 1.05], [0.00015, 1.05]],
+              "characteristic": [-0.002] },
+            { "tag": "Ручная N", "materialType": "concrete", "calcType": "N", "type": "l2",
+              "points": [[-0.0035, -18.5], [-0.002, -18.5], [0.0001, 1.35], [0.00015, 1.35]] } ],
+          "materials": [
+            { "tag": "Свой бетон", "type": "custom", "description": "по испытаниям",
+              "custom": { "baseType": "concrete",
+                          "diagrams": { "C": "Ручная C", "CL": "Ручная C", "N": "Ручная N", "NL": "Ручная N" } } } ] }
+        """;
+
+    static (List<CScore.Diagramm> Diagrams, List<CScore.Material> Materials) Pool(string project)
+    {
+        using var db = new DatabaseService(project);
+        db.LoadAll();
+        var r = (db.Diagrams.ToList(), db.Materials.ToList());
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        return r;
+    }
+
+    [Fact]
+    public async Task Diagrams_CustomMaterial_Apply_KPaInBase_LinksById()
+    {
+        string project = await NewProject();
+        var r = await Run("apply", project, Doc("d.json", DiagramsSeed));
+        Assert.True(r.Code == CliExitCode.Ok, r.Err);
+        var (diagrams, materials) = Pool(project);
+        Assert.Equal(2, diagrams.Count);
+        var c = diagrams.Single(d => d.Tag == "Ручная C");
+        Assert.Equal(-14500, c.Ic.Y[0], 6);                    // МПа документа → кПа базы
+        Assert.Equal(CScore.DiagrammType.L2, diagrams.Single(d => d.Tag == "Ручная N").Type);
+        var m = Assert.Single(materials);
+        Assert.Equal(CScore.MatType.Custom, m.Type);
+        Assert.Equal(CScore.MatType.Concrete, m.BaseType);
+        Assert.Equal(c.Id, m.CustomDiagramIds[CScore.CalcType.CL]);
+
+        // Обновление диаграммы на месте: тот же Id, ссылка материала цела.
+        var u = await Run("apply", project, Doc("u.json", """
+            { "format": "opencs-model", "version": 1, "diagrams": [
+              { "tag": "Ручная C", "materialType": "concrete", "points": [[-0.003, -20], [0.0001, 1]] } ] }
+            """));
+        Assert.True(u.Code == CliExitCode.Ok, u.Err);
+        var (after, mats) = Pool(project);
+        var c2 = after.Single(d => d.Tag == "Ручная C");
+        Assert.Equal(c.Id, c2.Id);
+        Assert.Equal(-20000, c2.Ic.Y[0], 6);
+        Assert.Equal(c.Id, mats.Single().CustomDiagramIds[CScore.CalcType.C]);
+    }
+
+    [Fact]
+    public async Task Diagrams_Errors_WithPaths_NothingWritten()
+    {
+        string project = await NewProject();
+        var r = await Run("apply", project, Doc("bad.json", """
+            { "format": "opencs-model", "version": 1,
+              "diagrams": [
+                { "tag": "", "materialType": "concrete", "points": [[-0.001, -10], [0.001, 1]] },
+                { "tag": "D2", "materialType": "concrete", "points": [[-0.001, -10], [-0.001, -12], [0.001, 1]] },
+                { "tag": "D3", "materialType": "wood", "points": [[-0.001, -10], [0.001, 1]] },
+                { "tag": "D4", "materialType": "steel", "points": [[0.001, 1]] },
+                { "tag": "D5", "materialType": "steel", "points": [[-0.001, -10], ["x", 1]] } ],
+              "materials": [
+                { "tag": "M", "type": "custom", "custom": { "baseType": "concrete",
+                  "diagrams": { "C": "нет такой", "CL": "D2", "N": "D2" } } } ] }
+            """));
+        Assert.Equal(CliExitCode.Usage, r.Code);
+        Assert.Contains("diagrams[0].tag", r.Err);
+        Assert.Contains("diagrams[1].points[", r.Err);
+        Assert.Contains("diagrams[2].materialType", r.Err);
+        Assert.Contains("diagrams[3].points", r.Err);
+        Assert.Contains("diagrams[4]", r.Err);
+        Assert.Contains("materials[0].custom.diagrams.NL", r.Err);   // не задана
+        Assert.Contains("materials[0].custom.diagrams.C", r.Err);    // нет такой
+        var (diagrams, materials) = Pool(project);
+        Assert.Empty(diagrams);
+        Assert.Empty(materials);
+    }
+
+    [Fact]
+    public async Task Diagrams_DryRun_WritesNothing()
+    {
+        string project = await NewProject();
+        var r = await Run("apply", project, Doc("d.json", DiagramsSeed), "--dry-run");
+        Assert.True(r.Code == CliExitCode.Ok, r.Err);
+        Assert.Contains("Ручная C", r.Out);
+        var (diagrams, materials) = Pool(project);
+        Assert.Empty(diagrams);
+        Assert.Empty(materials);
+    }
+
+    [Fact]
+    public async Task Diagrams_RoundTrip_ExportApplyExport_Same()
+    {
+        string first = await NewProject("a.db");
+        var seed = await Run("apply", first, Doc("seed.json", DiagramsSeed));
+        Assert.True(seed.Code == CliExitCode.Ok, seed.Err);
+
+        string exported = PathOf("e1.json");
+        var ex = await Run("export", "model", first, "--to", exported);
+        Assert.True(ex.Code == CliExitCode.Ok, ex.Err);
+        Assert.DoesNotContain("custom", ex.Err);   // custom больше не пропускается
+
+        string second = await NewProject("b.db");
+        var apply = await Run("apply", second, exported);
+        Assert.True(apply.Code == CliExitCode.Ok, apply.Err);
+        string exported2 = PathOf("e2.json");
+        Assert.Equal(CliExitCode.Ok, (await Run("export", "model", second, "--to", exported2)).Code);
+
+        var a = JsonNode.Parse(File.ReadAllText(exported))!;
+        var b = JsonNode.Parse(File.ReadAllText(exported2))!;
+        Assert.Equal(2, a["diagrams"]!.AsArray().Count);
+        Assert.Single(a["materials"]!.AsArray());
+        Assert.Equal(-14.5, (double)a["diagrams"]![0]!["points"]![0]![1]!, 9);
+        AssertJsonClose(a, b, "$");
+    }
+
+    [Fact]
+    public async Task Schema_Diagrams_IsJson()
+    {
+        var r = await Run("schema", "diagrams");
+        Assert.True(r.Code == CliExitCode.Ok, r.Err);
+        Assert.NotNull(JsonNode.Parse(r.Out)!["properties"]!["points"]);
     }
 
     [Fact]

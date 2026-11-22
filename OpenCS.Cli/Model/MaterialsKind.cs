@@ -16,19 +16,25 @@ sealed class MaterialsKind : IModelKind
         var items = new JsonArray();
         foreach (var m in ctx.Materials.OrderBy(m => m.Id))
         {
-            if (m.Type is MatType.Custom or MatType.None)
+            if (m.Type == MatType.None)
             {
                 warn(string.Format(Loc.S("CliMaterialSkipped"), m.Tag));
                 continue;
             }
-            items.Add(MaterialJson.ToJson(m));
+            if (m.Type == MatType.Custom && MaterialJson.CustomDiagramTags(m, ctx.Diagrams) == null)
+            {
+                warn(string.Format(Loc.S("CliMaterialCustomSkipped"), m.Tag));
+                continue;
+            }
+            items.Add(MaterialJson.ToJson(m, ctx.Diagrams));
         }
         return items;
     }
 
-    public IReadOnlyList<ModelChange> Plan(JsonArray items, HeadlessProjectContext ctx, ModelErrors errors)
+    public IReadOnlyList<ModelChange> Plan(JsonArray items, JsonObject doc, HeadlessProjectContext ctx, ModelErrors errors)
     {
         var changes = new List<ModelChange>();
+        var docDiagrams = DiagramsKind.TagsIn(doc);
         var seen = new HashSet<string>();
         for (int i = 0; i < items.Count; i++)
         {
@@ -38,8 +44,10 @@ sealed class MaterialsKind : IModelKind
                 errors.Add(path, Loc.S("CliModelErrNotObject"));
                 continue;
             }
-            var made = MaterialJson.FromJson(item, path, errors);
-            if (made == null) continue;
+            var made = MaterialJson.FromJson(item, path, errors, out var diagramTags);
+            // Ссылки custom проверяются и при других ошибках материала — все ошибки документа за один прогон.
+            bool linksOk = diagramTags == null || CheckDiagramTags(diagramTags, docDiagrams, ctx, path, errors);
+            if (made == null || !linksOk) continue;
             string key = made.Tag;
             if (!seen.Add(key))
             {
@@ -53,14 +61,32 @@ sealed class MaterialsKind : IModelKind
                 continue;
             }
             var target = existing.SingleOrDefault();
-            changes.Add(new ModelChange(Name, key, target == null, c => Commit(c, made, target)));
+            changes.Add(new ModelChange(Name, key, target == null, c => Commit(c, made, diagramTags, target)));
         }
         return changes;
     }
 
-    /// <summary>Новый — добавить; существующий — заменить содержимое на месте (тот же Id, ссылки сечений целы).</summary>
-    static void Commit(HeadlessProjectContext ctx, Material made, Material? target)
+    /// <summary>Ссылки custom на диаграммы: обозначение есть в разделе diagrams документа или однозначно в пуле проекта.</summary>
+    static bool CheckDiagramTags(Dictionary<CalcType, string> tags, HashSet<string> docDiagrams, HeadlessProjectContext ctx,
+        string path, ModelErrors errors)
     {
+        int before = errors.Count;
+        foreach (var (ct, tag) in tags)
+        {
+            if (docDiagrams.Contains(tag)) continue;
+            int n = ctx.Diagrams.Count(d => d.Tag.Trim() == tag);
+            if (n == 0) errors.Add($"{path}.custom.diagrams.{ct}", string.Format(Loc.S("CliMaterialErrDiagramNotFound"), tag));
+            else if (n > 1) errors.Add($"{path}.custom.diagrams.{ct}", string.Format(Loc.S("CliModelErrAmbiguousKey"), n, tag));
+        }
+        return errors.Count == before;
+    }
+
+    /// <summary>Новый — добавить; существующий — заменить содержимое на месте (тот же Id, ссылки сечений целы).</summary>
+    static void Commit(HeadlessProjectContext ctx, Material made, Dictionary<CalcType, string>? diagramTags, Material? target)
+    {
+        // Диаграммы документа уже записаны (раздел diagrams идёт раньше): обозначения → Id пула.
+        if (diagramTags != null)
+            made.CustomDiagramIds = diagramTags.ToDictionary(kv => kv.Key, kv => ctx.Diagrams.Single(d => d.Tag.Trim() == kv.Value).Id);
         if (target != null)
         {
             target.Type = made.Type;
@@ -68,8 +94,8 @@ sealed class MaterialsKind : IModelKind
             target.E = made.E;
             target.AggregateType = made.AggregateType;
             target.FireRebarClass = made.FireRebarClass;
-            target.BaseType = MatType.None;
-            target.CustomDiagramIds = [];
+            target.BaseType = made.BaseType;
+            target.CustomDiagramIds = new Dictionary<CalcType, int>(made.CustomDiagramIds);
             target.MaterialChars = made.MaterialChars.Select(ch => ch.Clone()).ToList();
             made = target;
         }

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "opencs-model: diagrams[]",
+  "description": "Диаграмма σ(ε) пула проекта (на неё ссылаются материалы custom). Ключ — tag. Точки — как в таблице страницы диаграммы: [ε, σ] со знаком (сжатие отрицательно), σ в МПа; начало координат добавляется само. Раздел записывается раньше materials.",
+  "type": "object",
+  "required": ["tag", "materialType", "points"],
+  "properties": {
+    "tag": { "type": "string", "description": "Обозначение; ключ диаграммы в проекте" },
+    "materialType": { "enum": ["concrete", "rebarF", "rebarU", "steel"], "description": "Тип материала, для которого построена диаграмма (ветвление σ(ε) при расчёте)" },
+    "calcType": { "enum": ["C", "CL", "N", "NL"], "default": "C", "description": "Вид расчёта, для которого построена диаграмма" },
+    "type": { "enum": ["custom", "l2", "l3", "ekb", "sp63", "sp35", "sp16"], "default": "custom", "description": "Тип диаграммы; у построенных из материала — их тип (определяет изломы для контурного интеграла)" },
+    "points": {
+      "type": "array",
+      "description": "Точки [ε, σ, МПа]; нужна хотя бы одна с ε < 0 и одна с ε > 0; ε не повторяются; при ε = 0 σ = 0",
+      "items": { "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }], "minItems": 2, "maxItems": 2 }
+    },
+    "characteristic": {
+      "type": "array",
+      "description": "Характерные деформации (изломы) для контурного интеграла; пусто — все внутренние узлы",
+      "items": { "type": "number" }
+    }
+  }
+}
