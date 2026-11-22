@@ -7,6 +7,7 @@ using Xunit;
 namespace OpenCS.Tests;
 
 /// <summary>Страница диаграммы: черновик до «Сохранить», σ в МПа на странице и кПа в базе, CSV с запятой.</summary>
+[Collection("AppViewModel pages")]
 public class DiagramEditVMTests
 {
     static void WithApp(Action<AppViewModel> test)

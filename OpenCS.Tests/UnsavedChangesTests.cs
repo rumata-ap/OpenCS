@@ -8,9 +8,17 @@ using Xunit;
 namespace OpenCS.Tests;
 
 /// <summary>
+/// Тесты страниц с AppViewModel — не параллельно: конструктор AppViewModel пересоздаёт файл базы, и под нагрузкой
+/// удаление ловит занятый файл.
+/// </summary>
+[CollectionDefinition("AppViewModel pages", DisableParallelization = true)]
+public sealed class AppViewModelPagesCollection { }
+
+/// <summary>
 /// Решения пользователя 22.11.2026: одна «Сохранить» у материала, «*» у несохранённых материала и диаграммы,
 /// вопрос «Сохранить / Не сохранять / Отмена» при уходе со страницы.
 /// </summary>
+[Collection("AppViewModel pages")]
 public class UnsavedChangesTests
 {
     static void WithApp(Action<AppViewModel> test) => RunSta(() =>

@@ -174,7 +174,7 @@ public sealed class DiagramCanvas : FrameworkElement
 
         // Подписи осей
         DrawLabel(dc, "ε", new Point(ActualWidth - 18, origin.Y - 16));
-        DrawLabel(dc, "σ", new Point(origin.X + 4, 4));
+        DrawLabel(dc, OpenCS.Utilites.Loc.S("DiagramSigmaMPa"), new Point(origin.X + 4, 4));
 
         DrawHoverOverlay(dc, vm);
     }
