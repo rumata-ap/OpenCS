@@ -1,13 +1,13 @@
 {
   "sections": ["common", "materials", "diagrams", "sections", "forces", "tasks", "fire", "schema", "fem-calc",
                "fragments", "import", "settings", "results"],
-  "closedSections": ["materials"],
+  "closedSections": ["materials", "diagrams"],
   "operations": [
     { "window": "MaterialPage", "kind": "page", "section": "materials", "xaml": ["OpenCS/Views/MaterialPage.xaml"], "tables": ["materials"], "service": "MaterialAuthoring", "audit": "done", "cli": "apply/export model: materials", "note": "Страница материала: C/CL/N/NL, огнестойкость, custom" },
     { "window": "MaterialCharsPage", "kind": "page", "section": "materials", "xaml": ["OpenCS/Views/MaterialCharsPage.xaml"], "tables": ["materials"], "service": "MaterialAuthoring", "audit": "done", "cli": "apply/export model: materials", "note": "Один набор характеристик (из дерева)" },
     { "window": "FromDataSourceWindow", "kind": "window", "section": "materials", "xaml": ["OpenCS/Views/FromDataSourceWindow.xaml"], "tables": ["materials"], "service": "MaterialAuthoring", "audit": "done", "cli": "apply/export model: materials", "note": "Справочник: бетон, арматура, сталь" },
     { "window": "SteelMaterialChoiceDialog", "kind": "window", "section": "import", "xaml": ["OpenCS/Views/SteelMaterialChoiceDialog.xaml"], "tables": [], "service": null, "audit": "pending", "cli": null, "note": null },
-    { "window": "DiagramPage", "kind": "page", "section": "diagrams", "xaml": ["OpenCS/Views/DiagramPage.xaml"], "tables": ["diagrams"], "service": null, "audit": "in-progress", "cli": null, "note": "Пул диаграмм: правка точек σ(ε), CSV, удаление; команды дерева «Новая диаграмма», «Удалить диаграмму», «Удалить все»" },
+    { "window": "DiagramPage", "kind": "page", "section": "diagrams", "xaml": ["OpenCS/Views/DiagramPage.xaml"], "tables": ["diagrams"], "service": "DiagramAuthoring", "audit": "done", "cli": "apply/export model: diagrams", "note": "Пул диаграмм: правка точек σ(ε), CSV, удаление; команды дерева «Новая диаграмма», «Удалить диаграмму», «Удалить все»" },
     { "window": "MainWindow", "kind": "window", "section": "common", "xaml": ["OpenCS/MainWindow.xaml"], "tables": [], "service": null, "audit": "pending", "cli": null, "note": null },
     { "window": "DoubleInputDialog", "kind": "window", "section": "common", "xaml": ["OpenCS/Views/Dialogs/DoubleInputDialog.xaml"], "tables": [], "service": null, "audit": "pending", "cli": null, "note": null },
     { "window": "TextInputDialog", "kind": "window", "section": "common", "xaml": ["OpenCS/Views/Dialogs/TextInputDialog.xaml"], "tables": [], "service": null, "audit": "pending", "cli": null, "note": null },
