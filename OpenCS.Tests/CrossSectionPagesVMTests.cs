@@ -119,6 +119,23 @@ public class CrossSectionPagesVMTests
     });
 
     [Fact]
+    public void AreaPage_NewArea_HullFromPool_Saves() => WithApp(app =>
+    {
+        var (b25, _, concrete, _, _) = Seed(app);
+        var pool = concrete.PoolContour!;
+        var area = new MaterialArea { Tag = "Лишняя", Category = AreaCategory.Region };
+        var vm = new MaterialAreaVM(area, app) { Material = b25 };
+        vm.SelectedPoolContour = pool;
+        Assert.Null(vm.Hull);                          // выбор в списке ещё не назначает контур
+        vm.SetHullFromPoolCommand.Execute(pool);
+        Assert.NotNull(vm.Hull);
+        Assert.Equal(pool.Id, area.PoolContourId);
+        Assert.True(vm.Save());
+        Assert.True(area.Id > 0);
+        Assert.Equal("Лишняя", TagInDb(app, area.Id));
+    });
+
+    [Fact]
     public void RebarPage_ExistingGroup_KeepsHost_SigSpOnlyOnSave() => WithApp(app =>
     {
         var (_, _, concrete, bars, _) = Seed(app);
