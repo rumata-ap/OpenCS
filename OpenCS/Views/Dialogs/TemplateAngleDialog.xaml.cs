@@ -1,33 +1,39 @@
+using OpenCS.Services;
+using OpenCS.Utilites;
 using System.Windows;
 
 namespace OpenCS.Views.Dialogs;
 
+/// <summary>Шаблон контура «Angle»: размеры в мм, проверка — <see cref="ContourAuthoring.ValidateTemplate"/>.</summary>
 public partial class TemplateAngleDialog : Window
 {
-    public string ContourName => NameBox.Text.Trim();
-    public double WidthMm { get; private set; }
-    public double HeightMm { get; private set; }
-    public double TwMm { get; private set; }
-    public double TfMm { get; private set; }
+    /// <summary>Шаблон, который строит диалог.</summary>
+    public ContourTemplate Kind => ContourTemplate.Angle;
+
+    /// <summary>Обозначение нового контура (пусто — подпись шаблона).</summary>
+    public string ContourName => TemplateDialogInput.NameOr(NameBox, "TemplateAngle");
+
+    /// <summary>Проверенные размеры, м (после «OK»).</summary>
+    public ContourTemplateSize Size { get; private set; } = null!;
 
     public TemplateAngleDialog()
     {
         InitializeComponent();
         Owner = Application.Current.MainWindow;
+        NameBox.Text = Loc.S("TemplateAngle");
     }
 
     void Ok_Click(object sender, RoutedEventArgs e)
     {
-        if (!double.TryParse(WidthBox.Text, out var w) || w <= 0 ||
-            !double.TryParse(HeightBox.Text, out var h) || h <= 0 ||
-            !double.TryParse(TwBox.Text, out var tw) || tw <= 0 ||
-            !double.TryParse(TfBox.Text, out var tf) || tf <= 0)
-        {
-            MessageBox.Show("Введите положительные числовые значения.", "Ошибка",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
-        WidthMm = w; HeightMm = h; TwMm = tw; TfMm = tf;
+        TemplateDialogInput.Field[] fields =
+        [
+            new("width", WidthBox, "TplWidthMm"),
+            new("height", HeightBox, "TplHeightMm"),
+            new("tw", TwBox, "TplVertLegThicknessMm"),
+            new("tf", TfBox, "TplHorizLegThicknessMm")
+        ];
+        if (!TemplateDialogInput.TryRead(this, Kind, fields, 0, out var size)) return;
+        Size = size;
         DialogResult = true;
     }
 }

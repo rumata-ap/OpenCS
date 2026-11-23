@@ -1,4 +1,5 @@
 using CScore;
+using OpenCS.Utilites;
 using System.Windows;
 
 namespace OpenCS.Views.Dialogs;
@@ -15,7 +16,7 @@ public partial class ContourPropsWindow : Window
         Owner = Application.Current.MainWindow;
 
         if (tag != null)
-            Title = $"Свойства контура '{tag}'";
+            Title = string.Format(Loc.S("ContourPropsTitleFor"), tag);
 
         var props = new GeoProps(contour);
         _area = props.A;
@@ -29,8 +30,9 @@ public partial class ContourPropsWindow : Window
         for (int i = 0; i < contour.X.Count - 1; i++)
             _perimeter += Distance(contour.X[i], contour.Y[i], contour.X[i + 1], contour.Y[i + 1]);
 
-        _ixRadius = _area > 0 ? System.Math.Sqrt(_ix / _area) : 0;
-        _iyRadius = _area > 0 ? System.Math.Sqrt(_iy / _area) : 0;
+        // Обход по часовой стрелке даёт отрицательные A и I — радиусы инерции от модулей.
+        _ixRadius = _area != 0 ? System.Math.Sqrt(System.Math.Abs(_ix / _area)) : 0;
+        _iyRadius = _area != 0 ? System.Math.Sqrt(System.Math.Abs(_iy / _area)) : 0;
 
         UpdateDisplay();
     }
@@ -43,9 +45,9 @@ public partial class ContourPropsWindow : Window
     static double Af(Unit u) => u switch { Unit.mm => 1e6, Unit.cm => 1e4, _ => 1 };
     static double If(Unit u) => u switch { Unit.mm => 1e12, Unit.cm => 1e8, _ => 1 };
 
-    static string Lu(Unit u) => u switch { Unit.mm => "мм", Unit.cm => "см", _ => "м" };
-    static string Au(Unit u) => u switch { Unit.mm => "мм²", Unit.cm => "см²", _ => "м²" };
-    static string Iu(Unit u) => u switch { Unit.mm => "мм⁴", Unit.cm => "см⁴", _ => "м⁴" };
+    static string Lu(Unit u) => Loc.S(u switch { Unit.mm => "UnitMm", Unit.cm => "UnitCm", _ => "UnitM" });
+    static string Au(Unit u) => Lu(u) + "²";
+    static string Iu(Unit u) => Lu(u) + "⁴";
 
     void UpdateDisplay()
     {

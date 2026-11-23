@@ -21,13 +21,16 @@ public partial class ProfilePolyDialog : Window
             return idx >= 0 && idx < _profiles.Count ? _profiles[idx].Id : 0;
         }
     }
+    /// <summary>Наибольшее число точек на дугу скругления.</summary>
+    public const int MaxArcPoints = 90;
+
     public int NArc => int.TryParse(NArcBox.Text, out var n) ? n : 6;
     public string ContourName => NameBox.Text.Trim();
     public double? Slope
     {
         get
         {
-            if (double.TryParse(SlopeBox.Text, out var val) && val > 0)
+            if (NumberInput.TryParse(SlopeBox.Text, out var val) && val > 0)
                 return val / 100.0;
             return null;
         }
@@ -86,12 +89,12 @@ public partial class ProfilePolyDialog : Window
             SlopeBox.IsEnabled = true;
             if (slopeIBeam)
             {
-                SlopeHint.Text = "(для двутавров с уклоном полок по ГОСТ 8239)";
+                SlopeHint.Text = Loc.S("ProfileSlopeHintIBeam");
                 SlopeBox.Text = $"{IBeamProfile.DefaultSlope * 100:F1}";
             }
             else
             {
-                SlopeHint.Text = "(для швеллеров с уклоном полок по ГОСТ 8240)";
+                SlopeHint.Text = Loc.S("ProfileSlopeHintChannel");
                 var chP = (ChannelProfile)profile;
                 SlopeBox.Text = $"{chP.Slope * 100:F1}";
             }
@@ -99,13 +102,13 @@ public partial class ProfilePolyDialog : Window
         else if (bentChannel)
         {
             SlopeBox.IsEnabled = false;
-            SlopeHint.Text = "(гнутый швеллер, наружные углы скруглены)";
+            SlopeHint.Text = Loc.S("ProfileSlopeHintBent");
             SlopeBox.Text = "0";
         }
         else
         {
             SlopeBox.IsEnabled = false;
-            SlopeHint.Text = "(не применяется)";
+            SlopeHint.Text = Loc.S("ProfileSlopeHintNone");
             SlopeBox.Text = "0";
         }
 
@@ -117,8 +120,24 @@ public partial class ProfilePolyDialog : Window
     {
         if (ProfileCombo.SelectedIndex < 0)
         {
-            MessageBox.Show("Выберите профиль из списка.", "Ошибка",
+            MessageBox.Show(this, Loc.S("ProfileSelectFromList"), Loc.S("Warning"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        if (!int.TryParse(NArcBox.Text, out int n) || n < 1 || n > MaxArcPoints)
+        {
+            MessageBox.Show(this, string.Format(Loc.S("ProfileArcPointsRange"), MaxArcPoints), Loc.S("Warning"),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            NArcBox.Focus();
+            NArcBox.SelectAll();
+            return;
+        }
+        if (SlopeBox.IsEnabled && (!NumberInput.TryParse(SlopeBox.Text, out double s) || s < 0 || s >= 100))
+        {
+            MessageBox.Show(this, Loc.S("ProfileSlopeRange"), Loc.S("Warning"),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            SlopeBox.Focus();
+            SlopeBox.SelectAll();
             return;
         }
         DialogResult = true;
@@ -148,36 +167,38 @@ public partial class ProfilePolyDialog : Window
         _ => ""
     };
 
-    static string Mm(double v) => $"{v * 1000:F1}";
+    static string Mm(double v) => $"{v * 1000:F1} {Loc.S("UnitMm")}";
+    static string Cm2(double a) => $"{a:F2} {Loc.S("UnitCm")}²";
 
+    /// <summary>Размеры профиля сортамента для поля «Свойства» (мм, площадь — см²).</summary>
     static string GetProfileProps(object profile) => profile switch
     {
         IBeamProfile p =>
-            $"H={Mm(p.H)} мм  B={Mm(p.B)} мм\n" +
-            $"tw={Mm(p.tw)} мм  tf={Mm(p.tf)} мм\n" +
-            $"R1={Mm(p.R1)} мм  r2={Mm(p.r2)} мм\n" +
-            $"A={p.A:F2} см²{(p.r2 > 0 ? $"\nУклон: {IBeamProfile.DefaultSlope * 100:F0}%" : "")}",
+            $"H={Mm(p.H)}  B={Mm(p.B)}\n" +
+            $"tw={Mm(p.tw)}  tf={Mm(p.tf)}\n" +
+            $"R1={Mm(p.R1)}  r2={Mm(p.r2)}\n" +
+            $"A={Cm2(p.A)}{(p.r2 > 0 ? "\n" + string.Format(Loc.S("ProfileSlopeValue"), IBeamProfile.DefaultSlope * 100) : "")}",
 
         ChannelProfile p =>
-            $"H={Mm(p.H)} мм  B={Mm(p.B)} мм{(p.Bent ? " (гнутый)" : "")}\n" +
-            $"tw={Mm(p.tw)} мм  tf={Mm(p.tf)} мм{(p.Slope > 0 ? $"  уклон={p.Slope * 100:F0}%" : "")}\n" +
-            $"R1={Mm(p.R1)} мм  r2={Mm(p.r2)} мм  X0={p.X0 * 1000:F1} мм\n" +
-            $"A={p.A:F2} см²",
+            $"H={Mm(p.H)}  B={Mm(p.B)}{(p.Bent ? " " + Loc.S("ProfileBentMark") : "")}\n" +
+            $"tw={Mm(p.tw)}  tf={Mm(p.tf)}{(p.Slope > 0 ? "  " + string.Format(Loc.S("ProfileSlopeValue"), p.Slope * 100) : "")}\n" +
+            $"R1={Mm(p.R1)}  r2={Mm(p.r2)}  X0={Mm(p.X0)}\n" +
+            $"A={Cm2(p.A)}",
 
         AngleProfile p =>
-            $"H={Mm(p.H)} мм  Bf={Mm(p.Bf)} мм\n" +
-            $"Tw={Mm(p.Tw)} мм  Tf={Mm(p.Tf)} мм\n" +
-            $"R={Mm(p.R)} мм  r={Mm(p.r_)} мм\n" +
-            $"A={p.A:F2} см²",
+            $"H={Mm(p.H)}  Bf={Mm(p.Bf)}\n" +
+            $"Tw={Mm(p.Tw)}  Tf={Mm(p.Tf)}\n" +
+            $"R={Mm(p.R)}  r={Mm(p.r_)}\n" +
+            $"A={Cm2(p.A)}",
 
         RectTubeProfile p =>
-            $"H={Mm(p.H)} мм  B={Mm(p.B)} мм\n" +
-            $"t={Mm(Math.Min(p.tw, p.tf))} мм  r={Mm(p.r)} мм\n" +
-            $"A={p.A:F2} см²",
+            $"H={Mm(p.H)}  B={Mm(p.B)}\n" +
+            $"t={Mm(Math.Min(p.tw, p.tf))}  r={Mm(p.r)}\n" +
+            $"A={Cm2(p.A)}",
 
         RoundTubeProfile p =>
-            $"D={Mm(p.D)} мм  t={Mm(p.t)} мм\n" +
-            $"A={p.A:F2} см²",
+            $"D={Mm(p.D)}  t={Mm(p.t)}\n" +
+            $"A={Cm2(p.A)}",
 
         _ => ""
     };

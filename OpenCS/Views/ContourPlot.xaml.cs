@@ -31,5 +31,12 @@ namespace OpenCS.Views
 
          DataContext = vm;
       }
+
+      /// <summary>Правка X/Y в таблице: после применения привязки — перерисовка и «*».</summary>
+      void PointsGrid_CellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
+      {
+         if (e.EditAction != DataGridEditAction.Commit || DataContext is not ContourVM vm) return;
+         Dispatcher.InvokeAsync(vm.CommitPointMove, System.Windows.Threading.DispatcherPriority.Background);
+      }
    }
 }

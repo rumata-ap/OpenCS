@@ -6,6 +6,7 @@
              xmlns:local="clr-namespace:OpenCS.Views"
              xmlns:vm="clr-namespace:OpenCS.ViewModels"
              xmlns:core="clr-namespace:CScore;assembly=CScore"
+             xmlns:ut="clr-namespace:OpenCS.Utilites"
 
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
@@ -15,7 +16,12 @@
    </UserControl.DataContext>
 
    <UserControl.Resources>
-      <ResourceDictionary Source="/Images/svg.xaml"/>
+      <ResourceDictionary>
+         <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="/Images/svg.xaml"/>
+         </ResourceDictionary.MergedDictionaries>
+         <ut:NumberConvert x:Key="num"/>
+      </ResourceDictionary>
    </UserControl.Resources>
 
    <Grid>
@@ -55,10 +61,10 @@
                   </Grid.RowDefinitions>
 
                   <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource ContourDrawWidth}" VerticalAlignment="Center" Margin="0,0,8,4"/>
-                  <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ViewWidth, UpdateSourceTrigger=PropertyChanged, StringFormat=F4}" Height="24" Margin="0,0,0,4"/>
+                  <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ViewWidth, Converter={StaticResource num}, StringFormat=F4}" Height="24" Margin="0,0,0,4"/>
 
                   <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource ContourDrawHeight}" VerticalAlignment="Center" Margin="0,0,8,4"/>
-                  <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ViewHeight, UpdateSourceTrigger=PropertyChanged, StringFormat=F4}" Height="24" Margin="0,0,0,4"/>
+                  <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ViewHeight, Converter={StaticResource num}, StringFormat=F4}" Height="24" Margin="0,0,0,4"/>
                </Grid>
 
                <Grid Margin="0,0,0,4">
@@ -139,7 +145,7 @@
                    </Button>
 
                    <Button Grid.Column="4" Width="25" Margin="1" Background="Transparent" BorderThickness="0"
-                           Command="{Binding SaveCommand}" IsEnabled="{Binding IsEdit}"
+                           Command="{Binding SaveCommand}" IsEnabled="{Binding IsDirty}"
                            ToolTip="{DynamicResource TipSaveContour}">
                       <Image Source="{StaticResource di_save_xaml}"/>
                    </Button>
@@ -174,7 +180,7 @@
                     </Button>
 
                    <ToggleButton Name="EditTB" Grid.Column="8" Width="25" Margin="1" Background="Transparent" BorderThickness="0"
-                                 Command="{Binding SaveChangesCommand}" HorizontalAlignment="Right" IsChecked="{Binding IsEdit}"
+                                 HorizontalAlignment="Right" IsChecked="{Binding IsEdit}"
                                  ToolTip="{DynamicResource TipToggleEdit}">
                       <Image Source="{StaticResource di_edit_xaml}"/>
                    </ToggleButton>
@@ -183,31 +189,13 @@
 
                <DataGrid Grid.Row="1" ItemsSource="{Binding Points}" SelectedItem="{Binding Point}" AutoGenerateColumns="False" MaxHeight="400"
                          CanUserAddRows="{Binding IsEdit}" CanUserDeleteRows="{Binding IsEdit}"
+                         IsReadOnly="{Binding IsReadOnlyTable}" CellEditEnding="PointsGrid_CellEditEnding"
                          HorizontalAlignment="Stretch">
                   <DataGrid.Columns>
-                     <DataGridTextColumn Header="{DynamicResource Number}" Binding="{Binding Path=Num}" Width="40"/>
-                     <DataGridTextColumn Header="{DynamicResource X_m}" Binding="{Binding Path=X, StringFormat={}{0:F4}}" Width="100"/>
-                     <DataGridTextColumn Header="{DynamicResource Y_m}" Binding="{Binding Path=Y, StringFormat={}{0:F4}}" Width="100"/>
+                     <DataGridTextColumn Header="{DynamicResource Number}" Binding="{Binding Path=Num}" IsReadOnly="True" Width="40"/>
+                     <DataGridTextColumn Header="{DynamicResource X_m}" Binding="{Binding Path=X, Converter={StaticResource num}, StringFormat={}{0:F4}}" Width="100"/>
+                     <DataGridTextColumn Header="{DynamicResource Y_m}" Binding="{Binding Path=Y, Converter={StaticResource num}, StringFormat={}{0:F4}}" Width="100"/>
                   </DataGrid.Columns>
-                  <!--<DataGrid.ContextMenu>
-                     <ContextMenu IsEnabled="{Binding ElementName=EditTB, Path=IsChecked}">
-                        <MenuItem Header="Перенумеровать" Command="{Binding RenumPointCommand}">
-                           <MenuItem.Icon>
-                              <Image Source="{StaticResource di_list_xaml}"/>
-                           </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Header="Импорт из csv" Command="{Binding ImportCsvCommand}">
-                           <MenuItem.Icon>
-                              <Image Source="{StaticResource di_to_csv_xaml}"/>
-                           </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Header="Экспорт в csv" Command="{Binding ExportCsvCommand}">
-                           <MenuItem.Icon>
-                              <Image Source="{StaticResource di_from_csv_xaml}"/>
-                           </MenuItem.Icon>
-                        </MenuItem>
-                     </ContextMenu>
-                  </DataGrid.ContextMenu>-->
                </DataGrid>
 
                <StackPanel Grid.Row="2" Margin="0,4,0,0" MaxWidth="240">

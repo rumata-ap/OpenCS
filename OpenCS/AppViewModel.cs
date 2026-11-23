@@ -2176,52 +2176,37 @@ namespace OpenCS
          CurrentContour = new ContourVM { mvm = this };
       }
 
-      void NewContourFromTemplateRect()
+      void NewContourFromTemplateRect() => NewContourFromTemplate(new Views.Dialogs.TemplateRectDialog());
+      void NewContourFromTemplateTee() => NewContourFromTemplate(new Views.Dialogs.TemplateTeeDialog());
+      void NewContourFromTemplateIBeam() => NewContourFromTemplate(new Views.Dialogs.TemplateIBeamDialog());
+      void NewContourFromTemplateAngle() => NewContourFromTemplate(new Views.Dialogs.TemplateAngleDialog());
+      void NewContourFromTemplateCircle() => NewContourFromTemplate(new Views.Dialogs.TemplateCircleDialog());
+
+      /// <summary>Шаблонный контур: размеры проверены диалогом, контур строит и записывает служба.</summary>
+      void NewContourFromTemplate(System.Windows.Window dlg)
       {
-         var dlg = new Views.Dialogs.TemplateRectDialog();
          if (dlg.ShowDialog() != true) return;
-         var pts = TemplatePoints.RectPoints(dlg.WidthMm / 1000.0, dlg.HeightMm / 1000.0);
-         var contour = MakeContourFromPoints(pts, dlg.ContourName);
+         var (kind, size, name) = dlg switch
+         {
+            Views.Dialogs.TemplateRectDialog r => (r.Kind, r.Size, r.ContourName),
+            Views.Dialogs.TemplateTeeDialog r => (r.Kind, r.Size, r.ContourName),
+            Views.Dialogs.TemplateIBeamDialog r => (r.Kind, r.Size, r.ContourName),
+            Views.Dialogs.TemplateAngleDialog r => (r.Kind, r.Size, r.ContourName),
+            Views.Dialogs.TemplateCircleDialog r => (r.Kind, r.Size, r.ContourName),
+            _ => throw new ArgumentException(dlg.GetType().Name)
+         };
+         var contour = ContourAuthoring.FromTemplate(kind, size, name);
+         if (!SaveNewPoolContour(contour)) return;
+         CurrentContour = new ContourVM(contour) { mvm = this };
          LogService.Info(string.Format(Loc.S("ContourCreated"), contour.Tag));
       }
 
-      void NewContourFromTemplateTee()
+      /// <summary>Записывает новый контур через службу; ошибки — в журнал.</summary>
+      bool SaveNewPoolContour(Contour contour)
       {
-         var dlg = new Views.Dialogs.TemplateTeeDialog();
-         if (dlg.ShowDialog() != true) return;
-         var pts = TemplatePoints.TeePoints(dlg.WidthMm / 1000.0, dlg.HeightMm / 1000.0,
-             dlg.TwMm / 1000.0, dlg.TfMm / 1000.0);
-         var contour = MakeContourFromPoints(pts, dlg.ContourName);
-         LogService.Info(string.Format(Loc.S("ContourCreated"), contour.Tag));
-      }
-
-      void NewContourFromTemplateIBeam()
-      {
-         var dlg = new Views.Dialogs.TemplateIBeamDialog();
-         if (dlg.ShowDialog() != true) return;
-         var pts = TemplatePoints.IBeamPoints(dlg.HeightMm / 1000.0, dlg.WidthMm / 1000.0,
-             dlg.TwMm / 1000.0, dlg.TfMm / 1000.0);
-         var contour = MakeContourFromPoints(pts, dlg.ContourName);
-         LogService.Info(string.Format(Loc.S("ContourCreated"), contour.Tag));
-      }
-
-      void NewContourFromTemplateAngle()
-      {
-         var dlg = new Views.Dialogs.TemplateAngleDialog();
-         if (dlg.ShowDialog() != true) return;
-         var pts = TemplatePoints.AnglePoints(dlg.WidthMm / 1000.0, dlg.HeightMm / 1000.0,
-             dlg.TwMm / 1000.0, dlg.TfMm / 1000.0);
-         var contour = MakeContourFromPoints(pts, dlg.ContourName);
-         LogService.Info(string.Format(Loc.S("ContourCreated"), contour.Tag));
-      }
-
-      void NewContourFromTemplateCircle()
-      {
-         var dlg = new Views.Dialogs.TemplateCircleDialog();
-         if (dlg.ShowDialog() != true) return;
-         var pts = TemplatePoints.CirclePoints(dlg.DiameterMm / 1000.0, dlg.Segments);
-         var contour = MakeContourFromPoints(pts, dlg.ContourName);
-         LogService.Info(string.Format(Loc.S("ContourCreated"), contour.Tag));
+         var errors = ContourAuthoring.Save(db, contour);
+         foreach (var e in errors) LogService.Warning($"{contour.Tag}: {e.Message}");
+         return errors.Count == 0;
       }
 
       void NewContourFromSortament()
@@ -2248,10 +2233,10 @@ namespace OpenCS
             }
             else return;
 
-            var outer = MakeContourFromPoints(outerPts, name, ContourType.Hull);
-            var holeContour = BuildContour(holePts, $"{name} (отв.)", ContourType.Hole);
-            db.SaveContour(holeContour);
-            Contours.Add(holeContour);
+            var outer = ContourAuthoring.FromPoints(outerPts, name, ContourType.Hull);
+            var holeContour = ContourAuthoring.FromPoints(holePts, string.Format(Loc.S("ContourHoleName"), name), ContourType.Hole);
+            if (!SaveNewPoolContour(outer) || !SaveNewPoolContour(holeContour)) return;
+            CurrentContour = new ContourVM(outer) { mvm = this };
             LogService.Info(string.Format(Loc.S("ContourCreated"), outer.Tag));
          }
          else
@@ -2265,33 +2250,13 @@ namespace OpenCS
                pts = ang.ToPolygonPoints(dlg.NArc);
             else
                return;
-            var contour = MakeContourFromPoints(pts, name, ContourType.Hull);
+            var contour = ContourAuthoring.FromPoints(pts, name, ContourType.Hull);
+            if (!SaveNewPoolContour(contour)) return;
+            CurrentContour = new ContourVM(contour) { mvm = this };
             LogService.Info(string.Format(Loc.S("ContourCreated"), contour.Tag));
          }
       }
 
-      Contour BuildContour(List<(double X, double Y)> pts, string name, ContourType type)
-      {
-         var stressPoints = new List<StressPoint>();
-         int k = 1;
-         foreach (var (x, y) in pts)
-            stressPoints.Add(new StressPoint(x, y) { Num = k++ });
-         stressPoints.Add(new StressPoint(pts[0].X, pts[0].Y) { Num = k });
-         return new Contour(stressPoints, string.IsNullOrWhiteSpace(name) ? Loc.S("Contour") : name)
-         {
-            Type = type
-         };
-      }
-
-      ContourVM MakeContourFromPoints(List<(double X, double Y)> pts, string name, ContourType type = ContourType.Hull)
-      {
-         var contour = BuildContour(pts, name, type);
-         db.SaveContour(contour);
-         Contours.Add(contour);
-         var vm = new ContourVM(contour) { mvm = this };
-         CurrentContour = vm;
-         return vm;
-      }
 
       /// <summary>
       /// Обработчик команды <see cref="DelMaterialCommand"/>. Запрашивает подтверждение
@@ -2333,19 +2298,38 @@ namespace OpenCS
       /// и удаляет выбранный контур вместе со всеми связанными областями материалов
       /// из базы данных.
       /// </summary>
+      /// <summary>Список обозначений для сообщения: первые десять в «ёлочках», остальное — «…».</summary>
+      static string ListTags(IReadOnlyList<string> tags) =>
+         string.Join(", ", tags.Take(10).Select(t => $"«{t}»")) + (tags.Count > 10 ? ", …" : "");
+
       private void DelContour(object? o = null)
       {
-         CurrentPage = null!;
          if (CurrentContour == null) return;
+         var contour = CurrentContour.Contour;
+         string t = contour.Tag;
+         var usedBy = ContourAuthoring.UsedBy(db.MaterialAreas, contour);
+         if (usedBy.Count > 0)
+         {
+            System.Windows.MessageBox.Show(
+               string.Format(Loc.S("ContourInUseCannotDelete"), t, usedBy.Count, ListTags(usedBy)),
+               Loc.S("Warning"), System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            return;
+         }
          System.Windows.MessageBoxImage ic = System.Windows.MessageBoxImage.Warning;
          System.Windows.MessageBoxButton mbb = System.Windows.MessageBoxButton.YesNo;
           var res = System.Windows.MessageBox.Show(Loc.S("ConfirmDeleteContour"), Loc.S("Warning"), mbb, ic);
           if (res == System.Windows.MessageBoxResult.No || res == System.Windows.MessageBoxResult.Cancel) return;
 
-         string t = currentContour!.Tag;
-         db.DeleteContour(currentContour.Contour);
-
-          LogService.Info(string.Format(Loc.S("ContourDeleted"), t));
+         // Удаляемый контур на странице с несохранёнными правками — не спрашивать о сохранении.
+         if (CurrentPage is Views.ContourPlot page && page.DataContext is ContourVM shown
+             && ReferenceEquals(shown.Contour, contour) && shown.IsDirty)
+            ((IUnsavedChanges)shown).DiscardChanges();
+         CurrentPage = null!;
+         if (CurrentPage != null) return;
+         if (!ContourAuthoring.TryDelete(db, contour, out usedBy)) return;
+         currentContour = null;
+         OnPropertyChanged(nameof(CurrentContour));
+         LogService.Info(string.Format(Loc.S("ContourDeleted"), t));
       }
 
       /// <summary>
@@ -2355,7 +2339,7 @@ namespace OpenCS
       private void FromDxf(object? o = null)
       {
          string? fileName = FileDialogService.OpenFile(
-            filter: "Файл обмена чертежами (*.dxf)|*.dxf",
+            filter: Loc.S("DxfFileFilter"),
             title: "Импорт данных из файла DXF");
          if (string.IsNullOrEmpty(fileName)) return;
          CurrentPage = new FromDxfPage(this, fileName);
@@ -2366,8 +2350,7 @@ namespace OpenCS
          var dlg = new Views.Dialogs.CircleDialog();
          if (dlg.ShowDialog() != true) return;
          var cp = new CircleP(dlg.X, dlg.Y, dlg.Radius);
-         db.SaveCircle(cp);
-         Circles.Add(cp);
+         if (ContourAuthoring.SaveCircle(db, cp).Count > 0) return; // проверено диалогом
          this.CirclesRenumber();
          LogService.Info(Loc.S("CircleAdded"));
       }
@@ -2378,8 +2361,7 @@ namespace OpenCS
          var res = MessageBox.Show(Loc.S("ConfirmDeleteCircle"), Loc.S("Confirmation"),
             MessageBoxButton.YesNo, MessageBoxImage.Warning);
          if (res != MessageBoxResult.Yes) return;
-         db.DeleteCircle(cp);
-         Circles.Remove(cp);
+         ContourAuthoring.DeleteCircle(db, cp);
          this.CirclesRenumber();
          LogService.Info(string.Format(Loc.S("CircleDeleted"), cp.Tag));
       }
@@ -2387,7 +2369,7 @@ namespace OpenCS
       private void ImportContoursFromDxf(object? _ = null)
       {
          string? fileName = FileDialogService.OpenFile(
-            filter: "Файл обмена чертежами (*.dxf)|*.dxf",
+            filter: Loc.S("DxfFileFilter"),
             title: Loc.S("ImportContoursFromDxfTitle"));
          if (string.IsNullOrEmpty(fileName)) return;
 
@@ -2421,8 +2403,8 @@ namespace OpenCS
             if (pts.Count < 4) { skipped++; continue; }
 
             var contour = new Contour(pts, pline.Layer.Name) { GeometrySet = geoSet };
-            db.SaveContour(contour);
-            Contours.Add(contour); // CollectionChanged → ContoursRenumber
+            if (string.IsNullOrWhiteSpace(contour.Tag)) contour.Tag = Loc.S("Contour");
+            if (ContourAuthoring.Save(db, contour).Count > 0) { skipped++; continue; } // самопересечение, нулевая площадь
             added++;
          }
 
@@ -2437,7 +2419,7 @@ namespace OpenCS
       private void ImportCirclesFromDxf(object? _ = null)
       {
          string? fileName = FileDialogService.OpenFile(
-            filter: "Файл обмена чертежами (*.dxf)|*.dxf",
+            filter: Loc.S("DxfFileFilter"),
             title: Loc.S("ImportCirclesFromDxfTitle"));
          if (string.IsNullOrEmpty(fileName)) return;
 
@@ -2453,9 +2435,7 @@ namespace OpenCS
                Tag = c.Layer.Name,
                GeometrySet = geoSet
             };
-            db.SaveCircle(cp);
-            Circles.Add(cp);
-            added++;
+            if (ContourAuthoring.SaveCircle(db, cp).Count == 0) added++;
          }
 
          if (added > 0)
@@ -2618,7 +2598,7 @@ namespace OpenCS
          }
 
          string? fileName = FileDialogService.SaveFile(
-            filter: "Файл обмена чертежами (*.dxf)|*.dxf",
+            filter: Loc.S("DxfFileFilter"),
             defaultExt: "*.dxf",
             title: Loc.S("ExportCirclesToDxfTitle"));
          if (string.IsNullOrEmpty(fileName)) return;
@@ -2647,23 +2627,18 @@ namespace OpenCS
       private void ImportCirclesFromCsv(object? _ = null)
       {
          string? fileName = FileDialogService.OpenFile(
-            filter: "Текстовый файл (*.csv)|*.csv",
+            filter: Loc.S("CsvFileFilter"),
             title: Loc.S("ImportCirclesFromCsvTitle"));
          if (string.IsNullOrEmpty(fileName)) return;
 
-         var config = new CsvConfiguration(CultureInfo.InvariantCulture) { Delimiter = ";" };
-         using var reader = new StreamReader(fileName);
-         using var csv = new CsvReader(reader, config);
-         var records = csv.GetRecords<CircleCsvRow>().ToList();
+         List<CircleP> parsed;
+         int skipped;
+         try { parsed = CircleCsv.Parse(File.ReadAllLines(fileName), out skipped); }
+         catch (IOException ex) { LogService.Error(ex.Message); return; }
          int added = 0;
-
-         foreach (var r in records)
-         {
-            var cp = new CircleP(r.X, r.Y, r.Radius) { Tag = r.Tag };
-            db.SaveCircle(cp);
-            Circles.Add(cp);
-            added++;
-         }
+         foreach (var cp in parsed)
+            if (ContourAuthoring.SaveCircle(db, cp).Count == 0) added++;
+         if (skipped > 0) LogService.Warning(string.Format(Loc.S("CsvRowsSkippedLog"), skipped));
 
          if (added > 0)
          {
@@ -2681,16 +2656,12 @@ namespace OpenCS
          }
 
          string? fileName = FileDialogService.SaveFile(
-            filter: "Текстовый файл (*.csv)|*.csv",
+            filter: Loc.S("CsvFileFilter"),
             defaultExt: "*.csv",
             title: Loc.S("ExportCirclesToCsvTitle"));
          if (string.IsNullOrEmpty(fileName)) return;
 
-         var config = new CsvConfiguration(CultureInfo.InvariantCulture) { Delimiter = ";" };
-         using var writer = new StreamWriter(fileName);
-         using var csv = new CsvWriter(writer, config);
-         csv.WriteRecords(Circles.Select(c => new CircleCsvRow
-            { Tag = c.Tag, X = c.X, Y = c.Y, Radius = c.Radius }));
+         File.WriteAllLines(fileName, CircleCsv.Format(Circles));
          LogService.Info(string.Format(Loc.S("CirclesExportedToCsv"), Circles.Count, Path.GetFileName(fileName)));
       }
 
@@ -3593,14 +3564,6 @@ namespace OpenCS
             MessageBoxButton.YesNo, MessageBoxImage.Warning);
          if (res != MessageBoxResult.Yes) return;
          db.DeleteCalcResultsByTaskId(ct.Id);
-      }
-
-      private record CircleCsvRow
-      {
-         public string Tag    { get; init; } = "";
-         public double X      { get; init; }
-         public double Y      { get; init; }
-         public double Radius { get; init; }
       }
 
       #region FEM

@@ -1,33 +1,39 @@
+using OpenCS.Services;
+using OpenCS.Utilites;
 using System.Windows;
 
 namespace OpenCS.Views.Dialogs;
 
+/// <summary>Шаблон контура «IBeam»: размеры в мм, проверка — <see cref="ContourAuthoring.ValidateTemplate"/>.</summary>
 public partial class TemplateIBeamDialog : Window
 {
-    public string ContourName => NameBox.Text.Trim();
-    public double HeightMm { get; private set; }
-    public double WidthMm { get; private set; }
-    public double TwMm { get; private set; }
-    public double TfMm { get; private set; }
+    /// <summary>Шаблон, который строит диалог.</summary>
+    public ContourTemplate Kind => ContourTemplate.IBeam;
+
+    /// <summary>Обозначение нового контура (пусто — подпись шаблона).</summary>
+    public string ContourName => TemplateDialogInput.NameOr(NameBox, "TemplateIBeam");
+
+    /// <summary>Проверенные размеры, м (после «OK»).</summary>
+    public ContourTemplateSize Size { get; private set; } = null!;
 
     public TemplateIBeamDialog()
     {
         InitializeComponent();
         Owner = Application.Current.MainWindow;
+        NameBox.Text = Loc.S("TemplateIBeam");
     }
 
     void Ok_Click(object sender, RoutedEventArgs e)
     {
-        if (!double.TryParse(HeightBox.Text, out var h) || h <= 0 ||
-            !double.TryParse(WidthBox.Text, out var w) || w <= 0 ||
-            !double.TryParse(TwBox.Text, out var tw) || tw <= 0 ||
-            !double.TryParse(TfBox.Text, out var tf) || tf <= 0)
-        {
-            MessageBox.Show("Введите положительные числовые значения.", "Ошибка",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
-        HeightMm = h; WidthMm = w; TwMm = tw; TfMm = tf;
+        TemplateDialogInput.Field[] fields =
+        [
+            new("height", HeightBox, "TplHeightMm"),
+            new("width", WidthBox, "TplFlangesWidthMm"),
+            new("tw", TwBox, "TplWebThicknessMm"),
+            new("tf", TfBox, "TplFlangeThicknessMm")
+        ];
+        if (!TemplateDialogInput.TryRead(this, Kind, fields, 0, out var size)) return;
+        Size = size;
         DialogResult = true;
     }
 }

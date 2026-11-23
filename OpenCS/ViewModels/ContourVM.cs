@@ -39,8 +39,12 @@ namespace OpenCS.ViewModels
    /// сохранением и обменом координат через CSV-файлы. Является промежуточным звеном
    /// между доменной моделью контура и представлением <see cref="ContourPlot"/>.
    /// </summary>
-   public class ContourVM : ViewModelBase
+   public class ContourVM : ViewModelBase, IUnsavedChanges
    {
+      /// <summary>Записанное состояние: обозначение, набор, тип и вершины (снимок для «*» и «Не сохранять»).</summary>
+      sealed record SavedState(string Tag, string? Set, ContourType Type, (double X, double Y)[] Points);
+
+      SavedState _saved = null!;
       /// <summary>Выбранная точка контура, используемая для редактирования в представлении.</summary>
       StressPoint? point;
 
@@ -80,11 +84,29 @@ namespace OpenCS.ViewModels
       /// <summary>Запрос перерисовки интерактивного холста контура.</summary>
       public event Action? CanvasRefreshRequested;
 
-      /// <summary>
-      /// Флаг, указывающий, сохранён ли контур в базу данных.
-      /// Используется для различения операций создания и обновления.
-      /// </summary>
-      public bool IsSaved {  get; set; }
+      /// <summary>Контур записан в пул проекта (новый — пока не нажата «Сохранить»).</summary>
+      public bool IsSaved => Contour.Id > 0;
+
+      /// <summary>Есть правки, не записанные в проект (заголовок со «*», вопрос при уходе).</summary>
+      public bool IsDirty => !Same(Capture(), _saved);
+
+      /// <summary>Обозначение для вопроса о сохранении.</summary>
+      public string DisplayName => string.IsNullOrWhiteSpace(Contour.Tag) ? Loc.S("NewContour") : Contour.Tag;
+
+      SavedState Capture() => new(Contour.Tag ?? "", Contour.GeometrySet, Contour.Type,
+         Contour.Points.Select(p => (p.X, p.Y)).ToArray());
+
+      static bool Same(SavedState a, SavedState b) =>
+         a.Tag == b.Tag && a.Set == b.Set && a.Type == b.Type && a.Points.SequenceEqual(b.Points);
+
+      void MarkSaved()
+      {
+         _saved = Capture();
+         Touch();
+      }
+
+      /// <summary>Уведомляет о возможной смене <see cref="IsDirty"/>.</summary>
+      void Touch() => OnPropertyChanged(nameof(IsDirty));
 
       /// <summary>
       /// Флаг режима редактирования контура. При установке значения
@@ -93,14 +115,17 @@ namespace OpenCS.ViewModels
       public bool IsEdit
       {
          get => isEdit;
-         set { isEdit = value; OnPropertyChanged(); OnPropertyChanged(nameof(NeedsClosingHint)); OnPropertyChanged(nameof(IsDrawingSetup)); OnPropertyChanged(nameof(IsDrawingActive)); }
+         set { isEdit = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsReadOnlyTable)); OnPropertyChanged(nameof(NeedsClosingHint)); OnPropertyChanged(nameof(IsDrawingSetup)); OnPropertyChanged(nameof(IsDrawingActive)); }
       }
+
+      /// <summary>Таблица вершин только для чтения вне режима правки (защита от случайных правок).</summary>
+      public bool IsReadOnlyTable => !isEdit;
 
       /// <summary>
       /// Тип контура (Оболочка, Отверстие, Нет). Проксирует свойство
       /// <see cref="Contour.Type"/> с уведомлением об изменении.
       /// </summary>
-      public ContourType Type { get => Contour.Type; set { Contour.Type = value; OnPropertyChanged(); } }
+      public ContourType Type { get => Contour.Type; set { Contour.Type = value; OnPropertyChanged(); Touch(); } }
 
       /// <summary>
       /// Номер контура в порядке следования. Проксирует <see cref="Contour.Num"/>
@@ -119,7 +144,7 @@ namespace OpenCS.ViewModels
       public string Tag
       {
          get => Contour.Tag;
-         set { Contour.Tag = value; OnPropertyChanged(); Description = ""; }
+         set { Contour.Tag = value; OnPropertyChanged(); Description = ""; Touch(); }
       }
 
       /// <summary>
@@ -129,7 +154,7 @@ namespace OpenCS.ViewModels
       public string? Set
       {
          get => Contour.GeometrySet;
-         set { Contour.GeometrySet = value; OnPropertyChanged(); Description = ""; }
+         set { Contour.GeometrySet = string.IsNullOrWhiteSpace(value) ? null : value; OnPropertyChanged(); Description = ""; Touch(); }
       }
 
       /// <summary>
@@ -266,12 +291,6 @@ namespace OpenCS.ViewModels
       public ICommand ExportCsvCommand { get; set; } = null!;
 
       /// <summary>
-      /// Команда привязки для переключения режима редактирования контура.
-      /// Вызывает метод <c>SaveChanges</c>.
-      /// </summary>
-      public ICommand SaveChangesCommand { get; set; } = null!;
-
-      /// <summary>
       /// Команда привязки для сохранения контура в базу данных.
       /// Вызывает метод <c>Save</c>.
       /// </summary>
@@ -310,7 +329,6 @@ namespace OpenCS.ViewModels
           CloseContourCommand = new RelayCommand(CloseContour);
           ExportCsvCommand = new RelayCommand(ExportCsv);
           ImportCsvCommand = new RelayCommand(ImportCsv);
-          SaveChangesCommand = new RelayCommand(SaveChanges);
           SaveCommand = new RelayCommand(Save);
           ShowPropertiesCommand = new RelayCommand(_ => ShowProperties());
           TranslateCommand = new RelayCommand(_ => Translate());
@@ -318,6 +336,7 @@ namespace OpenCS.ViewModels
           BeginDrawingCommand = new RelayCommand(_ => BeginDrawing(), _ => CanBeginDrawing());
           SetViewFromOrigin(viewWidth, viewHeight);
           WirePointsCollection();
+          _saved = Capture();
        }
 
        /// <summary>
@@ -328,14 +347,12 @@ namespace OpenCS.ViewModels
        public ContourVM(Contour contour)
        {
           Contour = contour;
-          IsSaved = true;
           Types = [ContourType.Hull, ContourType.Hole, ContourType.None];
 
           RenumPointCommand = new RelayCommand(RenumPoint);
           CloseContourCommand = new RelayCommand(CloseContour);
           ExportCsvCommand = new RelayCommand(ExportCsv);
           ImportCsvCommand = new RelayCommand(ImportCsv);
-          SaveChangesCommand = new RelayCommand(SaveChanges);
           SaveCommand = new RelayCommand(Save);
           ShowPropertiesCommand = new RelayCommand(_ => ShowProperties());
           TranslateCommand = new RelayCommand(_ => Translate());
@@ -349,6 +366,7 @@ namespace OpenCS.ViewModels
           else
              SetViewFromOrigin(viewWidth, viewHeight);
           WirePointsCollection();
+          _saved = Capture();
        }
 
        void WirePointsCollection()
@@ -359,6 +377,7 @@ namespace OpenCS.ViewModels
           {
              NotifyContourGeometryChanged();
              RefreshPlot();
+             Touch();
           };
           Contour.Points.CollectionChanged += _pointsChangedHandler;
        }
@@ -465,6 +484,8 @@ namespace OpenCS.ViewModels
        {
           OnPropertyChanged(nameof(Points));
           NotifyContourGeometryChanged();
+          RefreshPlot();
+          Touch();
        }
 
        /// <summary>Удаляет последнюю вершину.</summary>
@@ -514,29 +535,6 @@ namespace OpenCS.ViewModels
        }
 
        /// <summary>
-       /// Замыкает контур при необходимости, обновляет WKT и проверяет минимальное число вершин.
-       /// </summary>
-       bool PrepareContourForSave()
-       {
-          if (Contour.Points.Count < 3)
-          {
-             MessageBox.Show(Loc.S("ContourTooFewPoints"), Loc.S("Warning"),
-                 MessageBoxButton.OK, MessageBoxImage.Warning);
-             return false;
-          }
-          if (!Contour.TryClose())
-          {
-             MessageBox.Show(Loc.S("ContourTooFewPoints"), Loc.S("Warning"),
-                 MessageBoxButton.OK, MessageBoxImage.Warning);
-             return false;
-          }
-          RenumPoint();
-          RefreshPlot();
-          NotifyContourGeometryChanged();
-          return true;
-       }
-
-       /// <summary>
        /// Предупреждает, если вершин контура меньше требуемого минимума.
        /// </summary>
        bool WarnContourVerticesBelow(int minCount)
@@ -566,23 +564,14 @@ namespace OpenCS.ViewModels
           Points = refreshed;
        }
 
-       /// <summary>Сохраняет контур в БД без дублирования в коллекции проекта.</summary>
-       void PersistContourToDb()
-       {
-          mvm.db.SaveContour(Contour);
-          if (mvm.Contours.Contains(Contour))
-             IsSaved = true;
-          mvm.MarkDirty(SaveCategory.Contours);
-       }
-
        void Translate()
        {
            if (WarnContourVerticesBelow(4)) return;
 
            var dlg = new Views.Dialogs.DoubleInputDialog(
-               "Сдвиг контура",
-               "Смещение по X (м):",
-               "Смещение по Y (м):");
+               Loc.S("ContourTranslateTitle"),
+               Loc.S("ContourTranslateDx"),
+               Loc.S("ContourTranslateDy"));
            if (dlg.ShowDialog() != true) return;
 
            double dx = dlg.Value1, dy = dlg.Value2;
@@ -595,8 +584,8 @@ namespace OpenCS.ViewModels
            }
            ApplyContourGeometryChange();
            FitViewToPoints();
-           PersistContourToDb();
-           mvm.LogService.Info($"Контур сдвинут на ({dx}, {dy})");
+           Touch();
+           mvm.LogService.Info(string.Format(Loc.S("ContourTranslatedLog"), dx, dy));
        }
 
        void Scale()
@@ -604,17 +593,17 @@ namespace OpenCS.ViewModels
            if (WarnContourVerticesBelow(4)) return;
 
            var dlg = new Views.Dialogs.DoubleInputDialog(
-               "Масштабирование контура",
-               "Коэффициент по X:",
-               "Коэффициент по Y:",
+               Loc.S("ContourScaleTitle"),
+               Loc.S("ContourScaleKx"),
+               Loc.S("ContourScaleKy"),
                1.0, 1.0);
            if (dlg.ShowDialog() != true) return;
 
            double sx = dlg.Value1, sy = dlg.Value2;
            if (sx <= 0 || sy <= 0)
            {
-               MessageBox.Show("Коэффициенты масштабирования должны быть положительными.",
-                   "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+               MessageBox.Show(Loc.S("ContourScaleMustBePositive"),
+                   Loc.S("Warning"), MessageBoxButton.OK, MessageBoxImage.Warning);
                return;
            }
            if (sx == 1 && sy == 1) return;
@@ -631,8 +620,8 @@ namespace OpenCS.ViewModels
            }
            ApplyContourGeometryChange();
            FitViewToPoints();
-           PersistContourToDb();
-           mvm.LogService.Info($"Контур масштабирован ({sx}, {sy})");
+           Touch();
+           mvm.LogService.Info(string.Format(Loc.S("ContourScaledLog"), sx, sy));
        }
 
        void RefreshPlot() => CanvasRefreshRequested?.Invoke();
@@ -646,7 +635,7 @@ namespace OpenCS.ViewModels
        }
 
       /// <summary>
-      /// Перенумеровывает точки контура начиная с 1 и сохраняет изменения в базу данных.
+      /// Перенумеровывает точки контура начиная с 1 (в базу не пишет — только «Сохранить»).
       /// </summary>
       void RenumPoint(object? o = null)
       {
@@ -656,71 +645,50 @@ namespace OpenCS.ViewModels
             item.Num = i; i++;
          }
          Points = [.. Contour.Points];
-         mvm.db.SaveContour(Contour);
       }
 
       /// <summary>
-      /// Экспортирует координаты точек контура в CSV-файл с разделителем «;».
-      /// Использует <see cref="IFileDialogService"/> для выбора файла сохранения.
+      /// Экспортирует координаты точек контура в CSV-файл: «X;Y», метры, десятичная точка.
       /// </summary>
       void ExportCsv(object? o = null)
       {
          string fileName = mvm.FileDialogService.SaveFile(
-            filter: "Текстовый файл (*.csv)|*.csv",
+            filter: Loc.S("CsvFileFilter"),
             defaultExt: "*.csv",
-            title: "Экспорт координат в файл csv")!;
+            title: Loc.S("ContourCsvExportTitle"))!;
 
          if (string.IsNullOrEmpty(fileName)) return;
+         if (Contour.Points.Count == 0) return;
 
-         if(Contour.Points.Count == 0) return;
-
-         List<Coord> coord = [];
-         foreach (var item in Points)
-         {
-            coord.Add(new() { X = item.X, Y = item.Y });
-         }
-
-         var config = new CsvConfiguration(CultureInfo.InvariantCulture)
-         {
-            Delimiter = ";"
-         };
-
-         using var writer = new StreamWriter(fileName);
-         using var csv = new CsvWriter(writer, config);
-         csv.WriteRecords(coord);
-
-         mvm.LogService.Info($"Данные успешно записаны в файл '{fileName}'");
+         var lines = new List<string> { "X;Y" };
+         lines.AddRange(Points.Select(p => FormattableString.Invariant($"{p.X:R};{p.Y:R}")));
+         File.WriteAllLines(fileName, lines);
+         mvm.LogService.Info(string.Format(Loc.S("CsvExportedLog"), fileName));
       }
 
       /// <summary>
-      /// Импортирует координаты точек контура из CSV-файла с разделителем «;».
-      /// После загрузки обновляет контур и перерисовывает график.
+      /// Импортирует вершины из CSV: строки «X;Y» в метрах (первая строка может быть заголовком). Разделитель полей —
+      /// «;» или табуляция; «,» — только если их нет. Десятичный разделитель — «,» или «.». Неразобранные строки
+      /// пропускаются (число — в журнал). Правка не записывается до «Сохранить».
       /// </summary>
-      void ImportCsv(object? o = null)
+      public int ImportCsv(string path)
       {
-         string fileName = mvm.FileDialogService.OpenFile(
-            filter: "Текстовый файл (*.csv)|*.csv",
-            title: "Импорт координат из файла csv")!;
-
-         if (string.IsNullOrEmpty(fileName)) return;
-
-         var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+         var lines = File.ReadAllLines(path);
+         char delim = lines.Any(l => l.Contains(';')) ? ';' : lines.Any(l => l.Contains('\t')) ? '\t' : ',';
+         var points = new List<StressPoint>();
+         int skipped = 0;
+         foreach (var raw in lines)
          {
-            Delimiter = ";"
-         };
-         using var reader = new StreamReader(fileName);
-         using var csv = new CsvReader(reader, config);
-         var records = csv.GetRecords<Coord>();
-
-         if(records == null) return;
-
-         List<StressPoint> points = [];
-         int i = 1;
-         foreach (var r in records)
-         {
-            points.Add(new StressPoint(r.X, r.Y) { Num = i});
-            i++;
+            var line = raw.Trim();
+            if (line.Length == 0) continue;
+            var parts = line.Split(delim);
+            if (parts.Length >= 2 && NumberInput.TryParse(parts[0], out double x) && NumberInput.TryParse(parts[1], out double y))
+               points.Add(new StressPoint(x, y) { Num = points.Count + 1, Contour = Contour });
+            else if (points.Count > 0 || !char.IsLetter(line[0]))
+               skipped++;
          }
+         if (points.Count == 0) return skipped;
+
          Contour.Points = new ObservableCollection<StressPoint>(points);
          WirePointsCollection();
          if (Contour.Points.Count >= 3 && !Contour.IsClosed)
@@ -731,42 +699,81 @@ namespace OpenCS.ViewModels
          RefreshPlot();
          OnPropertyChanged(nameof(Points));
          NotifyContourGeometryChanged();
+         Touch();
+         return skipped;
+      }
+
+      void ImportCsv(object? o = null)
+      {
+         string fileName = mvm.FileDialogService.OpenFile(
+            filter: Loc.S("CsvFileFilter"),
+            title: Loc.S("ContourCsvImportTitle"))!;
+         if (string.IsNullOrEmpty(fileName)) return;
+         try
+         {
+            int skipped = ImportCsv(fileName);
+            if (skipped > 0) mvm.LogService.Warning(string.Format(Loc.S("CsvRowsSkippedLog"), skipped));
+         }
+         catch (IOException ex)
+         {
+            mvm.LogService.Error(ex.Message);
+         }
       }
 
       /// <summary>
-      /// Логирует состояние режима редактирования контура (доступен/недоступен).
+      /// Проверяет и записывает контур через <see cref="ContourAuthoring"/> (новый — добавляется в пул). Ошибки —
+      /// в журнал, ничего не записано.
       /// </summary>
-      void SaveChanges(object? o = null)
+      public IReadOnlyList<FieldError> Save()
       {
-         if(isEdit)
+         bool isNew = Contour.Id == 0;
+         var errors = ContourAuthoring.Save(mvm.db, Contour);
+         if (errors.Count > 0)
          {
-            mvm.LogService.Info("Контур доступен для редактирования");
+            foreach (var e in errors) mvm.LogService.Warning(Describe(e));
+            return errors;
          }
-         else
-         {
-            mvm.LogService.Info("Контур не доступен для редактирования");
-         }
-      }
-
-      /// <summary>
-      /// Сохраняет контур в базу данных. Если контур уже сохранён (<see cref="IsSaved"/> = true),
-      /// обновляет существующую запись. Иначе — добавляет новую запись и устанавливает
-      /// <see cref="IsSaved"/> в true. После сохранения перенумеровывает контуры.
-      /// </summary>
-      void Save(object? o = null)
-      {
-         if (!PrepareContourForSave()) return;
-
-         bool isNew = !mvm.Contours.Contains(Contour);
-         if (isNew)
-            mvm.Contours.Add(Contour);
-         mvm.db.SaveContour(Contour);
-         IsSaved = true;
+         Points = [.. Contour.Points];
+         RefreshPlot();
+         NotifyContourGeometryChanged();
          mvm.MarkDirty(SaveCategory.Contours);
+         MarkSaved();
+         OnPropertyChanged(nameof(IsSaved));
+         mvm.LogService.Info(string.Format(Loc.S(isNew ? "ContourSavedNewLog" : "ContourSavedLog"), Tag));
+         return [];
+      }
 
-         mvm.LogService.Info(isNew
-            ? $"Контур '{Tag}' успешно сохранен"
-            : $"Изменения контура '{Tag}' сохранены");
+      void Save(object? o = null) => Save();
+
+      /// <summary>Текст ошибки для журнала: «Вершина N: …» для вершин таблицы.</summary>
+      static string Describe(FieldError e)
+      {
+         if (e.Path.StartsWith("points[") && int.TryParse(e.Path[7..^1], out int i))
+            return string.Format(Loc.S("ContourErrVertex"), i + 1, e.Message);
+         return e.Message;
+      }
+
+      bool IUnsavedChanges.SaveChanges() => Save().Count == 0;
+
+      /// <summary>Возвращает обозначение, набор, тип и вершины к записанному состоянию.</summary>
+      void IUnsavedChanges.DiscardChanges()
+      {
+         Contour.Tag = _saved.Tag;
+         Contour.GeometrySet = _saved.Set;
+         Contour.Type = _saved.Type;
+         var pts = new ObservableCollection<StressPoint>();
+         int k = 1;
+         foreach (var (x, y) in _saved.Points)
+            pts.Add(new StressPoint(x, y) { Num = k++, Contour = Contour });
+         Contour.Points = pts;
+         WirePointsCollection();
+         if (Contour.Points.Count >= 4)
+         {
+            Contour.PointsToXYs();
+            Contour.SetWKT();
+         }
+         OnPropertyChanged(string.Empty);
+         RefreshPlot();
       }
 
    }

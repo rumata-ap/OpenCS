@@ -3,8 +3,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:ut="clr-namespace:OpenCS.Utilites"
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
+   <UserControl.Resources>
+      <ut:NumberConvert x:Key="num"/>
+   </UserControl.Resources>
 
    <Grid>
       <Grid.RowDefinitions>
@@ -46,14 +50,15 @@
                 GridLinesVisibility="Horizontal"
                 RowHeaderWidth="0"
                 Margin="5,0,5,5"
+                BeginningEdit="CirclesGrid_BeginningEdit"
                 RowEditEnding="CirclesGrid_RowEditEnding">
          <DataGrid.Columns>
             <DataGridTextColumn Header="{DynamicResource Number}"    Binding="{Binding Num}"                              IsReadOnly="True" Width="45"/>
             <DataGridTextColumn Header="{DynamicResource Tag}"       Binding="{Binding Tag}"                              Width="140"/>
             <DataGridTextColumn Header="{DynamicResource CircleSet}" Binding="{Binding GeometrySet}"                      Width="160"/>
-            <DataGridTextColumn Header="{DynamicResource X_m}"       Binding="{Binding X,        StringFormat={}{0:F4}}"  Width="90"/>
-            <DataGridTextColumn Header="{DynamicResource Y_m}"       Binding="{Binding Y,        StringFormat={}{0:F4}}"  Width="90"/>
-            <DataGridTextColumn Header="{DynamicResource R_m}"       Binding="{Binding Radius,   StringFormat={}{0:F4}}"  Width="90"/>
+            <DataGridTextColumn Header="{DynamicResource X_m}"       Binding="{Binding X, Converter={StaticResource num}, StringFormat={}{0:F4}}"  Width="90"/>
+            <DataGridTextColumn Header="{DynamicResource Y_m}"       Binding="{Binding Y, Converter={StaticResource num}, StringFormat={}{0:F4}}"  Width="90"/>
+            <DataGridTextColumn Header="{DynamicResource R_m}"       Binding="{Binding Radius, Converter={StaticResource num}, StringFormat={}{0:F4}}"  Width="90"/>
             <DataGridTextColumn Header="{DynamicResource D_m}"       Binding="{Binding Diameter, StringFormat={}{0:F4}}"  IsReadOnly="True" Width="90"/>
          </DataGrid.Columns>
       </DataGrid>

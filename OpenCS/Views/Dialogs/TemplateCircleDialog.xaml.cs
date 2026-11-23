@@ -1,35 +1,36 @@
+using OpenCS.Services;
+using OpenCS.Utilites;
 using System.Windows;
 
 namespace OpenCS.Views.Dialogs;
 
+/// <summary>Шаблон контура «Circle»: размеры в мм, проверка — <see cref="ContourAuthoring.ValidateTemplate"/>.</summary>
 public partial class TemplateCircleDialog : Window
 {
-    public string ContourName => NameBox.Text.Trim();
-    public double DiameterMm { get; private set; }
-    public int Segments { get; private set; }
+    /// <summary>Шаблон, который строит диалог.</summary>
+    public ContourTemplate Kind => ContourTemplate.Circle;
+
+    /// <summary>Обозначение нового контура (пусто — подпись шаблона).</summary>
+    public string ContourName => TemplateDialogInput.NameOr(NameBox, "TemplateCircle");
+
+    /// <summary>Проверенные размеры, м (после «OK»).</summary>
+    public ContourTemplateSize Size { get; private set; } = null!;
 
     public TemplateCircleDialog()
     {
         InitializeComponent();
         Owner = Application.Current.MainWindow;
+        NameBox.Text = Loc.S("TemplateCircle");
     }
 
     void Ok_Click(object sender, RoutedEventArgs e)
     {
-        if (!double.TryParse(DiameterBox.Text, out var d) || d <= 0)
-        {
-            MessageBox.Show("Введите положительное числовое значение диаметра.", "Ошибка",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
-        if (!int.TryParse(SegmentsBox.Text, out var n) || n < 3)
-        {
-            MessageBox.Show("Число сегментов должно быть не менее 3.", "Ошибка",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
-        DiameterMm = d;
-        Segments = n;
+        TemplateDialogInput.Field[] fields =
+        [
+            new("d", DiameterBox, "TplDiameterMm")
+        ];
+        if (!TemplateDialogInput.TryRead(this, Kind, fields, int.TryParse(SegmentsBox.Text, out var n) ? n : 0, out var size)) return;
+        Size = size;
         DialogResult = true;
     }
 }
