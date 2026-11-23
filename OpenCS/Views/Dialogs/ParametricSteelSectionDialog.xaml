@@ -3,10 +3,12 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:sp16="clr-namespace:CScore.Sp16;assembly=CScore"
         xmlns:preview="clr-namespace:OpenCS.Views.Helpers"
+        xmlns:ut="clr-namespace:OpenCS.Utilites"
         Title="{DynamicResource ParametricSteelDialogTitle}"
         Width="1100" Height="780" MinWidth="920" MinHeight="640"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip">
    <Window.Resources>
+      <ut:NumberConvert x:Key="num"/>
       <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
       <Style x:Key="FieldLabel" TargetType="TextBlock">
          <Setter Property="VerticalAlignment" Value="Center"/>
@@ -129,45 +131,45 @@
                   <Grid>
                      <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                      <TextBlock Text="{Binding HLabel}" Style="{StaticResource FieldLabel}"/>
-                     <TextBox Grid.Column="1" Text="{Binding HMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                     <TextBox Grid.Column="1" Text="{Binding HMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,2"/>
                   </Grid>
                   <Grid Visibility="{Binding ShowB, Converter={StaticResource BoolToVisibility}}">
                      <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                      <TextBlock Text="{Binding BLabel}" Style="{StaticResource FieldLabel}"/>
-                     <TextBox Grid.Column="1" Text="{Binding BMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                     <TextBox Grid.Column="1" Text="{Binding BMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,2"/>
                   </Grid>
                   <Grid Visibility="{Binding ShowTf, Converter={StaticResource BoolToVisibility}}">
                      <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                      <TextBlock Text="{Binding TfLabel}" Style="{StaticResource FieldLabel}"/>
-                     <TextBox Grid.Column="1" Text="{Binding TfMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                     <TextBox Grid.Column="1" Text="{Binding TfMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,2"/>
                   </Grid>
                   <Grid Visibility="{Binding ShowBottomFlange, Converter={StaticResource BoolToVisibility}}">
                      <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                      <TextBlock Text="{DynamicResource ParametricSteelBf2Mm}" Style="{StaticResource FieldLabel}"/>
-                     <TextBox Grid.Column="1" Text="{Binding B2Mm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                     <TextBox Grid.Column="1" Text="{Binding B2Mm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,2"/>
                      <TextBlock Grid.Row="1" Text="{DynamicResource ParametricSteelTf2Mm}" Style="{StaticResource FieldLabel}"/>
-                     <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Tf2Mm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                     <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Tf2Mm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,2"/>
                   </Grid>
                   <Grid Visibility="{Binding ShowTw, Converter={StaticResource BoolToVisibility}}">
                      <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                      <TextBlock Text="{Binding TwLabel}" Style="{StaticResource FieldLabel}"/>
-                     <TextBox Grid.Column="1" Text="{Binding TwMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                     <TextBox Grid.Column="1" Text="{Binding TwMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,2"/>
                   </Grid>
                   <Grid Visibility="{Binding ShowR1, Converter={StaticResource BoolToVisibility}}">
                      <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                      <TextBlock Text="{Binding R1Label}" Style="{StaticResource FieldLabel}"/>
-                     <TextBox Grid.Column="1" Text="{Binding R1Mm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                     <TextBox Grid.Column="1" Text="{Binding R1Mm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,2"/>
                   </Grid>
                   <Grid Visibility="{Binding ShowR2, Converter={StaticResource BoolToVisibility}}">
                      <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                      <TextBlock Text="{DynamicResource ParametricSteelR2Mm}" Style="{StaticResource FieldLabel}"/>
-                     <TextBox Grid.Column="1" Text="{Binding R2Mm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                     <TextBox Grid.Column="1" Text="{Binding R2Mm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,2"/>
                   </Grid>
                   <Grid Visibility="{Binding ShowSlope, Converter={StaticResource BoolToVisibility}}">
                      <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                      <TextBlock Text="{DynamicResource ParametricSteelSlopePercent}" Style="{StaticResource FieldLabel}"/>
-                     <TextBox Grid.Column="1" Text="{Binding SlopePercent, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                     <TextBox Grid.Column="1" Text="{Binding SlopePercent, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,2"/>
                   </Grid>
                </StackPanel>
             </GroupBox>

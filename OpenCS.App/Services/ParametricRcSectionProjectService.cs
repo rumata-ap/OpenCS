@@ -28,6 +28,52 @@ public sealed class ParametricRcSectionProjectService(DatabaseService database)
         Converters = { new JsonStringEnumConverter() }
     };
 
+    /// <summary>
+    /// Материалы определения: бетон, продольная арматура, материал каждого набора срезов (пути — как в документе
+    /// <c>parametric</c>: <c>concrete</c>, <c>rebar</c>, <c>stirrups[i].material</c>).
+    /// </summary>
+    public static List<FieldError> ValidateMaterials(ParametricRcSectionDefinition d, IEnumerable<Material> materials)
+    {
+        var list = materials as IReadOnlyCollection<Material> ?? materials.ToList();
+        return ValidateMaterials(d, id => list.FirstOrDefault(m => m.Id == id)?.Type);
+    }
+
+    /// <summary>То же по функции «Id → тип материала» (CLI: материалы документа ещё не записаны).</summary>
+    public static List<FieldError> ValidateMaterials(ParametricRcSectionDefinition d, Func<int, MatType?> typeOf)
+    {
+        MatType? Type(int id) => id > 0 ? typeOf(id) : null;
+        static bool IsRebar(MatType? t) => t is MatType.ReSteelF or MatType.ReSteelU;
+        var errors = new List<FieldError>();
+        if (Type(d.ConcreteMaterialId) != MatType.Concrete)
+            errors.Add(new("concrete", Loc.S("ParametricRcMissingConcreteMaterial")));
+        if (!IsRebar(Type(d.LongitudinalMaterialId)))
+            errors.Add(new("rebar", Loc.S("ParametricRcMissingLongitudinalMaterial")));
+        for (int i = 0; i < d.StirrupCuts.Count; i++)
+            if (d.StirrupCuts[i].Count > 0 && !IsRebar(Type(d.StirrupCuts[i].MaterialId)))
+                errors.Add(new($"stirrups[{i}].material", Loc.S("ParametricRcMissingStirrupMaterial")));
+        return errors;
+    }
+
+    /// <summary>
+    /// Проверка определения до генерации: обозначение, материалы нужного типа, затем геометрия генератора (путь
+    /// пустой — относится к определению в целом). Окна и CLI вызывают её до <see cref="GenerateAndSave"/> (та проверяет только геометрию).
+    /// </summary>
+    public static List<FieldError> Validate(ParametricRcSectionDefinition d, IEnumerable<Material> materials)
+    {
+        var list = materials as IReadOnlyCollection<Material> ?? materials.ToList();
+        return Validate(d, id => list.FirstOrDefault(m => m.Id == id)?.Type);
+    }
+
+    /// <inheritdoc cref="Validate(ParametricRcSectionDefinition, IEnumerable{Material})"/>
+    public static List<FieldError> Validate(ParametricRcSectionDefinition d, Func<int, MatType?> typeOf)
+    {
+        var errors = new List<FieldError>();
+        if (string.IsNullOrWhiteSpace(d.Tag)) errors.Add(new("tag", Loc.S("ParametricRcMissingTag")));
+        errors.AddRange(ValidateMaterials(d, typeOf));
+        errors.AddRange(ParametricRcSectionGenerator.Generate(d).Diagnostics.Select(m => new FieldError("", m)));
+        return errors;
+    }
+
     /// <summary>Формирует и атомарно сохраняет параметрическое сечение.</summary>
     public ParametricRcGenerationResult GenerateAndSave(
         CrossSection section, ParametricRcSectionDefinition definition)

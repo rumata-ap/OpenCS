@@ -33,6 +33,32 @@ public sealed class ParametricSteelSectionProjectService(DatabaseService databas
     public static string Serialize(ParametricSteelSectionDefinition definition) =>
         JsonSerializer.Serialize(definition, JsonOptions);
 
+    /// <summary>Материал определения — сталь или произвольный (путь документа <c>steel</c>).</summary>
+    public static List<FieldError> ValidateMaterials(ParametricSteelSectionDefinition d, IEnumerable<Material> materials) =>
+        ValidateMaterials(d, id => materials.FirstOrDefault(x => x.Id == id)?.Type);
+
+    /// <summary>То же по функции «Id → тип материала» (CLI: материалы документа ещё не записаны).</summary>
+    public static List<FieldError> ValidateMaterials(ParametricSteelSectionDefinition d, Func<int, MatType?> typeOf) =>
+        (d.MaterialId > 0 ? typeOf(d.MaterialId) : null) is MatType.Steel or MatType.Custom
+            ? [] : [new("steel", Loc.S("ParametricSteelMissingMaterial"))];
+
+    /// <summary>
+    /// Проверка определения до генерации: обозначение, материал, затем геометрия генератора (путь пустой —
+    /// определение в целом). Окна и CLI вызывают её до <see cref="GenerateAndSave"/> (та проверяет только геометрию).
+    /// </summary>
+    public static List<FieldError> Validate(ParametricSteelSectionDefinition d, IEnumerable<Material> materials) =>
+        Validate(d, id => materials.FirstOrDefault(x => x.Id == id)?.Type);
+
+    /// <inheritdoc cref="Validate(ParametricSteelSectionDefinition, IEnumerable{Material})"/>
+    public static List<FieldError> Validate(ParametricSteelSectionDefinition d, Func<int, MatType?> typeOf)
+    {
+        var errors = new List<FieldError>();
+        if (string.IsNullOrWhiteSpace(d.Tag)) errors.Add(new("tag", Loc.S("ParametricSteelMissingTag")));
+        errors.AddRange(ValidateMaterials(d, typeOf));
+        errors.AddRange(ParametricSteelSectionGenerator.Generate(d).Diagnostics.Select(m => new FieldError("", m)));
+        return errors;
+    }
+
     /// <summary>Формирует и атомарно сохраняет параметрическое сечение; при ошибках ввода ничего не пишет.</summary>
     public ParametricSteelGenerationResult GenerateAndSave(
         CrossSection section, ParametricSteelSectionDefinition definition)

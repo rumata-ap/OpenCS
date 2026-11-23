@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using CScore;
+using OpenCS.Services;
 using CScore.ParametricRc;
 using CScore.Sp63Shear;
 using OpenCS.Utilites;
@@ -185,7 +186,7 @@ public sealed class ParametricRcSectionVM : ViewModelBase
 
     /// <summary>Результат материализации текущих полей.</summary>
     public ParametricRcGenerationResult Preview { get; private set; }
-        = new(new CrossSection(), ["Введите размеры сечения."]);
+        = new(new CrossSection(), [Loc.S("ParametricRcEnterDimensions")]);
     /// <summary>Можно ли сохранить preview.</summary>
     public bool CanSave => Diagnostics.Count == 0;
     /// <summary>Доступны ли поля стенки.</summary>
@@ -443,13 +444,13 @@ public sealed class ParametricRcSectionVM : ViewModelBase
         if (string.IsNullOrWhiteSpace(Tag))
             diagnostics.Add(Loc.S("ParametricRcMissingTag"));
         if (!_materialsConfigured) return diagnostics;
-        if (ConcreteMaterialId <= 0 || !ConcreteMaterials.Any(m => m.Id == ConcreteMaterialId))
-            diagnostics.Add(Loc.S("ParametricRcMissingConcreteMaterial"));
-        if (LongitudinalMaterialId <= 0 || !ReinforcementMaterials.Any(m => m.Id == LongitudinalMaterialId))
-            diagnostics.Add(Loc.S("ParametricRcMissingLongitudinalMaterial"));
-        if (IsStirrupFieldsEnabled &&
-            (StirrupCount <= 0 || StirrupMaterialId <= 0 || !ReinforcementMaterials.Any(m => m.Id == StirrupMaterialId)))
-            diagnostics.Add(Loc.S("ParametricRcMissingStirrupMaterial"));
+        // Материалы — той же проверкой, что CLI: бетон, арматура, материал каждого набора срезов.
+        diagnostics.AddRange(ParametricRcSectionProjectService
+            .ValidateMaterials(BuildDefinition(), ConcreteMaterials.Concat(ReinforcementMaterials))
+            .Select(e => e.Message).Distinct());
+        string stirrups = Loc.S("ParametricRcMissingStirrupMaterial");
+        if (IsStirrupFieldsEnabled && StirrupCount <= 0 && !diagnostics.Contains(stirrups))
+            diagnostics.Add(stirrups);
         return diagnostics;
     }
 

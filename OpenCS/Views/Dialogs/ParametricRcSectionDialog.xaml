@@ -4,9 +4,13 @@
         xmlns:core="clr-namespace:CScore;assembly=CScore"
         xmlns:pr="clr-namespace:CScore.ParametricRc;assembly=CScore"
         xmlns:preview="clr-namespace:OpenCS.Views.Helpers"
+        xmlns:ut="clr-namespace:OpenCS.Utilites"
         Title="{DynamicResource ParametricRcDialogTitle}"
         Width="1180" Height="820" MinWidth="980" MinHeight="680"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip">
+   <Window.Resources>
+      <ut:NumberConvert x:Key="num"/>
+   </Window.Resources>
    <Grid Margin="12">
       <Grid.RowDefinitions>
          <RowDefinition Height="*"/>
@@ -53,25 +57,25 @@
                   <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding ConcreteMaterials}"
                             DisplayMemberPath="Tag" SelectedValuePath="Id" SelectedValue="{Binding ConcreteMaterialId}" Margin="0,2"/>
                   <TextBlock Grid.Row="3" Text="{DynamicResource ParametricRcWidthMm}" VerticalAlignment="Center" Margin="0,3,8,3"/>
-                  <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding WidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                  <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding WidthMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,2"/>
                   <TextBlock Grid.Row="4" Text="{DynamicResource ParametricRcHeightMm}" VerticalAlignment="Center" Margin="0,3,8,3"
                              IsEnabled="{Binding IsHeightEnabled}"/>
-                  <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding HeightMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"
+                  <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding HeightMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,2"
                            IsEnabled="{Binding IsHeightEnabled}"/>
                   <Grid Grid.Row="5" Grid.ColumnSpan="2" Visibility="{Binding ShowWebFields, Converter={StaticResource BoolToVisibility}}">
                      <Grid.ColumnDefinitions><ColumnDefinition Width="185"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                      <TextBlock Text="{DynamicResource ParametricRcWebMm}" VerticalAlignment="Center" Margin="0,3,8,3"/>
-                     <TextBox Grid.Column="1" Text="{Binding WebMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                     <TextBox Grid.Column="1" Text="{Binding WebMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,2"/>
                   </Grid>
                   <Grid Grid.Row="6" Grid.ColumnSpan="2" Visibility="{Binding ShowWebFields, Converter={StaticResource BoolToVisibility}}">
                      <Grid.ColumnDefinitions><ColumnDefinition Width="185"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                      <TextBlock Text="{DynamicResource ParametricRcFlangeMm}" VerticalAlignment="Center" Margin="0,3,8,3"/>
-                     <TextBox Grid.Column="1" Text="{Binding FlangeMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                     <TextBox Grid.Column="1" Text="{Binding FlangeMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,2"/>
                   </Grid>
                   <Grid Grid.Row="5" Grid.ColumnSpan="2" Visibility="{Binding ShowInnerDiameter, Converter={StaticResource BoolToVisibility}}">
                      <Grid.ColumnDefinitions><ColumnDefinition Width="185"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                      <TextBlock Text="{DynamicResource ParametricRcInnerDiameterMm}" VerticalAlignment="Center" Margin="0,3,8,3"/>
-                     <TextBox Grid.Column="1" Text="{Binding InnerDiameterMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                     <TextBox Grid.Column="1" Text="{Binding InnerDiameterMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,2"/>
                   </Grid>
                </Grid>
             </GroupBox>
@@ -95,11 +99,11 @@
                            <TextBlock Grid.Row="0" Text="{DynamicResource ParametricRcRebarCount}" VerticalAlignment="Center" Margin="0,2,8,2"/>
                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding LowerRebarCount, UpdateSourceTrigger=PropertyChanged}" Margin="0,1" IsEnabled="{Binding LowerRebarIdealized, Converter={StaticResource InverseBool}}"/>
                            <TextBlock Grid.Row="1" Text="{DynamicResource ParametricRcRebarArea}" VerticalAlignment="Center" Margin="0,2,8,2"/>
-                           <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding LowerRebarAreaMm2, UpdateSourceTrigger=PropertyChanged}" Margin="0,1" IsEnabled="{Binding LowerRebarIdealized}"/>
+                           <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding LowerRebarAreaMm2, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,1" IsEnabled="{Binding LowerRebarIdealized}"/>
                            <TextBlock Grid.Row="2" Text="{DynamicResource ParametricRcRebarDiameter}" VerticalAlignment="Center" Margin="0,2,8,2"/>
-                           <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding LowerRebarDiameterMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                           <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding LowerRebarDiameterMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,1"/>
                            <TextBlock Grid.Row="3" Text="{DynamicResource ParametricRcLowerRebarOffset}" VerticalAlignment="Center" Margin="0,2,8,2"/>
-                           <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding LowerRebarOffsetMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                           <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding LowerRebarOffsetMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,1"/>
                            <TextBlock Grid.Row="4" Text="{DynamicResource ParametricRcRebarAxis}" VerticalAlignment="Center" Margin="0,2,8,2"/>
                            <ComboBox Grid.Row="4" Grid.Column="1" SelectedValue="{Binding LowerRebarAxis}" SelectedValuePath="Tag" Margin="0,1" IsEnabled="{Binding LowerRebarIdealized}">
                               <ComboBoxItem Tag="{x:Static core:IdealizedRebarAxis.Mx}" Content="{DynamicResource ParametricRcAxisMx}"/>
@@ -119,11 +123,11 @@
                            <TextBlock Grid.Row="0" Text="{DynamicResource ParametricRcRebarCount}" VerticalAlignment="Center" Margin="0,2,8,2"/>
                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding UpperRebarCount, UpdateSourceTrigger=PropertyChanged}" Margin="0,1" IsEnabled="{Binding UpperRebarIdealized, Converter={StaticResource InverseBool}}"/>
                            <TextBlock Grid.Row="1" Text="{DynamicResource ParametricRcRebarArea}" VerticalAlignment="Center" Margin="0,2,8,2"/>
-                           <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding UpperRebarAreaMm2, UpdateSourceTrigger=PropertyChanged}" Margin="0,1" IsEnabled="{Binding UpperRebarIdealized}"/>
+                           <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding UpperRebarAreaMm2, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,1" IsEnabled="{Binding UpperRebarIdealized}"/>
                            <TextBlock Grid.Row="2" Text="{DynamicResource ParametricRcRebarDiameter}" VerticalAlignment="Center" Margin="0,2,8,2"/>
-                           <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding UpperRebarDiameterMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                           <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding UpperRebarDiameterMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,1"/>
                            <TextBlock Grid.Row="3" Text="{DynamicResource ParametricRcUpperRebarOffset}" VerticalAlignment="Center" Margin="0,2,8,2"/>
-                           <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding UpperRebarOffsetMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                           <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding UpperRebarOffsetMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,1"/>
                            <TextBlock Grid.Row="4" Text="{DynamicResource ParametricRcRebarAxis}" VerticalAlignment="Center" Margin="0,2,8,2"/>
                            <ComboBox Grid.Row="4" Grid.Column="1" SelectedValue="{Binding UpperRebarAxis}" SelectedValuePath="Tag" Margin="0,1" IsEnabled="{Binding UpperRebarIdealized}">
                               <ComboBoxItem Tag="{x:Static core:IdealizedRebarAxis.Mx}" Content="{DynamicResource ParametricRcAxisMx}"/>
@@ -146,8 +150,8 @@
                         <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding PolarRebarCount, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
                         <TextBlock Grid.Row="1" Text="{DynamicResource ParametricRcPolarDiameterRadius}" VerticalAlignment="Center" Margin="0,2,8,2"/>
                         <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal">
-                           <TextBox Width="105" Text="{Binding PolarRebarDiameterMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,1,6,1"/>
-                           <TextBox Width="105" Text="{Binding PolarRebarRadiusMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                           <TextBox Width="105" Text="{Binding PolarRebarDiameterMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,1,6,1"/>
+                           <TextBox Width="105" Text="{Binding PolarRebarRadiusMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,1"/>
                         </StackPanel>
                      </Grid>
                   </GroupBox>
@@ -179,11 +183,11 @@
                      <TextBlock Grid.Row="0" Text="{DynamicResource ParametricRcStirrupCount}" VerticalAlignment="Center" Margin="0,2,8,2"/>
                      <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StirrupCount, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
                      <TextBlock Grid.Row="1" Text="{DynamicResource ParametricRcStirrupDiameter}" VerticalAlignment="Center" Margin="0,2,8,2"/>
-                     <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StirrupDiameterMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                     <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StirrupDiameterMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,1"/>
                      <TextBlock Grid.Row="2" Text="{DynamicResource ParametricRcStirrupStep}" VerticalAlignment="Center" Margin="0,2,8,2"/>
-                     <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding StirrupStepMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                     <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding StirrupStepMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,1"/>
                      <TextBlock Grid.Row="3" Text="{DynamicResource ParametricRcStirrupCover}" VerticalAlignment="Center" Margin="0,2,8,2"/>
-                     <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding StirrupCoverMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                     <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding StirrupCoverMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,1"/>
                      <TextBlock Grid.Row="4" Text="{DynamicResource ParametricRcStirrupZone}" VerticalAlignment="Center" Margin="0,2,8,2"/>
                      <ComboBox Grid.Row="4" Grid.Column="1" SelectedValue="{Binding StirrupZone}" SelectedValuePath="Tag" Margin="0,1">
                         <ComboBoxItem Tag="{x:Static pr:ParametricStirrupZone.Body}" Content="{DynamicResource ParametricRcZoneBody}"/>
@@ -201,7 +205,7 @@
                      <ComboBox Grid.Row="6" Grid.Column="1" ItemsSource="{Binding ReinforcementMaterials}"
                                DisplayMemberPath="Tag" SelectedValuePath="Id" SelectedValue="{Binding StirrupMaterialId}" Margin="0,1"/>
                      <TextBlock Grid.Row="7" Text="{DynamicResource ParametricRcStirrupRsw}" VerticalAlignment="Center" Margin="0,2,8,2"/>
-                     <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding StirrupRswMpa, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                     <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding StirrupRswMpa, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,1"/>
                      <StackPanel Grid.Row="8" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,4,0,0">
                         <TextBlock Text="{DynamicResource ParametricRcAsw}"/>
                         <TextBlock Text="{Binding Asw, StringFormat={}{0:G6}}"/>

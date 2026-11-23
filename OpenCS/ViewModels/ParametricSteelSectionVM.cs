@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using CScore;
+using OpenCS.Services;
 using CScore.ParametricSteel;
 using CScore.Sp16;
 using OpenCS.Utilites;
@@ -608,8 +609,10 @@ public sealed class ParametricSteelSectionVM : ViewModelBase
     {
         if (string.IsNullOrWhiteSpace(Tag))
             yield return Loc.S("ParametricSteelMissingTag");
-        if (_materialsConfigured && (MaterialId <= 0 || SteelMaterials.All(m => m.Id != MaterialId)))
-            yield return Loc.S("ParametricSteelMissingMaterial");
+        if (!_materialsConfigured) yield break;
+        // Материал — той же проверкой, что CLI: сталь или произвольный из списка окна.
+        foreach (var e in ParametricSteelSectionProjectService.ValidateMaterials(BuildDefinition(), SteelMaterials))
+            yield return e.Message;
     }
 
     /// <summary>Перестраивает предпросмотр и зависимые показатели.</summary>
