@@ -1,7 +1,12 @@
 <UserControl x:Class="OpenCS.Views.PlateSectionPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:OpenCS.ViewModels">
+             xmlns:vm="clr-namespace:OpenCS.ViewModels"
+             xmlns:ut="clr-namespace:OpenCS.Utilites">
+
+   <UserControl.Resources>
+      <ut:NumberConvert x:Key="num"/>
+   </UserControl.Resources>
 
    <Grid>
       <Grid.RowDefinitions>
@@ -49,13 +54,13 @@
                   <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource PlateThicknessMm}"
                              VerticalAlignment="Center" Margin="0,0,8,4"/>
                   <TextBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,4"
-                           Text="{Binding HMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G6}"/>
+                           Text="{Binding HMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus, StringFormat=G6}"/>
 
                   <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource PlateNLayers}"
                              VerticalAlignment="Center" Margin="0,0,8,4"/>
                   <TextBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,4"
                            IsEnabled="{Binding IsLayered}"
-                           Text="{Binding NLayers, UpdateSourceTrigger=PropertyChanged}"/>
+                           Text="{Binding NLayers, UpdateSourceTrigger=LostFocus}"/>
                </Grid>
             </GroupBox>
 
@@ -162,7 +167,7 @@
                         </DataGridComboBoxColumn>
 
                         <DataGridTextColumn Header="{DynamicResource PlateLayerDiamX}"
-                                            Binding="{Binding DiameterXMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
+                                            Binding="{Binding DiameterXMm, Converter={StaticResource num}, StringFormat=G4}"
                                             Width="70">
                            <DataGridTextColumn.EditingElementStyle>
                               <Style TargetType="TextBox">
@@ -185,7 +190,7 @@
                         </DataGridTextColumn>
 
                         <DataGridTextColumn Header="{DynamicResource PlateLayerSpacingX}"
-                                            Binding="{Binding SpacingXMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
+                                            Binding="{Binding SpacingXMm, Converter={StaticResource num}, StringFormat=G4}"
                                             Width="75">
                            <DataGridTextColumn.EditingElementStyle>
                               <Style TargetType="TextBox">
@@ -206,7 +211,7 @@
                         </DataGridTextColumn>
 
                         <DataGridTextColumn Header="{DynamicResource PlateLayerCountX}"
-                                            Binding="{Binding CountPerMeterX, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
+                                            Binding="{Binding CountPerMeterX, Converter={StaticResource num}, StringFormat=G4}"
                                             Width="85">
                            <DataGridTextColumn.EditingElementStyle>
                               <Style TargetType="TextBox">
@@ -227,11 +232,11 @@
                         </DataGridTextColumn>
 
                         <DataGridTextColumn Header="{DynamicResource PlateLayerZsx}"
-                                            Binding="{Binding ZsxMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
+                                            Binding="{Binding ZsxMm, Converter={StaticResource num}, StringFormat=G4}"
                                             Width="70"/>
 
                         <DataGridTextColumn Header="{DynamicResource PlateLayerDiamY}"
-                                            Binding="{Binding DiameterYMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
+                                            Binding="{Binding DiameterYMm, Converter={StaticResource num}, StringFormat=G4}"
                                             Width="70">
                            <DataGridTextColumn.EditingElementStyle>
                               <Style TargetType="TextBox">
@@ -250,7 +255,7 @@
                         </DataGridTextColumn>
 
                         <DataGridTextColumn Header="{DynamicResource PlateLayerSpacingY}"
-                                            Binding="{Binding SpacingYMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
+                                            Binding="{Binding SpacingYMm, Converter={StaticResource num}, StringFormat=G4}"
                                             Width="75">
                            <DataGridTextColumn.EditingElementStyle>
                               <Style TargetType="TextBox">
@@ -271,7 +276,7 @@
                         </DataGridTextColumn>
 
                         <DataGridTextColumn Header="{DynamicResource PlateLayerCountY}"
-                                            Binding="{Binding CountPerMeterY, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
+                                            Binding="{Binding CountPerMeterY, Converter={StaticResource num}, StringFormat=G4}"
                                             Width="85">
                            <DataGridTextColumn.EditingElementStyle>
                               <Style TargetType="TextBox">
@@ -292,11 +297,11 @@
                         </DataGridTextColumn>
 
                         <DataGridTextColumn Header="{DynamicResource PlateLayerZsy}"
-                                            Binding="{Binding ZsyMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
+                                            Binding="{Binding ZsyMm, Converter={StaticResource num}, StringFormat=G4}"
                                             Width="70"/>
 
                         <DataGridTextColumn Header="{DynamicResource PlateLayerAsx}"
-                                            Binding="{Binding AsxCm2, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}"
+                                            Binding="{Binding AsxCm2, Converter={StaticResource num}, StringFormat=F2}"
                                             Width="80">
                            <DataGridTextColumn.EditingElementStyle>
                               <Style TargetType="TextBox">
@@ -319,7 +324,7 @@
                         </DataGridTextColumn>
 
                         <DataGridTextColumn Header="{DynamicResource PlateLayerAsy}"
-                                            Binding="{Binding AsyCm2, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}"
+                                            Binding="{Binding AsyCm2, Converter={StaticResource num}, StringFormat=F2}"
                                             Width="80">
                            <DataGridTextColumn.EditingElementStyle>
                               <Style TargetType="TextBox">

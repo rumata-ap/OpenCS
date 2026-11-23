@@ -2272,11 +2272,14 @@ namespace OpenCS
          int matId = CurrentMaterial.Id;
          var users = db.MaterialAreas
             .Where(a => a.MaterialId == matId || ReferenceEquals(a.Material, CurrentMaterial))
-            .Select(a => string.IsNullOrWhiteSpace(a.Tag) ? $"#{a.Id}" : a.Tag)
+            .Select(a => $"«{(string.IsNullOrWhiteSpace(a.Tag) ? $"#{a.Id}" : a.Tag)}»")
             .Distinct().ToList();
+         // Сечения пластин: бетон, общая арматура и материалы слоёв (после перезапуска расчёт падал «материал не найден»).
+         users.AddRange(PlateSections.Where(ps => Services.PlateSectionAuthoring.UsesMaterial(ps, matId))
+            .Select(ps => string.Format(Loc.S("MaterialUsedByPlateSection"), ps.Tag)));
          if (users.Count > 0)
          {
-            string list = string.Join(", ", users.Take(10).Select(t => $"«{t}»")) + (users.Count > 10 ? ", …" : "");
+            string list = string.Join(", ", users.Take(10)) + (users.Count > 10 ? ", …" : "");
             System.Windows.MessageBox.Show(
                string.Format(Loc.S("MaterialInUseCannotDelete"), CurrentMaterial.Tag, users.Count, list),
                Loc.S("Warning"), System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
@@ -3293,7 +3296,8 @@ namespace OpenCS
             StagedSectionsLive.Add(s);
       }
 
-       void RefreshPlateSectionsLive()
+       /// <summary>Пересобрать список сечений пластин дерева (объект без уведомлений — смена обозначения).</summary>
+       public void RefreshPlateSectionsLive()
        {
           PlateSectionsLive.Clear();
           foreach (var ps in PlateSections)
@@ -3411,23 +3415,50 @@ namespace OpenCS
          CurrentPage = new Views.PlateSectionPage(this);
       }
 
-       void DeletePlateSection(CScore.PlateSection? target = null)
+       /// <summary>
+       /// Удаление сечения пластины (дерево и страница): используемое — отказ со списком ссылок; новое, ещё не
+       /// записанное, — закрыть страницу без вопроса.
+       /// </summary>
+       public void DeletePlateSection(CScore.PlateSection? target = null)
        {
          var ps = target ?? currentPlateSection;
          if (ps == null) return;
-         var res = System.Windows.MessageBox.Show(
-            Loc.S("ConfirmDeleteRegion"), Loc.S("Warning"),
-            System.Windows.MessageBoxButton.YesNo,
-            System.Windows.MessageBoxImage.Warning);
+         bool shown = CurrentPage?.DataContext is ViewModels.PlateSectionVM page && page.Model == ps;
+         if (ps.Id == 0)
+         {
+            if (shown) ((ViewModels.PlateSectionVM)CurrentPage!.DataContext).DiscardChanges();
+            if (shown) CurrentPage = null!;
+            return;
+         }
+         var usedBy = Services.PlateSectionAuthoring.UsedBy(db, ps);
+         if (usedBy.Count > 0)
+         {
+            System.Windows.MessageBox.Show(
+               string.Format(Loc.S("PlateInUseCannotDelete"), ps.Tag, usedBy.Count, ListPlain(usedBy)),
+               Loc.S("Warning"), System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            return;
+         }
+         var res = AskConfirmDelete(string.Format(Loc.S("ConfirmDeletePlateSection"), ps.Tag));
          if (res != System.Windows.MessageBoxResult.Yes) return;
-         db.DeletePlateSection(ps);
+         // Удаляемое сечение на странице с несохранёнными правками — не спрашивать о сохранении.
+         if (shown)
+         {
+            ((ViewModels.PlateSectionVM)CurrentPage!.DataContext).DiscardChanges();
+            CurrentPage = null!;
+            if (CurrentPage != null) return;
+         }
+         if (!Services.PlateSectionAuthoring.TryDelete(db, ps, out _)) return;
          if (ps == currentPlateSection)
          {
             currentPlateSection = null;
-            CurrentPage = null!;
             OnPropertyChanged(nameof(CurrentPlateSection));
-          }
+         }
+         LogService.Info(string.Format(Loc.S("PlateDeletedLog"), ps.Tag));
        }
+
+       /// <summary>Подтверждение удаления (Да/Нет). Заменяется в тестах.</summary>
+       public Func<string, MessageBoxResult> AskConfirmDelete { get; set; } = text => MessageBox.Show(
+          text, Loc.S("Warning"), MessageBoxButton.YesNo, MessageBoxImage.Warning);
 
        void DeleteEquivalentSection(EquivalentSection? target = null)
        {
@@ -3493,32 +3524,21 @@ namespace OpenCS
              LogService.Warning(Loc.S("EquivalentSectionRecalculateFailed"));
        }
 
+       /// <summary>Копия сечения пластины со всеми полями (модель, диаграмма, грани и углы слоёв).</summary>
        void DuplicatePlateSection(CScore.PlateSection? src)
       {
          if (src == null) return;
-         var copy = new CScore.PlateSection
+         var copy = new CScore.PlateSection();
+         Services.PlateSectionAuthoring.CopyInto(src, copy);
+         copy.Tag = string.Format(Loc.S("PlateCopyTagFormat"), src.Tag);
+         var errors = Services.PlateSectionAuthoring.Save(db, copy);
+         if (errors.Count > 0)
          {
-            Tag                = src.Tag + " (копия)",
-            H                  = src.H,
-            NLayers            = src.NLayers,
-            ConcreteMaterialId = src.ConcreteMaterialId,
-            RebarMaterialId    = src.RebarMaterialId,
-            TensionConcrete    = src.TensionConcrete,
-            SofteningModel     = src.SofteningModel,
-            SofteningEpsC2     = src.SofteningEpsC2,
-            RebarLayers        = src.RebarLayers.ConvertAll(l => new CScore.PlateRebarLayer
-            {
-               Name = l.Name, InputMode = l.InputMode,
-               Asx = l.Asx, Asy = l.Asy, Zsx = l.Zsx, Zsy = l.Zsy,
-               DiameterX = l.DiameterX, DiameterY = l.DiameterY,
-               CountPerMeterX = l.CountPerMeterX, CountPerMeterY = l.CountPerMeterY,
-               SpacingX = l.SpacingX, SpacingY = l.SpacingY,
-               MaterialId = l.MaterialId
-            })
-         };
-         copy.Num = PlateSections.Count > 0 ? PlateSections.Max(s => s.Num) + 1 : 1;
-         db.SavePlateSection(copy);
-         PlateSections.Add(copy);
+            foreach (var e in errors)
+               LogService.Error(string.Format(Loc.S("PlateSaveErrorLog"), copy.Tag, e.Message));
+            return;
+         }
+         LogService.Info(string.Format(Loc.S("PlateSavedNewLog"), copy.Tag));
       }
 
       void NewFireSection()

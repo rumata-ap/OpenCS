@@ -575,7 +575,7 @@
     <system:String x:Key="Untitled">Без имени</system:String>
     <system:String x:Key="TitleFormat">OpenCS — {0}</system:String>
     <system:String x:Key="ConfirmDeleteMaterial">Удалить безвозвратно выбранный материал?</system:String>
-    <system:String x:Key="MaterialInUseCannotDelete">Материал «{0}» используется в областях сечений ({1}): {2}. Сначала замените в них материал или удалите эти области.</system:String>
+    <system:String x:Key="MaterialInUseCannotDelete">Материал «{0}» используется ({1}): {2}. Сначала замените в них материал или удалите их.</system:String>
     <system:String x:Key="TaskAreaMaterialMissing">Область «{0}» ссылается на материал id={1}, которого нет в проекте (материал удалён). Назначьте области материал.</system:String>
     <system:String x:Key="MaterialDeleted">Материал '{0}' удален</system:String>
     <system:String x:Key="ConfirmDeleteContour">Удалить контур из пула безвозвратно?</system:String>
@@ -7256,4 +7256,29 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliAreasOutsideSectionsSkipped">областей вне сечений: {0} — в документ не входят</system:String>
    <system:String x:Key="CliSectionParametricAsAreas">параметрическое сечение «{0}»: определение не выгружается (неизвестная версия, области правлены вручную или материал не подходит) — выгружено как произвольное</system:String>
    <system:String x:Key="ParametricRcEnterDimensions">Введите размеры сечения.</system:String>
+   <system:String x:Key="PlateErrNLayers">число слоёв бетона — не меньше 1</system:String>
+   <system:String x:Key="PlateErrModel">неизвестная модель</system:String>
+   <system:String x:Key="PlateErrConcreteMaterial">материал «{0}» — не бетон</system:String>
+   <system:String x:Key="PlateErrDiagram">диаграмма не подходит бетону</system:String>
+   <system:String x:Key="PlateErrLayerMode">неизвестный способ задания слоя</system:String>
+   <system:String x:Key="PlateErrLayerEmpty">слой {0}: нет арматуры ни по X, ни по Y</system:String>
+   <system:String x:Key="PlateErrLayerDiameter">слой {0}: диаметр должен быть больше нуля</system:String>
+   <system:String x:Key="PlateErrLayerStep">слой {0}: шаг должен быть больше нуля</system:String>
+   <system:String x:Key="PlateErrLayerCount">слой {0}: число стержней на метр должно быть больше нуля</system:String>
+   <system:String x:Key="PlateErrLayerZ">слой {0}: арматура вне толщины (|z| должно быть меньше {1} мм)</system:String>
+   <system:String x:Key="PlateUsedByFemGroup">группа КЭ «{0}»</system:String>
+   <system:String x:Key="PlateUsedByEquivalent">эквивалентное сечение «{0}»</system:String>
+   <system:String x:Key="PlateLayerDefaultName">Слой {0}</system:String>
+   <system:String x:Key="PlateCopyTagFormat">{0} (копия)</system:String>
+   <system:String x:Key="PlateSaveErrorLog">Сечение пластины «{0}» не сохранено: {1}</system:String>
+   <system:String x:Key="PlateSavedNewLog">Сечение пластины «{0}» добавлено в проект</system:String>
+   <system:String x:Key="PlateSavedLog">Сечение пластины «{0}» сохранено</system:String>
+   <system:String x:Key="PlateInUseCannotDelete">Сечение пластины «{0}» используется ({1}): {2}. Сначала уберите эти ссылки.</system:String>
+   <system:String x:Key="ConfirmDeletePlateSection">Удалить сечение пластины «{0}»?</system:String>
+   <system:String x:Key="PlateDeletedLog">Сечение пластины «{0}» удалено</system:String>
+   <system:String x:Key="MaterialUsedByPlateSection">сечение пластины «{0}»</system:String>
+   <system:String x:Key="CliPlateSectionDuplicateSkipped">сечение пластины «{0}» встречается в проекте не один раз — выгружено первое</system:String>
+   <system:String x:Key="CliPlateSectionInvalidSkipped">сечение пластины «{0}» не прошло проверку ({1}) — не выгружено</system:String>
+   <system:String x:Key="CliPlateSectionGeneratedSkipped">сечение пластины «{0}» создано плоской областью схемы МКЭ — не выгружено (правится в области)</system:String>
+   <system:String x:Key="CliPlateSectionErrGenerated">сечение пластины «{0}» создано плоской областью схемы МКЭ — правится только в области</system:String>
 </ResourceDictionary>
