@@ -2993,6 +2993,7 @@ namespace OpenCS
          if (MessageBox.Show(Loc.S("ParametricRcConfirmRebuild"),
                Loc.S("ParametricRcDialogTitle"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
+         if (!ReleaseSectionPage(item.Section)) return;
          var state = new ParametricRcSectionProjectService(db).Restore(item.Section);
          if (state.LoadStatus == ParametricRcDefinitionLoadStatus.Supported)
          {
@@ -3020,6 +3021,7 @@ namespace OpenCS
             Owner = Application.Current?.MainWindow
          };
          if (dialog.ShowDialog() != true) return;
+         if (!ReleaseSectionPage(item.Section)) return;
          var result = service.GenerateAndSave(item.Section, vm.BuildDefinition());
          if (result.Diagnostics.Count != 0)
          {
@@ -3070,6 +3072,7 @@ namespace OpenCS
          if (MessageBox.Show(Loc.S("ParametricRcConfirmRebuild"),
                Loc.S("ParametricSteelDialogTitle"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
+         if (!ReleaseSectionPage(item.Section)) return;
          var state = new ParametricSteelSectionProjectService(db).Restore(item.Section);
          if (state.LoadStatus == ParametricSteelDefinitionLoadStatus.Supported)
          {
@@ -3087,6 +3090,7 @@ namespace OpenCS
          var vm = CreateParametricSteelVM();
          vm.LoadDefinition(definition);
          if (!ShowParametricSteelDialog(vm)) return;
+         if (!ReleaseSectionPage(item.Section)) return;
          var result = service.GenerateAndSave(item.Section, vm.BuildDefinition());
          if (result.Diagnostics.Count != 0)
          {
@@ -3096,6 +3100,25 @@ namespace OpenCS
          RefreshSectionLiveCollections();
          CurrentCrossSection = item.Section;
          MarkDirty(SaveCategory.CrossSections);
+      }
+
+      /// <summary>
+      /// Перед перестройкой областей сечения службой закрывает его открытую страницу: правки на ней — обычный вопрос
+      /// при уходе («Отмена» — перестройки нет). Иначе страница держит прежний состав и после записи считала бы себя
+      /// изменённой, а «Да»/«Нет» вернули бы старые области поверх построенных.
+      /// </summary>
+      internal bool ReleaseSectionPage(CrossSection section)
+      {
+         bool shows = currentPage?.DataContext switch
+         {
+            CrossSectionVM vm => vm.Model == section,
+            StagedSectionVM vm => vm.Model == section,
+            _ => false,
+         };
+         if (!shows) return true;
+         if (!TryLeaveUnsavedPage()) return false;
+         CurrentPage = null!;
+         return true;
       }
 
       void EditCrossSection()

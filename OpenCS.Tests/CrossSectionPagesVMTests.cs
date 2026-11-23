@@ -136,6 +136,37 @@ public class CrossSectionPagesVMTests
     });
 
     [Fact]
+    public void ParametricRebuild_ReleasesOpenPage_NewPageClean_DirtyPageAsks() => WithApp(app =>
+    {
+        var (b25, a500, _, _, _) = Seed(app);
+        var def = CScore.ParametricRc.ParametricRcSectionDefinition.Rectangle(0.3, 0.5) with
+        {
+            Tag = "Ригель", ConcreteMaterialId = b25.Id, LongitudinalMaterialId = a500.Id,
+            LowerRebar = CScore.ParametricRc.ParametricLongitudinalLayer.Physical(3, 0.02, -0.21),
+        };
+        var service = new ParametricRcSectionProjectService(app.db);
+        var s = new CrossSection();
+        Assert.Empty(service.GenerateAndSave(s, def).Diagnostics);
+
+        // Страница без правок закрывается без вопроса; после перестройки новая страница — без «*».
+        app.AskSaveOnLeave = _ => throw new Xunit.Sdk.XunitException("вопрос не ожидался");
+        app.CurrentCrossSection = s;
+        Assert.True(app.ReleaseSectionPage(s));
+        Assert.Null(app.CurrentPage);
+        Assert.Empty(service.GenerateAndSave(s, def with { HeightM = 0.6 }).Diagnostics);
+        app.CurrentCrossSection = s;
+        Assert.False(((IUnsavedChanges)app.CurrentPage.DataContext).IsDirty);
+
+        // Правка на странице — вопрос; «Отмена» — страница остаётся, перестройки нет.
+        ((CrossSectionVM)app.CurrentPage.DataContext).Tag = "Ригель 2";
+        string? asked = null;
+        app.AskSaveOnLeave = name => { asked = name; return System.Windows.MessageBoxResult.Cancel; };
+        Assert.False(app.ReleaseSectionPage(s));
+        Assert.Equal("Ригель 2", asked);
+        Assert.NotNull(app.CurrentPage);
+    });
+
+    [Fact]
     public void RebarPage_ExistingGroup_KeepsHost_SigSpOnlyOnSave() => WithApp(app =>
     {
         var (_, _, concrete, bars, _) = Seed(app);
