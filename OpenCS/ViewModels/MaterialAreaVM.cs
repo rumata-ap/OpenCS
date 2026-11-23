@@ -1,5 +1,6 @@
 ﻿using CScore;
 using OpenCS.Converters;
+using OpenCS.Services;
 using OpenCS.Utilites;
 using OpenCS.Views;
 using OpenCS.Views.Dialogs;
@@ -17,17 +18,22 @@ namespace OpenCS.ViewModels
    /// <summary>Режим отображения сетки фибр на превью.</summary>
    public enum FiberDisplayMode { Centroids, Elements }
 
-   /// <summary>ViewModel для MaterialArea.</summary>
-   public class MaterialAreaVM : ViewModelBase
+   /// <summary>
+   /// ViewModel области пула. Правки идут в объект области (превью и сечения видят их сразу), в базу — только по
+   /// «Сохранить» (здесь или у сечения); <see cref="IsDirty"/> — по снимку <see cref="AreaSnapshot"/>, «Не сохранять»
+   /// возвращает область к снимку. Сетка волокон пишется окном «Сетка» сразу.
+   /// </summary>
+   public class MaterialAreaVM : ViewModelBase, IUnsavedChanges
    {
       readonly MaterialArea _model;
       FiberDisplayMode _fiberDisplayMode = FiberDisplayMode.Elements;
+      AreaSnapshot _saved;
 
       public MaterialAreaVM(MaterialArea model, AppViewModel app)
       {
          _model = model;
          App = app;
-         RemoveAreaCommand       = new RelayCommand(_ => App.RemoveMaterialArea(this));
+         _saved = AreaSnapshot.Capture(model);
          SetHullFromPoolCommand  = new RelayCommand(o => SetHullFromPool(o as Contour));
          ClearHullCommand        = new RelayCommand(_ => ClearHull());
          AddHoleCommand          = new RelayCommand(o => AddHole(o as Contour));
@@ -43,10 +49,34 @@ namespace OpenCS.ViewModels
       public AppViewModel App { get; }
       public MaterialArea Model => _model;
 
+      /// <summary>Есть правки области, не записанные в проект.</summary>
+      public bool IsDirty => !_saved.Matches(_model);
+
+      /// <summary>Обозначение для вопроса о сохранении.</summary>
+      public string DisplayName => string.IsNullOrWhiteSpace(_model.Tag) ? Loc.S("NewArea") : _model.Tag;
+
+      /// <summary>Уведомляет о возможной смене <see cref="IsDirty"/>.</summary>
+      void Touch() => OnPropertyChanged(nameof(IsDirty));
+
+      /// <summary>Запоминает текущее состояние как записанное (после сохранения области или сечения).</summary>
+      public void MarkSaved()
+      {
+         _saved = AreaSnapshot.Capture(_model);
+         Touch();
+      }
+
+      /// <summary>Возвращает область к записанному состоянию.</summary>
+      public void Discard()
+      {
+         _saved.RestoreTo(_model, App.db.Diagrams, App.CalcSettings);
+         OnPropertyChanged(string.Empty);
+         RefreshPlot();
+      }
+
       public string Tag
       {
          get => _model.Tag;
-         set { _model.Tag = value; OnPropertyChanged(); }
+         set { _model.Tag = value; OnPropertyChanged(); Touch(); }
       }
 
       public Material? Material
@@ -62,7 +92,9 @@ namespace OpenCS.ViewModels
             OnPropertyChanged(nameof(MaterialType));
             OnPropertyChanged(nameof(IsCustomMaterial));
             OnPropertyChanged(nameof(EpsSp));
+            OnPropertyChanged(nameof(DiagrammType));
             RefreshPlot();
+            Touch();
          }
       }
 
@@ -86,6 +118,7 @@ namespace OpenCS.ViewModels
             _model.PropagateEps_p();
             OnPropertyChanged();
             OnPropertyChanged(nameof(EpsSp));
+            Touch();
          }
       }
 
@@ -99,6 +132,7 @@ namespace OpenCS.ViewModels
             _model.PropagateEps_p();
             OnPropertyChanged();
             OnPropertyChanged(nameof(EpsSp));
+            Touch();
          }
       }
 
@@ -122,26 +156,11 @@ namespace OpenCS.ViewModels
             _model.ResolveAndBuildDiagramms(App.CalcSettings.Sp63DescEtaMin, pool: App.db.Diagrams,
                rebarDifferentialDiagram: App.CalcSettings.RebarDifferentialDiagram, ekbEtaMin: App.CalcSettings.EkbDescEtaMin);
             OnPropertyChanged();
+            Touch();
          }
       }
 
-      public AreaCategory Category
-      {
-         get => _model.Category;
-         set { _model.Category = value; OnPropertyChanged(); }
-      }
-
-      public int NX
-      {
-         get => _model.NX;
-         set { _model.NX = value; OnPropertyChanged(); }
-      }
-
-      public int NY
-      {
-         get => _model.NY;
-         set { _model.NY = value; OnPropertyChanged(); }
-      }
+      public AreaCategory Category => _model.Category;
 
       public Contour? Hull => _model.Hull;
 
@@ -167,7 +186,6 @@ namespace OpenCS.ViewModels
       public ICommand OpenMeshDialogCommand { get; }
       public ICommand ClearMeshCommand { get; }
 
-      public ICommand RemoveAreaCommand { get; }
       public ICommand SetHullFromPoolCommand { get; }
       public ICommand ClearHullCommand { get; }
       public ICommand AddHoleCommand { get; }
@@ -226,42 +244,46 @@ namespace OpenCS.ViewModels
          OnPropertyChanged(nameof(PlotElements));
       }
 
-      public Contour? PoolContour
+      /// <summary>Контур пула, выбранный в списке (назначается областью только кнопкой «Из пула»).</summary>
+      public Contour? SelectedPoolContour
       {
-         get => _model.PoolContour;
-         set
-         {
-            _model.PoolContour = value;
-            _model.PoolContourId = value?.Id;
-            OnPropertyChanged();
-         }
+         get => _selectedPoolContour ?? _model.PoolContour;
+         set { _selectedPoolContour = value; OnPropertyChanged(); }
       }
+      Contour? _selectedPoolContour;
 
       void SetHullFromPool(Contour? contour)
       {
          if (contour == null) return;
          _model.Hull = contour;
+         _model.PoolContour = contour;
+         _model.PoolContourId = contour.Id;
          _model.SetWKT();
-         PoolContour = contour;
          OnPropertyChanged(nameof(Hull));
+         OnPropertyChanged(nameof(SelectedPoolContour));
          RefreshPlot();
+         Touch();
       }
 
       void ClearHull()
       {
          _model.Contours.RemoveAll(c => c.Type == ContourType.Hull);
+         _model.PoolContour = null;
+         _model.PoolContourId = null;
          _model.WKT = null;
          OnPropertyChanged(nameof(Hull));
          RefreshPlot();
+         Touch();
       }
 
       void AddHole(Contour? contour)
       {
          if (contour == null) return;
-         var hole = new Contour(contour.X, contour.Y, contour.Tag) { Type = ContourType.Hole };
+         var hole = new Contour([.. contour.X], [.. contour.Y], contour.Tag) { Type = ContourType.Hole };
          _model.Contours.Add(hole);
          _model.SetWKT();
          RefreshPlot();
+         Touch();
       }
 
       void RemoveHole(Contour? contour)
@@ -274,33 +296,38 @@ namespace OpenCS.ViewModels
             _model.Contours.Remove(toRemove);
             _model.SetWKT();
             RefreshPlot();
+            Touch();
          }
       }
 
-      void Save()
+      /// <summary>Проверяет и записывает область через службу; ошибки — в журнал, правки остаются.</summary>
+      public bool Save()
       {
-         int newNum = App.MaterialAreas.Count > 0
-            ? App.MaterialAreas.Max(a => a.Num) + 1 : 1;
-         if (_model.Num == 0) _model.Num = newNum;
-         App.db.SaveMaterialArea(_model);
-         if (!App.MaterialAreas.Contains(_model))
-            App.MaterialAreas.Add(_model); // CollectionChanged → RefreshLive + IsDirty
-         else
+         bool isNew = _model.Id == 0;
+         var errors = CrossSectionAuthoring.SaveArea(App.db, _model, App.CalcSettings);
+         if (errors.Count > 0)
          {
-            App.RefreshMaterialAreaLiveCollections();
+            foreach (var e in errors)
+               App.LogService.Error(string.Format(Loc.S("AreaSaveErrorLog"), DisplayName, e.Message));
+            return false;
          }
+         App.RefreshMaterialAreaLiveCollections();
+         App.MarkDirty(SaveCategory.CrossSections);
+         MarkSaved();
+         App.LogService.Info(string.Format(Loc.S(isNew ? "AreaSavedNewLog" : "AreaSavedLog"), _model.Tag));
+         return true;
       }
 
-      void Delete()
-      {
-         App.db.DeleteMaterialArea(_model);
-         App.RefreshMaterialAreaLiveCollections();
-         App.CurrentPage = null!;
-      }
+      bool IUnsavedChanges.SaveChanges() => Save();
+
+      void IUnsavedChanges.DiscardChanges() => Discard();
+
+      void Delete() => App.DeleteArea(_model);
 
       void OpenMeshDialog()
       {
-         if (_model.Id == 0) Save();
+         // Сетка пишется в базу по Id области: новую сначала сохранить (с проверкой).
+         if (_model.Id == 0 && !Save()) return;
          var dlg = new Views.MeshDialog(_model, App)
          {
             Owner = System.Windows.Application.Current.MainWindow
@@ -320,32 +347,45 @@ namespace OpenCS.ViewModels
          RefreshPlot();
       }
 
+      /// <summary>
+      /// Сдвигает область: контур и отверстия — копии (контур пула, общий с другими областями, не трогается, связь
+      /// с ним снимается), сетка волокон устаревает и удаляется. Записывается по «Сохранить».
+      /// </summary>
       void Translate()
       {
          var hull = _model.Hull;
          if (hull == null) return;
 
          var dlg = new DoubleInputDialog(
-            "Сдвиг контура",
-            "Смещение по X (м):",
-            "Смещение по Y (м):");
+            Loc.S("AreaTranslateTitle"),
+            Loc.S("AreaTranslateDxMm"),
+            Loc.S("AreaTranslateDyMm"));
          if (dlg.ShowDialog() != true) return;
 
-         double dx = dlg.Value1, dy = dlg.Value2;
+         double dx = dlg.Value1 / 1000, dy = dlg.Value2 / 1000;
          if (dx == 0 && dy == 0) return;
 
-         for (int i = 0; i < hull.X.Count; i++)
+         _model.Contours = _model.Contours.Select(c => new Contour(
+               c.X.Select(x => x + dx).ToList(), c.Y.Select(y => y + dy).ToList(), c.Tag) { Type = c.Type })
+            .ToList();
+         _model.PoolContour = null;
+         _model.PoolContourId = null;
+         _model.SetWKT();
+         foreach (var f in _model.Fibers.Where(f => f.TypeFiber == FiberType.point))
          {
-            hull.X[i] += dx;
-            hull.Y[i] += dy;
+            f.X += dx;
+            f.Y += dy;
          }
-         hull.Points = hull.XYsToPoints();
-         hull.SetWKT();
+         if (_model.Fibers.Any(f => f.TypeFiber is FiberType.poly or FiberType.tri))
+         {
+            ClearMesh();
+            App.LogService.Info(Loc.S("AreaTranslateMeshCleared"));
+         }
 
          OnPropertyChanged(nameof(Hull));
+         OnPropertyChanged(nameof(SelectedPoolContour));
          RefreshPlot();
-         App.db.SaveContour(hull);
-         App.LogService.Info($"Контур области сдвинут на ({dx}, {dy})");
+         Touch();
       }
 
       void ShowProperties()

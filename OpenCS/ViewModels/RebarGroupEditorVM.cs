@@ -1,4 +1,5 @@
 using CScore;
+using OpenCS.Services;
 using OpenCS.Utilites;
 using OpenCS.Views.Dialogs;
 
@@ -13,8 +14,12 @@ namespace OpenCS.ViewModels
 {
     public enum RebarPlacementStrategy { FromRegion, FromContour, Bare, FromCircleSet }
 
-    /// <summary>ViewModel страницы задания группы арматурных стержней.</summary>
-    public class RebarGroupEditorVM : ViewModelBase
+    /// <summary>
+    /// ViewModel страницы группы арматурных стержней. Обозначение, материал, стержни, σsp, γsp и носитель — черновик
+    /// страницы; в область пула и базу — только по «Сохранить» (через <see cref="CrossSectionAuthoring"/>), «*» и вопрос
+    /// при уходе — по сравнению черновика с записанным.
+    /// </summary>
+    public class RebarGroupEditorVM : ViewModelBase, IUnsavedChanges
     {
         public AppViewModel App { get; }
         public MaterialArea? EditedArea { get; }
@@ -27,7 +32,10 @@ namespace OpenCS.ViewModels
         double _globalOffset = 0.025;
         double _offsetStep   = 0.001;
         double _activeDiameter = 0.012; // 12 мм
-        string _tag = "Группа";
+        string _tag = "";
+        double _sigSp;
+        double _gammaSp = 1.0;
+        string _savedKey = "";
         bool _fillMode;
         int _fillCount = 2;
         bool _fillUseArc;
@@ -57,31 +65,99 @@ namespace OpenCS.ViewModels
             ShowPropertiesCommand = new RelayCommand(_ => ShowProperties());
             ImportFromCircleSetCommand = new RelayCommand(_ => ImportFromCircleSet());
 
-            // Определить начальную стратегию
-            if (app.AreasLive.Any())     _strategy = RebarPlacementStrategy.FromRegion;
-            else if (app.Contours.Any()) _strategy = RebarPlacementStrategy.FromContour;
+            Bars.CollectionChanged += (_, e) =>
+            {
+                if (e.NewItems != null)
+                    foreach (BarItem b in e.NewItems) b.PropertyChanged += OnBarChanged;
+                Touch();
+            };
 
             // Загрузить данные существующей области
+            MaterialArea? host = null;
             if (area != null)
             {
                 _tag = area.Tag;
                 _selectedMaterial = area.Material;
+                _sigSp = area.SigSp;
+                _gammaSp = area.GammaSp;
+                host = area.HostArea ?? (area.HostAreaId is int hid ? app.MaterialAreas.FirstOrDefault(a => a.Id == hid) : null);
                 foreach (var f in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
                     Bars.Add(new BarItem { X = f.X, Y = f.Y, Diameter = f.Diameter, Index = Bars.Count + 1 });
             }
 
-            InitStrategyReference();
+            // Начальная стратегия: у группы с носителем — «от области» с её носителем; у записанной группы без
+            // носителя — без опоры (иначе «Сохранить» назначила бы носителем первую область пула).
+            if (host != null) _strategy = RebarPlacementStrategy.FromRegion;
+            else if (area is { Id: > 0 }) _strategy = RebarPlacementStrategy.Bare;
+            else if (app.AreasLive.Any()) _strategy = RebarPlacementStrategy.FromRegion;
+            else if (app.Contours.Any()) _strategy = RebarPlacementStrategy.FromContour;
+
+            if (host != null)
+            {
+                OnPropertyChanged(nameof(HasReference));
+                SelectedRegion = host;
+            }
+            else
+                InitStrategyReference();
+            _savedKey = DraftKey();
 
             app.MaterialAreaSigSpChanged += OnSigSpChangedExternally;
         }
 
+        /// <summary>Окно потерь преднапряжения записало σsp в область — подхватить в черновик.</summary>
         void OnSigSpChangedExternally(object? sender, int areaId)
         {
             if (EditedArea?.Id == areaId)
             {
+                bool wasClean = !IsDirty;
+                _sigSp = EditedArea.SigSp;
+                if (wasClean) _savedKey = DraftKey();
                 OnPropertyChanged(nameof(SigSp));
                 OnPropertyChanged(nameof(EpsSp));
+                Touch();
             }
+        }
+
+        void OnBarChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName is nameof(BarItem.X) or nameof(BarItem.Y) or nameof(BarItem.Diameter)) Touch();
+        }
+
+        // ── «*» и вопрос при уходе ───────────────────────────────────────────
+
+        /// <summary>Носитель, который получит группа при сохранении: выбранная область при опоре «от области».</summary>
+        MaterialArea? DraftHost => _strategy == RebarPlacementStrategy.FromRegion ? _selectedRegion : null;
+
+        string DraftKey() =>
+            $"{_tag}|{_selectedMaterial?.Id}|{DraftHost?.Id}:{(DraftHost == null ? 0 : System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(DraftHost))}|{_sigSp:R}|{_gammaSp:R}|" +
+            string.Join(";", Bars.Select(b => $"{b.X:R},{b.Y:R},{b.Diameter:R}"));
+
+        /// <summary>Есть правки, не записанные в проект.</summary>
+        public bool IsDirty => DraftKey() != _savedKey;
+
+        /// <summary>Обозначение для вопроса о сохранении.</summary>
+        public string DisplayName => string.IsNullOrWhiteSpace(_tag) ? Loc.S("NewRebarGroup") : _tag;
+
+        void Touch() => OnPropertyChanged(nameof(IsDirty));
+
+        bool IUnsavedChanges.SaveChanges() => Save();
+
+        /// <summary>Черновик к записанному состоянию области.</summary>
+        void IUnsavedChanges.DiscardChanges()
+        {
+            var area = EditedArea;
+            _tag = area?.Tag ?? "";
+            _selectedMaterial = area?.Material;
+            _sigSp = area?.SigSp ?? 0;
+            _gammaSp = area?.GammaSp ?? 1;
+            Bars.Clear();
+            if (area != null)
+                foreach (var f in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
+                    Bars.Add(new BarItem { X = f.X, Y = f.Y, Diameter = f.Diameter, Index = Bars.Count + 1 });
+            var host = area?.HostArea;
+            if (host != null) { _strategy = RebarPlacementStrategy.FromRegion; SelectedRegion = host; }
+            _savedKey = DraftKey();
+            OnPropertyChanged(string.Empty);
         }
 
         // ── Стратегия ────────────────────────────────────────────────────────
@@ -89,7 +165,7 @@ namespace OpenCS.ViewModels
         public RebarPlacementStrategy Strategy
         {
             get => _strategy;
-            set { _strategy = value; OnPropertyChanged(); InitStrategyReference(); }
+            set { _strategy = value; OnPropertyChanged(); InitStrategyReference(); Touch(); }
         }
 
         public bool StrategyFromRegion    { get => _strategy == RebarPlacementStrategy.FromRegion;    set { if (value) Strategy = RebarPlacementStrategy.FromRegion; } }
@@ -127,34 +203,32 @@ namespace OpenCS.ViewModels
         public Material? SelectedMaterial
         {
             get => _selectedMaterial;
-            set { _selectedMaterial = value; OnPropertyChanged(); OnPropertyChanged(nameof(EpsSp)); }
+            set { _selectedMaterial = value; OnPropertyChanged(); OnPropertyChanged(nameof(EpsSp)); Touch(); }
         }
 
         /// <summary>Предварительное напряжение после потерь [МПа].</summary>
         public double SigSp
         {
-            get => EditedArea?.SigSp ?? 0.0;
+            get => _sigSp;
             set
             {
-                if (EditedArea != null) { EditedArea.SigSp = value; EditedArea.PropagateEps_p(); }
+                _sigSp = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(EpsSp));
+                Touch();
             }
         }
 
         /// <summary>Индекс γ_sp для ComboBox: 0→1.0, 1→0.9, 2→1.1.</summary>
         public int GammaSpIndex
         {
-            get => EditedArea == null ? 0 : EditedArea.GammaSp switch { 0.9 => 1, 1.1 => 2, _ => 0 };
+            get => _gammaSp switch { 0.9 => 1, 1.1 => 2, _ => 0 };
             set
             {
-                if (EditedArea != null)
-                {
-                    EditedArea.GammaSp = value switch { 1 => 0.9, 2 => 1.1, _ => 1.0 };
-                    EditedArea.PropagateEps_p();
-                }
+                _gammaSp = value switch { 1 => 0.9, 2 => 1.1, _ => 1.0 };
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(EpsSp));
+                Touch();
             }
         }
 
@@ -165,14 +239,14 @@ namespace OpenCS.ViewModels
             {
                 double e = _selectedMaterial?.E ?? 0;
                 if (e < 1) return "—";
-                return $"{(EditedArea?.SigSp ?? 0) * 1000.0 * (EditedArea?.GammaSp ?? 1) / e:F6}";
+                return $"{_sigSp * 1000.0 * _gammaSp / e:F6}";
             }
         }
 
         public MaterialArea? SelectedRegion
         {
             get => _selectedRegion;
-            set { _selectedRegion = value; OnPropertyChanged(); if (value != null) BuildEdgesFromContour(GetHullPoints(value.Hull)); }
+            set { _selectedRegion = value; OnPropertyChanged(); if (value != null) BuildEdgesFromContour(GetHullPoints(value.Hull)); Touch(); }
         }
 
         public Contour? SelectedContour
@@ -296,12 +370,12 @@ namespace OpenCS.ViewModels
             if (Bars.Count == 0) return;
 
             var dlg = new DoubleInputDialog(
-                "Сдвиг стержней",
-                "Смещение по X (м):",
-                "Смещение по Y (м):");
+                Loc.S("RgTranslateTitle"),
+                Loc.S("AreaTranslateDxMm"),
+                Loc.S("AreaTranslateDyMm"));
             if (dlg.ShowDialog() != true) return;
 
-            double dx = dlg.Value1, dy = dlg.Value2;
+            double dx = dlg.Value1 / 1000, dy = dlg.Value2 / 1000;
             if (dx == 0 && dy == 0) return;
 
             foreach (var bar in Bars)
@@ -329,7 +403,7 @@ namespace OpenCS.ViewModels
         public string Tag
         {
             get => _tag;
-            set { _tag = value; OnPropertyChanged(); }
+            set { _tag = value; OnPropertyChanged(); Touch(); }
         }
 
         // ── Команды ──────────────────────────────────────────────────────────
@@ -603,61 +677,40 @@ namespace OpenCS.ViewModels
 
         // ── Сохранение ────────────────────────────────────────────────────────
 
-        void Save()
+        /// <summary>
+        /// Переносит черновик в область и записывает её через службу (проверка, носитель, диаграммы, круги стержней).
+        /// Проверка не прошла — ошибки в журнал, область возвращается к записанному состоянию, черновик остаётся.
+        /// </summary>
+        bool Save()
         {
             var area = EditedArea ?? new MaterialArea();
+            var before = AreaSnapshot.Capture(area);
+            bool isNew = area.Id == 0;
             area.Tag      = _tag;
             area.Category = AreaCategory.RebarGroup;
-            area.HostAreaId = _selectedRegion?.Id;
+            area.HostArea = DraftHost;
+            area.HostAreaId = DraftHost?.Id;
             area.Material   = _selectedMaterial;
             area.MaterialId = _selectedMaterial?.Id ?? 0;
-            // Тип диаграммы редактор групп не спрашивает: для арматуры он однозначно
-            // определяется материалом (физический предел текучести — L2, условный — L3).
-            if (_selectedMaterial != null)
-                area.DiagrammType = DiagrammCompatibility.Coerce(_selectedMaterial.Type, area.DiagrammType);
-            area.PropagateEps_p();
-            area.Fibers.Clear();
-            foreach (var b in Bars)
-                area.Fibers.Add(Fiber.CreatePoint(b.Diameter, b.X, b.Y));
-            App.db.SaveMaterialArea(area);
-            if (!App.MaterialAreas.Contains(area))
-                App.MaterialAreas.Add(area);
-            else
+            area.SigSp = _sigSp;
+            area.GammaSp = _gammaSp;
+            var mesh = area.Fibers.Where(f => f.TypeFiber != FiberType.point).ToList();
+            area.Fibers = [.. mesh, .. Bars.Select(b => Fiber.CreatePoint(b.Diameter, b.X, b.Y))];
+            var errors = CrossSectionAuthoring.SaveArea(App.db, area, App.CalcSettings);
+            if (errors.Count > 0)
             {
-                App.RefreshMaterialAreaLiveCollections();
-            }
-            SyncBarCircles(area);
-            App.LogService.Info($"Группа арматуры «{area.Tag}» сохранена");
-        }
-
-        /// <summary>
-        /// Отражает стержни группы в коллекции App.Circles (узел Геометрия/Окружности),
-        /// как это делают импорты из AutoCAD/DXF. GeometrySet хранит ключ вида
-        /// "RebarGroup#{id}" — по нему при повторном сохранении удаляются старые
-        /// окружности этой группы перед вставкой актуального набора.
-        /// </summary>
-        void SyncBarCircles(MaterialArea area)
-        {
-            string geometrySet = $"RebarGroup#{area.Id}";
-            foreach (var stale in App.Circles.Where(c => c.GeometrySet == geometrySet).ToList())
-            {
-                App.Circles.Remove(stale);
-                App.db.DeleteCircle(stale);
-            }
-
-            int nextNum = App.Circles.Count > 0 ? App.Circles.Max(c => c.Num) + 1 : 1;
-            foreach (var b in Bars)
-            {
-                var cp = new CircleP(b.X, b.Y, b.Diameter / 2)
-                {
-                    Tag         = _tag,
-                    GeometrySet = geometrySet,
-                    Num         = nextNum++
-                };
-                App.db.SaveCircle(cp);
-                App.Circles.Add(cp);
+                before.RestoreTo(area, App.db.Diagrams, App.CalcSettings);
+                foreach (var e in errors)
+                    App.LogService.Error(string.Format(Loc.S("AreaSaveErrorLog"), DisplayName, e.Message));
+                return false;
             }
             App.CirclesRenumber();
+            App.RefreshMaterialAreaLiveCollections();
+            App.MarkDirty(SaveCategory.CrossSections);
+            _savedKey = DraftKey();
+            Touch();
+            App.LogService.Info(string.Format(Loc.S(isNew ? "RgSavedNewLog" : "RgSavedLog"), area.Tag));
+            return true;
         }
     }
 }

@@ -3,8 +3,10 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:OpenCS.ViewModels"
              xmlns:core="clr-namespace:CScore;assembly=CScore"
-             xmlns:conv="clr-namespace:OpenCS.Converters">
+             xmlns:conv="clr-namespace:OpenCS.Converters"
+             xmlns:ut="clr-namespace:OpenCS.Utilites">
    <UserControl.Resources>
+      <ut:NumberConvert x:Key="num"/>
       <conv:MatTypeToBrushConverter x:Key="MatTypeToBrush"/>
       <conv:MatTypeToGeometryConverter x:Key="MatTypeToGeom"/>
    </UserControl.Resources>
@@ -56,7 +58,7 @@
                <StackPanel Margin="4">
                   <ComboBox x:Name="hullCombo"
                             ItemsSource="{Binding ProjectContours}"
-                            SelectedItem="{Binding PoolContour, Mode=TwoWay}"
+                            SelectedItem="{Binding SelectedPoolContour, Mode=TwoWay}"
                             DisplayMemberPath="Tag"
                             Margin="0,0,0,4"/>
                   <StackPanel Orientation="Horizontal">
@@ -121,7 +123,7 @@
                       Margin="0,0,0,8">
                <StackPanel Margin="4">
                   <TextBlock Text="{DynamicResource SigSpLabel}" Margin="0,0,0,2"/>
-                  <TextBox Text="{Binding SigSp, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}"
+                  <TextBox Text="{Binding SigSp, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus, StringFormat=F1}"
                            Margin="0,0,0,6"/>
 
                   <TextBlock Text="{DynamicResource GammaSpLabel}" Margin="0,0,0,2"/>
@@ -151,10 +153,10 @@
             <Separator Margin="0,8,0,6"/>
 
             <StackPanel Orientation="Horizontal">
-               <Button Content="Сдвиг"
+               <Button Content="{DynamicResource AreaTranslate}"
                        Command="{Binding TranslateCommand}"
                        Padding="8,3" Margin="0,0,6,0"/>
-               <Button Content="Свойства"
+               <Button Content="{DynamicResource AreaProperties}"
                        Command="{Binding ShowPropertiesCommand}"
                        Padding="8,3"/>
             </StackPanel>

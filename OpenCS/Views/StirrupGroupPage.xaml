@@ -5,7 +5,7 @@
              xmlns:util="clr-namespace:OpenCS.Utilites"
              xmlns:vm="clr-namespace:OpenCS.ViewModels">
    <UserControl.Resources>
-      <util:AnyDoubleConverter x:Key="AnyDoubleConverter"/>
+      <util:NumberConvert x:Key="num"/>
    </UserControl.Resources>
    <Grid>
       <Grid.ColumnDefinitions>
@@ -22,9 +22,9 @@
             <ComboBox ItemsSource="{Binding AvailableMaterials}" SelectedItem="{Binding SelectedMaterial}"
                       DisplayMemberPath="Tag" Margin="0,0,0,6"/>
             <TextBlock Text="{DynamicResource StirrupSpacing}" Margin="0,0,0,2"/>
-            <TextBox Text="{Binding SpacingM, Converter={StaticResource AnyDoubleConverter}, UpdateSourceTrigger=LostFocus}" Margin="0,0,0,6"/>
+            <TextBox Text="{Binding SpacingMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,0,0,6"/>
             <TextBlock Text="{DynamicResource StirrupOffset}" Margin="0,0,0,2"/>
-            <TextBox Text="{Binding OffsetM, Converter={StaticResource AnyDoubleConverter}, UpdateSourceTrigger=LostFocus}" Margin="0,0,0,6"/>
+            <TextBox Text="{Binding OffsetMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,0,0,6"/>
             <TextBlock Text="{DynamicResource StirrupAnchorArea}" Margin="0,0,0,2"/>
             <ComboBox ItemsSource="{Binding AvailableAnchorAreas}" SelectedItem="{Binding SelectedAnchorArea}"
                       DisplayMemberPath="Tag" Margin="0,0,0,8"/>
@@ -32,9 +32,9 @@
             <GroupBox Header="{DynamicResource StirrupElements}" Margin="0,0,0,6">
                <StackPanel Margin="5">
                   <TextBlock Text="{DynamicResource StirrupDiameter}" Margin="0,0,0,2"/>
-                  <TextBox Text="{Binding DiameterMm, Converter={StaticResource AnyDoubleConverter}, UpdateSourceTrigger=LostFocus}" Margin="0,0,0,5"/>
+                  <TextBox Text="{Binding DiameterMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,0,0,5"/>
                   <TextBlock Text="{DynamicResource StirrupCutPosition}" Margin="0,0,0,2"/>
-                  <TextBox Text="{Binding CutPosition, Converter={StaticResource AnyDoubleConverter}, UpdateSourceTrigger=LostFocus}" Margin="0,0,0,5"/>
+                  <TextBox Text="{Binding CutPositionMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,0,0,5"/>
                   <ComboBox SelectedValue="{Binding CutDirection}" SelectedValuePath="Tag" Margin="0,0,0,5">
                      <ComboBoxItem Tag="Vertical" Content="{DynamicResource StirrupDirectionVertical}"/>
                      <ComboBoxItem Tag="Horizontal" Content="{DynamicResource StirrupDirectionHorizontal}"/>
@@ -42,9 +42,9 @@
                   </ComboBox>
                   <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
                      <TextBlock Text="{DynamicResource StirrupCopyDx}" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                     <TextBox Text="{Binding CopyDx, Converter={StaticResource AnyDoubleConverter}, UpdateSourceTrigger=LostFocus}" Width="52" Margin="0,0,5,0"/>
+                     <TextBox Text="{Binding CopyDxMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Width="52" Margin="0,0,5,0"/>
                      <TextBlock Text="{DynamicResource StirrupCopyDy}" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                     <TextBox Text="{Binding CopyDy, Converter={StaticResource AnyDoubleConverter}, UpdateSourceTrigger=LostFocus}" Width="52"/>
+                     <TextBox Text="{Binding CopyDyMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Width="52"/>
                   </StackPanel>
                   <DockPanel Margin="0,0,0,6">
                      <TextBlock Text="{DynamicResource StirrupCopyCount}" VerticalAlignment="Center" Margin="0,0,5,0"/>

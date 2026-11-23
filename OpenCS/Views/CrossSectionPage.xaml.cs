@@ -1,4 +1,5 @@
 using CScore;
+using OpenCS.Utilites;
 using OpenCS.ViewModels;
 using System.Windows.Controls;
 
@@ -11,7 +12,7 @@ namespace OpenCS.Views
       public CrossSectionPage(AppViewModel app)
       {
          InitializeComponent();
-         var section = new CrossSection { Tag = "Новое сечение" };
+         var section = new CrossSection { Tag = Loc.S("NewCrossSection") };
          _vm = new CrossSectionVM(section, app);
          DataContext = _vm;
          preview.ApplySettings(app.PlotSettings);

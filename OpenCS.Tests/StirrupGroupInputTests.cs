@@ -5,12 +5,12 @@ using Xunit;
 
 namespace OpenCS.Tests;
 
-/// <summary>Проверяет настройки ввода дробных чисел в редакторе хомутов.</summary>
+/// <summary>Проверяет настройки ввода дробных чисел в редакторе хомутов (размеры в мм, ввод через NumberInput).</summary>
 public sealed class StirrupGroupInputTests
 {
     static readonly string[] DecimalProperties =
     [
-        "SpacingM", "OffsetM", "DiameterMm", "CutPosition", "CopyDx", "CopyDy"
+        "SpacingMm", "OffsetMm", "DiameterMm", "CutPositionMm", "CopyDxMm", "CopyDyMm"
     ];
 
     [Fact]
@@ -26,9 +26,9 @@ public sealed class StirrupGroupInputTests
         foreach (var property in DecimalProperties)
         {
             var binding = Assert.Single(textBoxes,
-                value => value!.Contains($"Binding {property}", StringComparison.Ordinal));
+                value => value!.Contains($"Binding {property},", StringComparison.Ordinal));
 
-            Assert.Contains("Converter={StaticResource AnyDoubleConverter}", binding);
+            Assert.Contains("Converter={StaticResource num}", binding);
             Assert.Contains("UpdateSourceTrigger=LostFocus", binding);
         }
     }
@@ -36,12 +36,19 @@ public sealed class StirrupGroupInputTests
     [Theory]
     [InlineData("0,15")]
     [InlineData("0.15")]
-    public void AnyDoubleConverter_ParsesBothDecimalSeparators(string text)
+    public void NumberConvert_ParsesBothDecimalSeparators(string text)
     {
-        var result = new AnyDoubleConverter().ConvertBack(
+        var result = new NumberConvert().ConvertBack(
             text, typeof(double), null!, CultureInfo.InvariantCulture);
 
         Assert.Equal(0.15, Assert.IsType<double>(result), 12);
+    }
+
+    [Fact]
+    public void NumberConvert_RejectsGarbage_RedFrame()
+    {
+        var result = new NumberConvert().ConvertBack("abc", typeof(double), null!, CultureInfo.InvariantCulture);
+        Assert.Same(System.Windows.DependencyProperty.UnsetValue, result);
     }
 
     static string FindPagePath()

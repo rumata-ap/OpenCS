@@ -5,18 +5,23 @@ using System.Windows.Input;
 
 using CScore;
 using CScore.Sp63Shear;
+using OpenCS.Services;
 using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
 
-/// <summary>ViewModel страницы задания группы поперечного армирования.</summary>
-public sealed class StirrupGroupVM : ViewModelBase
+/// <summary>
+/// ViewModel страницы группы поперечного армирования. Группа хомутов, обозначение и материал — черновик страницы (копия
+/// группы области); в область пула и базу — только по «Сохранить» через <see cref="CrossSectionAuthoring"/>. Размеры на
+/// странице — в мм (в модели — м).
+/// </summary>
+public sealed class StirrupGroupVM : ViewModelBase, IUnsavedChanges
 {
     const double DefaultSpacingM = 0.2;
     const double DefaultOffsetM = 0.03;
     const double DefaultDiameterM = 0.008;
 
-    readonly StirrupGroup _group;
+    StirrupGroup _group;
     readonly ObservableCollection<StirrupElementVM> _elements = [];
     MaterialArea? _selectedAnchorArea;
     Material? _selectedMaterial;
@@ -31,6 +36,7 @@ public sealed class StirrupGroupVM : ViewModelBase
     double _copyDy;
     int _copyCount = 1;
     string? _errorMessage;
+    string _savedKey = "";
 
     /// <summary>Создаёт редактор группы поперечного армирования.</summary>
     public StirrupGroupVM(MaterialArea area, AppViewModel app)
@@ -38,20 +44,9 @@ public sealed class StirrupGroupVM : ViewModelBase
         EditedArea = area ?? throw new ArgumentNullException(nameof(area));
         App = app ?? throw new ArgumentNullException(nameof(app));
 
-        _group = area.Stirrups.FirstOrDefault() ?? new StirrupGroup
-        {
-            MaterialId = area.MaterialId,
-            SpacingM = DefaultSpacingM,
-            OffsetM = DefaultOffsetM
-        };
-        if (area.Stirrups.Count == 0)
-            area.Stirrups.Add(_group);
-        if (_group.SpacingM <= 0.0) _group.SpacingM = DefaultSpacingM;
-        _tag = area.Tag;
-        _spacingM = _group.SpacingM;
-        _offsetM = _group.OffsetM ?? DefaultOffsetM;
-        _selectedMaterial = area.Material ?? App.Materials.FirstOrDefault(m => m.Id == area.MaterialId)
-            ?? App.Armatures.FirstOrDefault();
+        _group = null!;
+        _tag = "";
+        LoadDraft();
         int? savedAnchorId = _group.Elements
             .Select(element => element.Source?.AnchorAreaId)
             .FirstOrDefault(id => id.HasValue);
@@ -60,8 +55,6 @@ public sealed class StirrupGroupVM : ViewModelBase
                 ?? App.MaterialAreas.FirstOrDefault(areaItem => areaItem.Id == anchorId)
             : App.AreasLive.FirstOrDefault();
 
-        RefreshElements();
-
         AddLoopCommand = new RelayCommand(_ => AddLoop());
         AddCutCommand = new RelayCommand(_ => AddCut());
         DuplicateCommand = new RelayCommand(_ => Duplicate());
@@ -69,6 +62,55 @@ public sealed class StirrupGroupVM : ViewModelBase
         RebuildCommand = new RelayCommand(_ => Rebuild());
         SaveCommand = new RelayCommand(_ => Save());
         CancelCommand = new RelayCommand(_ => App.CurrentPage = null!);
+    }
+
+    /// <summary>Черновик из области: копия первой группы (или новая с умолчаниями), обозначение, материал.</summary>
+    void LoadDraft()
+    {
+        var area = EditedArea;
+        _group = area.Stirrups.FirstOrDefault()?.Clone(preserveId: true) ?? new StirrupGroup
+        {
+            MaterialId = area.MaterialId,
+            SpacingM = DefaultSpacingM,
+            OffsetM = DefaultOffsetM
+        };
+        bool isNew = area.Id == 0 && area.Stirrups.Count == 0;
+        if (_group.SpacingM <= 0.0) _group.SpacingM = DefaultSpacingM;
+        _tag = area.Tag;
+        _spacingM = _group.SpacingM;
+        _offsetM = _group.OffsetM ?? DefaultOffsetM;
+        _selectedMaterial = area.Material ?? App.Materials.FirstOrDefault(m => m.Id == area.MaterialId)
+            ?? App.Armatures.FirstOrDefault();
+        RefreshElements();
+        // Новая группа без элементов «чистая» с умолчаниями страницы; записанная — по своему состоянию.
+        _savedKey = isNew ? DraftKey() : SavedKey(area);
+    }
+
+    string DraftKey() =>
+        $"{_tag}|{_selectedMaterial?.Id}|{_spacingM:R}|{_offsetM:R}|" +
+        AreaSnapshot.StirrupsSignature([new StirrupGroup { Elements = _group.Elements }]);
+
+    static string SavedKey(MaterialArea a)
+    {
+        var g = a.Stirrups.FirstOrDefault();
+        return $"{a.Tag}|{(a.Material?.Id ?? (a.MaterialId > 0 ? a.MaterialId : null))}|{(g is { SpacingM: > 0 } ? g.SpacingM : DefaultSpacingM):R}|{(g?.OffsetM ?? DefaultOffsetM):R}|" +
+               AreaSnapshot.StirrupsSignature([new StirrupGroup { Elements = g?.Elements ?? [] }]);
+    }
+
+    /// <summary>Есть правки, не записанные в проект.</summary>
+    public bool IsDirty => DraftKey() != _savedKey;
+
+    /// <summary>Обозначение для вопроса о сохранении.</summary>
+    public string DisplayName => string.IsNullOrWhiteSpace(_tag) ? Loc.S("NewStirrupGroup") : _tag;
+
+    void Touch() => OnPropertyChanged(nameof(IsDirty));
+
+    bool IUnsavedChanges.SaveChanges() => Save();
+
+    void IUnsavedChanges.DiscardChanges()
+    {
+        LoadDraft();
+        OnPropertyChanged(string.Empty);
     }
 
     /// <summary>Приложение-владелец.</summary>
@@ -81,7 +123,7 @@ public sealed class StirrupGroupVM : ViewModelBase
     public StirrupGroup Group => _group;
 
     /// <summary>Тег области.</summary>
-    public string Tag { get => _tag; set { _tag = value; OnPropertyChanged(); } }
+    public string Tag { get => _tag; set { _tag = value; OnPropertyChanged(); Touch(); } }
 
     /// <summary>Доступные материалы поперечной арматуры.</summary>
     public IReadOnlyList<Material> AvailableMaterials => App.Armatures.Count > 0
@@ -95,22 +137,28 @@ public sealed class StirrupGroupVM : ViewModelBase
     public Material? SelectedMaterial
     {
         get => _selectedMaterial;
-        set { _selectedMaterial = value; OnPropertyChanged(); }
+        set { _selectedMaterial = value; OnPropertyChanged(); Touch(); }
     }
 
     /// <summary>Шаг хомутов вдоль оси стержня, м.</summary>
     public double SpacingM
     {
         get => _spacingM;
-        set { _spacingM = value; _group.SpacingM = value; OnPropertyChanged(); }
+        set { _spacingM = value; _group.SpacingM = value; OnPropertyChanged(); OnPropertyChanged(nameof(SpacingMm)); Touch(); }
     }
+
+    /// <summary>Шаг хомутов, мм (поле страницы).</summary>
+    public double SpacingMm { get => _spacingM * 1000.0; set => SpacingM = value / 1000.0; }
 
     /// <summary>Отступ для новых параметрических элементов, м.</summary>
     public double OffsetM
     {
         get => _offsetM;
-        set { _offsetM = value; _group.OffsetM = value; OnPropertyChanged(); }
+        set { _offsetM = value; _group.OffsetM = value; OnPropertyChanged(); OnPropertyChanged(nameof(OffsetMm)); Touch(); }
     }
+
+    /// <summary>Отступ, мм (поле страницы).</summary>
+    public double OffsetMm { get => _offsetM * 1000.0; set => OffsetM = value / 1000.0; }
 
     /// <summary>Область-носитель для новых элементов.</summary>
     public MaterialArea? SelectedAnchorArea
@@ -147,8 +195,11 @@ public sealed class StirrupGroupVM : ViewModelBase
     public double CutPosition
     {
         get => _cutPosition;
-        set { _cutPosition = value; OnPropertyChanged(); }
+        set { _cutPosition = value; OnPropertyChanged(); OnPropertyChanged(nameof(CutPositionMm)); }
     }
+
+    /// <summary>Координата линии нового среза, мм (поле страницы).</summary>
+    public double CutPositionMm { get => _cutPosition * 1000.0; set => CutPosition = value / 1000.0; }
 
     /// <summary>Диаметр нового стержня, м.</summary>
     public double Diameter
@@ -169,10 +220,16 @@ public sealed class StirrupGroupVM : ViewModelBase
     }
 
     /// <summary>Смещение копии по X, м.</summary>
-    public double CopyDx { get => _copyDx; set { _copyDx = value; OnPropertyChanged(); } }
+    public double CopyDx { get => _copyDx; set { _copyDx = value; OnPropertyChanged(); OnPropertyChanged(nameof(CopyDxMm)); } }
 
     /// <summary>Смещение копии по Y, м.</summary>
-    public double CopyDy { get => _copyDy; set { _copyDy = value; OnPropertyChanged(); } }
+    public double CopyDy { get => _copyDy; set { _copyDy = value; OnPropertyChanged(); OnPropertyChanged(nameof(CopyDyMm)); } }
+
+    /// <summary>Смещение копии по X, мм (поле страницы).</summary>
+    public double CopyDxMm { get => _copyDx * 1000.0; set => CopyDx = value / 1000.0; }
+
+    /// <summary>Смещение копии по Y, мм (поле страницы).</summary>
+    public double CopyDyMm { get => _copyDy * 1000.0; set => CopyDy = value / 1000.0; }
 
     /// <summary>Количество копий.</summary>
     public int CopyCount
@@ -316,40 +373,41 @@ public sealed class StirrupGroupVM : ViewModelBase
         : App.AreasLive.FirstOrDefault(area => area.Id == id.Value)
           ?? App.MaterialAreas.FirstOrDefault(area => area.Id == id.Value);
 
-    void Save()
+    /// <summary>
+    /// Переносит черновик в область и записывает её через службу. Проверка не прошла — ошибки в поле ошибки и журнал,
+    /// область возвращается к записанному состоянию, черновик остаётся.
+    /// </summary>
+    bool Save()
     {
         ClearError();
-        EditedArea.Tag = Tag;
-        EditedArea.Category = AreaCategory.Stirrups;
-        EditedArea.HostAreaId = null;
-        if (SelectedMaterial is not null)
-        {
-            EditedArea.Material = SelectedMaterial;
-            EditedArea.MaterialId = SelectedMaterial.Id;
-            // Тип диаграммы редактор хомутов не спрашивает — определяем по материалу
-            // (для ReSteelU двухлинейной диаграммы не существует).
-            EditedArea.DiagrammType =
-                DiagrammCompatibility.Coerce(SelectedMaterial.Type, EditedArea.DiagrammType);
-        }
-
-        _group.MaterialId = EditedArea.MaterialId;
+        var area = EditedArea;
+        var before = AreaSnapshot.Capture(area);
+        bool isNew = area.Id == 0;
+        area.Tag = Tag;
+        area.Category = AreaCategory.Stirrups;
+        area.HostArea = null;
+        area.HostAreaId = null;
+        area.Material = SelectedMaterial;
+        area.MaterialId = SelectedMaterial?.Id ?? 0;
+        _group.MaterialId = area.MaterialId;
         _group.SpacingM = SpacingM;
         _group.OffsetM = OffsetM;
-        EditedArea.Stirrups.Clear();
-        EditedArea.Stirrups.Add(_group);
-        try
+        area.Stirrups = [_group.Clone(preserveId: true)];
+        var errors = CrossSectionAuthoring.SaveArea(App.db, area, App.CalcSettings);
+        if (errors.Count > 0)
         {
-            _group.ValidateFor(EditedArea);
-            App.db.SaveMaterialArea(EditedArea);
-            if (!App.MaterialAreas.Contains(EditedArea))
-                App.MaterialAreas.Add(EditedArea);
-            App.RefreshMaterialAreaLiveCollections();
-            App.LogService.Info($"Группа поперечного армирования «{EditedArea.Tag}» сохранена");
+            before.RestoreTo(area, App.db.Diagrams, App.CalcSettings);
+            ErrorMessage = string.Join(Environment.NewLine, errors.Select(e => e.Message));
+            foreach (var e in errors)
+                App.LogService.Error(string.Format(Loc.S("AreaSaveErrorLog"), DisplayName, e.Message));
+            return false;
         }
-        catch (Exception ex)
-        {
-            ErrorMessage = ex.Message;
-        }
+        App.RefreshMaterialAreaLiveCollections();
+        App.MarkDirty(SaveCategory.CrossSections);
+        _savedKey = DraftKey();
+        Touch();
+        App.LogService.Info(string.Format(Loc.S(isNew ? "StirrupSavedNewLog" : "StirrupSavedLog"), area.Tag));
+        return true;
     }
 
     void RefreshElements(StirrupElement? selected = null)
@@ -362,6 +420,7 @@ public sealed class StirrupGroupVM : ViewModelBase
             : _elements.FirstOrDefault(vm => ReferenceEquals(vm.Element, selected));
         OnPropertyChanged(nameof(Elements));
         CollectionViewSource.GetDefaultView(_elements).Refresh();
+        Touch();
     }
 
     void RefreshElementRows()

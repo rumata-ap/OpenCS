@@ -3109,35 +3109,45 @@ namespace OpenCS
       void DeleteCrossSection()
       {
          if (currentCrossSection == null) return;
-         var users = db.SectionsUsingAsPart(currentCrossSection.Id);
-         if (users.Count > 0)
+         var section = currentCrossSection;
+         var usedBy = CrossSectionAuthoring.SectionUsedBy(db, section);
+         if (usedBy.Count > 0)
          {
-            System.Windows.MessageBox.Show(string.Format(Loc.S("SectionUsedAsStagedPart"), users[0].Tag),
+            System.Windows.MessageBox.Show(
+               string.Format(Loc.S("SectionInUseCannotDelete"), section.Tag, usedBy.Count, ListPlain(usedBy)),
                Loc.S("Warning"), System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
             return;
          }
-         System.Windows.MessageBoxImage ic = System.Windows.MessageBoxImage.Warning;
-         System.Windows.MessageBoxButton mbb = System.Windows.MessageBoxButton.YesNo;
          var res = System.Windows.MessageBox.Show(
-            Loc.S("ConfirmDeleteRegion"), Loc.S("Warning"), mbb, ic);
+            string.Format(Loc.S("ConfirmDeleteSection"), section.Tag), Loc.S("Warning"),
+            System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning);
          if (res != System.Windows.MessageBoxResult.Yes) return;
 
-         db.DeleteCrossSection(currentCrossSection);
+         // Удаляемое сечение на странице с несохранёнными правками — не спрашивать о сохранении.
+         if (CurrentPage?.DataContext is IUnsavedChanges { IsDirty: true } page && ShowsSection(page, section))
+            page.DiscardChanges();
+         CurrentPage = null!;
+         if (CurrentPage != null) return;
+         if (!CrossSectionAuthoring.TryDeleteSection(db, section, out _)) return;
          CrossSectionsLive = new(CrossSections);
          CrossSectionsRenumber();
          RefreshSectionLiveCollections();
          currentCrossSection = null;
-         CurrentPage = null!;
          OnPropertyChanged(nameof(CurrentCrossSection));
+         MarkDirty(SaveCategory.CrossSections);
+         LogService.Info(string.Format(Loc.S("SectionDeletedLog"), section.Tag));
       }
 
-      public void RemoveMaterialArea(ViewModels.MaterialAreaVM vm)
+      static bool ShowsSection(IUnsavedChanges page, CrossSection section) => page switch
       {
-         var sec = CrossSections.FirstOrDefault(s => s.Areas.Contains(vm.Model));
-         if (sec == null) return;
-         sec.Areas.Remove(vm.Model);
-         MarkDirty(SaveCategory.CrossSections);
-      }
+         CrossSectionVM vm => vm.Model == section,
+         StagedSectionVM vm => vm.Model == section,
+         _ => false
+      };
+
+      /// <summary>Список для сообщения: первые десять строк, остальное — «…».</summary>
+      static string ListPlain(IReadOnlyList<string> items) =>
+         string.Join("; ", items.Take(10)) + (items.Count > 10 ? "; …" : "");
 
       void NewBarForceSet()
       {
@@ -3297,7 +3307,7 @@ namespace OpenCS
       {
          var area = new MaterialArea
          {
-            Tag = $"Область {MaterialAreas.Count + 1}",
+            Tag = string.Format(Loc.S("AreaTagFormat"), MaterialAreas.Count + 1),
             Category = AreaCategory.Region
          };
          CurrentPage = new Views.MaterialAreaPage(area, this);
@@ -3307,7 +3317,7 @@ namespace OpenCS
       {
          var area = new MaterialArea
          {
-            Tag = $"Группа {RebarGroupsLive.Count + 1}",
+            Tag = string.Format(Loc.S("RebarGroupTagFormat"), RebarGroupsLive.Count + 1),
             Category = AreaCategory.RebarGroup
          };
          CurrentPage = new Views.RebarGroupEditorPage(area, this);
@@ -3325,13 +3335,52 @@ namespace OpenCS
 
       void DeleteMaterialArea()
       {
-         if (currentMaterialArea == null) return;
-         db.DeleteMaterialArea(currentMaterialArea);
-         RefreshMaterialAreaLiveCollections();
-         currentMaterialArea = null;
-         CurrentPage = null!;
-         OnPropertyChanged(nameof(CurrentMaterialArea));
+         if (currentMaterialArea != null) DeleteArea(currentMaterialArea);
       }
+
+      /// <summary>
+      /// Удаляет область пула (дерево, страница области): используемую сечениями или как носитель — отказ со списком;
+      /// показанную страницу с правками закрывает без вопроса.
+      /// </summary>
+      public void DeleteArea(MaterialArea area)
+      {
+         var usedBy = CrossSectionAuthoring.AreaUsedBy(db, area);
+         if (usedBy.Count > 0)
+         {
+            System.Windows.MessageBox.Show(
+               string.Format(Loc.S("AreaInUseCannotDelete"), area.Tag, usedBy.Count, ListPlain(usedBy)),
+               Loc.S("Warning"), System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            return;
+         }
+         var res = System.Windows.MessageBox.Show(
+            string.Format(Loc.S("ConfirmDeleteArea"), area.Tag), Loc.S("Warning"),
+            System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning);
+         if (res != System.Windows.MessageBoxResult.Yes) return;
+
+         if (CurrentPage?.DataContext is IUnsavedChanges { IsDirty: true } page && ShowsArea(page, area))
+            page.DiscardChanges();
+         CurrentPage = null!;
+         if (CurrentPage != null) return;
+         if (area.Id == 0) return;   // новая, не записанная: закрыть страницу достаточно
+         if (!CrossSectionAuthoring.TryDeleteArea(db, area, out _)) return;
+         this.CirclesRenumber();
+         RefreshMaterialAreaLiveCollections();
+         if (currentMaterialArea == area)
+         {
+            currentMaterialArea = null;
+            OnPropertyChanged(nameof(CurrentMaterialArea));
+         }
+         MarkDirty(SaveCategory.CrossSections);
+         LogService.Info(string.Format(Loc.S("AreaDeletedLog"), area.Tag));
+      }
+
+      static bool ShowsArea(IUnsavedChanges page, MaterialArea area) => page switch
+      {
+         MaterialAreaVM vm => vm.Model == area,
+         RebarGroupEditorVM vm => vm.EditedArea == area,
+         StirrupGroupVM vm => vm.EditedArea == area,
+         _ => false
+      };
 
       void NewPlateSection()
       {

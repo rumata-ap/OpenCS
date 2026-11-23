@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 
+using OpenCS.Utilites;
 using OpenCS.ViewModels;
 
 namespace OpenCS.Views.Dialogs;
@@ -20,7 +21,7 @@ public partial class RebarGroupPropsWindow : Window
         Owner = Application.Current.MainWindow;
 
         if (tag != null)
-            Title = $"Свойства группы «{tag}»";
+            Title = string.Format(Loc.S("RgPropsTitleFor"), tag);
 
         _count = bars.Count;
 
@@ -64,9 +65,9 @@ public partial class RebarGroupPropsWindow : Window
     static double Af(Unit u) => u switch { Unit.mm => 1e6, Unit.cm => 1e4, _ => 1 };
     static double If(Unit u) => u switch { Unit.mm => 1e12, Unit.cm => 1e8, _ => 1 };
 
-    static string Lu(Unit u) => u switch { Unit.mm => "мм", Unit.cm => "см", _ => "м" };
-    static string Au(Unit u) => u switch { Unit.mm => "мм²", Unit.cm => "см²", _ => "м²" };
-    static string Iu(Unit u) => u switch { Unit.mm => "мм⁴", Unit.cm => "см⁴", _ => "м⁴" };
+    static string Lu(Unit u) => Loc.S(u switch { Unit.mm => "UnitMm", Unit.cm => "UnitCm", _ => "UnitM" });
+    static string Au(Unit u) => Lu(u) + "²";
+    static string Iu(Unit u) => Lu(u) + "⁴";
 
     void UpdateDisplay()
     {
@@ -82,8 +83,7 @@ public partial class RebarGroupPropsWindow : Window
         IxText.Text = (_ix * inf).ToString(fmt) + " " + Iu(u);
         IyText.Text = (_iy * inf).ToString(fmt) + " " + Iu(u);
         IxyText.Text = (_ixy * inf).ToString(fmt) + " " + Iu(u);
-        string du = u switch { Unit.mm => "мм", Unit.cm => "см", _ => "м" };
-        DiameterRangeText.Text = $"{(_dMin * lf):F1} / {(_dMax * lf):F1} {du}";
+        DiameterRangeText.Text = $"{(_dMin * lf):F1} / {(_dMax * lf):F1} {Lu(u)}";
     }
 
     void Unit_Checked(object sender, RoutedEventArgs e) => UpdateDisplay();
