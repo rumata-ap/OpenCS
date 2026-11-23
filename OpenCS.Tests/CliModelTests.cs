@@ -348,6 +348,127 @@ public sealed class CliModelTests : IDisposable
         Assert.NotNull(JsonNode.Parse(r.Out)!["properties"]);
     }
 
+    const string ContoursSeed = """
+        { "format": "opencs-model", "version": 1,
+          "contours": [
+            { "tag": "Колонна 400×600", "points": [[-200, -300], [200, -300], [200, 300], [-200, 300]] },
+            { "tag": "Отверстие", "set": "Плита", "type": "hole", "points": [[0, 0], [100, 0], [100, 100], [0, 100], [0, 0]] } ],
+          "circles": [
+            { "tag": "Ø25", "x": -150, "y": -250, "d": 25 },
+            { "tag": "Ø25", "x": 150, "y": -250, "d": 25 } ] }
+        """;
+
+    static (List<CScore.Contour> Contours, List<CScore.CircleP> Circles) Geometry(string project)
+    {
+        using var db = new DatabaseService(project);
+        db.LoadAll();
+        var r = (db.Contours.ToList(), db.Circles.ToList());
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        return r;
+    }
+
+    [Fact]
+    public async Task Contours_Circles_Apply_MetresInBase_UpdateInPlace()
+    {
+        string project = await NewProject();
+        var r = await Run("apply", project, Doc("c.json", ContoursSeed));
+        Assert.True(r.Code == CliExitCode.Ok, r.Err);
+        var (contours, circles) = Geometry(project);
+        Assert.Equal(2, contours.Count);
+        var col = contours.Single(c => c.Tag == "Колонна 400×600");
+        Assert.True(col.IsClosed);
+        Assert.Equal(5, col.Points.Count);
+        Assert.Equal(0.24, Math.Abs(new CScore.GeoProps(col).A), 9);    // мм документа → м базы
+        var hole = contours.Single(c => c.Tag == "Отверстие");
+        Assert.Equal(CScore.ContourType.Hole, hole.Type);
+        Assert.Equal("Плита", hole.GeometrySet);
+        Assert.Equal(5, hole.Points.Count);                              // замыкающая из документа не удвоена
+        Assert.Equal(2, circles.Count);
+        Assert.All(circles, c => Assert.Equal(0.0125, c.Radius, 12));
+
+        // Обновление на месте: тот же Id, новые вершины; круг по центру — новый диаметр.
+        var u = await Run("apply", project, Doc("u.json", """
+            { "format": "opencs-model", "version": 1,
+              "contours": [ { "tag": "Колонна 400×600", "points": [[-200, -400], [200, -400], [200, 400], [-200, 400]] } ],
+              "circles": [ { "tag": "Ø32", "x": 150, "y": -250, "d": 32 } ] }
+            """));
+        Assert.True(u.Code == CliExitCode.Ok, u.Err);
+        var (after, circ) = Geometry(project);
+        var col2 = after.Single(c => c.Tag == "Колонна 400×600");
+        Assert.Equal(col.Id, col2.Id);
+        Assert.Equal(0.32, Math.Abs(new CScore.GeoProps(col2).A), 9);
+        Assert.Equal(2, circ.Count);
+        Assert.Equal(0.016, circ.Single(c => c.Tag == "Ø32").Radius, 12);
+    }
+
+    [Fact]
+    public async Task Contours_Errors_WithPaths_NothingWritten()
+    {
+        string project = await NewProject();
+        var r = await Run("apply", project, Doc("bad.json", """
+            { "format": "opencs-model", "version": 1,
+              "contours": [
+                { "tag": "", "points": [[0, 0], [100, 0], [0, 100]] },
+                { "tag": "Бабочка", "points": [[0, 0], [100, 100], [100, 0], [0, 100]] },
+                { "tag": "Две", "points": [[0, 0], [100, 0]] },
+                { "tag": "Тип", "type": "ring", "points": [[0, 0], [100, 0], [0, 100]] },
+                { "tag": "Строка", "points": [[0, 0], ["x", 0], [0, 100]] },
+                { "tag": "Повтор", "points": [[0, 0], [100, 0], [0, 100]] },
+                { "tag": "Повтор", "points": [[0, 0], [100, 0], [0, 100]] } ],
+              "circles": [ { "x": 0, "y": 0, "d": 0 }, { "x": 0, "y": 0 } ] }
+            """));
+        Assert.Equal(CliExitCode.Usage, r.Code);
+        Assert.Contains("contours[0].tag", r.Err);
+        Assert.Contains("contours[1].points[", r.Err);
+        Assert.Contains("contours[2].points", r.Err);
+        Assert.Contains("contours[3].type", r.Err);
+        Assert.Contains("contours[4]", r.Err);
+        Assert.Contains("contours[6].tag", r.Err);
+        Assert.Contains("circles[0].d", r.Err);
+        Assert.Contains("circles[1].d", r.Err);
+        var (contours, circles) = Geometry(project);
+        Assert.Empty(contours);
+        Assert.Empty(circles);
+    }
+
+    [Fact]
+    public async Task Contours_DryRun_WritesNothing_RoundTripSame()
+    {
+        string first = await NewProject("a.db");
+        var dry = await Run("apply", first, Doc("seed.json", ContoursSeed), "--dry-run");
+        Assert.True(dry.Code == CliExitCode.Ok, dry.Err);
+        Assert.Empty(Geometry(first).Contours);
+
+        Assert.Equal(CliExitCode.Ok, (await Run("apply", first, PathOf("seed.json"))).Code);
+        string exported = PathOf("e1.json");
+        var ex = await Run("export", "model", first, "--to", exported);
+        Assert.True(ex.Code == CliExitCode.Ok, ex.Err);
+
+        string second = await NewProject("b.db");
+        var apply = await Run("apply", second, exported);
+        Assert.True(apply.Code == CliExitCode.Ok, apply.Err);
+        string exported2 = PathOf("e2.json");
+        Assert.Equal(CliExitCode.Ok, (await Run("export", "model", second, "--to", exported2)).Code);
+
+        var a = JsonNode.Parse(File.ReadAllText(exported))!;
+        var b = JsonNode.Parse(File.ReadAllText(exported2))!;
+        Assert.Equal(2, a["contours"]!.AsArray().Count);
+        Assert.Equal(4, a["contours"]![1]!["points"]!.AsArray().Count);  // без замыкающей
+        Assert.Equal(-200.0, (double)a["contours"]![0]!["points"]![0]![0]!, 9);
+        Assert.Equal(2, a["circles"]!.AsArray().Count);
+        AssertJsonClose(a, b, "$");
+    }
+
+    [Theory]
+    [InlineData("contours")]
+    [InlineData("circles")]
+    public async Task Schema_Geometry_IsJson(string kind)
+    {
+        var r = await Run("schema", kind);
+        Assert.True(r.Code == CliExitCode.Ok, r.Err);
+        Assert.NotNull(JsonNode.Parse(r.Out)!["properties"]);
+    }
+
     /// <summary>JSON совпадает; числа — с относительным допуском 1e-12 (пересчёт кПа ↔ МПа).</summary>
     static void AssertJsonClose(JsonNode? a, JsonNode? b, string path)
     {

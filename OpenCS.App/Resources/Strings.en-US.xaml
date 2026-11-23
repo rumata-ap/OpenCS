@@ -7165,4 +7165,9 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="ProfileArcPoints">Points per arc:</system:String>
    <system:String x:Key="ProfileFlangeSlope">Flange slope, %:</system:String>
    <system:String x:Key="ProfileProps">Properties:</system:String>
+   <system:String x:Key="CliContourErrPoint">vertex must be a pair of numbers [x, y], mm</system:String>
+   <system:String x:Key="CliModelErrRequired">required field</system:String>
+   <system:String x:Key="CliContourDuplicateSkipped">contour «{0}» occurs more than once — the first one exported</system:String>
+   <system:String x:Key="CliContourInvalidSkipped">contour «{0}» failed validation (polyline, self-intersection, zero area) — not exported</system:String>
+   <system:String x:Key="CliCircleDuplicateSkipped">circle {0} occurs more than once — the first one exported</system:String>
 </ResourceDictionary>

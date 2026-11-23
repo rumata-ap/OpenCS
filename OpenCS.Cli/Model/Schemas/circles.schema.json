@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "opencs-model: circles[]",
+  "description": "Круг пула проекта (точки стержней, импорт DXF). Ключ — набор (set) и центр (x, y); обозначение — метка и может повторяться. Размеры в мм.",
+  "type": "object",
+  "required": ["x", "y", "d"],
+  "properties": {
+    "tag": { "type": "string", "description": "Метка (у импорта DXF — имя слоя)" },
+    "set": { "type": "string", "description": "Набор геометрии; пусто — без набора" },
+    "x": { "type": "number", "description": "Центр X, мм" },
+    "y": { "type": "number", "description": "Центр Y, мм" },
+    "d": { "type": "number", "exclusiveMinimum": 0, "description": "Диаметр, мм" }
+  }
+}

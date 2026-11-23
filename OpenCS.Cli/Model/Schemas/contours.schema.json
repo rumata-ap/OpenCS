@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "opencs-model: contours[]",
+  "description": "Контур пула проекта (на него ссылаются области сечений). Ключ — набор (set) и обозначение (tag). Вершины — [x, y] в мм, без замыкающей; кольцо не самопересекается, площадь больше нуля. Раздел записывается раньше sections.",
+  "type": "object",
+  "required": ["tag", "points"],
+  "properties": {
+    "tag": { "type": "string", "description": "Обозначение; вместе с set — ключ контура в проекте" },
+    "set": { "type": "string", "description": "Набор геометрии (группа контуров, напр. имя DXF-файла); пусто — без набора" },
+    "type": { "enum": ["hull", "hole", "none"], "default": "hull", "description": "Оболочка, отверстие или без типа" },
+    "points": {
+      "type": "array",
+      "minItems": 3,
+      "description": "Вершины [x, y], мм, по порядку обхода; замыкающая добавляется сама",
+      "items": { "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }], "minItems": 2, "maxItems": 2 }
+    }
+  }
+}

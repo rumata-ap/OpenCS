@@ -7165,4 +7165,9 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="ProfileArcPoints">Точек на дугу:</system:String>
    <system:String x:Key="ProfileFlangeSlope">Уклон полок, %:</system:String>
    <system:String x:Key="ProfileProps">Свойства:</system:String>
+   <system:String x:Key="CliContourErrPoint">вершина — пара чисел [x, y], мм</system:String>
+   <system:String x:Key="CliModelErrRequired">обязательное поле</system:String>
+   <system:String x:Key="CliContourDuplicateSkipped">контур «{0}» встречается в проекте не один раз — выгружен первый</system:String>
+   <system:String x:Key="CliContourInvalidSkipped">контур «{0}» не прошёл проверку (полилиния, самопересечение, нулевая площадь) — не выгружен</system:String>
+   <system:String x:Key="CliCircleDuplicateSkipped">круг {0} встречается в проекте не один раз — выгружен первый</system:String>
 </ResourceDictionary>
