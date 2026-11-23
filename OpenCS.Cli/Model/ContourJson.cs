@@ -106,8 +106,11 @@ static class ContourJson
     }
 
     /// <summary>Ключ круга: набор и центр в мм (обозначение круга — метка, не уникальна).</summary>
-    public static string CircleKey(string? set, double xM, double yM) =>
-        FormattableString.Invariant($"{set?.Trim() ?? ""} @ ({Math.Round(xM * MmPerM, 3)}; {Math.Round(yM * MmPerM, 3)})");
+    public static string CircleKey(string? set, double xM, double yM)
+    {
+        string at = FormattableString.Invariant($"({Math.Round(xM * MmPerM, 3)}; {Math.Round(yM * MmPerM, 3)})");
+        return string.IsNullOrWhiteSpace(set) ? at : $"{set.Trim()} @ {at}";
+    }
 
     static double Num(JsonObject o, string key, string path, ModelErrors errors)
     {

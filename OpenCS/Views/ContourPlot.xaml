@@ -21,6 +21,14 @@
             <ResourceDictionary Source="/Images/svg.xaml"/>
          </ResourceDictionary.MergedDictionaries>
          <ut:NumberConvert x:Key="num"/>
+         <!-- Значок на недоступной кнопке («Сохранить» без «*», правка вне режима) — бледный, иначе состояние не видно. -->
+         <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Style.Triggers>
+               <Trigger Property="IsEnabled" Value="False">
+                  <Setter Property="Opacity" Value="0.35"/>
+               </Trigger>
+            </Style.Triggers>
+         </Style>
       </ResourceDictionary>
    </UserControl.Resources>
 
