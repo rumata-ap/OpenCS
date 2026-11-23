@@ -7242,4 +7242,17 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="RgPropsIy">Момент инерции Isy:</system:String>
    <system:String x:Key="RgPropsIxy">Центробежный момент Isxy:</system:String>
    <system:String x:Key="RgPropsDiameterRange">Диаметр мин./макс.:</system:String>
+   <system:String x:Key="CliSectionErrParametricLater">параметрические сечения в документе пока не поддерживаются</system:String>
+   <system:String x:Key="CliSectionErrAreasOrStaged">задайте либо areas (произвольное сечение), либо staged (стадийное)</system:String>
+   <system:String x:Key="CliSectionErrPartSectionOrAreas">у части задайте либо section, либо areas</system:String>
+   <system:String x:Key="CliSectionErrContourOrPolygon">у бетонной области задайте либо contour, либо polygon</system:String>
+   <system:String x:Key="CliSectionErrHolesWithPolygon">у области с polygon отверстия задаются в polygon.holes</system:String>
+   <system:String x:Key="CliSectionErrBar">стержень — [x, y, d] или {x, y, d, area}</system:String>
+   <system:String x:Key="CliSectionErrUnknownMaterial">материал «{0}» не найден ни в документе, ни в проекте</system:String>
+   <system:String x:Key="CliSectionErrUnknownContour">контур «{0}» не найден ни в документе, ни в проекте</system:String>
+   <system:String x:Key="CliSectionErrUnknownSection">произвольное сечение «{0}» не найдено ни в документе, ни в проекте</system:String>
+   <system:String x:Key="CliSectionErrKindChange">сечение есть в проекте другого вида (произвольное/стадийное) — вид не меняется</system:String>
+   <system:String x:Key="CliSectionDuplicateSkipped">сечение «{0}» встречается в проекте не один раз — выгружено первое</system:String>
+   <system:String x:Key="CliSectionInvalidSkipped">сечение «{0}» не прошло проверку ({1}) — не выгружено</system:String>
+   <system:String x:Key="CliAreasOutsideSectionsSkipped">областей вне сечений: {0} — в документ не входят</system:String>
 </ResourceDictionary>

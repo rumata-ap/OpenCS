@@ -13,7 +13,7 @@ static class ModelDocument
 
     /// <summary>Виды в порядке записи: диаграммы — раньше материалов custom, контуры пула — раньше сечений.</summary>
     public static IReadOnlyList<IModelKind> Kinds { get; } =
-        [new DiagramsKind(), new MaterialsKind(), new ContoursKind(), new CirclesKind()];
+        [new DiagramsKind(), new MaterialsKind(), new ContoursKind(), new CirclesKind(), new SectionsKind()];
 
     public static IModelKind? Find(string name) => Kinds.FirstOrDefault(k => k.Name == name);
 

@@ -109,7 +109,8 @@ sealed class CirclesKind : IModelKind
     {
         var items = new JsonArray();
         var seen = new HashSet<string>();
-        foreach (var c in ctx.Db.Circles.OrderBy(c => c.Id))
+        // Круги групп стержней (набор RebarGroup#id) — производные: их создаёт сохранение группы.
+        foreach (var c in ctx.Db.Circles.Where(c => !CrossSectionAuthoring.IsBarCircleSet(c.GeometrySet)).OrderBy(c => c.Id))
         {
             string key = ContourJson.CircleKey(c.GeometrySet, c.X, c.Y);
             if (!seen.Add(key))

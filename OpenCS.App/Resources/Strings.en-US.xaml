@@ -7242,4 +7242,17 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="RgPropsIy">Moment of inertia Isy:</system:String>
    <system:String x:Key="RgPropsIxy">Product of inertia Isxy:</system:String>
    <system:String x:Key="RgPropsDiameterRange">Diameter min/max:</system:String>
+   <system:String x:Key="CliSectionErrParametricLater">parametric sections are not supported in the document yet</system:String>
+   <system:String x:Key="CliSectionErrAreasOrStaged">specify either areas (arbitrary section) or staged (staged section)</system:String>
+   <system:String x:Key="CliSectionErrPartSectionOrAreas">a part needs either section or areas</system:String>
+   <system:String x:Key="CliSectionErrContourOrPolygon">a concrete region needs either contour or polygon</system:String>
+   <system:String x:Key="CliSectionErrHolesWithPolygon">with polygon, holes go into polygon.holes</system:String>
+   <system:String x:Key="CliSectionErrBar">a bar is [x, y, d] or {x, y, d, area}</system:String>
+   <system:String x:Key="CliSectionErrUnknownMaterial">material "{0}" is found neither in the document nor in the project</system:String>
+   <system:String x:Key="CliSectionErrUnknownContour">contour "{0}" is found neither in the document nor in the project</system:String>
+   <system:String x:Key="CliSectionErrUnknownSection">arbitrary section "{0}" is found neither in the document nor in the project</system:String>
+   <system:String x:Key="CliSectionErrKindChange">the section exists in the project as the other kind (arbitrary/staged); the kind cannot change</system:String>
+   <system:String x:Key="CliSectionDuplicateSkipped">section "{0}" occurs more than once in the project; the first one is exported</system:String>
+   <system:String x:Key="CliSectionInvalidSkipped">section "{0}" failed the check ({1}); not exported</system:String>
+   <system:String x:Key="CliAreasOutsideSectionsSkipped">areas outside sections: {0}; not included in the document</system:String>
 </ResourceDictionary>

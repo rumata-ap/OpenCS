@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "opencs-model: sections[]",
+  "description": "Сечение проекта: произвольное (areas) или стадийное (staged). Ключ — обозначение (tag). Области описываются внутри сечения (ключ области — сечение и её обозначение); область, общая для нескольких сечений, при apply правится как один объект пула. Координаты, Ø, шаг, отступ — мм; площади стержней — мм²; σsp — МПа. Материалы — по обозначению, контуры — по ключу пула («набор / обозначение»); ссылки разрешаются по документу и проекту. Раздел записывается после materials и contours.",
+  "type": "object",
+  "required": ["tag"],
+  "properties": {
+    "tag": { "type": "string", "description": "Обозначение сечения — ключ" },
+    "description": { "type": "string" },
+    "areas": { "type": "array", "items": { "$ref": "#/$defs/area" }, "description": "Состав произвольного сечения" },
+    "staged": {
+      "type": "object",
+      "required": ["parts"],
+      "description": "Стадийное сечение: части в порядке включения",
+      "properties": {
+        "parts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["tag"],
+            "properties": {
+              "tag": { "type": "string" },
+              "section": { "type": "string", "description": "Обозначение произвольного сечения — часть берёт его области" },
+              "areas": { "type": "array", "items": { "$ref": "#/$defs/area" }, "description": "Свои области части" }
+            },
+            "oneOf": [ { "required": ["section"] }, { "required": ["areas"] } ]
+          }
+        }
+      }
+    }
+  },
+  "oneOf": [ { "required": ["areas"] }, { "required": ["staged"] } ],
+  "$defs": {
+    "point": { "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }], "minItems": 2, "maxItems": 2 },
+    "ring": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/point" }, "description": "Вершины [x, y], мм, без замыкающей" },
+    "area": {
+      "type": "object",
+      "required": ["tag", "category", "material"],
+      "properties": {
+        "tag": { "type": "string", "description": "Обозначение области (уникально в сечении)" },
+        "description": { "type": "string" },
+        "category": { "enum": ["region", "rebarGroup", "stirrups"], "description": "Бетонная (полигональная) область, группа стержней, хомуты" },
+        "material": { "type": "string", "description": "Обозначение материала: бетонная — бетон или сталь, стержни и хомуты — арматура" },
+        "diagram": { "enum": ["l2", "l3", "ekb", "sp63", "sp35", "sp16", "custom"], "description": "Тип диаграммы; по умолчанию бетон — sp63, арматура — по материалу" },
+        "contour": { "type": "string", "description": "region: ключ контура пула («набор / обозначение»)" },
+        "holes": { "type": "array", "items": { "$ref": "#/$defs/ring" }, "description": "region с contour: свои отверстия области" },
+        "polygon": {
+          "type": "object",
+          "required": ["outer"],
+          "description": "region: свой многоугольник вместо контура пула",
+          "properties": {
+            "outer": { "$ref": "#/$defs/ring" },
+            "holes": { "type": "array", "items": { "$ref": "#/$defs/ring" } }
+          }
+        },
+        "mesh": {
+          "type": "object",
+          "description": "region: параметры сетки волокон (сама сетка строится окном «Сетка»)",
+          "properties": {
+            "method": { "enum": ["grid", "ruppert", "advancingFront"], "default": "grid" },
+            "nx": { "type": "integer", "minimum": 1, "default": 21 },
+            "ny": { "type": "integer", "minimum": 1, "default": 21 },
+            "maxArea": { "type": "number", "exclusiveMinimum": 0, "default": 0.01, "description": "Наибольшая площадь треугольника, доля площади области" },
+            "minAngle": { "type": "number", "exclusiveMinimum": 0, "maximum": 35, "default": 30, "description": "Наименьший угол треугольника, °" },
+            "maxEdge": { "type": "number", "minimum": 0, "default": 0, "description": "Целевая длина ребра, мм (0 — по maxArea)" },
+            "smooth": { "type": "integer", "minimum": 0, "default": 5 }
+          }
+        },
+        "host": { "type": "string", "description": "rebarGroup: обозначение бетонной области-носителя в том же сечении (части)" },
+        "bars": {
+          "type": "array",
+          "description": "rebarGroup: стержни [x, y, d] мм (площадь — из d) или {x, y, d, area} (area — мм²)",
+          "items": {
+            "oneOf": [
+              { "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }, { "type": "number" }], "minItems": 3, "maxItems": 3 },
+              { "type": "object", "required": ["x", "y", "d"], "properties": { "x": { "type": "number" }, "y": { "type": "number" }, "d": { "type": "number" }, "area": { "type": "number" } } }
+            ]
+          }
+        },
+        "prestress": {
+          "type": "object",
+          "description": "rebarGroup: преднапряжение после потерь",
+          "properties": {
+            "sigma": { "type": "number", "minimum": 0, "description": "σsp, МПа" },
+            "gamma": { "enum": [1, 0.9, 1.1], "default": 1, "description": "γsp (п. 9.2.6 СП 63)" }
+          }
+        },
+        "representation": { "enum": ["physicalBars", "idealizedLayer"], "default": "physicalBars" },
+        "axis": { "enum": ["Mx", "My"], "description": "Ось изгиба расчётного слоя (для idealizedLayer)" },
+        "stirrups": {
+          "type": "array",
+          "description": "Группы хомутов: у stirrups — материал области, у region — свой material",
+          "items": {
+            "type": "object",
+            "required": ["spacing", "elements"],
+            "properties": {
+              "material": { "type": "string" },
+              "spacing": { "type": "number", "exclusiveMinimum": 0, "description": "Шаг вдоль оси, мм" },
+              "offset": { "type": "number", "minimum": 0, "description": "Отступ для построения новых элементов, мм" },
+              "elements": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["d", "points"],
+                  "properties": {
+                    "d": { "type": "number", "exclusiveMinimum": 0, "description": "Ø, мм" },
+                    "area": { "type": "number", "description": "Площадь стержня, мм² (по умолчанию — из d)" },
+                    "closed": { "type": "boolean", "default": true, "description": "Замкнутый хомут или открытый срез" },
+                    "points": { "type": "array", "items": { "$ref": "#/$defs/point" }, "description": "Центровая линия, мм; у замкнутого — без замыкающей" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

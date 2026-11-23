@@ -462,6 +462,7 @@ public sealed class CliModelTests : IDisposable
     [Theory]
     [InlineData("contours")]
     [InlineData("circles")]
+    [InlineData("sections")]
     public async Task Schema_Geometry_IsJson(string kind)
     {
         var r = await Run("schema", kind);
@@ -470,6 +471,190 @@ public sealed class CliModelTests : IDisposable
     }
 
     /// <summary>JSON совпадает; числа — с относительным допуском 1e-12 (пересчёт кПа ↔ МПа).</summary>
+    const string SectionsSeed = """
+        { "format": "opencs-model", "version": 1,
+          "materials": [
+            { "tag": "B25", "catalog": { "concrete": "B25" } },
+            { "tag": "A500", "catalog": { "rebar": "A500" } },
+            { "tag": "A240", "catalog": { "rebar": "A240" } } ],
+          "contours": [ { "tag": "Колонна 400×600", "points": [[-200, -300], [200, -300], [200, 300], [-200, 300]] } ],
+          "sections": [
+            { "tag": "Ст-1",
+              "staged": { "parts": [
+                { "tag": "Сборная", "section": "Б-1" },
+                { "tag": "Монолит", "areas": [
+                  { "tag": "Плита", "category": "region", "material": "B25", "diagram": "sp63",
+                    "polygon": { "outer": [[-600, 300], [600, 300], [600, 460], [-600, 460]] } } ] } ] } },
+            { "tag": "Б-1", "description": "колонна",
+              "areas": [
+                { "tag": "Бетон", "category": "region", "material": "B25", "diagram": "sp63", "contour": "Колонна 400×600",
+                  "mesh": { "nx": 10, "ny": 15 } },
+                { "tag": "Низ", "category": "rebarGroup", "material": "A500", "diagram": "l2", "host": "Бетон",
+                  "bars": [[-150, -250, 25], [150, -250, 25]], "prestress": { "sigma": 400, "gamma": 0.9 } },
+                { "tag": "Верх", "category": "rebarGroup", "material": "A500", "diagram": "l2", "host": "Бетон",
+                  "bars": [ { "x": -150, "y": 250, "d": 16, "area": 200 }, [150, 250, 16] ] },
+                { "tag": "Хомуты", "category": "stirrups", "material": "A240",
+                  "stirrups": [ { "spacing": 150, "offset": 30, "elements": [
+                    { "d": 10, "points": [[-170, -270], [170, -270], [170, 270], [-170, 270]] },
+                    { "d": 8, "closed": false, "points": [[0, -270], [0, 270]] } ] } ] } ] } ] }
+        """;
+
+    static (List<CScore.CrossSection> Sections, List<CScore.MaterialArea> Areas, List<CScore.CircleP> Circles) Sections(string project)
+    {
+        using var db = new DatabaseService(project);
+        db.LoadAll();
+        var r = (db.CrossSections.ToList(), db.MaterialAreas.ToList(), db.Circles.ToList());
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        return r;
+    }
+
+    [Fact]
+    public async Task Sections_Apply_AreasBarsStirrupsStaged_MetresInBase()
+    {
+        string project = await NewProject();
+        var r = await Run("apply", project, Doc("s.json", SectionsSeed));
+        Assert.True(r.Code == CliExitCode.Ok, r.Err);
+        var (sections, areas, circles) = Sections(project);
+        Assert.Equal(2, sections.Count);
+        var b1 = sections.Single(s => s.Tag == "Б-1");
+        Assert.Equal("колонна", b1.Description);
+        Assert.Equal(["Бетон", "Низ", "Верх", "Хомуты"], b1.Areas.Select(a => a.Tag));
+        var concrete = b1.Areas[0];
+        Assert.Equal(0.24, Math.Abs(new CScore.GeoProps(concrete.Hull!).A), 9);
+        Assert.NotNull(concrete.PoolContourId);
+        Assert.Equal((10, 15), (concrete.NX, concrete.NY));
+        var low = b1.Areas[1];
+        Assert.Equal(concrete.Id, low.HostAreaId);
+        Assert.Equal(400, low.SigSp);
+        Assert.Equal(0.9, low.GammaSp);
+        Assert.Equal(Math.PI * 0.0125 * 0.0125, low.Fibers[0].Area, 12);
+        Assert.Equal(200e-6, b1.Areas[2].Fibers[0].Area, 12);          // площадь из документа, не из d
+        var st = Assert.Single(b1.Areas[3].Stirrups);
+        Assert.Equal(0.15, st.SpacingM, 12);
+        Assert.Equal(2, st.Elements.Count);
+        Assert.True(st.Elements[0].IsClosed);
+        Assert.False(st.Elements[1].IsClosed);
+        Assert.Equal(4, circles.Count);                                 // круги групп стержней
+        var staged = Assert.IsType<CScore.StagedSection>(sections.Single(s => s.Tag == "Ст-1"));
+        Assert.Equal(b1.Id, staged.Parts[0].SourceSectionId);
+        Assert.Equal("Плита", Assert.Single(staged.Parts[1].Areas).Tag);
+        Assert.Equal(5, areas.Count);
+    }
+
+    [Fact]
+    public async Task Sections_UpdateInPlace_KeepsIds_RemovedAreaDeleted()
+    {
+        string project = await NewProject();
+        Assert.Equal(CliExitCode.Ok, (await Run("apply", project, Doc("s.json", SectionsSeed))).Code);
+        var (before, _, _) = Sections(project);
+        var b1 = before.Single(s => s.Tag == "Б-1");
+        int concreteId = b1.Areas[0].Id;
+        var u = await Run("apply", project, Doc("u.json", """
+            { "format": "opencs-model", "version": 1,
+              "sections": [ { "tag": "Б-1", "areas": [
+                { "tag": "Бетон", "category": "region", "material": "B25", "diagram": "sp63",
+                  "polygon": { "outer": [[-200, -400], [200, -400], [200, 400], [-200, 400]] } },
+                { "tag": "Низ", "category": "rebarGroup", "material": "A500", "diagram": "l2", "host": "Бетон",
+                  "bars": [[-150, -350, 32], [0, -350, 32], [150, -350, 32]] } ] } ] }
+            """));
+        Assert.True(u.Code == CliExitCode.Ok, u.Err);
+        var (after, areas, circles) = Sections(project);
+        var b1u = after.Single(s => s.Tag == "Б-1");
+        Assert.Equal(b1.Id, b1u.Id);
+        Assert.Equal(concreteId, b1u.Areas[0].Id);
+        Assert.Null(b1u.Areas[0].PoolContourId);
+        Assert.Equal(0.32, Math.Abs(new CScore.GeoProps(b1u.Areas[0].Hull!).A), 9);
+        Assert.Equal(3, b1u.Areas[1].Fibers.Count);
+        Assert.Equal(0, b1u.Areas[1].SigSp);
+        // «Верх» и «Хомуты» убраны из сечения и больше нигде не используются — удалены вместе с кругами.
+        Assert.DoesNotContain(areas, a => a.Tag is "Верх" or "Хомуты");
+        Assert.Equal(3, circles.Count);
+        Assert.Equal(b1u.Id, Assert.IsType<CScore.StagedSection>(after.Single(s => s.Tag == "Ст-1")).Parts[0].SourceSectionId);
+    }
+
+    [Fact]
+    public async Task Sections_Errors_WithPaths_NothingWritten()
+    {
+        string project = await NewProject();
+        var r = await Run("apply", project, Doc("bad.json", """
+            { "format": "opencs-model", "version": 1,
+              "materials": [ { "tag": "B25", "catalog": { "concrete": "B25" } }, { "tag": "A500", "catalog": { "rebar": "A500" } } ],
+              "sections": [
+                { "tag": "С1", "areas": [ { "tag": "Б", "category": "region", "material": "Нет", "polygon": { "outer": [[0, 0], [100, 0], [0, 100]] } } ] },
+                { "tag": "С2", "areas": [
+                  { "tag": "Б", "category": "region", "material": "B25", "polygon": { "outer": [[0, 0], [400, 0], [400, 400], [0, 400]] } },
+                  { "tag": "Арм", "category": "rebarGroup", "material": "B25", "host": "Б", "bars": [[50, 50, 20]] },
+                  { "tag": "Арм2", "category": "rebarGroup", "material": "A500", "host": "Нет", "bars": [[50, 50, 0]] },
+                  { "tag": "Вне", "category": "rebarGroup", "material": "A500", "host": "Б", "bars": [[900, 50, 20]] } ] },
+                { "tag": "С3", "areas": [ { "tag": "Б", "category": "region", "material": "B25", "contour": "Нет такого" } ] },
+                { "tag": "С4", "staged": { "parts": [ { "tag": "Ч", "section": "Нет" } ] } },
+                { "tag": "С5" },
+                { "tag": "С6", "areas": [ { "tag": "Арм", "category": "rebarGroup", "material": "A500", "bars": [["x", 1, 2]] } ] } ] }
+            """));
+        Assert.Equal(CliExitCode.Usage, r.Code);
+        Assert.Contains("sections[0].areas[0].material", r.Err);
+        Assert.Contains("sections[1].areas[2].host", r.Err);
+        Assert.Contains("sections[5].areas[0].bars[0]", r.Err);
+        Assert.Contains("sections[2].areas[0].contour", r.Err);
+        Assert.Contains("sections[3].staged.parts[0].section", r.Err);
+        Assert.Contains("sections[4]", r.Err);
+        Assert.Empty(Sections(project).Sections);
+        Assert.Empty(Pool(project).Materials);
+    }
+
+    [Fact]
+    public async Task Sections_ServiceErrors_MaterialKindBarOutsideZeroDiameter()
+    {
+        string project = await NewProject();
+        var r = await Run("apply", project, Doc("bad.json", """
+            { "format": "opencs-model", "version": 1,
+              "materials": [ { "tag": "B25", "catalog": { "concrete": "B25" } }, { "tag": "A500", "catalog": { "rebar": "A500" } } ],
+              "sections": [ { "tag": "С", "areas": [
+                  { "tag": "Б", "category": "region", "material": "B25", "polygon": { "outer": [[0, 0], [400, 0], [400, 400], [0, 400]] } },
+                  { "tag": "Арм", "category": "rebarGroup", "material": "A500", "host": "Б", "bars": [[50, 50, 0], [900, 50, 20]] },
+                  { "tag": "Бет", "category": "rebarGroup", "material": "B25", "host": "Б", "bars": [[50, 50, 20]] } ] } ] }
+            """));
+        Assert.Equal(CliExitCode.Usage, r.Code);
+        Assert.Contains("sections[0].areas[1].bars[0].d", r.Err);
+        Assert.Contains("sections[0].areas[1].bars[1]", r.Err);
+        Assert.Contains("sections[0].areas[2].material", r.Err);
+        Assert.Empty(Sections(project).Sections);
+    }
+
+    [Fact]
+    public async Task Sections_DryRun_WritesNothing_RoundTripSame()
+    {
+        string first = await NewProject("a.db");
+        var dry = await Run("apply", first, Doc("seed.json", SectionsSeed), "--dry-run");
+        Assert.True(dry.Code == CliExitCode.Ok, dry.Err);
+        Assert.Empty(Sections(first).Sections);
+
+        Assert.Equal(CliExitCode.Ok, (await Run("apply", first, PathOf("seed.json"))).Code);
+        string exported = PathOf("e1.json");
+        var ex = await Run("export", "model", first, "--to", exported);
+        Assert.True(ex.Code == CliExitCode.Ok, ex.Err);
+
+        string second = await NewProject("b.db");
+        var apply = await Run("apply", second, exported);
+        Assert.True(apply.Code == CliExitCode.Ok, apply.Err);
+        string exported2 = PathOf("e2.json");
+        Assert.Equal(CliExitCode.Ok, (await Run("export", "model", second, "--to", exported2)).Code);
+
+        var a = JsonNode.Parse(File.ReadAllText(exported))!;
+        var b = JsonNode.Parse(File.ReadAllText(exported2))!;
+        Assert.Equal(2, a["sections"]!.AsArray().Count);
+        Assert.Equal("Б-1", (string?)a["sections"]![0]!["tag"]);                // произвольные — раньше стадийных
+        Assert.Equal("Колонна 400×600", (string?)a["sections"]![0]!["areas"]![0]!["contour"]);
+        Assert.Empty(a["circles"]!.AsArray());                                  // круги групп стержней не выгружаются
+        AssertJsonClose(a, b, "$");
+
+        // Повторное применение выгрузки к тому же проекту — только обновления, области не размножаются.
+        var again = await Run("apply", first, exported, "--json");
+        Assert.True(again.Code == CliExitCode.Ok, again.Err);
+        Assert.DoesNotContain("create", again.Out);
+        Assert.Equal(5, Sections(first).Areas.Count);
+    }
+
     static void AssertJsonClose(JsonNode? a, JsonNode? b, string path)
     {
         switch (a)
