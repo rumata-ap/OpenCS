@@ -1,57 +1,26 @@
-using System;
 using CScore;
-using CsvHelper;
-using CsvHelper.Configuration;
 using OpenCS.Utilites;
 
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Globalization;
-using System.IO;
 using System.Windows.Input;
 
 namespace OpenCS.ViewModels
 {
-   /// <summary>ViewModel для набора усилий пластины (Kind="shell").</summary>
-   public class ShellForceSetVM : ViewModelBase
+   /// <summary>ViewModel страницы набора усилий пластины (Kind = "shell"): строки черновика, пересчёт σ·h.</summary>
+   public class ShellForceSetVM : ForceSetEditorVM
    {
-      readonly ForceSet _model;
-      readonly Action _touchSet;
       ShellLoadItemVM? _selectedItem;
-      string _thicknessM = "0.2";
+      double _thicknessMm = 200;
 
-      public ShellForceSetVM(ForceSet model, AppViewModel app)
+      public ShellForceSetVM(ForceSet model, AppViewModel app) : base(model, app)
       {
-         _model = model;
-         App    = app;
-         _touchSet = () => App.TouchForceSet(_model);
-         // Редактор держит ссылки на строки: выгружать их из памяти больше нельзя.
-         model.PinRows();
-         Items  = new ObservableCollection<ShellLoadItemVM>(
-            model.ShellItems.ConvertAll(i => new ShellLoadItemVM(i, _touchSet)));
-
-         Sp20 = new ForceSetNameEditorVM(model, _touchSet);
-
+         Items = [];
+         LoadRows();
          AddItemCommand       = new RelayCommand(_ => AddItem());
-         DeleteItemCommand    = new RelayCommand(_ => DeleteItem());
-         DuplicateItemCommand = new RelayCommand(_ => DuplicateItem());
-         SaveCommand          = new RelayCommand(_ => Save());
-         ExportCsvCommand     = new RelayCommand(_ => ExportCsv());
-         ImportCsvCommand     = new RelayCommand(_ => ImportCsv());
+         DeleteItemCommand    = new RelayCommand(_ => DeleteItem(), _ => _selectedItem != null);
+         DuplicateItemCommand = new RelayCommand(_ => DuplicateItem(), _ => _selectedItem != null);
          ConvertStressToForceCommand = new RelayCommand(_ => ConvertStressToForce());
-         App.PlotSettingsApplied += OnPlotSettingsApplied;
       }
-
-      void OnPlotSettingsApplied() => OnPropertyChanged(nameof(ColorizeForceValues));
-
-      public AppViewModel App { get; }
-      public ForceSet Model => _model;
-
-      /// <summary>Раскраска значений усилий по осям (глобальная настройка).</summary>
-      public bool ColorizeForceValues => App.PlotSettings.ForceSetColorize;
-
-      /// <summary>Параметры имени набора для комбинаторики СП20.</summary>
-      public ForceSetNameEditorVM Sp20 { get; }
 
       public ObservableCollection<ShellLoadItemVM> Items { get; }
 
@@ -64,196 +33,84 @@ namespace OpenCS.ViewModels
       public ICommand AddItemCommand       { get; }
       public ICommand DeleteItemCommand    { get; }
       public ICommand DuplicateItemCommand { get; }
-      public ICommand SaveCommand          { get; }
-      public ICommand ExportCsvCommand     { get; }
-      public ICommand ImportCsvCommand     { get; }
       public ICommand ConvertStressToForceCommand { get; }
 
-      /// <summary>Толщина для кнопки «Напряжения → усилия», м. Не персистентна (не сохраняется в БД).</summary>
-      public string ThicknessM
+      /// <summary>Толщина для кнопки «Напряжения → усилия», мм. Не сохраняется в проекте.</summary>
+      public double ThicknessMm
       {
-         get => _thicknessM;
-         set { _thicknessM = value; OnPropertyChanged(); }
+         get => _thicknessMm;
+         set { _thicknessMm = value; OnPropertyChanged(); }
       }
 
-      void AddItem()
+      protected override void LoadRows()
       {
-         var item = new ShellLoadItem { Label = $"{Items.Count + 1}" };
-         _model.ShellItems.Add(item);
-         var vm = new ShellLoadItemVM(item, _touchSet);
+         Items.Clear();
+         foreach (var i in _draft.ShellItems) Items.Add(new ShellLoadItemVM(i, RowsChanged));
+         _selectedItem = null;
+         OnPropertyChanged(nameof(SelectedItem));
+      }
+
+      protected override void ReplaceRows(List<LoadItem> bar, List<ShellLoadItem> shell) => _draft.ShellItems = shell;
+
+      internal void AddItem()
+      {
+         var item = new ShellLoadItem { Label = $"{Items.Count + 1}", Num = NextRowNum(Items.Count) };
+         _draft.ShellItems.Add(item);
+         var vm = new ShellLoadItemVM(item, RowsChanged);
          Items.Add(vm);
          SelectedItem = vm;
-         App.TouchForceSet(_model);
+         RowsChanged();
       }
 
       void DuplicateItem()
       {
          if (_selectedItem == null) return;
-         var src      = _selectedItem.Model;
-         string newLabel = MakeDuplicateLabel(src.Label, _model.ShellItems);
+         var src = _selectedItem.Model;
          var item = new ShellLoadItem
          {
-            Label = newLabel,
+            Label = ForceSetRowLabels.Duplicate(src.Label, _draft.ShellItems.Select(i => i.Label)),
+            Num = NextRowNum(Items.Count),
             Nx = src.Nx, Ny = src.Ny, Nxy = src.Nxy,
             Mx = src.Mx, My = src.My, Mxy = src.Mxy,
             Qx = src.Qx, Qy = src.Qy,
             SigmaX = src.SigmaX, SigmaY = src.SigmaY, TauXY = src.TauXY,
             SourceElementNum = src.SourceElementNum, SourceSectionNum = src.SourceSectionNum,
          };
-         int idx = _model.ShellItems.IndexOf(src);
-         if (idx >= 0) _model.ShellItems.Insert(idx + 1, item);
-         else _model.ShellItems.Add(item);
-
-         var vm = new ShellLoadItemVM(item, _touchSet);
-         int vmIdx = Items.IndexOf(_selectedItem);
-         if (vmIdx >= 0) Items.Insert(vmIdx + 1, vm);
-         else Items.Add(vm);
-
+         int idx = _draft.ShellItems.IndexOf(src);
+         _draft.ShellItems.Insert(idx + 1, item);
+         var vm = new ShellLoadItemVM(item, RowsChanged);
+         Items.Insert(Items.IndexOf(_selectedItem) + 1, vm);
          SelectedItem = vm;
-         App.TouchForceSet(_model);
+         RowsChanged();
       }
 
-      void ConvertStressToForce()
+      /// <summary>Nx/Ny/Nxy = σ·h у строк с заданными σ; h ≤ 0 — сообщение в журнал.</summary>
+      internal void ConvertStressToForce()
       {
-         if (!double.TryParse(ThicknessM, System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out double h) || h <= 0)
+         if (!double.IsFinite(_thicknessMm) || _thicknessMm <= 0)
+         {
+            App.LogService.Warning(Loc.S("ShellForceThicknessInvalid"));
             return;
-
-         bool changed = false;
+         }
+         double h = _thicknessMm / 1000.0;
+         int changed = 0;
          foreach (var vm in Items)
          {
-            var model = vm.Model;
-            if (model.SigmaX is null && model.SigmaY is null && model.TauXY is null)
-               continue;
-            var (nx, ny, nxy) = model.ResolveN(h);
+            if (!vm.HasSigma) continue;
+            var (nx, ny, nxy) = vm.Model.ResolveN(h);
             vm.Nx = nx; vm.Ny = ny; vm.Nxy = nxy;
-            changed = true;
+            changed++;
          }
-         if (changed) App.TouchForceSet(_model);
+         App.LogService.Info(string.Format(Loc.S("ShellForceConvertedLog"), changed, _thicknessMm));
       }
 
-      void DeleteItem()
+      internal void DeleteItem()
       {
          if (_selectedItem == null) return;
-         _model.ShellItems.Remove(_selectedItem.Model);
+         _draft.ShellItems.Remove(_selectedItem.Model);
          Items.Remove(_selectedItem);
          SelectedItem = null;
-         App.TouchForceSet(_model);
-      }
-
-      void ExportCsv()
-      {
-         var path = App.FileDialogService.SaveFile(
-            "CSV файлы (*.csv)|*.csv", ".csv", Loc.S("ExportCsvBtn"));
-         if (path == null) return;
-
-         var cfg = new CsvConfiguration(CultureInfo.InvariantCulture) { Delimiter = ";" };
-         using var writer = new StreamWriter(path, false, System.Text.Encoding.UTF8);
-         using var csv    = new CsvWriter(writer, cfg);
-
-         foreach (var col in new[] { "Label", "Nx", "Ny", "Nxy", "Mx", "My", "Mxy", "Qx", "Qy", "SigmaX", "SigmaY", "TauXY" })
-            csv.WriteField(col);
-         csv.NextRecord();
-
-         foreach (var item in _model.ShellItems)
-         {
-            csv.WriteField(item.Label);
-            csv.WriteField(item.Nx);  csv.WriteField(item.Ny);  csv.WriteField(item.Nxy);
-            csv.WriteField(item.Mx);  csv.WriteField(item.My);  csv.WriteField(item.Mxy);
-            csv.WriteField(item.Qx);  csv.WriteField(item.Qy);
-            csv.WriteField(item.SigmaX); csv.WriteField(item.SigmaY); csv.WriteField(item.TauXY);
-            csv.NextRecord();
-         }
-      }
-
-      void ImportCsv()
-      {
-         var path = App.FileDialogService.OpenFile(
-            "CSV файлы (*.csv)|*.csv", Loc.S("ImportCsvBtn"));
-         if (path == null) return;
-
-         try
-         {
-            var cfg = new CsvConfiguration(CultureInfo.InvariantCulture)
-            {
-               Delimiter         = ";",
-               MissingFieldFound = null,
-               HeaderValidated   = null,
-            };
-
-            var rows = new List<ShellLoadItem>();
-            using (var reader = new StreamReader(path, System.Text.Encoding.UTF8))
-            using (var csv    = new CsvReader(reader, cfg))
-            {
-               csv.Read(); csv.ReadHeader();
-               while (csv.Read())
-               {
-                  rows.Add(new ShellLoadItem
-                  {
-                     Label = csv.GetField("Label") ?? "",
-                     Nx  = GetDouble(csv, "Nx"),  Ny  = GetDouble(csv, "Ny"),  Nxy = GetDouble(csv, "Nxy"),
-                     Mx  = GetDouble(csv, "Mx"),  My  = GetDouble(csv, "My"),  Mxy = GetDouble(csv, "Mxy"),
-                     Qx  = GetDouble(csv, "Qx"),  Qy  = GetDouble(csv, "Qy"),
-                     SigmaX = GetNullableDouble(csv, "SigmaX"),
-                     SigmaY = GetNullableDouble(csv, "SigmaY"),
-                     TauXY  = GetNullableDouble(csv, "TauXY"),
-                  });
-               }
-            }
-
-            _model.ShellItems.Clear();
-            Items.Clear();
-            for (int i = 0; i < rows.Count; i++)
-            {
-               rows[i].Num = i + 1;
-               _model.ShellItems.Add(rows[i]);
-               Items.Add(new ShellLoadItemVM(rows[i], _touchSet));
-            }
-            App.TouchForceSet(_model);
-         }
-         catch (System.Exception ex)
-         {
-            System.Windows.MessageBox.Show(
-               $"Ошибка импорта CSV:\n{ex.Message}",
-               Loc.S("ImportCsvBtn"),
-               System.Windows.MessageBoxButton.OK,
-               System.Windows.MessageBoxImage.Error);
-         }
-      }
-
-      static double GetDouble(CsvReader csv, string field)
-         => csv.TryGetField<double>(field, out var v) ? v : 0.0;
-
-      static double? GetNullableDouble(CsvReader csv, string field)
-      {
-         if (!csv.TryGetField<string>(field, out var raw) || string.IsNullOrWhiteSpace(raw))
-            return null;
-         return double.TryParse(raw, System.Globalization.NumberStyles.Float,
-            System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : null;
-      }
-
-      public void Save()
-      {
-         if (_model.Num == 0)
-            _model.Num = App.ShellForceSets.Count > 0
-               ? App.ShellForceSets.Max(s => s.Num) + 1 : 1;
-         App.db.SaveForceSet(_model);
-         if (!App.ForceSets.Contains(_model))
-            App.ForceSets.Add(_model);
-         App.RefreshForceSetInTree(_model);
-      }
-
-      static string MakeDuplicateLabel(string src, System.Collections.Generic.List<ShellLoadItem> items)
-      {
-         if (int.TryParse(src, out int srcNum))
-         {
-            int maxNum = srcNum;
-            foreach (var it in items)
-               if (int.TryParse(it.Label, out int n) && n > maxNum)
-                  maxNum = n;
-            return (maxNum + 1).ToString();
-         }
-         return src + " (копия)";
+         RowsChanged();
       }
    }
 }

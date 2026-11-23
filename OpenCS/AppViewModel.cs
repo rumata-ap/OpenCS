@@ -3197,60 +3197,37 @@ namespace OpenCS
          dlg.ShowDialog();
       }
 
-      void DeleteForceSet(CScore.ForceSet? target = null)
+      /// <summary>
+      /// Удаление набора (дерево): используемый — отказ со списком ссылок; новый, ещё не записанный, — закрыть
+      /// страницу без вопроса.
+      /// </summary>
+      internal void DeleteForceSet(CScore.ForceSet? target = null)
       {
          var fs = target ?? currentBarForceSet ?? currentShellForceSet;
          if (fs == null) return;
-         var res = System.Windows.MessageBox.Show(
-            Loc.S("ConfirmDeleteRegion"), Loc.S("Warning"),
-            System.Windows.MessageBoxButton.YesNo,
-            System.Windows.MessageBoxImage.Warning);
-         if (res != System.Windows.MessageBoxResult.Yes) return;
-         db.DeleteForceSet(fs);
-         if (fs == currentBarForceSet)
+         if (fs.Id == 0)
          {
-            currentBarForceSet = null;
-            CurrentPage = null!;
-            OnPropertyChanged(nameof(CurrentBarForceSet));
+            ReleaseForceSetPage(fs);
+            return;
          }
-         else if (fs == currentShellForceSet)
+         var usedBy = Services.ForceSetAuthoring.UsedBy(db, fs);
+         if (usedBy.Count > 0)
          {
-            currentShellForceSet = null;
-            CurrentPage = null!;
-            OnPropertyChanged(nameof(CurrentShellForceSet));
+            Notifier.Warning(string.Format(Loc.S("ForceSetInUseCannotDelete"), fs.Tag, usedBy.Count, ListPlain(usedBy)),
+               Loc.S("Warning"));
+            return;
          }
+         if (AskConfirmDelete(string.Format(Loc.S("ConfirmDeleteForceSet"), fs.Tag)) != MessageBoxResult.Yes) return;
+         DeleteForceSetsChecked([fs]);
       }
 
-      void DuplicateForceSet(CScore.ForceSet? src)
+      /// <summary>Копия набора со всеми полями — через службу; если набор открыт с правками — копируется записанное.</summary>
+      internal CScore.ForceSet? DuplicateForceSet(CScore.ForceSet? src)
       {
-         if (src == null) return;
-         var copy = new CScore.ForceSet
-         {
-            Tag         = src.Tag + " (копия)",
-            Description = src.Description,
-            Kind        = src.Kind,
-            Items       = src.Items.ConvertAll(i => new CScore.LoadItem
-            {
-               Label = i.Label, N = i.N, Mx = i.Mx, My = i.My,
-               Vx = i.Vx, Vy = i.Vy, T = i.T,
-               SourceElementNum = i.SourceElementNum, SourceSectionNum = i.SourceSectionNum,
-            }),
-            // Напряжения копируются вместе с усилиями: у строк, импортированных из ЛИРЫ/SCAD,
-            // они — источник Nx/Ny/Nxy (пересчёт σ·h), без них копия теряет мембранные усилия.
-            ShellItems = src.ShellItems.ConvertAll(i => new CScore.ShellLoadItem
-            {
-               Label = i.Label, Nx = i.Nx, Ny = i.Ny, Nxy = i.Nxy,
-               Mx = i.Mx, My = i.My, Mxy = i.Mxy, Qx = i.Qx, Qy = i.Qy,
-               SigmaX = i.SigmaX, SigmaY = i.SigmaY, TauXY = i.TauXY,
-               SourceElementNum = i.SourceElementNum, SourceSectionNum = i.SourceSectionNum,
-            }),
-         };
-         var col = src.Kind == "shell" ? ShellForceSets : BarForceSets;
-         copy.Num = col.Count > 0 ? col.Max(s => s.Num) + 1 : 1;
-         for (int i = 0; i < copy.Items.Count;      i++) copy.Items[i].Num      = i + 1;
-         for (int i = 0; i < copy.ShellItems.Count; i++) copy.ShellItems[i].Num = i + 1;
-         db.SaveForceSet(copy);
-         ForceSets.Add(copy);
+         if (src == null || src.Id == 0) return null;
+         var copy = Services.ForceSetAuthoring.Duplicate(db, src);
+         LogService.Info(string.Format(Loc.S("ForceSetDuplicatedLog"), src.Tag, copy.Tag));
+         return copy;
       }
 
       public void RefreshMaterialAreaLiveCollections()
@@ -7364,105 +7341,96 @@ namespace OpenCS
          var sets = ForceSets.Where(fs => fs.SourceSchemaId == schema.Id).ToList();
          if (sets.Count == 0) return;
 
-         var res = System.Windows.MessageBox.Show(
-            string.Format(Loc.S("ConfirmDeleteFemForceSets"), sets.Count, schema.Tag),
-            Loc.S("Warning"),
-            System.Windows.MessageBoxButton.YesNo,
-            System.Windows.MessageBoxImage.Warning);
-         if (res != System.Windows.MessageBoxResult.Yes) return;
-
-         foreach (var fs in sets)
-             db.DeleteForceSet(fs);
+         if (AskConfirmDelete(string.Format(Loc.S("ConfirmDeleteFemForceSets"), sets.Count, schema.Tag))
+             != MessageBoxResult.Yes) return;
+         DeleteForceSetsChecked(sets);
        }
 
        void DeleteSelectedForceSets(CScore.Fem.FemSchema? schema)
        {
           schema ??= currentFemSchema;
           if (schema == null) return;
+          DeleteSelectedForceSetsFrom(ForceSets.Where(fs => fs.SourceSchemaId == schema.Id).ToList());
+       }
 
-          var sets = ForceSets.Where(fs => fs.SourceSchemaId == schema.Id).ToList();
+       void DeleteSelectedForceSets(string kind) =>
+          DeleteSelectedForceSetsFrom(ForceSets.Where(fs => fs.Kind == kind).ToList());
+
+       /// <summary>Выбор наборов в диалоге, вопрос, удаление неиспользуемых.</summary>
+       void DeleteSelectedForceSetsFrom(List<ForceSet> sets)
+       {
           if (sets.Count == 0) return;
-
           var dlg = new Views.DeleteForceSetsDialog(sets);
-          dlg.Owner = System.Windows.Application.Current.MainWindow;
           if (dlg.ShowDialog() != true) return;
-
           var selected = dlg.SelectedSets;
           if (selected.Count == 0) return;
+          if (AskConfirmDelete(string.Format(Loc.S("DeleteSelectedForceSetsConfirm"), selected.Count))
+              != MessageBoxResult.Yes) return;
+          DeleteForceSetsChecked(selected);
+       }
 
-          var res = System.Windows.MessageBox.Show(
-             string.Format(Loc.S("DeleteSelectedForceSetsConfirm"), selected.Count),
-             Loc.S("Warning"),
-             System.Windows.MessageBoxButton.YesNo,
-             System.Windows.MessageBoxImage.Warning);
-          if (res != System.Windows.MessageBoxResult.Yes) return;
+       void DeleteAllForceSets(string kind)
+       {
+          var sets = ForceSets.Where(fs => fs.Kind == kind).ToList();
+          if (sets.Count == 0) return;
+          if (AskConfirmDelete(string.Format(Loc.S("ConfirmDeleteAllForceSets"), sets.Count))
+              != MessageBoxResult.Yes) return;
+          DeleteForceSetsChecked(sets);
+       }
 
-           foreach (var fs in selected)
-              db.DeleteForceSet(fs);
-        }
+       /// <summary>
+       /// Удаляет наборы, которые никто не использует (задачи, КонЭ и группы КЭ, проверки МКЭ); используемые
+       /// пропускаются — их список в сообщении и журнале. Открытая страница удаляемого набора закрывается без вопроса о
+       /// сохранении. Возвращает число удалённых.
+       /// </summary>
+       internal int DeleteForceSetsChecked(IReadOnlyList<ForceSet> sets)
+       {
+          var skipped = new List<string>();
+          int deleted = 0;
+          foreach (var fs in sets)
+          {
+             var usedBy = Services.ForceSetAuthoring.UsedBy(db, fs);
+             if (usedBy.Count > 0)
+             {
+                skipped.Add(string.Format(Loc.S("ForceSetSkippedInUse"), fs.Tag, ListPlain(usedBy)));
+                continue;
+             }
+             if (!ReleaseForceSetPage(fs)) continue;
+             if (!Services.ForceSetAuthoring.TryDelete(db, fs, out _)) continue;
+             deleted++;
+             LogService.Info(string.Format(Loc.S("ForceSetDeletedLog"), fs.Tag));
+          }
+          if (skipped.Count > 0)
+          {
+             foreach (var s in skipped) LogService.Warning(s);
+             Notifier.Warning(string.Format(Loc.S("ForceSetsInUseNotDeleted"), skipped.Count) + Environment.NewLine
+                + string.Join(Environment.NewLine, skipped.Take(10)) + (skipped.Count > 10 ? Environment.NewLine + "…" : ""),
+                Loc.S("Warning"));
+          }
+          return deleted;
+       }
 
-        void DeleteSelectedForceSets(string kind)
-        {
-           var sets = ForceSets.Where(fs => fs.Kind == kind).ToList();
-           if (sets.Count == 0) return;
-
-           var dlg = new Views.DeleteForceSetsDialog(sets);
-           dlg.Owner = System.Windows.Application.Current.MainWindow;
-           if (dlg.ShowDialog() != true) return;
-
-           var selected = dlg.SelectedSets;
-           if (selected.Count == 0) return;
-
-           var res = System.Windows.MessageBox.Show(
-              string.Format(Loc.S("DeleteSelectedForceSetsConfirm"), selected.Count),
-              Loc.S("Warning"),
-              System.Windows.MessageBoxButton.YesNo,
-              System.Windows.MessageBoxImage.Warning);
-           if (res != System.Windows.MessageBoxResult.Yes) return;
-
-            foreach (var fs in selected)
-            {
-               if (fs == currentBarForceSet)
-               {
-                  currentBarForceSet = null;
-                  OnPropertyChanged(nameof(CurrentBarForceSet));
-               }
-               else if (fs == currentShellForceSet)
-               {
-                  currentShellForceSet = null;
-                  OnPropertyChanged(nameof(CurrentShellForceSet));
-               }
-               db.DeleteForceSet(fs);
-            }
-         }
-
-         void DeleteAllForceSets(string kind)
-         {
-            var sets = ForceSets.Where(fs => fs.Kind == kind).ToList();
-            if (sets.Count == 0) return;
-
-            var res = System.Windows.MessageBox.Show(
-               string.Format(Loc.S("ConfirmDeleteAllForceSets"), sets.Count),
-               Loc.S("Warning"),
-               System.Windows.MessageBoxButton.YesNo,
-               System.Windows.MessageBoxImage.Warning);
-            if (res != System.Windows.MessageBoxResult.Yes) return;
-
-            foreach (var fs in sets)
-            {
-               if (fs == currentBarForceSet)
-               {
-                  currentBarForceSet = null;
-                  OnPropertyChanged(nameof(CurrentBarForceSet));
-               }
-               else if (fs == currentShellForceSet)
-               {
-                  currentShellForceSet = null;
-                  OnPropertyChanged(nameof(CurrentShellForceSet));
-               }
-               db.DeleteForceSet(fs);
-            }
-         }
+       /// <summary>Закрывает страницу набора (правки отбрасываются) перед его удалением; false — страница не закрылась.</summary>
+       bool ReleaseForceSetPage(ForceSet fs)
+       {
+          if (CurrentPage?.DataContext is ViewModels.ForceSetEditorVM page && page.Model == fs)
+          {
+             page.DiscardChanges();
+             CurrentPage = null!;
+             if (CurrentPage != null) return false;
+          }
+          if (fs == currentBarForceSet)
+          {
+             currentBarForceSet = null;
+             OnPropertyChanged(nameof(CurrentBarForceSet));
+          }
+          if (fs == currentShellForceSet)
+          {
+             currentShellForceSet = null;
+             OnPropertyChanged(nameof(CurrentShellForceSet));
+          }
+          return true;
+       }
 
          #endregion
      }

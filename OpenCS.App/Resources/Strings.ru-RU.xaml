@@ -7297,4 +7297,29 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="Sp20SuffixFundamental">основное ({0})</system:String>
    <system:String x:Key="Sp20SuffixAccidental">особое</system:String>
    <system:String x:Key="Sp20SuffixList">{0} — список</system:String>
+   <system:String x:Key="NewForceSetName">Новый набор</system:String>
+   <system:String x:Key="ForceSetCsvImportFailed">CSV не загружен, строки набора не изменены. Ошибок: {0}</system:String>
+   <system:String x:Key="ForceSetCsvImportedLog">Набор «{1}»: из CSV загружено строк — {0} (в проект — по «Сохранить»)</system:String>
+   <system:String x:Key="ForceSetSaveErrorLog">Набор «{0}» не сохранён: {1} — {2}</system:String>
+   <system:String x:Key="ForceSetRowPath">строка {0}, {1}</system:String>
+   <system:String x:Key="ForceSetSavedNewLog">Набор усилий «{0}» добавлен в проект</system:String>
+   <system:String x:Key="ForceSetSavedLog">Набор усилий «{0}» сохранён</system:String>
+   <system:String x:Key="ForceSetSameTagWarning">В проекте есть ещё наборы с именем «{0}»: {1}. Имя — ключ сочетаний СП 20 и консоли, лучше сделать его уникальным</system:String>
+   <system:String x:Key="ForceLoadGammaInvalid">γf — положительное число; 0 или пусто — из настроек расчёта</system:String>
+   <system:String x:Key="ForceLoadNotSp20Hint">Имя не в формате СП 20 («G|L|Q|A: название») и при открытии набора не меняется. Правка полей выше соберёт имя в этом формате.</system:String>
+   <system:String x:Key="ShellForceThicknessMmLabel">Толщина, мм</system:String>
+   <system:String x:Key="ShellForceThicknessInvalid">Толщина для пересчёта напряжений в усилия должна быть больше нуля</system:String>
+   <system:String x:Key="ShellForceConvertedLog">Напряжения → усилия: пересчитано строк — {0} (h = {1} мм)</system:String>
+   <system:String x:Key="ForceSetSkippedInUse">Набор «{0}» не удалён — используется: {1}</system:String>
+   <system:String x:Key="ForceSetsInUseNotDeleted">Используемые наборы не удалены ({0}):</system:String>
+   <system:String x:Key="ForceSetDeletedLog">Набор усилий «{0}» удалён</system:String>
+   <system:String x:Key="ForceSetInUseCannotDelete">Набор усилий «{0}» используется ({1}): {2}. Удаление невозможно.</system:String>
+   <system:String x:Key="ConfirmDeleteForceSet">Удалить набор усилий «{0}»? Действие необратимо.</system:String>
+   <system:String x:Key="ForceSetDuplicatedLog">Набор «{0}» скопирован: «{1}»</system:String>
+   <system:String x:Key="Sp20PreviewLoadings">Распознано загружений: постоянных — {0}, длительных — {1}, кратковременных — {2}, особых — {3}</system:String>
+   <system:String x:Key="Sp20PreviewSets">Выбрано наборов: {0}; строк в каждом: {1}</system:String>
+   <system:String x:Key="Sp20PreviewWarnings">Предупреждения:</system:String>
+   <system:String x:Key="Sp20PreviewMore">… ещё {0}</system:String>
+   <system:String x:Key="Sp20PreviewError">Ошибка: {0}</system:String>
+   <system:String x:Key="Sp20Created">Создано наборов: {0}</system:String>
 </ResourceDictionary>

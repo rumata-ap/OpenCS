@@ -53,6 +53,25 @@ namespace OpenCS.Utilites
    }
 
    /// <summary>
+   /// Необязательное число (σ строки пластины): пусто — null, число с точкой или запятой — значение, иной текст —
+   /// ошибка проверки привязки (красная рамка).
+   /// </summary>
+   public class StrictNullableDoubleConverter : IValueConverter
+   {
+      readonly AnyDoubleConverter _inner = new();
+
+      public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+         => value is null ? "" : _inner.Convert(value, targetType, parameter, culture);
+
+      public object? ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+      {
+         string text = (value as string ?? "").Trim();
+         if (text.Length == 0) return null;
+         return ForceSetAuthoring.TryParseNumber(text, false, out double v) ? v : DependencyProperty.UnsetValue;
+      }
+   }
+
+   /// <summary>
    /// Код (тип задачи, статус) → локализованная подпись по ключу «префикс + код»
    /// (префикс — <c>ConverterParameter</c>); нет ключа — сам код.
    /// </summary>

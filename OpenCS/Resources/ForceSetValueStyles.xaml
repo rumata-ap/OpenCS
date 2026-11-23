@@ -2,8 +2,10 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:util="clr-namespace:OpenCS.Utilites">
 
-   <!-- Ввод чисел в таблицах усилий: принимаются и точка, и запятая -->
-   <util:AnyDoubleConverter x:Key="ForceAnyDouble"/>
+   <!-- Ввод чисел в таблицах усилий: точка и запятая; иной текст — красная рамка, значение не меняется -->
+   <util:StrictDoubleConverter x:Key="ForceAnyDouble"/>
+   <!-- σ строк пластины: пусто — напряжение не задано -->
+   <util:StrictNullableDoubleConverter x:Key="ForceNullableDouble"/>
 
    <SolidColorBrush x:Key="ForceAxisZBrush" Color="Red"/>
    <SolidColorBrush x:Key="ForceAxisXBrush" Color="ForestGreen"/>

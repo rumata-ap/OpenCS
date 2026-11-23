@@ -7297,4 +7297,29 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="Sp20SuffixFundamental">fundamental ({0})</system:String>
    <system:String x:Key="Sp20SuffixAccidental">accidental</system:String>
    <system:String x:Key="Sp20SuffixList">{0} — list</system:String>
+   <system:String x:Key="NewForceSetName">New set</system:String>
+   <system:String x:Key="ForceSetCsvImportFailed">CSV not loaded, the set rows are unchanged. Errors: {0}</system:String>
+   <system:String x:Key="ForceSetCsvImportedLog">Set «{1}»: {0} rows loaded from CSV (saved to the project with «Save»)</system:String>
+   <system:String x:Key="ForceSetSaveErrorLog">Set «{0}» not saved: {1} — {2}</system:String>
+   <system:String x:Key="ForceSetRowPath">row {0}, {1}</system:String>
+   <system:String x:Key="ForceSetSavedNewLog">Force set «{0}» added to the project</system:String>
+   <system:String x:Key="ForceSetSavedLog">Force set «{0}» saved</system:String>
+   <system:String x:Key="ForceSetSameTagWarning">The project has {1} more sets named «{0}». The name is the key of SP 20 combinations and the console; better make it unique</system:String>
+   <system:String x:Key="ForceLoadGammaInvalid">γf must be a positive number; 0 or empty — from calculation settings</system:String>
+   <system:String x:Key="ForceLoadNotSp20Hint">The name is not in SP 20 format («G|L|Q|A: title») and is not changed when the set is opened. Editing the fields above will compose the name in this format.</system:String>
+   <system:String x:Key="ShellForceThicknessMmLabel">Thickness, mm</system:String>
+   <system:String x:Key="ShellForceThicknessInvalid">Thickness for converting stresses to forces must be greater than zero</system:String>
+   <system:String x:Key="ShellForceConvertedLog">Stresses → forces: {0} rows recalculated (h = {1} mm)</system:String>
+   <system:String x:Key="ForceSetSkippedInUse">Set «{0}» not deleted — used by: {1}</system:String>
+   <system:String x:Key="ForceSetsInUseNotDeleted">Sets in use were not deleted ({0}):</system:String>
+   <system:String x:Key="ForceSetDeletedLog">Force set «{0}» deleted</system:String>
+   <system:String x:Key="ForceSetInUseCannotDelete">Force set «{0}» is in use ({1}): {2}. It cannot be deleted.</system:String>
+   <system:String x:Key="ConfirmDeleteForceSet">Delete force set «{0}»? This cannot be undone.</system:String>
+   <system:String x:Key="ForceSetDuplicatedLog">Set «{0}» copied: «{1}»</system:String>
+   <system:String x:Key="Sp20PreviewLoadings">Recognized load cases: permanent — {0}, long-term — {1}, short-term — {2}, accidental — {3}</system:String>
+   <system:String x:Key="Sp20PreviewSets">Sets selected: {0}; rows in each: {1}</system:String>
+   <system:String x:Key="Sp20PreviewWarnings">Warnings:</system:String>
+   <system:String x:Key="Sp20PreviewMore">… {0} more</system:String>
+   <system:String x:Key="Sp20PreviewError">Error: {0}</system:String>
+   <system:String x:Key="Sp20Created">Sets created: {0}</system:String>
 </ResourceDictionary>

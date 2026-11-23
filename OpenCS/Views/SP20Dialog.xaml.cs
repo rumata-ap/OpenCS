@@ -1,5 +1,6 @@
 using CScore;
 using CScore.Combinations;
+using OpenCS.Services;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
 
@@ -16,7 +17,9 @@ namespace OpenCS.Views
       public SP20Dialog(IEnumerable<ForceSet> allSets, AppViewModel app)
       {
          InitializeComponent();
-         DataContext = new SP20DialogVM(allSets, app, this);
+         var vm = new SP20DialogVM(allSets, app);
+         vm.Done += () => DialogResult = true;
+         DataContext = vm;
       }
    }
 }
@@ -38,28 +41,36 @@ namespace OpenCS.ViewModels
    }
 
    /// <summary>Вид сочетания в UI-выборе.</summary>
-   public enum SP20ModeChoice { Fundamental, Accidental, Both }
-
    public class SP20ModeItem
    {
-      public SP20ModeChoice Mode { get; init; }
+      public ForceSetAuthoring.Sp20Mode Mode { get; init; }
       public string Label       { get; init; } = "";
       public override string ToString() => Label;
    }
 
+   /// <summary>
+   /// Диалог сочетаний СП 20: выбор наборов и вида, предпросмотр распознанных загружений; расчёт и запись — через
+   /// <see cref="ForceSetAuthoring.CombineSp20"/> (все виды считаются до записи, одна транзакция).
+   /// </summary>
    public class SP20DialogVM : ViewModelBase
    {
       readonly AppViewModel _app;
-      readonly Window _window;
       bool _makeEnvelope = true;
       bool _makeCases = true;
       SP20ModeItem _selectedMode;
       string _resultName = "";
+      bool _nameEdited;
 
-      public SP20DialogVM(IEnumerable<ForceSet> allSets, AppViewModel app, Window window)
+      /// <summary>Наборы созданы — закрыть окно.</summary>
+      public event Action? Done;
+
+      /// <summary>Сообщение пользователю (заменяется в тестах).</summary>
+      public Action<string, MessageBoxImage> Show { get; set; } = (text, icon) =>
+         MessageBox.Show(text, Loc.S("SP20DialogTitle"), MessageBoxButton.OK, icon);
+
+      public SP20DialogVM(IEnumerable<ForceSet> allSets, AppViewModel app)
       {
          _app    = app;
-         _window = window;
 
          Items = new ObservableCollection<ForceSetSelectionVM>(
             allSets.Select(fs => new ForceSetSelectionVM(fs)));
@@ -68,11 +79,11 @@ namespace OpenCS.ViewModels
 
          ModeOptions =
          [
-            new SP20ModeItem { Mode = SP20ModeChoice.Fundamental, Label = Loc.S("SP20ModeFundamental") },
-            new SP20ModeItem { Mode = SP20ModeChoice.Accidental,  Label = Loc.S("SP20ModeAccidental")  },
-            new SP20ModeItem { Mode = SP20ModeChoice.Both,        Label = Loc.S("SP20ModeBoth")        },
+            new SP20ModeItem { Mode = ForceSetAuthoring.Sp20Mode.Fundamental, Label = Loc.S("SP20ModeFundamental") },
+            new SP20ModeItem { Mode = ForceSetAuthoring.Sp20Mode.Accidental,  Label = Loc.S("SP20ModeAccidental")  },
+            new SP20ModeItem { Mode = ForceSetAuthoring.Sp20Mode.Both,        Label = Loc.S("SP20ModeBoth")        },
          ];
-         _selectedMode = ModeOptions[2]; // Both by default
+         _selectedMode = ModeOptions[2];
          _selectedGroup = GroupOptions[0];
 
          GenerateCommand = new RelayCommand(_ => Generate());
@@ -82,7 +93,7 @@ namespace OpenCS.ViewModels
       public ObservableCollection<ForceSetSelectionVM> Items { get; }
 
       /// <summary>Группа основного сочетания: те же C/CL/N/NL, что CalcType проверок (метка в имени набора).</summary>
-      public List<string> GroupOptions { get; } = ["C", "CL", "N", "NL"];
+      public List<string> GroupOptions { get; } = [.. ForceSetAuthoring.Sp20Groups];
 
       string _selectedGroup;
       public string SelectedGroup
@@ -115,10 +126,11 @@ namespace OpenCS.ViewModels
          set { _makeCases = value; OnPropertyChanged(); }
       }
 
+      /// <summary>Базовое имя результатов: следует за выбором наборов, пока пользователь его не правил.</summary>
       public string ResultName
       {
          get => _resultName;
-         set { _resultName = value; OnPropertyChanged(); }
+         set { _resultName = value ?? ""; _nameEdited = _resultName.Trim().Length > 0; OnPropertyChanged(); }
       }
 
       string _preview = "";
@@ -136,137 +148,65 @@ namespace OpenCS.ViewModels
       void RefreshPreview()
       {
          var sets = SelectedSets;
+         if (!_nameEdited)
+         {
+            _resultName = sets.Count > 0 ? ForceSetAuthoring.Sp20DefaultName(sets) : "";
+            OnPropertyChanged(nameof(ResultName));
+         }
          if (sets.Count == 0)
          {
-            Preview = "Не выбрано ни одного набора.";
+            Preview = Loc.S("Sp20ErrNoSets");
             return;
          }
 
          try
          {
             var (loadings, warnings) = SP20Combinations.ForceSetsToLoadings(sets, _app.CalcSettings.ToSp20GammaDefaults());
-            int perm = loadings.Count(l => l.LoadType == NormLoadType.Permanent);
-            int lt   = loadings.Count(l => l.LoadType == NormLoadType.LongTerm);
-            int st   = loadings.Count(l => l.LoadType == NormLoadType.ShortTerm);
-            int acc  = loadings.Count(l => l.LoadType == NormLoadType.Accidental);
-
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine("Распознано загружений:");
-            sb.AppendLine($"  постоянная:       {perm}");
-            sb.AppendLine($"  длительная:       {lt}");
-            sb.AppendLine($"  кратковременная:  {st}");
-            sb.AppendLine($"  особая:           {acc}");
-            sb.AppendLine();
-            sb.AppendLine($"Выбрано наборов: {sets.Count}");
+            sb.AppendLine(string.Format(Loc.S("Sp20PreviewLoadings"),
+               loadings.Count(l => l.LoadType == NormLoadType.Permanent),
+               loadings.Count(l => l.LoadType == NormLoadType.LongTerm),
+               loadings.Count(l => l.LoadType == NormLoadType.ShortTerm),
+               loadings.Count(l => l.LoadType == NormLoadType.Accidental)));
+            sb.AppendLine(string.Format(Loc.S("Sp20PreviewSets"), sets.Count, SP20Combinations.RowCount(sets[0])));
             SP20Combinations.SecondOrderOf(sets, out bool mixedOrder);
             if (mixedOrder) sb.AppendLine(Loc.S("Sp20SecondOrderMixed"));
             SP20Combinations.ImperfectionsOf(sets, out bool mixedImperfections);
             if (mixedImperfections) sb.AppendLine(Loc.S("Sp20ImperfectionsMixed"));
-            sb.AppendLine($"Строк в каждом:  {SP20Combinations.RowCount(sets[0])}");
             if (warnings.Count > 0)
             {
-               sb.AppendLine();
-               sb.AppendLine("Предупреждения:");
+               sb.AppendLine(Loc.S("Sp20PreviewWarnings"));
                foreach (var w in warnings.Take(8))
                   sb.AppendLine($"  - {w}");
                if (warnings.Count > 8)
-                  sb.AppendLine($"  ... ещё {warnings.Count - 8}");
+                  sb.AppendLine(string.Format(Loc.S("Sp20PreviewMore"), warnings.Count - 8));
             }
             Preview = sb.ToString().TrimEnd();
-
-            if (ResultName.Length == 0)
-               ResultName = "СП20 — " + string.Join(", ", sets.Select(s => s.Tag));
          }
-         catch (System.Exception ex)
+         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
          {
-            Preview = $"Ошибка: {ex.Message}";
+            Preview = string.Format(Loc.S("Sp20PreviewError"), ex.Message);
          }
       }
 
-      void Generate()
+      /// <summary>Расчёт и запись сочетаний; ошибки — сообщением, без записи.</summary>
+      internal bool Generate()
       {
-         var sets = SelectedSets;
-         if (sets.Count == 0)
+         var request = new ForceSetAuthoring.Sp20Request(SelectedSets, _selectedMode.Mode, SelectedGroup, MakeEnvelope,
+            MakeCases, ResultName, _app.CalcSettings.ToSp20LoadValueKind(), _app.CalcSettings.ToSp20GammaDefaults());
+         var (created, _, errors) = ForceSetAuthoring.CombineSp20(_app.db, request);
+         if (errors.Count > 0)
          {
-            MessageBox.Show("Не выбрано ни одного набора.", _window.Title,
-               MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
+            Show(string.Join(Environment.NewLine, errors), MessageBoxImage.Warning);
+            return false;
          }
-         if (!MakeEnvelope && !MakeCases)
-         {
-            MessageBox.Show("Нужно выбрать хотя бы один вид вывода.", _window.Title,
-               MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-         }
-
-         string baseName = ResultName.Trim().Length > 0
-            ? ResultName.Trim()
-            : "СП20 — " + string.Join(", ", sets.Select(s => s.Tag));
-
-         var rowLabels = SP20Combinations.RowLabels(sets[0]).ToList();
-         var created   = new List<string>();
-
-         try
-         {
-            var mode = _selectedMode.Mode;
-            if (mode is SP20ModeChoice.Fundamental or SP20ModeChoice.Both)
-               RunMode(sets, SelectedGroup, baseName, $"основное ({SelectedGroup})", "Cm", rowLabels, created);
-            if (mode is SP20ModeChoice.Accidental or SP20ModeChoice.Both)
-               RunMode(sets, "A", baseName, "особое", "Cs", rowLabels, created);
-         }
-         catch (System.Exception ex)
-         {
-            MessageBox.Show($"Ошибка при генерации:\n{ex.Message}", _window.Title,
-               MessageBoxButton.OK, MessageBoxImage.Error);
-            return;
-         }
-
-         MessageBox.Show(
-            "Созданы наборы:\n" + string.Join("\n", created.Select(n => $"  - {n}")),
-            _window.Title, MessageBoxButton.OK, MessageBoxImage.Information);
-
-         _window.DialogResult = true;
-      }
-
-      /// <param name="group">C/CL/N/NL — основное сочетание, A — особое (проверки как C).</param>
-      void RunMode(List<ForceSet> sets, string group, string baseName,
-                   string suffix, string labelPrefix,
-                   List<string> rowLabels, List<string> created)
-      {
-         var (env, cases, loadings, _) = SP20Combinations.SP20EnvelopeAndCasesForGroup(sets, group,
-            _app.CalcSettings.ToSp20LoadValueKind(), _app.CalcSettings.ToSp20GammaDefaults());
-
-         string kind = sets[0].Kind;
-         bool secondOrder = SP20Combinations.SecondOrderOf(sets, out _);
-         string? imperfections = SP20Combinations.ImperfectionsOf(sets, out _);
-
-         if (MakeEnvelope)
-         {
-            var fs = SP20Combinations.EnvelopeToForceSet(
-               env, kind, $"{baseName} ({suffix})", labelPrefix, rowLabels);
-            fs.SecondOrder = secondOrder;
-            fs.Imperfections = imperfections;
-            SaveAndAdd(fs);
-            created.Add(fs.Tag);
-         }
-
-         if (MakeCases)
-         {
-            var fs = SP20Combinations.CasesToForceSet(
-               cases, kind, $"{baseName} ({suffix} — список)", rowLabels);
-            fs.SecondOrder = secondOrder;
-            fs.Imperfections = imperfections;
-            SaveAndAdd(fs);
-            created.Add(fs.Tag);
-         }
-      }
-
-      void SaveAndAdd(ForceSet fs)
-      {
-         fs.Num = _app.ForceSets.Count > 0
-            ? _app.ForceSets.Max(s => s.Num) + 1 : 1;
-         _app.db.SaveForceSet(fs);
-         _app.ForceSets.Add(fs);
+         foreach (var fs in created)
+            _app.LogService.Info(string.Format(Loc.S("ForceSetSavedNewLog"), fs.Tag));
+         Show(string.Format(Loc.S("Sp20Created"), created.Count)
+              + Environment.NewLine + string.Join(Environment.NewLine, created.Select(n => $"  - {n.Tag}")),
+            MessageBoxImage.Information);
+         Done?.Invoke();
+         return true;
       }
    }
 }
