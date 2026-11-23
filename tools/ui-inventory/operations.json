@@ -1,7 +1,7 @@
 {
   "sections": ["common", "materials", "diagrams", "sections", "forces", "tasks", "fire", "schema", "fem-calc",
                "fragments", "import", "settings", "results"],
-  "closedSections": ["materials", "diagrams"],
+  "closedSections": ["materials", "diagrams", "sections"],
   "operations": [
     { "window": "MaterialPage", "kind": "page", "section": "materials", "xaml": ["OpenCS/Views/MaterialPage.xaml"], "tables": ["materials"], "service": "MaterialAuthoring", "audit": "done", "cli": "apply/export model: materials", "note": "Страница материала: C/CL/N/NL, огнестойкость, custom" },
     { "window": "MaterialCharsPage", "kind": "page", "section": "materials", "xaml": ["OpenCS/Views/MaterialCharsPage.xaml"], "tables": ["materials"], "service": "MaterialAuthoring", "audit": "done", "cli": "apply/export model: materials", "note": "Один набор характеристик (из дерева)" },
@@ -21,7 +21,7 @@
     { "window": "RebarGroupEditorPage", "kind": "page", "section": "sections", "xaml": ["OpenCS/Views/RebarGroupEditorPage.xaml"], "tables": ["material_areas", "point_fibers"], "service": "CrossSectionAuthoring", "audit": "done", "cli": "apply/export model: sections", "note": "Группа стержней" },
     { "window": "StirrupGroupPage", "kind": "page", "section": "sections", "xaml": ["OpenCS/Views/StirrupGroupPage.xaml"], "tables": ["material_areas", "material_area_closed_stirrup_groups", "material_area_closed_stirrup_loops"], "service": "CrossSectionAuthoring", "audit": "done", "cli": "apply/export model: sections", "note": "Группа хомутов" },
     { "window": "StagedSectionEditorPage", "kind": "page", "section": "sections", "xaml": ["OpenCS/Views/StagedSectionEditorPage.xaml"], "tables": ["cross_sections", "cross_section_parts", "cross_section_part_areas"], "service": "CrossSectionAuthoring", "audit": "done", "cli": "apply/export model: sections", "note": "Двухстадийное сечение" },
-    { "window": "PlateSectionPage", "kind": "page", "section": "sections", "xaml": ["OpenCS/Views/PlateSectionPage.xaml"], "tables": ["plate_sections"], "service": null, "audit": "pending", "cli": null, "note": "Сечение пластины: толщина, слои, арматура" },
+    { "window": "PlateSectionPage", "kind": "page", "section": "sections", "xaml": ["OpenCS/Views/PlateSectionPage.xaml"], "tables": ["plate_sections"], "service": "PlateSectionAuthoring", "audit": "done", "cli": "apply/export model: plateSections", "note": "Сечение пластины: толщина, слои, арматура" },
     { "window": "CircleDialog", "kind": "window", "section": "sections", "xaml": ["OpenCS/Views/Dialogs/CircleDialog.xaml"], "tables": ["circles"], "service": "ContourAuthoring", "audit": "done", "cli": "apply/export model: circles", "note": null },
     { "window": "ContourPropsWindow", "kind": "window", "section": "sections", "xaml": ["OpenCS/Views/Dialogs/ContourPropsWindow.xaml"], "tables": [], "service": null, "audit": "done", "cli": null, "note": null },
     { "window": "ParametricRcSectionDialog", "kind": "window", "section": "sections", "xaml": ["OpenCS/Views/Dialogs/ParametricRcSectionDialog.xaml"], "tables": ["cross_sections", "parametric_rc_sections", "parametric_rc_generated_areas", "material_areas"], "service": "ParametricRcSectionProjectService", "audit": "done", "cli": "apply/export model: sections (parametric)", "note": null },

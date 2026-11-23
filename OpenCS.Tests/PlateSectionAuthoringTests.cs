@@ -270,6 +270,22 @@ public class PlateSectionPageVMTests
     });
 
     [Fact]
+    public void DeleteSavedLayer_Dirty_TitleStar() => WithApp(app =>
+    {
+        var (_, _, ps) = Seed(app);
+        var vm = new PlateSectionVM(ps, app);
+        app.CurrentPage = new System.Windows.Controls.UserControl { DataContext = vm };
+        vm.AddRebarLayer();
+        Assert.True(vm.Save());
+        Assert.DoesNotContain("*", app.CurrentPageTitle);
+        vm.SelectedRebarLayer = vm.RebarLayers[1];
+        vm.DeleteRebarLayerCommand.Execute(null);
+        Assert.Single(vm.RebarLayers);
+        Assert.True(vm.IsDirty);
+        Assert.EndsWith(" *", app.CurrentPageTitle);
+    });
+
+    [Fact]
     public void Save_Invalid_KeepsDirty_ModelUnchanged() => WithApp(app =>
     {
         var (_, _, ps) = Seed(app);
