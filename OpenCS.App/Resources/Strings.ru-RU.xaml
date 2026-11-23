@@ -7322,4 +7322,24 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="Sp20PreviewMore">… ещё {0}</system:String>
    <system:String x:Key="Sp20PreviewError">Ошибка: {0}</system:String>
    <system:String x:Key="Sp20Created">Создано наборов: {0}</system:String>
+   <system:String x:Key="CliModelErrNotString">ожидается строка</system:String>
+   <system:String x:Key="CliModelErrNotInteger">ожидается целое число</system:String>
+   <system:String x:Key="CliModelErrNotNumber">ожидается число</system:String>
+   <system:String x:Key="CliForceSetDuplicateSkipped">набор усилий «{0}» — имя повторяется, выгружен первый</system:String>
+   <system:String x:Key="CliForceSetInvalidSkipped">набор усилий «{0}» не выгружен: {1}</system:String>
+   <system:String x:Key="CliForceSetLinkedSkipped">наборов усилий, привязанных к схемам МКЭ (импорт на схему, расчёт), не выгружено: {0}</system:String>
+   <system:String x:Key="CliForceSetErrColumn">столбец «{0}» не подходит виду набора; допустимо: {1}</system:String>
+   <system:String x:Key="CliForceSetErrNoLabel">нет столбца label</system:String>
+   <system:String x:Key="CliForceSetErrCells">значений в строке — {0}, столбцов — {1}</system:String>
+   <system:String x:Key="CliForceSetErrLinked">набор усилий «{0}» привязан к схеме МКЭ — пересоздаётся импортом или расчётом, через apply не правится</system:String>
+   <system:String x:Key="CliForceSetErrKindChange">у набора «{0}» нельзя сменить вид: {1} → {2}</system:String>
+   <system:String x:Key="CliForceSetErrRowInUse">строка {0} из {1} используется задачей, а в документе строк {2} — убрать её нельзя</system:String>
+   <system:String x:Key="CliCmdCombine">Сочетания нагрузок</system:String>
+   <system:String x:Key="CliCmdCombineSp20">Сочетания СП 20 по наборам усилий проекта (как «Сочетания СП20» в OpenCS)</system:String>
+   <system:String x:Key="CliOptSp20Sets">Наборы — имена или Id через «;»</system:String>
+   <system:String x:Key="CliOptSp20Mode">Сочетание: fundamental — основное, accidental — особое, both — оба</system:String>
+   <system:String x:Key="CliOptSp20Group">Группа основного сочетания: C, CL, N, NL</system:String>
+   <system:String x:Key="CliOptSp20Envelope">Создать огибающую (без --envelope и --cases — оба вида)</system:String>
+   <system:String x:Key="CliOptSp20Cases">Создать список комбинаций</system:String>
+   <system:String x:Key="CliOptSp20Name">Базовое имя результатов (по умолчанию «СП20 — имена наборов»)</system:String>
 </ResourceDictionary>

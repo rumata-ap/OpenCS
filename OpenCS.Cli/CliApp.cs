@@ -131,6 +131,7 @@ sealed partial class CliApp
         var add = new Command("add", Loc.S("CliCmdAdd")) { AddSteelSectionCommand(), AddTasksCommand() };
         var import = new Command("import", Loc.S("CliCmdImport")) { ImportForcesCommand() };
         var split = new Command("split", Loc.S("CliCmdSplit")) { SplitForcesCommand() };
+        var combine = new Command("combine", Loc.S("CliCmdCombine")) { CombineSp20Command() };
 
         var run = new Command("run", Loc.S("CliCmdRun"))
         {
@@ -151,7 +152,7 @@ sealed partial class CliApp
 
         return new RootCommand(Loc.S("CliRootDescription"))
         {
-            _lang, _json, _quiet, NewCommand(), add, import, split, ApplyCommand(), SchemaCommand(), info, list, run,
+            _lang, _json, _quiet, NewCommand(), add, import, split, combine, ApplyCommand(), SchemaCommand(), info, list, run,
             export, tools
         };
     }

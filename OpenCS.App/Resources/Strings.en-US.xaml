@@ -7322,4 +7322,24 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="Sp20PreviewMore">… {0} more</system:String>
    <system:String x:Key="Sp20PreviewError">Error: {0}</system:String>
    <system:String x:Key="Sp20Created">Sets created: {0}</system:String>
+   <system:String x:Key="CliModelErrNotString">a string is expected</system:String>
+   <system:String x:Key="CliModelErrNotInteger">an integer is expected</system:String>
+   <system:String x:Key="CliModelErrNotNumber">a number is expected</system:String>
+   <system:String x:Key="CliForceSetDuplicateSkipped">force set «{0}» — duplicate name, the first one exported</system:String>
+   <system:String x:Key="CliForceSetInvalidSkipped">force set «{0}» not exported: {1}</system:String>
+   <system:String x:Key="CliForceSetLinkedSkipped">force sets bound to FEM schemas (schema import, analysis) not exported: {0}</system:String>
+   <system:String x:Key="CliForceSetErrColumn">column «{0}» does not fit the set kind; allowed: {1}</system:String>
+   <system:String x:Key="CliForceSetErrNoLabel">no label column</system:String>
+   <system:String x:Key="CliForceSetErrCells">{0} values in the row, {1} columns</system:String>
+   <system:String x:Key="CliForceSetErrLinked">force set «{0}» is bound to a FEM schema — it is recreated by import or analysis, not edited by apply</system:String>
+   <system:String x:Key="CliForceSetErrKindChange">the kind of set «{0}» cannot be changed: {1} → {2}</system:String>
+   <system:String x:Key="CliForceSetErrRowInUse">row {0} of {1} is used by a task, but the document has {2} rows — it cannot be removed</system:String>
+   <system:String x:Key="CliCmdCombine">Load combinations</system:String>
+   <system:String x:Key="CliCmdCombineSp20">SP 20 combinations of project force sets (as «SP20 combinations» in OpenCS)</system:String>
+   <system:String x:Key="CliOptSp20Sets">Sets — names or ids separated by «;»</system:String>
+   <system:String x:Key="CliOptSp20Mode">Combination: fundamental, accidental or both</system:String>
+   <system:String x:Key="CliOptSp20Group">Fundamental combination group: C, CL, N, NL</system:String>
+   <system:String x:Key="CliOptSp20Envelope">Create the envelope (without --envelope and --cases — both)</system:String>
+   <system:String x:Key="CliOptSp20Cases">Create the list of combinations</system:String>
+   <system:String x:Key="CliOptSp20Name">Base name of results (default «SP20 — set names»)</system:String>
 </ResourceDictionary>

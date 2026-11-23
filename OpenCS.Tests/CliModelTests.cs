@@ -465,6 +465,7 @@ public sealed class CliModelTests : IDisposable
     [InlineData("circles")]
     [InlineData("sections")]
     [InlineData("plateSections")]
+    [InlineData("forceSets")]
     public async Task Schema_Geometry_IsJson(string kind)
     {
         var r = await Run("schema", kind);
@@ -915,6 +916,186 @@ public sealed class CliModelTests : IDisposable
         var r = await Run("apply", project, PathOf("seed.json"));
         Assert.Equal(CliExitCode.Usage, r.Code);
         Assert.Contains("plateSections[1].tag", r.Err);
+    }
+
+    const string ForceSeed = """
+        { "format": "opencs-model", "version": 1,
+          "forceSets": [
+            { "tag": "G: Вес", "kind": "bar", "description": "колонна К1",
+              "columns": ["label", "N", "Mx", "My", "Vx", "Vy", "T"],
+              "rows": [ ["1", -1200, 35.5, 0, 0, 12, 0], ["2", -1180, -20, 1.5, 0, 10, 0.25] ] },
+            { "tag": "Q(γf=1,4): Ветер [ветер]", "kind": "shell", "secondOrder": true, "imperfections": "Крен X",
+              "columns": ["label", "Mx", "My", "Mxy", "sigmaX", "tauXY", "elem", "sect"],
+              "rows": [ ["э.15 с1", 12.3, 4.1, 0.5, 100, null, 15, 1], ["э.16 с1", 1, 2, 3, null, -20, 16, null] ] },
+            { "tag": "РСУ из таблицы", "kind": "bar", "source": "table",
+              "columns": ["label", "N", "Mx", "elem", "sect"],
+              "rows": [ ["э.1", -10, 2, 1, 1], ["э.2", -11, 3, 2, 1] ] } ] }
+        """;
+
+    static List<CScore.ForceSet> ForceSets(string project)
+    {
+        using var db = new DatabaseService(project);
+        db.LoadAll();
+        var r = db.ForceSets.ToList();
+        foreach (var fs in r) fs.EnsureRows();
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        return r;
+    }
+
+    [Fact]
+    public async Task ForceSets_Apply_DryRun_RoundTripSame_UpdateKeepsIds()
+    {
+        string first = await NewProject("a.db");
+        var dry = await Run("apply", first, Doc("seed.json", ForceSeed), "--dry-run");
+        Assert.True(dry.Code == CliExitCode.Ok, dry.Err);
+        Assert.Empty(ForceSets(first));
+
+        var r = await Run("apply", first, PathOf("seed.json"));
+        Assert.True(r.Code == CliExitCode.Ok, r.Err);
+        var sets = ForceSets(first);
+        Assert.Equal(3, sets.Count);
+        var g = sets.Single(s => s.Tag == "G: Вес");
+        Assert.Equal("колонна К1", g.Description);
+        Assert.Equal(0.25, g.Items[1].T);
+        var w = sets.Single(s => s.Kind == "shell");
+        Assert.True(w.SecondOrder);
+        Assert.Equal("Крен X", w.Imperfections);
+        Assert.Equal(100, w.ShellItems[0].SigmaX);
+        Assert.Null(w.ShellItems[0].TauXY);
+        Assert.Null(w.ShellItems[0].SigmaY);
+        Assert.Equal(0, w.ShellItems[0].Nx);
+        Assert.Equal(16, w.ShellItems[1].SourceElementNum);
+        Assert.Null(w.ShellItems[1].SourceSectionNum);
+        Assert.Equal("table", sets.Single(s => s.Tag == "РСУ из таблицы").SourceType);
+
+        string exported = PathOf("e1.json");
+        var ex = await Run("export", "model", first, "--to", exported);
+        Assert.True(ex.Code == CliExitCode.Ok, ex.Err);
+        string second = await NewProject("b.db");
+        Assert.True((await Run("apply", second, exported)).Code == CliExitCode.Ok);
+        string exported2 = PathOf("e2.json");
+        Assert.Equal(CliExitCode.Ok, (await Run("export", "model", second, "--to", exported2)).Code);
+        var a = JsonNode.Parse(File.ReadAllText(exported))!;
+        var b = JsonNode.Parse(File.ReadAllText(exported2))!;
+        Assert.Equal(3, a["forceSets"]!.AsArray().Count);
+        Assert.Equal(["label", "N", "Mx", "My", "Vx", "Vy", "T"],
+                     a["forceSets"]![0]!["columns"]!.AsArray().Select(n => (string?)n));
+        AssertJsonClose(a, b, "$");
+
+        // Задача ссылается на вторую строку — обновление сохраняет Id набора и строк по позиции.
+        using (var db = new DatabaseService(first))
+        {
+            db.LoadAll();
+            var set = db.ForceSets.Single(s => s.Tag == "G: Вес");
+            set.EnsureRows();
+            db.SaveCalcTask(new CScore.CalcTask { Num = 1, Tag = "НДС", Kind = "strain_state", ForceSetId = set.Id, ForceItemId = set.Items[1].Id });
+        }
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        var u = await Run("apply", first, Doc("u.json", """
+            { "format": "opencs-model", "version": 1,
+              "forceSets": [ { "tag": "G: Вес", "kind": "bar", "columns": ["label", "N"],
+                               "rows": [ ["1", -1], ["2", -2], ["3", -3] ] } ] }
+            """), "--json");
+        Assert.True(u.Code == CliExitCode.Ok, u.Err);
+        var g2 = ForceSets(first).Single(s => s.Tag == "G: Вес");
+        Assert.Equal(g.Id, g2.Id);
+        Assert.Equal(g.Items[1].Id, g2.Items[1].Id);
+        Assert.Equal(3, g2.Items.Count);
+        Assert.Equal(0, g2.Items[0].Mx);
+
+        // Убрать строку, на которую ссылается задача, нельзя.
+        var cut = await Run("apply", first, Doc("cut.json", """
+            { "format": "opencs-model", "version": 1,
+              "forceSets": [ { "tag": "G: Вес", "kind": "bar", "columns": ["label", "N"], "rows": [ ["1", -1] ] } ] }
+            """));
+        Assert.Equal(CliExitCode.Usage, cut.Code);
+        Assert.Contains("forceSets[0].rows", cut.Err);
+        Assert.Equal(3, ForceSets(first).Single(s => s.Tag == "G: Вес").Items.Count);
+    }
+
+    [Fact]
+    public async Task ForceSets_Errors_WithPaths_NothingWritten()
+    {
+        string project = await NewProject();
+        Assert.Equal(CliExitCode.Ok, (await Run("apply", project, Doc("seed.json", ForceSeed))).Code);
+        var r = await Run("apply", project, Doc("bad.json", """
+            { "format": "opencs-model", "version": 1,
+              "forceSets": [
+                { "tag": "A", "kind": "bar", "columns": ["label", "Nx"], "rows": [ ["1", 1] ] },
+                { "tag": "B", "kind": "bar", "columns": ["label", "N"], "rows": [ ["1", "x"], ["2"] ] },
+                { "tag": "C", "kind": "bar", "columns": ["label", "N"], "rows": [] },
+                { "tag": "G: Вес", "kind": "shell", "columns": ["label", "Mx"], "rows": [ ["1", 1] ] },
+                { "tag": "D", "kind": "beam", "columns": ["label"], "rows": [ ["1"] ] },
+                { "tag": "E", "kind": "bar", "columns": ["N"], "rows": [ [1] ] },
+                { "tag": "F", "kind": "bar", "columns": ["label", "N"], "rows": [ ["1", null] ] },
+                { "tag": "Q(γf=0): Снег", "kind": "bar", "columns": ["label", "N"], "rows": [ ["1", 1] ] },
+                { "tag": "H", "kind": "bar", "columns": ["label", "N"], "rows": [ ["1", 1] ] },
+                { "tag": "H", "kind": "bar", "columns": ["label", "N"], "rows": [ ["1", 1] ] } ] }
+            """));
+        Assert.Equal(CliExitCode.Usage, r.Code);
+        Assert.Contains("forceSets[0].columns[1]", r.Err);
+        Assert.Contains("forceSets[1].rows[0][1]", r.Err);
+        Assert.Contains("forceSets[1].rows[1]", r.Err);
+        Assert.Contains("forceSets[2].rows", r.Err);
+        Assert.Contains("forceSets[3].kind", r.Err);
+        Assert.Contains("forceSets[4].kind", r.Err);
+        Assert.Contains("forceSets[5].columns", r.Err);
+        Assert.Contains("forceSets[6].rows[0][1]", r.Err);
+        Assert.Contains("forceSets[7].gammaF", r.Err);
+        Assert.Contains("forceSets[9].tag", r.Err);
+        Assert.DoesNotContain("forceSets[8]", r.Err);
+        Assert.Equal(3, ForceSets(project).Count);
+    }
+
+    [Fact]
+    public async Task ForceSets_LinkedToSchema_NotExported_ApplyRefused()
+    {
+        string project = await NewProject();
+        Assert.Equal(CliExitCode.Ok, (await Run("apply", project, Doc("seed.json", ForceSeed))).Code);
+        using (var db = new DatabaseService(project))
+        {
+            db.LoadAll();
+            var set = db.ForceSets.Single(s => s.Tag == "РСУ из таблицы");
+            set.SourceSchemaId = 1;
+            db.SaveForceSet(set);
+        }
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        string exported = PathOf("e.json");
+        var ex = await Run("export", "model", project, "--to", exported);
+        Assert.True(ex.Code == CliExitCode.Ok, ex.Err);
+        Assert.Contains(": 1", ex.Err);                                     // предупреждение с числом
+        var a = JsonNode.Parse(File.ReadAllText(exported))!;
+        Assert.DoesNotContain("РСУ из таблицы", a["forceSets"]!.AsArray().Select(n => (string?)n!["tag"]));
+
+        var r = await Run("apply", project, PathOf("seed.json"));
+        Assert.Equal(CliExitCode.Usage, r.Code);
+        Assert.Contains("forceSets[2].tag", r.Err);
+    }
+
+    [Fact]
+    public async Task CombineSp20_CreatesSets_ErrorsUsage()
+    {
+        string project = await NewProject();
+        Assert.Equal(CliExitCode.Ok, (await Run("apply", project, Doc("seed.json", """
+            { "format": "opencs-model", "version": 1,
+              "forceSets": [
+                { "tag": "G: Вес", "kind": "bar", "columns": ["label", "N", "Mx"], "rows": [ ["1", -100, 10], ["2", -90, -5] ] },
+                { "tag": "Q: Снег", "kind": "bar", "columns": ["label", "N", "Mx"], "rows": [ ["1", -10, 2], ["2", -8, -3] ] },
+                { "tag": "Q: Короткий", "kind": "bar", "columns": ["label", "N"], "rows": [ ["1", -1] ] } ] }
+            """))).Code);
+        var r = await Run("combine", "sp20", project, "--sets", "G: Вес; Q: Снег", "--mode", "fundamental", "--group", "N",
+                          "--envelope", "--name", "К", "--json");
+        Assert.True(r.Code == CliExitCode.Ok, r.Err);
+        Assert.Contains("К (основное (N))", r.Out);
+        var sets = ForceSets(project);
+        Assert.Equal(4, sets.Count);
+        Assert.NotEmpty(sets.Single(s => s.Tag == "К (основное (N))").Items);
+
+        var bad = await Run("combine", "sp20", project, "--sets", "G: Вес;Q: Короткий");
+        Assert.Equal(CliExitCode.Usage, bad.Code);   // разное число строк
+        var none = await Run("combine", "sp20", project, "--sets", "Нет такого");
+        Assert.Equal(CliExitCode.Usage, none.Code);
+        Assert.Equal(4, ForceSets(project).Count);
     }
 
     static void AssertJsonClose(JsonNode? a, JsonNode? b, string path)

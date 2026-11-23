@@ -16,7 +16,7 @@ static class ModelDocument
     public static IReadOnlyList<IModelKind> Kinds { get; } =
         [
             new DiagramsKind(), new MaterialsKind(), new ContoursKind(), new CirclesKind(), new SectionsKind(),
-            new PlateSectionsKind()
+            new PlateSectionsKind(), new ForceSetsKind()
         ];
 
     public static IModelKind? Find(string name) => Kinds.FirstOrDefault(k => k.Name == name);

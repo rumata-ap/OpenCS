@@ -1,6 +1,7 @@
 using System.CommandLine;
 using CScore;
 using CScore.Import;
+using OpenCS.Services;
 using OpenCS.Utilites;
 
 namespace OpenCS.Cli;
@@ -14,6 +15,12 @@ sealed partial class CliApp
     readonly Option<string?> _sheet = new("--sheet");
     readonly Option<string> _liraMode = new("--lira-mode") { DefaultValueFactory = _ => "rsu" };
     readonly Option<string> _set = new("--set") { Required = true };
+    readonly Option<string> _sp20Sets = new("--sets") { Required = true };
+    readonly Option<string> _sp20Mode = new("--mode") { DefaultValueFactory = _ => "both" };
+    readonly Option<string> _sp20Group = new("--group") { DefaultValueFactory = _ => "C" };
+    readonly Option<bool> _sp20Envelope = new("--envelope");
+    readonly Option<bool> _sp20Cases = new("--cases");
+    readonly Option<string?> _sp20Name = new("--name");
 
     void DescribeForceOptions()
     {
@@ -26,7 +33,55 @@ sealed partial class CliApp
         _liraMode.Description = Loc.S("CliOptLiraMode");
         _liraMode.AcceptOnlyFromAmong("rsu", "rsn", "loadcases");
         _set.Description = Loc.S("CliOptSet");
+        _sp20Sets.Description = Loc.S("CliOptSp20Sets");
+        _sp20Mode.Description = Loc.S("CliOptSp20Mode");
+        _sp20Mode.AcceptOnlyFromAmong("fundamental", "accidental", "both");
+        _sp20Group.Description = Loc.S("CliOptSp20Group");
+        _sp20Group.AcceptOnlyFromAmong(ForceSetAuthoring.Sp20Groups);
+        _sp20Envelope.Description = Loc.S("CliOptSp20Envelope");
+        _sp20Cases.Description = Loc.S("CliOptSp20Cases");
+        _sp20Name.Description = Loc.S("CliOptSp20Name");
     }
+
+    Command CombineSp20Command() => EditCommand("sp20", "CliCmdCombineSp20", CombineSp20Async,
+        _sp20Sets, _sp20Mode, _sp20Group, _sp20Envelope, _sp20Cases, _sp20Name);
+
+    /// <summary>
+    /// Сочетания СП 20 по наборам проекта — как диалог «Сочетания СП20»: огибающая и/или список комбинаций основного
+    /// (группа C/CL/N/NL) и/или особого сочетания; без --envelope и --cases — оба. Наборы — по имени или Id через «;».
+    /// </summary>
+    Task<int> CombineSp20Async(CliCall call)
+    {
+        var p = call.Parse;
+        var refs = p.GetValue(_sp20Sets)!.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (refs.Length == 0) throw new CliException(CliExitCode.Usage, Loc.S("Sp20ErrNoSets"));
+        bool envelope = p.GetValue(_sp20Envelope), cases = p.GetValue(_sp20Cases);
+        if (!envelope && !cases) envelope = cases = true;
+        var mode = p.GetValue(_sp20Mode) switch
+        {
+            "fundamental" => ForceSetAuthoring.Sp20Mode.Fundamental,
+            "accidental" => ForceSetAuthoring.Sp20Mode.Accidental,
+            _ => ForceSetAuthoring.Sp20Mode.Both
+        };
+        return Edit(call, session =>
+        {
+            var ctx = session.Context;
+            var sets = refs.Select(r => CliRefs.Resolve(ctx.Db.ForceSets, r, f => f.Id, f => f.Tag, "CliKindForceSet"))
+                           .Distinct().ToList();
+            var request = new ForceSetAuthoring.Sp20Request(sets, mode, p.GetValue(_sp20Group)!, envelope, cases,
+                p.GetValue(_sp20Name), ctx.CalcSettings.ToSp20LoadValueKind(), ctx.CalcSettings.ToSp20GammaDefaults());
+            var (created, warnings, errors) = ForceSetAuthoring.CombineSp20(ctx.Db, request);
+            if (errors.Count > 0) throw new CliException(CliExitCode.Usage, string.Join(Environment.NewLine, errors));
+            foreach (string w in warnings) call.Log.Warning(w);
+            if (call.Json)
+                CliOutput.WriteJson(call.Out, new { Sets = created.Select(s => new { s.Id, s.Num, s.Tag, Rows = SP20RowCount(s) }).ToList() });
+            else
+                foreach (var s in created)
+                    call.Out.WriteLine(string.Format(Loc.S("CliImportedSet"), s.Id, s.Tag, SP20RowCount(s)));
+        });
+    }
+
+    static int SP20RowCount(ForceSet s) => s.Kind == "shell" ? s.ShellItems.Count : s.Items.Count;
 
     Command ImportForcesCommand() => EditCommand("forces", "CliCmdImportForces", ImportForcesAsync,
         _forceFile, _tag, _axes, _units, _elements, _sheet, _liraMode);

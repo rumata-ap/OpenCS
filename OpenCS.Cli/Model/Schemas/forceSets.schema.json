@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "opencs-model: forceSets[]",
+  "description": "Набор усилий стержней (bar) или пластин (shell). Ключ — полное имя (tag), как в дереве; атрибуты СП 20 — в имени: «G|L|Q|A(γf=…): название [группа]». Строки — таблицей: columns + rows. Единицы: кН, кН·м (стержни); кН/м, кН·м/м, σ — кПа (пластины); знаки — конвенция OpenCS. Наборы, привязанные к схеме МКЭ (импорт на схему, результаты расчёта), не выгружаются и через apply не правятся. При обновлении строки заменяются по порядку, Id строк переходят по позиции (ссылки задач целы).",
+  "type": "object",
+  "required": ["tag", "kind", "columns", "rows"],
+  "properties": {
+    "tag": { "type": "string", "minLength": 1, "description": "Имя набора (ключ)" },
+    "kind": { "enum": ["bar", "shell"], "description": "Стержни или пластины" },
+    "description": { "type": "string" },
+    "source": { "type": "string", "description": "Источник: table, lira (импорт без схемы) и т. п.; пусто — ручной ввод" },
+    "secondOrder": { "type": "boolean", "default": false, "description": "Усилия второго порядка: проверки по КЭ не увеличивают моменты η" },
+    "imperfections": { "type": "string", "description": "Несовершенства EN 1993-1-1 5.3, с которыми получены усилия" },
+    "columns": {
+      "type": "array",
+      "description": "Обязателен label. bar: N, Mx, My, Vx, Vy, T; shell: Nx, Ny, Nxy, Mx, My, Mxy, Qx, Qy, sigmaX, sigmaY, tauXY. elem, sect — номера КЭ и сечения внешней схемы. Отсутствующий столбец усилия — 0, σ — не задано.",
+      "items": { "enum": ["label", "elem", "sect", "N", "Mx", "My", "Vx", "Vy", "T", "Nx", "Ny", "Nxy", "Mxy", "Qx", "Qy", "sigmaX", "sigmaY", "tauXY"] },
+      "uniqueItems": true
+    },
+    "rows": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Строка — массив значений в порядке columns. σ, elem, sect могут быть null.",
+      "items": { "type": "array", "items": { "type": ["string", "number", "null"] } }
+    }
+  },
+  "additionalProperties": false
+}
