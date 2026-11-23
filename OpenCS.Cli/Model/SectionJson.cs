@@ -45,8 +45,11 @@ sealed record SectionDoc(string Path, string Tag, string? Description, List<Area
 {
     public bool IsStaged => Parts != null;
 
+    /// <summary>Параметрическое определение (тогда ни <see cref="Areas"/>, ни <see cref="Parts"/> нет).</summary>
+    public ParametricDoc? Parametric { get; init; }
+
     /// <summary>Свои области: у произвольного — состав, у стадийного — области частей без ссылки.</summary>
-    public IEnumerable<AreaDoc> OwnAreas => Areas ?? Parts!.SelectMany(p => p.Areas);
+    public IEnumerable<AreaDoc> OwnAreas => Areas ?? Parts?.SelectMany(p => p.Areas) ?? [];
 }
 
 /// <summary>
@@ -218,13 +221,17 @@ static class SectionJson
         int before = errors.Count;
         string tag = Str(item, "tag", path, errors, required: true) ?? "";
         string? description = Str(item, "description", path, errors);
-        bool hasAreas = item.ContainsKey("areas"), hasStaged = item.ContainsKey("staged");
-        if (item.ContainsKey("parametric"))
-            errors.Add($"{path}.parametric", Loc.S("CliSectionErrParametricLater"));
-        if (hasAreas == hasStaged)
+        bool hasAreas = item.ContainsKey("areas"), hasStaged = item.ContainsKey("staged"), hasParametric = item.ContainsKey("parametric");
+        if ((hasAreas ? 1 : 0) + (hasStaged ? 1 : 0) + (hasParametric ? 1 : 0) != 1)
         {
             errors.Add(path, Loc.S("CliSectionErrAreasOrStaged"));
             return null;
+        }
+        if (hasParametric)
+        {
+            var parametric = ParametricJson.Parse(item["parametric"], $"{path}.parametric", errors);
+            return errors.Count > before || parametric == null ? null
+                : new SectionDoc(path, tag, description, null, null) { Parametric = parametric };
         }
         List<AreaDoc>? areas = null;
         List<PartDoc>? parts = null;
@@ -508,7 +515,7 @@ static class SectionJson
 
     // ── Чтение значений ──────────────────────────────────────────────────
 
-    static string? Str(JsonObject o, string key, string path, ModelErrors errors, bool required = false)
+    internal static string? Str(JsonObject o, string key, string path, ModelErrors errors, bool required = false)
     {
         if (o[key] is null)
         {
@@ -520,7 +527,7 @@ static class SectionJson
         return null;
     }
 
-    static double? Num(JsonObject o, string key, string path, ModelErrors errors, bool required = false)
+    internal static double? Num(JsonObject o, string key, string path, ModelErrors errors, bool required = false)
     {
         if (o[key] is null)
         {
@@ -532,7 +539,7 @@ static class SectionJson
         return null;
     }
 
-    static int? Int(JsonObject o, string key, string path, ModelErrors errors)
+    internal static int? Int(JsonObject o, string key, string path, ModelErrors errors)
     {
         if (o[key] is null) return null;
         if (o[key] is JsonValue v && v.TryGetValue(out int i)) return i;
@@ -540,7 +547,7 @@ static class SectionJson
         return null;
     }
 
-    static bool? Bool(JsonObject o, string key, string path, ModelErrors errors)
+    internal static bool? Bool(JsonObject o, string key, string path, ModelErrors errors)
     {
         if (o[key] is null) return null;
         if (o[key] is JsonValue v && v.TryGetValue(out bool b)) return b;
@@ -548,7 +555,7 @@ static class SectionJson
         return null;
     }
 
-    static T Pick<T>(JsonObject o, string key, (string Json, T Value)[] options, T fallback, string path, ModelErrors errors)
+    internal static T Pick<T>(JsonObject o, string key, (string Json, T Value)[] options, T fallback, string path, ModelErrors errors)
     {
         if (o[key] is null) return fallback;
         if (o[key] is JsonValue v && v.TryGetValue(out string? s))

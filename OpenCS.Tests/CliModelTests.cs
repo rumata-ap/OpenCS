@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json.Nodes;
 using OpenCS.Cli;
+using OpenCS.Services;
 using OpenCS.Utilites;
 using Xunit;
 
@@ -653,6 +654,115 @@ public sealed class CliModelTests : IDisposable
         Assert.True(again.Code == CliExitCode.Ok, again.Err);
         Assert.DoesNotContain("create", again.Out);
         Assert.Equal(5, Sections(first).Areas.Count);
+    }
+
+    const string ParametricSeed = """
+        { "format": "opencs-model", "version": 1,
+          "materials": [
+            { "tag": "B25", "catalog": { "concrete": "B25" } },
+            { "tag": "A500", "catalog": { "rebar": "A500" } },
+            { "tag": "A240", "catalog": { "rebar": "A240" } },
+            { "tag": "С255", "catalog": { "steel": "С255" } } ],
+          "sections": [
+            { "tag": "Ригель", "description": "прямоугольник",
+              "parametric": { "kind": "rc", "shape": "rectangle", "b": 300, "h": 500, "concrete": "B25", "rebar": "A500",
+                "bottom": { "count": 3, "d": 20, "coord": -210 }, "top": { "count": 2, "d": 16, "coord": 210 },
+                "stirrups": [ { "zone": "body", "direction": "vertical", "count": 2, "d": 8, "spacing": 150, "cover": 30, "material": "A240" } ],
+                "extraBars": [ [-100, 0, 12] ] } },
+            { "tag": "Тавр",
+              "parametric": { "kind": "rc", "shape": "tee", "b": 800, "h": 600, "bw": 300, "hf": 150, "concrete": "B25", "rebar": "A500",
+                "bottom": { "count": 2, "d": 25, "coord": -280 } } },
+            { "tag": "Балка",
+              "parametric": { "kind": "steel", "profile": "iBeam", "fabrication": "welded", "h": 400, "b": 200, "tf": 12, "tw": 8, "steel": "С255" } },
+            { "tag": "Стойка",
+              "parametric": { "kind": "steel", "profile": "pipe", "fabrication": "rolled", "h": 159, "tw": 6, "steel": "С255",
+                "catalog": { "group": "Трубы", "standard": "ГОСТ 10704", "name": "159x6", "it": 12000000 } } } ] }
+        """;
+
+    [Fact]
+    public async Task ParametricSections_Apply_Generated_RoundTripSame_UpdateKeepsIds()
+    {
+        string first = await NewProject("a.db");
+        var dry = await Run("apply", first, Doc("seed.json", ParametricSeed), "--dry-run");
+        Assert.True(dry.Code == CliExitCode.Ok, dry.Err);
+        Assert.Empty(Sections(first).Sections);
+
+        var r = await Run("apply", first, PathOf("seed.json"));
+        Assert.True(r.Code == CliExitCode.Ok, r.Err);
+        Assert.Equal(4, Sections(first).Sections.Count);
+        using (var db = new DatabaseService(first))
+        {
+            db.LoadAll();
+            var rc = new ParametricRcSectionProjectService(db);
+            var steel = new ParametricSteelSectionProjectService(db);
+            var beam = db.CrossSections.Single(s => s.Tag == "Ригель");
+            Assert.Equal("прямоугольник", beam.Description);
+            Assert.Equal(ParametricRcDefinitionLoadStatus.Supported, rc.GetState(beam).LoadStatus);
+            Assert.True(rc.TryGetDefinition(beam, out var d));
+            Assert.Equal(0.3, d.WidthM, 12);
+            Assert.Equal(-0.21, d.LowerRebar!.CoordinateM, 12);
+            Assert.Equal(db.Materials.Single(m => m.Tag == "A240").Id, Assert.Single(d.StirrupCuts).MaterialId);
+            Assert.Contains(beam.Areas, a => a.Category == CScore.AreaCategory.Stirrups);
+            var pipe = db.CrossSections.Single(s => s.Tag == "Стойка");
+            Assert.True(steel.TryGetDefinition(pipe, out var p));
+            Assert.Equal(12e-6, p.Catalog!.It, 15);
+            Assert.Equal(ParametricSteelDefinitionLoadStatus.Supported,
+                steel.GetState(db.CrossSections.Single(s => s.Tag == "Балка")).LoadStatus);
+        }
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
+        string exported = PathOf("e1.json");
+        var ex = await Run("export", "model", first, "--to", exported);
+        Assert.True(ex.Code == CliExitCode.Ok, ex.Err);
+        var a = JsonNode.Parse(File.ReadAllText(exported))!;
+        Assert.Equal(4, a["sections"]!.AsArray().Count);
+        Assert.All(a["sections"]!.AsArray(), s => Assert.Null(s!["areas"]));   // области строит служба
+        Assert.Equal("A240", (string?)a["sections"]![0]!["parametric"]!["stirrups"]![0]!["material"]);
+
+        string second = await NewProject("b.db");
+        var apply = await Run("apply", second, exported);
+        Assert.True(apply.Code == CliExitCode.Ok, apply.Err);
+        string exported2 = PathOf("e2.json");
+        Assert.Equal(CliExitCode.Ok, (await Run("export", "model", second, "--to", exported2)).Code);
+        AssertJsonClose(a, JsonNode.Parse(File.ReadAllText(exported2))!, "$");
+
+        // Повторное применение к тому же проекту — обновление на месте: Id сечений те же.
+        var ids = Sections(first).Sections.ToDictionary(s => s.Tag, s => s.Id);
+        var again = await Run("apply", first, exported, "--json");
+        Assert.True(again.Code == CliExitCode.Ok, again.Err);
+        Assert.DoesNotContain("create", again.Out);
+        Assert.Equal(ids, Sections(first).Sections.ToDictionary(s => s.Tag, s => s.Id));
+    }
+
+    [Fact]
+    public async Task ParametricSections_Errors_WithPaths_NothingWritten()
+    {
+        string project = await NewProject();
+        Assert.Equal(CliExitCode.Ok, (await Run("apply", project, Doc("s.json", SectionsSeed))).Code);
+        int before = Sections(project).Sections.Count;
+        var r = await Run("apply", project, Doc("bad.json", """
+            { "format": "opencs-model", "version": 1,
+              "sections": [
+                { "tag": "П1", "parametric": { "kind": "rc", "shape": "rectangle", "b": 300, "h": 500, "concrete": "Нет", "rebar": "A500" } },
+                { "tag": "П2", "parametric": { "kind": "rc", "shape": "rectangle", "b": 300, "h": 500, "concrete": "A500", "rebar": "B25",
+                  "stirrups": [ { "count": 2, "d": 8, "spacing": 150, "cover": 30, "material": "B25" } ] } },
+                { "tag": "П3", "parametric": { "kind": "rc", "shape": "tee", "b": 300, "h": 500, "bw": 400, "hf": 100, "concrete": "B25", "rebar": "A500" } },
+                { "tag": "П4", "parametric": { "kind": "steel", "profile": "pipe", "h": 159, "tw": 6, "steel": "B25" } },
+                { "tag": "П5", "parametric": { "kind": "wood" } },
+                { "tag": "П6", "areas": [], "parametric": { "kind": "steel" } },
+                { "tag": "Б-1", "parametric": { "kind": "rc", "shape": "rectangle", "b": 300, "h": 500, "concrete": "B25", "rebar": "A500" } } ] }
+            """));
+        Assert.Equal(CliExitCode.Usage, r.Code);
+        Assert.Contains("sections[0].parametric.concrete", r.Err);
+        Assert.Contains("sections[1].parametric.concrete", r.Err);
+        Assert.Contains("sections[1].parametric.rebar", r.Err);
+        Assert.Contains("sections[1].parametric.stirrups[0].material", r.Err);
+        Assert.Contains("sections[2].parametric:", r.Err);                          // геометрия — от генератора
+        Assert.Contains("sections[3].parametric.steel", r.Err);
+        Assert.Contains("sections[4].parametric.kind", r.Err);
+        Assert.Contains("sections[5]", r.Err);
+        Assert.Contains("sections[6]", r.Err);                                      // произвольное «Б-1» не становится параметрическим
+        Assert.Equal(before, Sections(project).Sections.Count);
     }
 
     static void AssertJsonClose(JsonNode? a, JsonNode? b, string path)

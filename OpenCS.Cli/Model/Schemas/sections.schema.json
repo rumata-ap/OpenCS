@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "opencs-model: sections[]",
-  "description": "Сечение проекта: произвольное (areas) или стадийное (staged). Ключ — обозначение (tag). Области описываются внутри сечения (ключ области — сечение и её обозначение); область, общая для нескольких сечений, при apply правится как один объект пула. Координаты, Ø, шаг, отступ — мм; площади стержней — мм²; σsp — МПа. Материалы — по обозначению, контуры — по ключу пула («набор / обозначение»); ссылки разрешаются по документу и проекту. Раздел записывается после materials и contours.",
+  "description": "Сечение проекта: произвольное (areas), стадийное (staged) или параметрическое ЖБ/стальное (parametric — определение, области строит служба при apply; It сортамента — мм⁴, уклон полок — %). Ключ — обозначение (tag). Области описываются внутри сечения (ключ области — сечение и её обозначение); область, общая для нескольких сечений, при apply правится как один объект пула. Координаты, Ø, шаг, отступ — мм; площади стержней — мм²; σsp — МПа. Материалы — по обозначению, контуры — по ключу пула («набор / обозначение»); ссылки разрешаются по документу и проекту. Раздел записывается после materials и contours.",
   "type": "object",
   "required": ["tag"],
   "properties": {
@@ -28,10 +28,86 @@
           }
         }
       }
+    },
+    "parametric": {
+      "description": "Параметрическое сечение: kind = rc (железобетонное) или steel (стальное)",
+      "oneOf": [ { "$ref": "#/$defs/parametricRc" }, { "$ref": "#/$defs/parametricSteel" } ]
     }
   },
-  "oneOf": [ { "required": ["areas"] }, { "required": ["staged"] } ],
+  "oneOf": [ { "required": ["areas"] }, { "required": ["staged"] }, { "required": ["parametric"] } ],
   "$defs": {
+    "rcLayer": {
+      "type": "object",
+      "required": ["d", "coord"],
+      "description": "Ряд продольной арматуры: физические стержни (count) или расчётный слой (area, axis); coord — координата ряда, мм",
+      "properties": {
+        "count": { "type": "integer", "minimum": 1 },
+        "area": { "type": "number", "description": "Площадь расчётного слоя, мм²" },
+        "axis": { "enum": ["Mx", "My"] },
+        "d": { "type": "number", "description": "Ø, мм" },
+        "coord": { "type": "number" }
+      }
+    },
+    "parametricRc": {
+      "type": "object",
+      "required": ["kind", "shape", "concrete", "rebar"],
+      "properties": {
+        "kind": { "const": "rc" },
+        "shape": { "enum": ["rectangle", "tee", "iBeam", "circle", "annulus"] },
+        "b": { "type": "number", "description": "Ширина (полки), мм" },
+        "h": { "type": "number", "description": "Высота, мм" },
+        "bw": { "type": "number", "description": "Толщина стенки тавра/двутавра, мм" },
+        "hf": { "type": "number", "description": "Толщина полки тавра/двутавра, мм" },
+        "d": { "type": "number", "description": "Диаметр круга/кольца, мм" },
+        "dInner": { "type": "number", "description": "Внутренний диаметр кольца, мм" },
+        "concrete": { "type": "string", "description": "Обозначение бетона" },
+        "rebar": { "type": "string", "description": "Обозначение продольной арматуры" },
+        "bottom": { "$ref": "#/$defs/rcLayer" },
+        "top": { "$ref": "#/$defs/rcLayer" },
+        "polar": {
+          "type": "object", "required": ["count", "d", "r"], "description": "Равномерная раскладка по окружности (круг, кольцо)",
+          "properties": { "count": { "type": "integer", "minimum": 7 }, "d": { "type": "number" }, "r": { "type": "number", "description": "Радиус окружности центров, мм" } }
+        },
+        "stirrups": {
+          "type": "array", "description": "Наборы открытых срезов поперечной арматуры",
+          "items": {
+            "type": "object", "required": ["count", "d", "spacing", "cover"],
+            "properties": {
+              "zone": { "enum": ["body", "flange", "topFlange", "bottomFlange", "web"] },
+              "direction": { "enum": ["vertical", "horizontal"] },
+              "count": { "type": "integer", "minimum": 0 },
+              "d": { "type": "number" }, "spacing": { "type": "number" }, "cover": { "type": "number" },
+              "material": { "type": "string", "description": "Обозначение арматуры срезов (обязательно при count > 0)" }
+            }
+          }
+        },
+        "extraBars": {
+          "type": "array", "description": "Отдельные стержни [x, y, d] или {x, y, d, area}, мм / мм²",
+          "items": { "oneOf": [ { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } },
+                                { "type": "object", "required": ["x", "y", "d"], "properties": { "x": { "type": "number" }, "y": { "type": "number" }, "d": { "type": "number" }, "area": { "type": "number" } } } ] }
+        }
+      }
+    },
+    "parametricSteel": {
+      "type": "object",
+      "required": ["kind", "profile", "h", "steel"],
+      "properties": {
+        "kind": { "const": "steel" },
+        "profile": { "enum": ["iBeam", "channel", "tee", "box", "pipe", "angle", "rect", "round"] },
+        "fabrication": { "enum": ["rolled", "welded", "bent"] },
+        "h": { "type": "number", "description": "Высота (диаметр трубы и круга, вертикальная полка уголка), мм" },
+        "b": { "type": "number", "description": "Ширина (верхнего) пояса, полки, листа, мм" },
+        "tf": { "type": "number" }, "b2": { "type": "number", "description": "Нижний пояс сварного двутавра, мм (нет — как верхний)" },
+        "tf2": { "type": "number" }, "tw": { "type": "number" }, "r1": { "type": "number" }, "r2": { "type": "number" },
+        "slopePercent": { "type": "number", "description": "Уклон внутренних граней полок, %" },
+        "rotated90": { "type": "boolean" }, "flipped": { "type": "boolean" },
+        "catalog": {
+          "type": "object", "required": ["name"], "description": "Строка сортамента (справочно; контур строится по размерам)",
+          "properties": { "group": { "type": "string" }, "standard": { "type": "string" }, "name": { "type": "string" }, "it": { "type": "number", "description": "It, мм⁴" } }
+        },
+        "steel": { "type": "string", "description": "Обозначение стали" }
+      }
+    },
     "point": { "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }], "minItems": 2, "maxItems": 2 },
     "ring": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/point" }, "description": "Вершины [x, y], мм, без замыкающей" },
     "area": {
