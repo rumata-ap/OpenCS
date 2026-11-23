@@ -7281,4 +7281,20 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliPlateSectionInvalidSkipped">сечение пластины «{0}» не прошло проверку ({1}) — не выгружено</system:String>
    <system:String x:Key="CliPlateSectionGeneratedSkipped">сечение пластины «{0}» создано плоской областью схемы МКЭ — не выгружено (правится в области)</system:String>
    <system:String x:Key="CliPlateSectionErrGenerated">сечение пластины «{0}» создано плоской областью схемы МКЭ — правится только в области</system:String>
+   <system:String x:Key="ForceSetErrTagEmpty">Пустое имя набора</system:String>
+   <system:String x:Key="ForceSetErrGamma">γf в имени набора должен быть больше нуля</system:String>
+   <system:String x:Key="ForceSetErrKind">Вид набора — bar (стержни) или shell (пластины)</system:String>
+   <system:String x:Key="ForceSetErrNoRows">В наборе нет строк усилий</system:String>
+   <system:String x:Key="ForceSetCopyName">{0} (копия)</system:String>
+   <system:String x:Key="ForceSetUsedByFemCheck">проверка МКЭ «{0}»</system:String>
+   <system:String x:Key="ForceSetCsvErrEmpty">В файле нет строк усилий</system:String>
+   <system:String x:Key="ForceSetCsvErrColumn">Строка {0}: столбец «{1}» не распознан</system:String>
+   <system:String x:Key="ForceSetCsvErrNumber">Строка {0}, столбец «{1}»: «{2}» — не число</system:String>
+   <system:String x:Key="Sp20DefaultName">СП20 — {0}</system:String>
+   <system:String x:Key="Sp20ErrNoSets">Не выбрано ни одного набора</system:String>
+   <system:String x:Key="Sp20ErrNoOutput">Нужно выбрать хотя бы один вид вывода: огибающую или список комбинаций</system:String>
+   <system:String x:Key="Sp20ErrGroup">Группа основного сочетания «{0}» — допустимы C, CL, N, NL</system:String>
+   <system:String x:Key="Sp20SuffixFundamental">основное ({0})</system:String>
+   <system:String x:Key="Sp20SuffixAccidental">особое</system:String>
+   <system:String x:Key="Sp20SuffixList">{0} — список</system:String>
 </ResourceDictionary>
