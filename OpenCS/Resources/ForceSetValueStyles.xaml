@@ -7,6 +7,20 @@
    <!-- σ строк пластины: пусто — напряжение не задано -->
    <util:StrictNullableDoubleConverter x:Key="ForceNullableDouble"/>
 
+   <!-- Кнопка-значок страницы набора: недоступная («Сохранить» без «*», нет выбранной строки) — бледная. -->
+   <Style x:Key="ForceIconButton" TargetType="Button">
+      <!-- как IconButton25 (App.xaml) -->
+      <Setter Property="Height" Value="25"/>
+      <Setter Property="Width" Value="25"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Style.Triggers>
+         <Trigger Property="IsEnabled" Value="False">
+            <Setter Property="Opacity" Value="0.35"/>
+         </Trigger>
+      </Style.Triggers>
+   </Style>
+
    <SolidColorBrush x:Key="ForceAxisZBrush" Color="Red"/>
    <SolidColorBrush x:Key="ForceAxisXBrush" Color="ForestGreen"/>
    <SolidColorBrush x:Key="ForceAxisYBrush" Color="RoyalBlue"/>

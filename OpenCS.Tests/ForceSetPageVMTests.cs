@@ -109,6 +109,12 @@ public class ForceSetPageVMTests
         vm.Sp20.GammaFText = "abc";
         Assert.True(vm.Sp20.HasErrors);
         Assert.Equal("Q(γf=1,4): Снег", vm.Sp20.Preview);   // имя не меняется
+        Assert.True(vm.IsDirty);                              // неверный ввод — «*», «Сохранить» доступна
+        Assert.True(vm.SaveCommand.CanExecute(null));
+        Assert.False(vm.Save());
+        vm.Sp20.GammaFText = "1,4";                           // исправлен — правок нет
+        Assert.False(vm.IsDirty);
+        vm.Sp20.GammaFText = "abc";
         vm.Items[0].Mx = 1;
         Assert.False(vm.Save());
         Assert.Equal(10, fs.Items[0].Mx);

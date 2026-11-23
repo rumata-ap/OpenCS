@@ -67,7 +67,7 @@ namespace OpenCS.ViewModels
       });
 
       /// <summary>Есть правки, не записанные в проект.</summary>
-      public bool IsDirty => _rowsChanged || Header(_draft) != _savedHeader;
+      public bool IsDirty => _rowsChanged || Sp20.HasErrors || Header(_draft) != _savedHeader;
 
       /// <summary>Имя для вопроса о сохранении.</summary>
       public string DisplayName => !string.IsNullOrWhiteSpace(_draft.Tag) ? _draft.Tag

@@ -109,10 +109,14 @@ namespace OpenCS.ViewModels
       {
          if (!TryGamma(_gammaFText, out var gamma))
          {
+            // Неверный ввод — правка: страница с «*», «Сохранить» покажет ошибку, уход спросит.
             GammaError = Loc.S("ForceLoadGammaInvalid");
+            _onChanged();
             return;
          }
+         bool hadError = _gammaError != null;
          GammaError = null;
+         if (hadError) _onChanged();
          char prefix = _kindIndex >= 0 && _kindIndex < Codes.Length ? Codes[_kindIndex] : 'Q';
          string tag = new Sp20Name(prefix, gamma, _title ?? "", _group).Compose();
          if (!IsSp20Name)
