@@ -11,9 +11,13 @@ static class ModelDocument
     public const string Format = "opencs-model";
     public const int Version = 1;
 
-    /// <summary>Виды в порядке записи: диаграммы — раньше материалов custom, контуры пула — раньше сечений.</summary>
+    /// <summary>Виды в порядке записи: диаграммы — раньше материалов custom, контуры пула — раньше сечений, материалы —
+    /// раньше сечений пластин.</summary>
     public static IReadOnlyList<IModelKind> Kinds { get; } =
-        [new DiagramsKind(), new MaterialsKind(), new ContoursKind(), new CirclesKind(), new SectionsKind()];
+        [
+            new DiagramsKind(), new MaterialsKind(), new ContoursKind(), new CirclesKind(), new SectionsKind(),
+            new PlateSectionsKind()
+        ];
 
     public static IModelKind? Find(string name) => Kinds.FirstOrDefault(k => k.Name == name);
 

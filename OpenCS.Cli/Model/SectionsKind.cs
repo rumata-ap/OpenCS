@@ -229,7 +229,7 @@ sealed class SectionsKind : IModelKind
     }
 
     /// <summary>Материалы проекта и документа по обозначению (документ поверх проекта; новые — с временным Id &lt; 0).</summary>
-    static Dictionary<string, Material> PlanMaterials(JsonObject doc, HeadlessProjectContext ctx)
+    internal static Dictionary<string, Material> PlanMaterials(JsonObject doc, HeadlessProjectContext ctx)
     {
         var map = new Dictionary<string, Material>();
         foreach (var g in ctx.Materials.GroupBy(m => m.Tag.Trim()))

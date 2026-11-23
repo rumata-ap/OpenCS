@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "opencs-model: plateSections[]",
+  "description": "Сечение пластины (плита, стена) на 1 м ширины. Ключ — обозначение (tag). Толщина, Ø, шаг, z — мм; площадь слоя — мм²/м. Материалы — по обозначению (документ или проект). Сечения, созданные плоской областью схемы МКЭ, не выгружаются и через apply не правятся.",
+  "type": "object",
+  "required": ["tag", "h", "concrete", "rebar"],
+  "properties": {
+    "tag": { "type": "string", "minLength": 1 },
+    "h": { "type": "number", "exclusiveMinimum": 0, "description": "Толщина, мм" },
+    "concrete": { "type": "string", "description": "Бетон (обозначение материала)" },
+    "rebar": { "type": "string", "description": "Арматура слоёв без своего материала" },
+    "diagram": { "enum": ["l2", "l3", "ekb", "sp63", "sp35"], "default": "l3", "description": "Диаграмма бетона" },
+    "model": { "enum": ["layered", "char1dPrincipal", "char1dAxial"], "default": "layered", "description": "Слоистая; 1D по характерным точкам — по главным или по осям" },
+    "nLayers": { "type": "integer", "minimum": 1, "default": 10, "description": "Число слоёв бетона (слоистая модель)" },
+    "tension": { "type": "boolean", "default": false, "description": "Учитывать растяжение бетона" },
+    "softening": { "enum": ["none", "vecchioCollins"], "default": "none", "description": "Снижение прочности сжатого бетона при растяжении в другом направлении" },
+    "epsC2": { "type": "number", "exclusiveMinimum": 0, "default": 0.002, "description": "εc2 модели Веккьо — Коллинза" },
+    "rebarLayers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "mode": { "enum": ["spacing", "count", "area"], "default": "spacing", "description": "Ø + шаг, Ø + число на метр, площадь" },
+          "x": { "$ref": "#/$defs/direction", "description": "Стержни вдоль X; нет — по X арматуры нет" },
+          "y": { "$ref": "#/$defs/direction", "description": "Стержни вдоль Y" },
+          "material": { "type": "string", "description": "Свой материал слоя; нет — общий (rebar)" },
+          "face": { "enum": ["plus", "minus"], "default": "plus", "description": "Грань оболочки для раскладки зон армирования" },
+          "angle": { "type": "number", "default": 0, "description": "Угол направлений X/Y слоя к оси u поверхности, град" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "direction": {
+      "type": "object",
+      "required": ["z"],
+      "properties": {
+        "z": { "type": "number", "description": "Центр стержней от срединной плоскости, мм; минус — к нижней грани; |z| < h/2" },
+        "d": { "type": "number", "exclusiveMinimum": 0, "description": "Диаметр, мм (spacing, count)" },
+        "step": { "type": "number", "exclusiveMinimum": 0, "description": "Шаг, мм (spacing)" },
+        "count": { "type": "number", "exclusiveMinimum": 0, "description": "Стержней на метр (count)" },
+        "area": { "type": "number", "minimum": 0, "description": "Площадь, мм²/м (area)" }
+      }
+    }
+  }
+}

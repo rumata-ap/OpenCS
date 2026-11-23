@@ -464,6 +464,7 @@ public sealed class CliModelTests : IDisposable
     [InlineData("contours")]
     [InlineData("circles")]
     [InlineData("sections")]
+    [InlineData("plateSections")]
     public async Task Schema_Geometry_IsJson(string kind)
     {
         var r = await Run("schema", kind);
@@ -763,6 +764,157 @@ public sealed class CliModelTests : IDisposable
         Assert.Contains("sections[5]", r.Err);
         Assert.Contains("sections[6]", r.Err);                                      // произвольное «Б-1» не становится параметрическим
         Assert.Equal(before, Sections(project).Sections.Count);
+    }
+
+    const string PlateSeed = """
+        { "format": "opencs-model", "version": 1,
+          "materials": [
+            { "tag": "B25", "catalog": { "concrete": "B25" } },
+            { "tag": "A500", "catalog": { "rebar": "A500" } },
+            { "tag": "A240", "catalog": { "rebar": "A240" } } ],
+          "plateSections": [
+            { "tag": "Плита 200", "h": 200, "concrete": "B25", "rebar": "A500", "diagram": "sp63", "nLayers": 12,
+              "tension": true, "softening": "vecchioCollins", "epsC2": 0.0021,
+              "rebarLayers": [
+                { "name": "Низ", "mode": "spacing", "x": { "d": 12, "step": 200, "z": -70 }, "y": { "d": 12, "step": 200, "z": -58 } },
+                { "name": "Верх", "mode": "count", "x": { "d": 10, "count": 5, "z": 75 }, "material": "A240" },
+                { "name": "Доп", "mode": "area", "y": { "area": 393, "z": 60 }, "face": "minus", "angle": 30 } ] },
+            { "tag": "Стена 160", "h": 160, "concrete": "B25", "rebar": "A500", "model": "char1dAxial" } ] }
+        """;
+
+    static List<CScore.PlateSection> Plates(string project)
+    {
+        using var db = new DatabaseService(project);
+        db.LoadAll();
+        var r = db.PlateSections.ToList();
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        return r;
+    }
+
+    [Fact]
+    public async Task PlateSections_Apply_MetresInBase_DryRun_RoundTripSame_UpdateKeepsId()
+    {
+        string first = await NewProject("a.db");
+        var dry = await Run("apply", first, Doc("seed.json", PlateSeed), "--dry-run");
+        Assert.True(dry.Code == CliExitCode.Ok, dry.Err);
+        Assert.Empty(Plates(first));
+
+        var r = await Run("apply", first, PathOf("seed.json"));
+        Assert.True(r.Code == CliExitCode.Ok, r.Err);
+        var plates = Plates(first);
+        Assert.Equal(2, plates.Count);
+        var p = plates.Single(x => x.Tag == "Плита 200");
+        Assert.Equal(0.2, p.H, 12);
+        Assert.Equal(12, p.NLayers);
+        Assert.Equal(CScore.DiagrammType.SP63, p.ConcreteDiagramType);
+        Assert.True(p.TensionConcrete);
+        Assert.Equal("vecchio_collins", p.SofteningModel);
+        Assert.Equal(3, p.RebarLayers.Count);
+        Assert.Equal(-0.07, p.RebarLayers[0].Zsx, 12);
+        Assert.Equal(Math.PI * 0.012 * 0.012 / 4 / 0.2, p.RebarLayers[0].Asx, 12);
+        Assert.Equal(Math.PI * 0.01 * 0.01 / 4 * 5, p.RebarLayers[1].Asx, 12);
+        Assert.Equal(0, p.RebarLayers[1].Asy);
+        Assert.NotEqual(0, p.RebarLayers[1].MaterialId);
+        Assert.Equal(393e-6, p.RebarLayers[2].Asy, 12);
+        Assert.Equal(CScore.PlateRebar.RebarFace.MinusN, p.RebarLayers[2].Face);
+        Assert.Equal("char1d_axial", plates.Single(x => x.Tag == "Стена 160").PlateModel);
+
+        string exported = PathOf("e1.json");
+        var ex = await Run("export", "model", first, "--to", exported);
+        Assert.True(ex.Code == CliExitCode.Ok, ex.Err);
+        string second = await NewProject("b.db");
+        var apply = await Run("apply", second, exported);
+        Assert.True(apply.Code == CliExitCode.Ok, apply.Err);
+        string exported2 = PathOf("e2.json");
+        Assert.Equal(CliExitCode.Ok, (await Run("export", "model", second, "--to", exported2)).Code);
+        var a = JsonNode.Parse(File.ReadAllText(exported))!;
+        var b = JsonNode.Parse(File.ReadAllText(exported2))!;
+        Assert.Equal(2, a["plateSections"]!.AsArray().Count);
+        Assert.Null(a["plateSections"]![0]!["rebarLayers"]![1]!["y"]);       // направление без арматуры не пишется
+        AssertJsonClose(a, b, "$");
+
+        var u = await Run("apply", first, Doc("u.json", """
+            { "format": "opencs-model", "version": 1,
+              "plateSections": [ { "tag": "Плита 200", "h": 250, "concrete": "B25", "rebar": "A500" } ] }
+            """), "--json");
+        Assert.True(u.Code == CliExitCode.Ok, u.Err);
+        Assert.DoesNotContain("create", u.Out);
+        var p2 = Plates(first).Single(x => x.Tag == "Плита 200");
+        Assert.Equal(p.Id, p2.Id);
+        Assert.Equal(0.25, p2.H, 12);
+        Assert.Empty(p2.RebarLayers);
+    }
+
+    [Fact]
+    public async Task PlateSections_Errors_WithPaths_NothingWritten()
+    {
+        string project = await NewProject();
+        var r = await Run("apply", project, Doc("bad.json", """
+            { "format": "opencs-model", "version": 1,
+              "materials": [ { "tag": "B25", "catalog": { "concrete": "B25" } }, { "tag": "A500", "catalog": { "rebar": "A500" } } ],
+              "plateSections": [
+                { "tag": "П1", "h": 0, "concrete": "A500", "rebar": "B25", "nLayers": 0 },
+                { "tag": "П2", "h": 200, "concrete": "B25", "rebar": "Нет",
+                  "rebarLayers": [ { "mode": "spacing", "x": { "d": 12, "step": 200, "z": -70 } }, { "mode": "wrong" } ] },
+                { "tag": "П3", "h": 200, "concrete": "B25", "rebar": "A500",
+                  "rebarLayers": [ { "mode": "count", "y": { "d": 10, "z": 50 } } ] },
+                { "tag": "П4", "h": 200, "concrete": "B25", "rebar": "A500",
+                  "rebarLayers": [ { "x": { "d": 12, "step": 200, "z": 0 }, "material": "B25" } ] },
+                { "tag": "П4", "h": 200, "concrete": "B25", "rebar": "A500" },
+                { "h": 200 } ] }
+            """));
+        Assert.Equal(CliExitCode.Usage, r.Code);
+        Assert.Contains("plateSections[0].h", r.Err);
+        Assert.Contains("plateSections[0].concrete", r.Err);
+        Assert.Contains("plateSections[0].rebar", r.Err);
+        Assert.Contains("plateSections[0].nLayers", r.Err);
+        Assert.Contains("plateSections[1].rebarLayers[1].mode", r.Err);
+        Assert.Contains("plateSections[2].rebarLayers[0].y.count", r.Err);
+        Assert.Contains("plateSections[3].rebarLayers[0].material", r.Err);
+        Assert.Contains("plateSections[4].tag", r.Err);
+        Assert.Contains("plateSections[5].tag", r.Err);
+        Assert.Empty(Plates(project));
+
+        // Ссылки разрешены — видны ошибки службы: шаг 0, z вне толщины, неизвестный материал.
+        var r2 = await Run("apply", project, Doc("bad2.json", """
+            { "format": "opencs-model", "version": 1,
+              "materials": [ { "tag": "B25", "catalog": { "concrete": "B25" } }, { "tag": "A500", "catalog": { "rebar": "A500" } } ],
+              "plateSections": [
+                { "tag": "П2", "h": 200, "concrete": "B25", "rebar": "A500",
+                  "rebarLayers": [ { "x": { "d": 12, "step": 0, "z": -70 } }, { "x": { "d": 12, "step": 200, "z": -120 } } ] },
+                { "tag": "П5", "h": 200, "concrete": "B25", "rebar": "Нет" } ] }
+            """));
+        Assert.Equal(CliExitCode.Usage, r2.Code);
+        Assert.Contains("plateSections[0].rebarLayers[0].x.step", r2.Err);
+        Assert.Contains("plateSections[0].rebarLayers[1].x.z", r2.Err);
+        Assert.Contains("plateSections[1].rebar", r2.Err);
+        Assert.Empty(Plates(project));
+    }
+
+    [Fact]
+    public async Task PlateSections_GeneratedByRegion_NotExported_ApplyRefused()
+    {
+        string project = await NewProject();
+        Assert.Equal(CliExitCode.Ok, (await Run("apply", project, Doc("seed.json", PlateSeed))).Code);
+        using (var db = new DatabaseService(project))
+        {
+            db.LoadAll();
+            var wall = db.PlateSections.Single(p => p.Tag == "Стена 160");
+            wall.GeneratedForRegionId = 1;
+            db.SavePlateSection(wall);
+        }
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
+        string exported = PathOf("e.json");
+        var ex = await Run("export", "model", project, "--to", exported);
+        Assert.True(ex.Code == CliExitCode.Ok, ex.Err);
+        Assert.Contains("Стена 160", ex.Err);                                // предупреждение о пропуске
+        var a = JsonNode.Parse(File.ReadAllText(exported))!;
+        Assert.Equal(["Плита 200"], a["plateSections"]!.AsArray().Select(n => (string?)n!["tag"]));
+
+        var r = await Run("apply", project, PathOf("seed.json"));
+        Assert.Equal(CliExitCode.Usage, r.Code);
+        Assert.Contains("plateSections[1].tag", r.Err);
     }
 
     static void AssertJsonClose(JsonNode? a, JsonNode? b, string path)
