@@ -33,6 +33,9 @@ public sealed class AreaSnapshot
     List<StirrupGroup> _stirrups = [];
     string _stirrupsSignature = "";
 
+    /// <summary>Записанное обозначение (для вопроса о сохранении, когда поле обозначения очищено).</summary>
+    public string Tag => _tag;
+
     /// <summary>Снимок текущего состояния области.</summary>
     public static AreaSnapshot Capture(MaterialArea a) => new()
     {

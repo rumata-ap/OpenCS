@@ -84,7 +84,8 @@ namespace OpenCS.ViewModels
          _model.Tag != _savedTag || !_model.Areas.SequenceEqual(_savedAreas) || _areaVMs.Values.Any(v => v.IsDirty);
 
       /// <summary>Обозначение для вопроса о сохранении.</summary>
-      public string DisplayName => string.IsNullOrWhiteSpace(_model.Tag) ? Loc.S("NewCrossSection") : _model.Tag;
+      public string DisplayName => !string.IsNullOrWhiteSpace(_model.Tag) ? _model.Tag
+         : !string.IsNullOrWhiteSpace(_savedTag) ? _savedTag : Loc.S("NewCrossSection");
 
       void Touch() => OnPropertyChanged(nameof(IsDirty));
 

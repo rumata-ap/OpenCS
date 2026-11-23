@@ -136,7 +136,8 @@ namespace OpenCS.ViewModels
         public bool IsDirty => DraftKey() != _savedKey;
 
         /// <summary>Обозначение для вопроса о сохранении.</summary>
-        public string DisplayName => string.IsNullOrWhiteSpace(_tag) ? Loc.S("NewRebarGroup") : _tag;
+        public string DisplayName => !string.IsNullOrWhiteSpace(_tag) ? _tag
+            : !string.IsNullOrWhiteSpace(EditedArea?.Tag) ? EditedArea!.Tag : Loc.S("NewRebarGroup");
 
         void Touch() => OnPropertyChanged(nameof(IsDirty));
 

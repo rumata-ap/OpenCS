@@ -53,7 +53,8 @@ namespace OpenCS.ViewModels
       public bool IsDirty => !_saved.Matches(_model);
 
       /// <summary>Обозначение для вопроса о сохранении.</summary>
-      public string DisplayName => string.IsNullOrWhiteSpace(_model.Tag) ? Loc.S("NewArea") : _model.Tag;
+      public string DisplayName => !string.IsNullOrWhiteSpace(_model.Tag) ? _model.Tag
+         : !string.IsNullOrWhiteSpace(_saved.Tag) ? _saved.Tag : Loc.S("NewArea");
 
       /// <summary>Уведомляет о возможной смене <see cref="IsDirty"/>.</summary>
       void Touch() => OnPropertyChanged(nameof(IsDirty));

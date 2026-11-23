@@ -101,7 +101,8 @@ public sealed class StirrupGroupVM : ViewModelBase, IUnsavedChanges
     public bool IsDirty => DraftKey() != _savedKey;
 
     /// <summary>Обозначение для вопроса о сохранении.</summary>
-    public string DisplayName => string.IsNullOrWhiteSpace(_tag) ? Loc.S("NewStirrupGroup") : _tag;
+    public string DisplayName => !string.IsNullOrWhiteSpace(_tag) ? _tag
+        : !string.IsNullOrWhiteSpace(EditedArea.Tag) ? EditedArea.Tag : Loc.S("NewStirrupGroup");
 
     void Touch() => OnPropertyChanged(nameof(IsDirty));
 

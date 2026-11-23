@@ -127,7 +127,7 @@ public static class CrossSectionAuthoring
                 errors.Add(new(P(prefix, $"bars[{i}]"), string.Format(Loc.S("SectionErrBarOutsideHost"), i + 1, host!.Tag)));
             if (!double.IsFinite(b.Diameter) || b.Diameter <= 0)
                 errors.Add(new(P(prefix, $"bars[{i}].d"), string.Format(Loc.S("SectionErrBarDiameter"), i + 1)));
-            if (!double.IsFinite(b.Area) || b.Area <= 0)
+            else if (!double.IsFinite(b.Area) || b.Area <= 0)   // площадь из Ø — ошибка Ø уже названа
                 errors.Add(new(P(prefix, $"bars[{i}].area"), string.Format(Loc.S("SectionErrBarArea"), i + 1)));
         }
         if (!double.IsFinite(a.SigSp) || a.SigSp < 0)

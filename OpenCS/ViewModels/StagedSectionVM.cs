@@ -219,7 +219,8 @@ public sealed class StagedSectionVM : ViewModelBase, IUnsavedChanges
         && (p.SourceSectionId != null || p.Areas.SequenceEqual(s.Areas));
 
     /// <summary>Обозначение для вопроса о сохранении.</summary>
-    public string DisplayName => string.IsNullOrWhiteSpace(_model.Tag) ? Loc.S("NewStagedSection") : _model.Tag;
+    public string DisplayName => !string.IsNullOrWhiteSpace(_model.Tag) ? _model.Tag
+        : !string.IsNullOrWhiteSpace(_savedTag) ? _savedTag : Loc.S("NewStagedSection");
 
     void Touch() => OnPropertyChanged(nameof(IsDirty));
 
