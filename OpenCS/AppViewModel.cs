@@ -3599,9 +3599,27 @@ namespace OpenCS
          LogService.Info(string.Format(Loc.S("FireSection_DeletedLog"), fs.Tag));
       }
 
-      /// <summary>Обновить подписи огневых сечений в дереве (у модели нет INotifyPropertyChanged).</summary>
-      public void RefreshFireSectionsView() =>
-         System.Windows.Data.CollectionViewSource.GetDefaultView(FireSections)?.Refresh();
+      /// <summary>Идёт перестройка элементов дерева — выбор узла не переключает страницу (см. MainWindow).</summary>
+      public bool SuppressTreeNavigation { get; private set; }
+
+      /// <summary>После перестройки подписей огневых сечений — вернуть выделение элементу дерева (подписывается окно).</summary>
+      public event Action<FireSectionDef>? FireSectionReselect;
+
+      /// <summary>
+      /// Обновить подписи огневых сечений в дереве (у модели нет INotifyPropertyChanged). Перестройка элементов снимает
+      /// выделение — на это время переходы по дереву подавлены, затем выделение возвращается показанному сечению
+      /// (раньше страница закрывалась сразу после «Сохранить»).
+      /// </summary>
+      public void RefreshFireSectionsView(FireSectionDef? shown = null)
+      {
+         SuppressTreeNavigation = true;
+         try
+         {
+            System.Windows.Data.CollectionViewSource.GetDefaultView(FireSections)?.Refresh();
+            if (shown != null) FireSectionReselect?.Invoke(shown);
+         }
+         finally { SuppressTreeNavigation = false; }
+      }
 
       /// <summary>Окно задачи: существующая (правка) или новая в группе дерева; null — «Отмена». Заменяется в тестах.</summary>
       public Func<CalcTask?, string?, CalcTask?> ShowCalcTaskDialog { get; set; } = null!;

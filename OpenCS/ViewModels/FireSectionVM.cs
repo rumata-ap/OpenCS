@@ -49,7 +49,7 @@ public sealed class FireSectionVM : ViewModelBase, IUnsavedChanges, INotifyDataE
         Sections = app.CrossSections.Where(s => s.Id == model.SectionId
             || FireSectionAuthoring.HasConcreteContour(s, app.Materials)).ToList();
         Preview = new FirePreviewVM();
-        Preview.EdgeBcChanged += () => { Touch(); OnPropertyChanged(nameof(ManualEdgeCount)); OnPropertyChanged(nameof(HasManualEdges)); };
+        Preview.EdgeBcChanged += () => { Touch(); NotifyEdges(); };
         ThermalResult = FireThermalResultVM.CreateLoading(_model);
         SaveCommand = new RelayCommand(_ => Save());
         RunThermalCommand = new RelayCommand(_ => _ = RunThermalAsync(), _ => !ThermalRunning);
@@ -107,7 +107,18 @@ public sealed class FireSectionVM : ViewModelBase, IUnsavedChanges, INotifyDataE
             OnPropertyChanged(nameof(AggregateFromSectionText));
             Touch();
             RefreshPreview();
+            // Габарит другого сечения — вписать превью заново.
+            Preview.FitAllCommand.Execute(null);
         }
+    }
+
+    /// <summary>Смена языка: тексты, собранные в коде (состояние расчёта, счётчик, подсказка заполнителя).</summary>
+    public void OnLanguageChanged()
+    {
+        ReloadThermalState();
+        NotifyEdges();
+        OnPropertyChanged(nameof(AggregateFromSectionText));
+        RefreshPreview();
     }
 
     public string FireDurationText { get => _durationText; set => SetNumber(ref _durationText, value, v => _draft.FireDurationMin = v); }
@@ -176,6 +187,13 @@ public sealed class FireSectionVM : ViewModelBase, IUnsavedChanges, INotifyDataE
     public int ManualEdgeCount => _draft.Edges.Count;
     public bool HasManualEdges => _draft.Edges.Count > 0;
     public string ManualEdgesText => string.Format(Loc.S("FireSection_ManualEdgesCount"), _draft.Edges.Count);
+
+    void NotifyEdges()
+    {
+        OnPropertyChanged(nameof(ManualEdgeCount));
+        OnPropertyChanged(nameof(HasManualEdges));
+        OnPropertyChanged(nameof(ManualEdgesText));
+    }
 
     /// <summary>Строка состояния: «Сохранено», «Ручные ГУ сброшены», результат запуска.</summary>
     public string StatusText { get => _statusText; private set { _statusText = value; OnPropertyChanged(); } }
@@ -372,7 +390,7 @@ public sealed class FireSectionVM : ViewModelBase, IUnsavedChanges, INotifyDataE
         _saved = FireSectionAuthoring.Clone(_model);
         ErrorText = "";
         StatusText = Loc.S("FireSection_Saved");
-        _app.RefreshFireSectionsView();
+        _app.RefreshFireSectionsView(_model);
         _app.LogService.Info(string.Format(Loc.S("FireSection_SavedLog"), _model.Tag));
         Touch();
         ReloadThermalState();

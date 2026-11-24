@@ -26,7 +26,17 @@ namespace OpenCS.Views
          InitializeComponent();
          _vm = new FireSectionVM(model, app);
          DataContext = _vm;
-         Loaded += (_, _) => Dispatcher.BeginInvoke(DispatcherPriority.Background, _vm.RefreshPreview);
+         Loaded += (_, _) =>
+         {
+            app.PropertyChanged += OnAppPropertyChanged;
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, _vm.RefreshPreview);
+         };
+         Unloaded += (_, _) => app.PropertyChanged -= OnAppPropertyChanged;
+      }
+
+      void OnAppPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+      {
+         if (e.PropertyName == nameof(AppViewModel.LangID)) _vm.OnLanguageChanged();
       }
 
       /// <summary>VM страницы.</summary>

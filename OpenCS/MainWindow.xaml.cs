@@ -30,6 +30,12 @@ namespace OpenCS
 
          DataContext = new AppViewModel(logService, fileDialogService);
          vm = (AppViewModel)DataContext;
+         vm.FireSectionReselect += def =>
+         {
+            // Подписи огневых сечений перестроены — вернуть выделение тому же элементу (без перехода по дереву).
+            fireNode.UpdateLayout();
+            if (fireNode.ItemContainerGenerator.ContainerFromItem(def) is TreeViewItem item) item.IsSelected = true;
+         };
 
          vm.LogService.LogEntries.CollectionChanged += (_, _) =>
             Dispatcher.BeginInvoke(() =>
@@ -120,6 +126,7 @@ namespace OpenCS
 
       private void structureTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
       {
+         if (vm.SuppressTreeNavigation) return;
          if (e.NewValue is Material materialItem)
          {
             vm.CurrentMaterial = materialItem;

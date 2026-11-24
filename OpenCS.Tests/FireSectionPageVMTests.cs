@@ -111,9 +111,14 @@ public class FireSectionPageVMTests
         var vm = Page(c);
         vm.RefreshPreview();
         var edge = vm.Preview.OuterEdges[0];
+        var raised = new List<string?>();
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
         vm.Preview.CycleEdgeBc(edge);
         Assert.True(vm.IsDirty);
         Assert.Equal(1, vm.ManualEdgeCount);
+        // Подпись счётчика на странице обновляется вместе с числом (ручная проверка 24.11: оставалась прежней).
+        Assert.Contains(nameof(FireSectionVM.ManualEdgesText), raised);
+        Assert.Equal(string.Format(Loc.S("FireSection_ManualEdgesCount"), 1), vm.ManualEdgesText);
         Assert.Empty(c.Fire.Edges);                           // правка — в черновике, не в модели
 
         c.App.AskSaveOnLeave = _ => MessageBoxResult.No;
