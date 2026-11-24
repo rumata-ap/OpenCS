@@ -1915,6 +1915,7 @@ namespace OpenCS
          AddDiagramCommand = new RelayCommand(_ => AddDiagram());
          NewContourCommand = new RelayCommand(NewContour);
           NewMaterialCommand = new RelayCommand(NewMaterial);
+         NewCustomMaterialCommand = new RelayCommand(_ => CurrentPage = new MaterialPage(new Material(0) { Type = MatType.Custom }, this));
            NewMaterialFromSourceCommand = new RelayCommand(_ => NewMaterialFromSource(0));
           AddRebarCommand = new RelayCommand(_ => NewMaterialFromSource(1));
           AddSteelCommand = new RelayCommand(_ => NewMaterialFromSource(2));
@@ -2872,6 +2873,7 @@ namespace OpenCS
          var s = from m in Materials where m.Type == MatType.Steel select m;
          Steels.Clear(); Steels.AddRange(s);
          CustomMaterials.Clear(); CustomMaterials.AddRange(Materials.Where(m => m.Type == MatType.Custom));
+         OnPropertyChanged(nameof(HasCustomMaterials));
          this.MaterialsRenumber();
       }
 
@@ -2959,8 +2961,14 @@ namespace OpenCS
       public ObservableCollection<Material> CustomMaterials
       {
          get { return customMaterials; }
-         set { customMaterials = value; OnPropertyChanged(); }
+         set { customMaterials = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasCustomMaterials)); }
       }
+
+      /// <summary>Есть материалы со своими диаграммами — узел «Свои диаграммы» в дереве показывается только тогда.</summary>
+      public bool HasCustomMaterials => customMaterials.Count > 0;
+
+      /// <summary>Новый материал со своими диаграммами пула: страница материала с типом «Свои диаграммы».</summary>
+      public ICommand NewCustomMaterialCommand { get; set; } = null!;
 
       void CrossSectionsRenumber()
       {

@@ -124,6 +124,28 @@ public class UnsavedChangesTests
         Assert.Null(app.CurrentPage);
     });
 
+    /// <summary>
+    /// «Добавить» в узле «Свои диаграммы»: новый материал сразу с типом Custom — пустая страница без «*»; узел дерева
+    /// виден, только когда такие материалы есть.
+    /// </summary>
+    [Fact]
+    public void NewCustomMaterial_PresetType_NotDirty_NodeVisibleOnlyWithCustom() => WithApp(app =>
+    {
+        Assert.False(app.HasCustomMaterials);
+        var vm = new MaterialVM { Material = new Material(0) { Type = MatType.Custom }, mvm = app };
+        Assert.True(vm.IsCustom);
+        Assert.True(vm.IsBlank);
+        Assert.False(vm.IsDirty);
+        vm.Tag = "Своя";
+        Assert.True(vm.IsDirty);
+
+        var custom = new Material(0) { Type = MatType.Custom, Tag = "Своя" };
+        app.Materials.Add(custom);
+        app.MaterialsSort();
+        Assert.True(app.HasCustomMaterials);
+        Assert.Contains(custom, app.CustomMaterials);
+    });
+
     static void RunSta(Action action)
     {
         Exception? error = null;

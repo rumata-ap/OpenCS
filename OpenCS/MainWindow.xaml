@@ -510,16 +510,17 @@
                        </TreeViewItem.ContextMenu>
                     </TreeViewItem>
 
-                    <TreeViewItem x:Name="customMaterialNode" ItemsSource="{Binding CustomMaterials}">
+                    <TreeViewItem x:Name="customMaterialNode" ItemsSource="{Binding CustomMaterials}"
+                                  Visibility="{Binding HasCustomMaterials, Converter={StaticResource BoolToVisibility}}">
                        <TreeViewItem.Header>
                           <StackPanel Orientation="Horizontal" Margin="2">
-                             <Image Source="/Images/steel_3rbuwfklgl3w__32.png"/>
+                             <Image Source="/Images/diagramma--32.png"/>
                              <TextBlock Text="{DynamicResource MatType_Custom}" Margin="5,0,0,0"/>
                           </StackPanel>
                        </TreeViewItem.Header>
                        <TreeViewItem.ContextMenu>
                           <ContextMenu>
-                             <MenuItem Header="{DynamicResource Add}" Command="{Binding NewMaterialCommand}">
+                             <MenuItem Header="{DynamicResource Add}" Command="{Binding NewCustomMaterialCommand}">
                                 <MenuItem.Icon>
                                    <Image Source="/Images/add__32.png" />
                                 </MenuItem.Icon>

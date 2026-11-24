@@ -99,6 +99,7 @@ namespace OpenCS.ViewModels
       /// <summary>Запоминает текущее состояние материала как записанное (после загрузки и сохранения).</summary>
       void MarkClean()
       {
+         if (material.Id == 0) _blankType = material.Type;
          _cleanSnapshot = Snapshot();
          _restoreClean = CaptureState();
          RefreshDirty();
@@ -110,8 +111,15 @@ namespace OpenCS.ViewModels
       /// </summary>
       public bool IsDirty => IsSaved ? Snapshot() != _cleanSnapshot : !IsBlank;
 
-      /// <summary>Новый материал без обозначения и типа — пустая страница.</summary>
-      public bool IsBlank => material.Id == 0 && material.Type == MatType.None && string.IsNullOrWhiteSpace(material.Tag);
+      /// <summary>
+      /// Новый материал без обозначения и с исходным типом — пустая страница (тип может быть задан заранее: «Добавить»
+      /// в узле «Свои диаграммы» открывает материал с типом <see cref="MatType.Custom"/>).
+      /// </summary>
+      public bool IsBlank => material.Id == 0 && material.Type == _blankType && string.IsNullOrWhiteSpace(material.Tag)
+         && material.CustomDiagramIds.Count == 0;
+
+      /// <summary>Тип нового материала при открытии страницы.</summary>
+      MatType _blankType = MatType.None;
 
       /// <summary>Пересчитать <see cref="IsDirty"/> для «*» (правки идут и мимо свойств VM — в наборы характеристик).</summary>
       public void RefreshDirty() => OnPropertyChanged(nameof(IsDirty));
