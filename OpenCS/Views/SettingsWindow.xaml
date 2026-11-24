@@ -1,7 +1,9 @@
 ﻿<Window x:Class="OpenCS.Views.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="{DynamicResource SettingsTitle}" Width="720" MinWidth="720" Height="680"
+        xmlns:h="clr-namespace:OpenCS.Views.Helpers"
+        xmlns:v="clr-namespace:OpenCS.Views"
+        Title="{DynamicResource SettingsTitle}" Width="880" MinWidth="880" Height="680"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
     <Window.Resources>
         <!-- Группы окна — карточками (общий словарь). -->
@@ -18,215 +20,6 @@
         </Grid.RowDefinitions>
 
         <TabControl Grid.Row="0" Margin="0,0,0,5">
-            <TabItem Header="{DynamicResource PlotsTab}">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="10">
-                        <GroupBox Header="{DynamicResource ColorsAndSizes}" Margin="0,0,0,10">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="190"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="50"/>
-                    <ColumnDefinition Width="26"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="26"/>
-                    <RowDefinition Height="26"/>
-                    <RowDefinition Height="26"/>
-                    <RowDefinition Height="26"/>
-                    <RowDefinition Height="26"/>
-                    <RowDefinition Height="26"/>
-                    <RowDefinition Height="26"/>
-                    <RowDefinition Height="26"/>
-                    <RowDefinition Height="26"/>
-                    <RowDefinition Height="26"/>
-                </Grid.RowDefinitions>
-
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Background}" VerticalAlignment="Center"/>
-                <TextBox Grid.Row="0" Grid.Column="1" x:Name="BgBox" Margin="2" Height="22"
-                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
-                <Rectangle Grid.Row="0" Grid.Column="3" x:Name="BgSwatch" Margin="2" RadiusX="3" RadiusY="3"
-                           Stroke="LightGray" StrokeThickness="1"/>
-
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource Grid}" VerticalAlignment="Center"/>
-                <TextBox Grid.Row="1" Grid.Column="1" x:Name="GridBox" Margin="2" Height="22"
-                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
-                <Rectangle Grid.Row="1" Grid.Column="3" x:Name="GridSwatch" Margin="2" RadiusX="3" RadiusY="3"
-                           Stroke="LightGray" StrokeThickness="1"/>
-
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource Curves}" VerticalAlignment="Center"/>
-                <TextBox Grid.Row="2" Grid.Column="1" x:Name="CurveBox" Margin="2" Height="22"
-                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
-                <TextBox Grid.Row="2" Grid.Column="2" x:Name="CurveThBox" Margin="2" Height="22"
-                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center" ToolTip="{DynamicResource ThicknessPx}"/>
-                <Rectangle Grid.Row="2" Grid.Column="3" x:Name="CurveSwatch" Margin="2" RadiusX="3" RadiusY="3"
-                           Stroke="LightGray" StrokeThickness="1"/>
-
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource Fill}" VerticalAlignment="Center"/>
-                <TextBox Grid.Row="3" Grid.Column="1" x:Name="FillBox" Margin="2" Height="22"
-                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
-                <Rectangle Grid.Row="3" Grid.Column="3" x:Name="FillSwatch" Margin="2" RadiusX="3" RadiusY="3"
-                           Stroke="LightGray" StrokeThickness="1"/>
-
-                <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource Markers}" VerticalAlignment="Center"/>
-                <TextBox Grid.Row="4" Grid.Column="1" x:Name="MarkerBox" Margin="2" Height="22"
-                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
-                <TextBox Grid.Row="4" Grid.Column="2" x:Name="MarkerSzBox" Margin="2" Height="22"
-                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center" ToolTip="{DynamicResource SizePx}"/>
-                <Rectangle Grid.Row="4" Grid.Column="3" x:Name="MarkerSwatch" Margin="2" RadiusX="3" RadiusY="3"
-                           Stroke="LightGray" StrokeThickness="1"/>
-
-                <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource Text}" VerticalAlignment="Center"/>
-                <TextBox Grid.Row="5" Grid.Column="1" x:Name="TextBoxField" Margin="2" Height="22"
-                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
-                <TextBox Grid.Row="5" Grid.Column="2" x:Name="FontSzBox" Margin="2" Height="22"
-                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center" ToolTip="{DynamicResource FontSizeLabels}"/>
-                <Rectangle Grid.Row="5" Grid.Column="3" x:Name="TextSwatch" Margin="2" RadiusX="3" RadiusY="3"
-                           Stroke="LightGray" StrokeThickness="1"/>
-
-                <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource Highlight}" VerticalAlignment="Center"/>
-                <TextBox Grid.Row="6" Grid.Column="1" x:Name="HighlightBox" Margin="2" Height="22"
-                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
-                <Rectangle Grid.Row="6" Grid.Column="3" x:Name="HighlightSwatch" Margin="2" RadiusX="3" RadiusY="3"
-                           Stroke="LightGray" StrokeThickness="1"/>
-
-                <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource Axes}" VerticalAlignment="Center"/>
-                <TextBox Grid.Row="7" Grid.Column="1" x:Name="AxesColorBox" Margin="2" Height="22"
-                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
-                <TextBox Grid.Row="7" Grid.Column="2" x:Name="AxesFontSzBox" Margin="2" Height="22"
-                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center" ToolTip="{DynamicResource FontSize}"/>
-                <Rectangle Grid.Row="7" Grid.Column="3" x:Name="AxesColorSwatch" Margin="2" RadiusX="3" RadiusY="3"
-                           Stroke="LightGray" StrokeThickness="1"/>
-
-                <TextBlock Grid.Row="8" Grid.Column="0" Text="{DynamicResource DxfBackground}" VerticalAlignment="Center"/>
-                <TextBox Grid.Row="8" Grid.Column="1" x:Name="DxfBgBox" Margin="2" Height="22"
-                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
-                <Rectangle Grid.Row="8" Grid.Column="3" x:Name="DxfBgSwatch" Margin="2" RadiusX="3" RadiusY="3"
-                           Stroke="LightGray" StrokeThickness="1"/>
-
-                <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource CentroidsSettings}" VerticalAlignment="Center"/>
-                <TextBox Grid.Row="9" Grid.Column="1" x:Name="CentroidColorBox" Margin="2" Height="22"
-                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
-                <TextBox Grid.Row="9" Grid.Column="2" x:Name="CentroidSzBox" Margin="2" Height="22"
-                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center" ToolTip="{DynamicResource SizePx}"/>
-                <Rectangle Grid.Row="9" Grid.Column="3" x:Name="CentroidSwatch" Margin="2" RadiusX="3" RadiusY="3"
-                           Stroke="LightGray" StrokeThickness="1"/>
-            </Grid>
-        </GroupBox>
-
-        <GroupBox Grid.Row="1" Header="{DynamicResource Palette}" Margin="0,0,0,10">
-            <WrapPanel x:Name="PalettePanel" Margin="2" />
-        </GroupBox>
-
-        <GroupBox Grid.Row="2" Header="{DynamicResource Display}" Margin="0,0,0,10">
-            <StackPanel>
-                <Grid Margin="0,2">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="190"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <CheckBox x:Name="ShowGridCb" Content="{DynamicResource ShowGrid}" VerticalAlignment="Center"/>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <TextBlock Text="{DynamicResource Thickness}" VerticalAlignment="Center" FontSize="11" Margin="0,0,3,0"/>
-                        <TextBox x:Name="GridThBox" Width="40" Height="22"
-                                 VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
-                        <TextBlock Text="{DynamicResource Ticks}" VerticalAlignment="Center" FontSize="11" Margin="8,0,3,0"/>
-                        <TextBox x:Name="TickCountBox" Width="40" Height="22"
-                                 VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
-                    </StackPanel>
-                </Grid>
-                <CheckBox x:Name="ShowLabelsCb" Content="{DynamicResource PointLabels}" Margin="0,3,0,0"/>
-                <CheckBox x:Name="ShowTooltipsCb" Content="{DynamicResource ClickHighlight}" Margin="0,3,0,0"/>
-                <CheckBox x:Name="ShowAxesValsCb" Content="{DynamicResource AxisValueLabels}" Margin="0,3,0,0"/>
-                <CheckBox x:Name="AxesOriginCb" Content="{DynamicResource AxesThroughOrigin}" Margin="0,3,0,0"/>
-                <CheckBox x:Name="OriginReferenceAxesCb" Content="{DynamicResource OriginReferenceAxes}" Margin="0,3,0,0"/>
-                <Grid Margin="0,3">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="190"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="{DynamicResource ScaleX}" VerticalAlignment="Center" FontSize="11"/>
-                    <TextBox Grid.Column="1" x:Name="ScaleXBox" Width="60" Height="22"
-                             VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
-                </Grid>
-                <Grid Margin="0,3">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="190"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="{DynamicResource ScaleY}" VerticalAlignment="Center" FontSize="11"/>
-                    <TextBox Grid.Column="1" x:Name="ScaleYBox" Width="60" Height="22"
-                             VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
-                </Grid>
-                <CheckBox x:Name="ForceSetColorizeCb"
-                          Content="{DynamicResource PlotSettingsForceSetColorize}"
-                          ToolTip="{DynamicResource PlotSettingsForceSetColorizeTip}"
-                          Margin="0,6,0,0"/>
-            </StackPanel>
-        </GroupBox>
-
-                        <GroupBox Header="{DynamicResource CalcSettingsLineStyleGroup}" Margin="0,0,0,10">
-                            <Grid Margin="4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="190"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="50"/>
-                                    <ColumnDefinition Width="26"/>
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="28"/>
-                                    <RowDefinition Height="28"/>
-                                    <RowDefinition Height="28"/>
-                                    <RowDefinition Height="28"/>
-                                    <RowDefinition Height="28"/>
-                                </Grid.RowDefinitions>
-
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource CalcSettingsHullLine}" VerticalAlignment="Center"/>
-                                <TextBox Grid.Row="0" Grid.Column="1" x:Name="HullColorBox" Margin="2" Height="22"
-                                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
-                                <TextBox Grid.Row="0" Grid.Column="2" x:Name="HullThickBox" Margin="2" Height="22"
-                                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
-                                         ToolTip="{DynamicResource ThicknessPx}"/>
-                                <Rectangle Grid.Row="0" Grid.Column="3" x:Name="HullSwatch" Margin="2" RadiusX="3" RadiusY="3"
-                                           Stroke="LightGray" StrokeThickness="1"/>
-
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource CalcSettingsHoleLine}" VerticalAlignment="Center"/>
-                                <TextBox Grid.Row="1" Grid.Column="1" x:Name="HoleColorBox" Margin="2" Height="22"
-                                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
-                                <TextBox Grid.Row="1" Grid.Column="2" x:Name="HoleThickBox" Margin="2" Height="22"
-                                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
-                                         ToolTip="{DynamicResource ThicknessPx}"/>
-                                <Rectangle Grid.Row="1" Grid.Column="3" x:Name="HoleSwatch" Margin="2" RadiusX="3" RadiusY="3"
-                                           Stroke="LightGray" StrokeThickness="1"/>
-
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource CalcSettingsNeutralAxisLine}" VerticalAlignment="Center"/>
-                                <TextBox Grid.Row="2" Grid.Column="1" x:Name="NeutralAxisColorBox" Margin="2" Height="22"
-                                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
-                                <TextBox Grid.Row="2" Grid.Column="2" x:Name="NeutralAxisThickBox" Margin="2" Height="22"
-                                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
-                                         ToolTip="{DynamicResource ThicknessPx}"/>
-                                <Rectangle Grid.Row="2" Grid.Column="3" x:Name="NeutralAxisSwatch" Margin="2" RadiusX="3" RadiusY="3"
-                                           Stroke="LightGray" StrokeThickness="1"/>
-
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource CalcSettingsCentroidNdsLine}" VerticalAlignment="Center"/>
-                                <TextBox Grid.Row="3" Grid.Column="1" x:Name="CentroidNdsColorBox" Margin="2" Height="22"
-                                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
-                                <TextBox Grid.Row="3" Grid.Column="2" x:Name="CentroidNdsSizeBox" Margin="2" Height="22"
-                                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
-                                         ToolTip="{DynamicResource SizePx}"/>
-                                <Rectangle Grid.Row="3" Grid.Column="3" x:Name="CentroidNdsSwatch" Margin="2" RadiusX="3" RadiusY="3"
-                                           Stroke="LightGray" StrokeThickness="1"/>
-
-                                <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource CalcSettingsLabelFontSize}" VerticalAlignment="Center"/>
-                                <TextBox Grid.Row="4" Grid.Column="2" x:Name="LabelFontSizeBox" Margin="2" Height="22"
-                                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
-                                         ToolTip="{DynamicResource SizePx}"/>
-                            </Grid>
-                        </GroupBox>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
             <!-- Вкладка «Расчёт» -->
             <TabItem Header="{DynamicResource CalcSettingsTab}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -870,10 +663,247 @@
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
+
+            <!-- Вкладка «Графики» (последняя: нужна редко). Слева настройки, справа живой предпросмотр. -->
+            <TabItem Header="{DynamicResource PlotsTab}">
+                <TabItem.Resources>
+                    <Style x:Key="PlotNumBox" TargetType="TextBox">
+                        <Setter Property="Height" Value="22"/>
+                        <Setter Property="Margin" Value="3,0,0,0"/>
+                        <Setter Property="VerticalContentAlignment" Value="Center"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                    </Style>
+                    <Style x:Key="PlotUnit" TargetType="TextBlock">
+                        <Setter Property="Margin" Value="4,0,0,0"/>
+                        <Setter Property="VerticalAlignment" Value="Center"/>
+                        <Setter Property="Foreground" Value="Gray"/>
+                    </Style>
+                </TabItem.Resources>
+                <Grid Margin="6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="290"/>
+                    </Grid.ColumnDefinitions>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="4,4,10,4">
+                            <GroupBox Header="{DynamicResource SettingsPlotColorsAndSizes}" Margin="0,0,0,10">
+                                <StackPanel Margin="4">
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="62"/>
+                                        <ColumnDefinition Width="28"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{DynamicResource Background}" VerticalAlignment="Center"/>
+                                    <h:ColorField Grid.Column="1" x:Name="BgField"/>
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="62"/>
+                                        <ColumnDefinition Width="28"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{DynamicResource Grid}" VerticalAlignment="Center"/>
+                                    <h:ColorField Grid.Column="1" x:Name="GridField"/>
+                                    <TextBox Grid.Column="2" x:Name="GridThBox" Style="{StaticResource PlotNumBox}"/>
+                                    <TextBlock Grid.Column="3" Text="{DynamicResource SettingsUnitPx}" Style="{StaticResource PlotUnit}"/>
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="62"/>
+                                        <ColumnDefinition Width="28"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{DynamicResource Curves}" VerticalAlignment="Center"/>
+                                    <h:ColorField Grid.Column="1" x:Name="CurveField"/>
+                                    <TextBox Grid.Column="2" x:Name="CurveThBox" Style="{StaticResource PlotNumBox}"/>
+                                    <TextBlock Grid.Column="3" Text="{DynamicResource SettingsUnitPx}" Style="{StaticResource PlotUnit}"/>
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="62"/>
+                                        <ColumnDefinition Width="28"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{DynamicResource Fill}" VerticalAlignment="Center"/>
+                                    <h:ColorField Grid.Column="1" x:Name="FillField"/>
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="62"/>
+                                        <ColumnDefinition Width="28"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{DynamicResource Markers}" VerticalAlignment="Center"/>
+                                    <h:ColorField Grid.Column="1" x:Name="MarkerField"/>
+                                    <TextBox Grid.Column="2" x:Name="MarkerSzBox" Style="{StaticResource PlotNumBox}"/>
+                                    <TextBlock Grid.Column="3" Text="{DynamicResource SettingsUnitPx}" Style="{StaticResource PlotUnit}"/>
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="62"/>
+                                        <ColumnDefinition Width="28"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{DynamicResource Text}" VerticalAlignment="Center"/>
+                                    <h:ColorField Grid.Column="1" x:Name="TextField"/>
+                                    <TextBox Grid.Column="2" x:Name="FontSzBox" Style="{StaticResource PlotNumBox}"/>
+                                    <TextBlock Grid.Column="3" Text="{DynamicResource SettingsUnitPt}" Style="{StaticResource PlotUnit}"/>
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="62"/>
+                                        <ColumnDefinition Width="28"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{DynamicResource Axes}" VerticalAlignment="Center"/>
+                                    <h:ColorField Grid.Column="1" x:Name="AxesColorField"/>
+                                    <TextBox Grid.Column="2" x:Name="AxesFontSzBox" Style="{StaticResource PlotNumBox}"/>
+                                    <TextBlock Grid.Column="3" Text="{DynamicResource SettingsUnitPt}" Style="{StaticResource PlotUnit}"/>
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="62"/>
+                                        <ColumnDefinition Width="28"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{DynamicResource Highlight}" VerticalAlignment="Center"/>
+                                    <h:ColorField Grid.Column="1" x:Name="HighlightField"/>
+                                </Grid>
+                                </StackPanel>
+                            </GroupBox>
+                            <GroupBox Header="{DynamicResource Display}" Margin="0,0,0,10">
+                                <StackPanel Margin="4">
+                                    <CheckBox x:Name="ShowGridCb" Content="{DynamicResource ShowGrid}"/>
+                                    <Grid Margin="0,4,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140"/>
+                                            <ColumnDefinition Width="62"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{DynamicResource SettingsTickCount}" VerticalAlignment="Center"/>
+                                        <TextBox Grid.Column="1" x:Name="TickCountBox" Style="{StaticResource PlotNumBox}"/>
+                                    </Grid>
+                                    <CheckBox x:Name="ShowLabelsCb" Content="{DynamicResource PointLabels}" Margin="0,3,0,0"/>
+                                    <CheckBox x:Name="ShowTooltipsCb" Content="{DynamicResource ClickHighlight}"
+                                              ToolTip="{DynamicResource SettingsClickHighlightTip}" Margin="0,3,0,0"/>
+                                    <CheckBox x:Name="ShowAxesValsCb" Content="{DynamicResource AxisValueLabels}" Margin="0,3,0,0"/>
+                                    <CheckBox x:Name="AxesOriginCb" Content="{DynamicResource AxesThroughOrigin}" Margin="0,3,0,0"/>
+                                    <CheckBox x:Name="OriginReferenceAxesCb" Content="{DynamicResource OriginReferenceAxes}" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </GroupBox>
+                            <GroupBox Header="{DynamicResource SettingsPlotSection}" Margin="0,0,0,10">
+                                <StackPanel Margin="4">
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="62"/>
+                                        <ColumnDefinition Width="28"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{DynamicResource SettingsSecDxfBg}" VerticalAlignment="Center"/>
+                                    <h:ColorField Grid.Column="1" x:Name="DxfBgField"/>
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="62"/>
+                                        <ColumnDefinition Width="28"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{DynamicResource SettingsSecCentroid}" VerticalAlignment="Center"/>
+                                    <h:ColorField Grid.Column="1" x:Name="CentroidField"/>
+                                    <TextBox Grid.Column="2" x:Name="CentroidSzBox" Style="{StaticResource PlotNumBox}"/>
+                                    <TextBlock Grid.Column="3" Text="{DynamicResource SettingsUnitPx}" Style="{StaticResource PlotUnit}"/>
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="62"/>
+                                        <ColumnDefinition Width="28"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{DynamicResource SettingsSecHull}" VerticalAlignment="Center"/>
+                                    <h:ColorField Grid.Column="1" x:Name="HullField"/>
+                                    <TextBox Grid.Column="2" x:Name="HullThickBox" Style="{StaticResource PlotNumBox}"/>
+                                    <TextBlock Grid.Column="3" Text="{DynamicResource SettingsUnitPx}" Style="{StaticResource PlotUnit}"/>
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="62"/>
+                                        <ColumnDefinition Width="28"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{DynamicResource SettingsSecHole}" VerticalAlignment="Center"/>
+                                    <h:ColorField Grid.Column="1" x:Name="HoleField"/>
+                                    <TextBox Grid.Column="2" x:Name="HoleThickBox" Style="{StaticResource PlotNumBox}"/>
+                                    <TextBlock Grid.Column="3" Text="{DynamicResource SettingsUnitPx}" Style="{StaticResource PlotUnit}"/>
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="62"/>
+                                        <ColumnDefinition Width="28"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{DynamicResource SettingsSecNeutral}" VerticalAlignment="Center"/>
+                                    <h:ColorField Grid.Column="1" x:Name="NeutralAxisField"/>
+                                    <TextBox Grid.Column="2" x:Name="NeutralAxisThickBox" Style="{StaticResource PlotNumBox}"/>
+                                    <TextBlock Grid.Column="3" Text="{DynamicResource SettingsUnitPx}" Style="{StaticResource PlotUnit}"/>
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="62"/>
+                                        <ColumnDefinition Width="28"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{DynamicResource SettingsSecCentroidNds}" VerticalAlignment="Center"/>
+                                    <h:ColorField Grid.Column="1" x:Name="CentroidNdsField"/>
+                                    <TextBox Grid.Column="2" x:Name="CentroidNdsSizeBox" Style="{StaticResource PlotNumBox}"/>
+                                    <TextBlock Grid.Column="3" Text="{DynamicResource SettingsUnitPx}" Style="{StaticResource PlotUnit}"/>
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="62"/>
+                                        <ColumnDefinition Width="28"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{DynamicResource SettingsSecLabelFont}" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Column="2" x:Name="LabelFontSizeBox" Style="{StaticResource PlotNumBox}"/>
+                                    <TextBlock Grid.Column="3" Text="{DynamicResource SettingsUnitPt}" Style="{StaticResource PlotUnit}"/>
+                                </Grid>
+                                </StackPanel>
+                            </GroupBox>
+                            <GroupBox Header="{DynamicResource SettingsPlotForceSets}" Margin="0,0,0,10">
+                                <StackPanel Margin="4">
+                                    <CheckBox x:Name="ForceSetColorizeCb" Content="{DynamicResource PlotSettingsForceSetColorize}"
+                                              ToolTip="{DynamicResource PlotSettingsForceSetColorizeTip}" Margin="0"/>
+                                </StackPanel>
+                            </GroupBox>
+                        </StackPanel>
+                    </ScrollViewer>
+                    <StackPanel Grid.Column="1" Margin="0,4,4,4">
+                        <GroupBox Header="{DynamicResource SettingsPlotPreview}">
+                            <v:PlotCanvas x:Name="PreviewCanvas" Height="240" Margin="2"/>
+                        </GroupBox>
+                        <TextBlock Text="{DynamicResource SettingsPlotPreviewHint}" TextWrapping="Wrap" Foreground="Gray" FontSize="11" Margin="4,0,4,10"/>
+                        <Button Content="{DynamicResource SettingsPlotReset}" Click="ResetPlotTab_Click" Height="28" HorizontalAlignment="Stretch"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
         </TabControl>
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,0,0">
-            <Button Content="{DynamicResource Defaults}" Click="Reset_Click" Width="110" Height="28" Margin="0,0,8,0"/>
             <Button Content="{DynamicResource Apply}" Click="Apply_Click" Width="90" Height="28" Margin="0,0,8,0" IsDefault="True"/>
             <Button Content="OK" Click="Ok_Click" Width="70" Height="28" Margin="0,0,8,0"/>
             <Button Content="{DynamicResource Cancel}" Click="Cancel_Click" Width="70" Height="28" IsCancel="True"/>

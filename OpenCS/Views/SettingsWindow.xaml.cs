@@ -25,13 +25,6 @@ namespace OpenCS.Views
        readonly AcadImportSettings _acadSettings;
        readonly GmshSettings _gmshSettings;
 
-      static readonly string[] _palette =
-      [
-         "#FFFFFF","#F0F0F0","#D3D3D3","#A0A0A0","#606060","#333333","#000000",
-         "#FF0000","#FF8000","#FFC300","#80FF00","#00C800","#00A0FF","#003A6C",
-         "#9000FF","#FF00C0","#F0EACD","#FFFACD","#E0FFE0","#E0F0FF","#F0E0FF"
-      ];
-
       public SettingsWindow(AppViewModel mvm)
       {
          InitializeComponent();
@@ -46,7 +39,7 @@ namespace OpenCS.Views
 
          LoadToUi();
          HookTextBoxes();
-         BuildPalette();
+         InitColorDefaults();
          LoadCalcToUi();
          HookCalcBoxes();
          LoadCsvToUi();
@@ -61,44 +54,20 @@ namespace OpenCS.Views
            HookGmshControls();
        }
 
-      void BuildPalette()
-      {
-         foreach (var hex in _palette)
-         {
-            var rect = new Rectangle
-            {
-               Width = 20, Height = 20, Margin = new Thickness(2),
-               Stroke = Brushes.Gray, StrokeThickness = 0.5,
-               RadiusX = 2, RadiusY = 2, Cursor = System.Windows.Input.Cursors.Hand,
-               ToolTip = hex
-            };
-            try { rect.Fill = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)); }
-            catch { rect.Fill = Brushes.Gray; }
-            rect.MouseLeftButtonDown += (_, _) =>
-            {
-               if (Keyboard.FocusedElement is TextBox tb)
-                  tb.Text = hex;
-            };
-            PalettePanel.Children.Add(rect);
-         }
-      }
-
       void LoadToUi()
       {
-         BgBox.Text = _settings.Background;
-         GridBox.Text = _settings.Grid;
-         CurveBox.Text = _settings.Curve;
-         FillBox.Text = _settings.Fill;
-         MarkerBox.Text = _settings.MarkerFill;
-         TextBoxField.Text = _settings.Text;
-         HighlightBox.Text = _settings.Highlight;
-         AxesColorBox.Text = _settings.AxesColor;
+         BgField.Value = _settings.Background;
+         GridField.Value = _settings.Grid;
+         CurveField.Value = _settings.Curve;
+         FillField.Value = _settings.Fill;
+         MarkerField.Value = _settings.MarkerFill;
+         TextField.Value = _settings.Text;
+         HighlightField.Value = _settings.Highlight;
+         AxesColorField.Value = _settings.AxesColor;
          AxesFontSzBox.Text = _settings.AxesFontSize.ToString("F0");
-         DxfBgBox.Text = _settings.DxfCanvasBackground;
-         CentroidColorBox.Text = _settings.CentroidColor;
+         DxfBgField.Value = _settings.DxfCanvasBackground;
+         CentroidField.Value = _settings.CentroidColor;
          CentroidSzBox.Text = _settings.CentroidSize.ToString("F0");
-         ScaleXBox.Text = _settings.ScaleX.ToString("F4");
-         ScaleYBox.Text = _settings.ScaleY.ToString("F4");
          CurveThBox.Text = _settings.CurveThickness.ToString("F1");
          MarkerSzBox.Text = _settings.MarkerSize.ToString("F0");
          FontSzBox.Text = _settings.FontSize.ToString("F0");
@@ -111,64 +80,128 @@ namespace OpenCS.Views
          AxesOriginCb.IsChecked = _settings.AxesAtOrigin;
          OriginReferenceAxesCb.IsChecked = _settings.ShowOriginReferenceAxes;
          ForceSetColorizeCb.IsChecked = _settings.ForceSetColorize;
-         UpdateSwatches();
+         RefreshPreview();
+      }
+
+      /// <summary>Значения по умолчанию задают кнопки возврата в полях цвета.</summary>
+      void InitColorDefaults()
+      {
+         var d = PlotSettings.Default;
+         var c = CalcSettings.Default;
+         BgField.DefaultValue = d.Background;
+         GridField.DefaultValue = d.Grid;
+         CurveField.DefaultValue = d.Curve;
+         FillField.DefaultValue = d.Fill;
+         MarkerField.DefaultValue = d.MarkerFill;
+         TextField.DefaultValue = d.Text;
+         HighlightField.DefaultValue = d.Highlight;
+         AxesColorField.DefaultValue = d.AxesColor;
+         DxfBgField.DefaultValue = d.DxfCanvasBackground;
+         CentroidField.DefaultValue = d.CentroidColor;
+         HullField.DefaultValue = c.HullColor;
+         HoleField.DefaultValue = c.HoleColor;
+         NeutralAxisField.DefaultValue = c.NeutralAxisColor;
+         CentroidNdsField.DefaultValue = c.CentroidNdsColor;
       }
 
       void HookTextBoxes()
       {
-         BgBox.TextChanged += (_, _) => { _settings.Background = BgBox.Text; UpdateSwatch(BgSwatch, BgBox.Text); };
-         GridBox.TextChanged += (_, _) => { _settings.Grid = GridBox.Text; UpdateSwatch(GridSwatch, GridBox.Text); };
-         CurveBox.TextChanged += (_, _) => { _settings.Curve = CurveBox.Text; UpdateSwatch(CurveSwatch, CurveBox.Text); };
-         FillBox.TextChanged += (_, _) => { _settings.Fill = FillBox.Text; UpdateSwatch(FillSwatch, FillBox.Text); };
-         MarkerBox.TextChanged += (_, _) => { _settings.MarkerFill = MarkerBox.Text; UpdateSwatch(MarkerSwatch, MarkerBox.Text); };
-         TextBoxField.TextChanged += (_, _) => { _settings.Text = TextBoxField.Text; UpdateSwatch(TextSwatch, TextBoxField.Text); };
-         HighlightBox.TextChanged += (_, _) => { _settings.Highlight = HighlightBox.Text; UpdateSwatch(HighlightSwatch, HighlightBox.Text); };
-         AxesColorBox.TextChanged += (_, _) => { _settings.AxesColor = AxesColorBox.Text; UpdateSwatch(AxesColorSwatch, AxesColorBox.Text); };
-         DxfBgBox.TextChanged += (_, _) => { _settings.DxfCanvasBackground = DxfBgBox.Text; UpdateSwatch(DxfBgSwatch, DxfBgBox.Text); };
-         CentroidColorBox.TextChanged += (_, _) => { _settings.CentroidColor = CentroidColorBox.Text; UpdateSwatch(CentroidSwatch, CentroidColorBox.Text); };
-         CentroidSzBox.TextChanged += (_, _) => { if (Pars.ParseAny(CentroidSzBox.Text, out var v) && v > 0) _settings.CentroidSize = v; };
-         AxesFontSzBox.TextChanged += (_, _) => { if (Pars.ParseAny(AxesFontSzBox.Text, out var v) && v > 0) _settings.AxesFontSize = v; };
-         ScaleXBox.TextChanged += (_, _) => { if (Pars.ParseAny(ScaleXBox.Text, out var v)) _settings.ScaleX = v; };
-         ScaleYBox.TextChanged += (_, _) => { if (Pars.ParseAny(ScaleYBox.Text, out var v)) _settings.ScaleY = v; };
-         CurveThBox.TextChanged += (_, _) => { if (Pars.ParseAny(CurveThBox.Text, out var v) && v > 0) _settings.CurveThickness = v; };
-         MarkerSzBox.TextChanged += (_, _) => { if (Pars.ParseAny(MarkerSzBox.Text, out var v) && v > 0) _settings.MarkerSize = v; };
-         FontSzBox.TextChanged += (_, _) => { if (Pars.ParseAny(FontSzBox.Text, out var v) && v > 0) _settings.FontSize = v; };
-         ShowGridCb.Checked += (_, _) => _settings.ShowGrid = true;
-         ShowGridCb.Unchecked += (_, _) => _settings.ShowGrid = false;
-         GridThBox.TextChanged += (_, _) => { if (Pars.ParseAny(GridThBox.Text, out var v) && v > 0) _settings.GridThickness = v; };
-         TickCountBox.TextChanged += (_, _) => { if (int.TryParse(TickCountBox.Text, out var v) && v > 0) _settings.TickCount = v; };
-         ShowLabelsCb.Checked += (_, _) => _settings.ShowPointLabels = true;
-         ShowLabelsCb.Unchecked += (_, _) => _settings.ShowPointLabels = false;
-         ShowTooltipsCb.Checked += (_, _) => _settings.ShowTooltips = true;
-         ShowTooltipsCb.Unchecked += (_, _) => _settings.ShowTooltips = false;
-         ShowAxesValsCb.Checked += (_, _) => _settings.ShowAxesValues = true;
-         ShowAxesValsCb.Unchecked += (_, _) => _settings.ShowAxesValues = false;
-         AxesOriginCb.Checked += (_, _) => _settings.AxesAtOrigin = true;
-         AxesOriginCb.Unchecked += (_, _) => _settings.AxesAtOrigin = false;
-         OriginReferenceAxesCb.Checked += (_, _) => _settings.ShowOriginReferenceAxes = true;
-         OriginReferenceAxesCb.Unchecked += (_, _) => _settings.ShowOriginReferenceAxes = false;
-         ForceSetColorizeCb.Checked += (_, _) => _settings.ForceSetColorize = true;
-         ForceSetColorizeCb.Unchecked += (_, _) => _settings.ForceSetColorize = false;
+         HookColor(BgField, v => _settings.Background = v);
+         HookColor(GridField, v => _settings.Grid = v);
+         HookColor(CurveField, v => _settings.Curve = v);
+         HookColor(FillField, v => _settings.Fill = v);
+         HookColor(MarkerField, v => _settings.MarkerFill = v);
+         HookColor(TextField, v => _settings.Text = v);
+         HookColor(HighlightField, v => _settings.Highlight = v);
+         HookColor(AxesColorField, v => _settings.AxesColor = v);
+         HookColor(DxfBgField, v => _settings.DxfCanvasBackground = v);
+         HookColor(CentroidField, v => _settings.CentroidColor = v);
+
+         HookNumber(CurveThBox, 0.1, 20, v => _settings.CurveThickness = v);
+         HookNumber(GridThBox, 0.05, 5, v => _settings.GridThickness = v);
+         HookNumber(MarkerSzBox, 1, 30, v => _settings.MarkerSize = v);
+         HookNumber(FontSzBox, 5, 48, v => _settings.FontSize = v);
+         HookNumber(AxesFontSzBox, 5, 48, v => _settings.AxesFontSize = v);
+         HookNumber(CentroidSzBox, 1, 30, v => _settings.CentroidSize = v);
+         HookNumber(TickCountBox, 2, 30, v => _settings.TickCount = (int)Math.Round(v), integer: true);
+
+         HookCheck(ShowGridCb, v => _settings.ShowGrid = v);
+         HookCheck(ShowLabelsCb, v => _settings.ShowPointLabels = v);
+         HookCheck(ShowTooltipsCb, v => _settings.ShowTooltips = v);
+         HookCheck(ShowAxesValsCb, v => _settings.ShowAxesValues = v);
+         HookCheck(AxesOriginCb, v => _settings.AxesAtOrigin = v);
+         HookCheck(OriginReferenceAxesCb, v => _settings.ShowOriginReferenceAxes = v);
+         HookCheck(ForceSetColorizeCb, v => _settings.ForceSetColorize = v);
       }
 
-      void UpdateSwatches()
+      void HookColor(Helpers.ColorField f, Action<string> set) =>
+         f.ValueChanged += v => { set(v); RefreshPreview(); };
+
+      void HookCheck(CheckBox cb, Action<bool> set)
       {
-         UpdateSwatch(BgSwatch, BgBox.Text);
-         UpdateSwatch(GridSwatch, GridBox.Text);
-         UpdateSwatch(CurveSwatch, CurveBox.Text);
-         UpdateSwatch(FillSwatch, FillBox.Text);
-         UpdateSwatch(MarkerSwatch, MarkerBox.Text);
-         UpdateSwatch(TextSwatch, TextBoxField.Text);
-         UpdateSwatch(HighlightSwatch, HighlightBox.Text);
-         UpdateSwatch(AxesColorSwatch, AxesColorBox.Text);
-         UpdateSwatch(DxfBgSwatch, DxfBgBox.Text);
-         UpdateSwatch(CentroidSwatch, CentroidColorBox.Text);
+         cb.Checked += (_, _) => { set(true); RefreshPreview(); };
+         cb.Unchecked += (_, _) => { set(false); RefreshPreview(); };
       }
 
-      static void UpdateSwatch(Rectangle rect, string hex)
+      /// <summary>
+      /// Числовое поле с проверкой диапазона: при неверном вводе рамка краснеет и в подсказке
+      /// написано, что допустимо; прежнее значение настройки при этом не меняется.
+      /// </summary>
+      void HookNumber(TextBox tb, double min, double max, Action<double> set, bool integer = false)
       {
-         try { rect.Fill = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)); }
-         catch { rect.Fill = Brushes.Gray; }
+         tb.TextChanged += (_, _) =>
+         {
+            double v = 0;
+            bool ok = integer
+               ? int.TryParse(tb.Text, out var iv) && (v = iv) >= min && v <= max
+               : Pars.ParseAny(tb.Text, out v) && v >= min && v <= max;
+            if (ok)
+            {
+               tb.ClearValue(Control.BorderBrushProperty);
+               tb.ClearValue(FrameworkElement.ToolTipProperty);
+               set(v);
+               RefreshPreview();
+            }
+            else
+            {
+               tb.BorderBrush = Brushes.Crimson;
+               tb.ToolTip = string.Format(Loc.S(integer ? "SettingsIntRangeTip" : "SettingsRangeTip"), min, max);
+            }
+         };
+      }
+
+      // ── Живой предпросмотр ───────────────────────────────────────────────
+
+      Services.WpfPlotService? _preview;
+
+      void RefreshPreview()
+      {
+         if (PreviewCanvas is null) return;
+         _preview ??= new Services.WpfPlotService(PreviewCanvas);
+         _preview.Clear();
+         _preview.ApplySettings(_settings);
+
+         // Условная диаграмма σ–ε бетона: заливка под кривой, кривая и маркеры.
+         const int n = 40;
+         var xs = new double[n + 2];
+         var ys = new double[n + 2];
+         for (int i = 0; i < n; i++)
+         {
+            double t = i / (double)(n - 1);
+            xs[i] = 3.5 * t;
+            ys[i] = 30 * (1 - (1 - t) * (1 - t));
+         }
+         xs[n] = xs[n - 1]; ys[n] = 0;
+         xs[n + 1] = 0; ys[n + 1] = 0;
+         _preview.AddPolygon(xs, ys, _settings.Fill, _settings.Curve);
+
+         var mx = new[] { xs[0], xs[8], xs[16], xs[24], xs[32], xs[n - 1] };
+         var my = new[] { ys[0], ys[8], ys[16], ys[24], ys[32], ys[n - 1] };
+         _preview.AddMarkers(mx, my);
+
+         _preview.SetXLabel(Loc.S("SettingsPreviewX"));
+         _preview.SetYLabel(Loc.S("SettingsPreviewY"));
+         _preview.Refresh();
       }
 
       void Apply_Click(object sender, RoutedEventArgs e)
@@ -219,13 +252,13 @@ namespace OpenCS.Views
          LimitBisectAbsBox.Text = _calcSettings.LimitBisectAbsTol.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
          LimitBisectRelBox.Text = _calcSettings.LimitBisectRelTol.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
 
-         HullColorBox.Text         = _calcSettings.HullColor;
+         HullField.Value           = _calcSettings.HullColor;
          HullThickBox.Text         = _calcSettings.HullThickness.ToString("F1");
-         HoleColorBox.Text         = _calcSettings.HoleColor;
+         HoleField.Value           = _calcSettings.HoleColor;
          HoleThickBox.Text         = _calcSettings.HoleThickness.ToString("F1");
-         NeutralAxisColorBox.Text  = _calcSettings.NeutralAxisColor;
+         NeutralAxisField.Value    = _calcSettings.NeutralAxisColor;
          NeutralAxisThickBox.Text  = _calcSettings.NeutralAxisThickness.ToString("F1");
-         CentroidNdsColorBox.Text  = _calcSettings.CentroidNdsColor;
+         CentroidNdsField.Value    = _calcSettings.CentroidNdsColor;
          CentroidNdsSizeBox.Text   = _calcSettings.CentroidNdsSize.ToString("F0");
          LabelFontSizeBox.Text     = _calcSettings.FiberLabelFontSize.ToString("F0");
          Sp63EtaMinBox.Text        = _calcSettings.Sp63DescEtaMin.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
@@ -251,7 +284,6 @@ namespace OpenCS.Views
          ShearProjectionStepBox.Text = _calcSettings.ShearProjectionStep.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
          ShearMomentZoneBox.Text     = _calcSettings.ShearMomentZoneLength.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
          ShearAnchorageFactorBox.Text = _calcSettings.ShearAnchorageFactor.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
-         UpdateCalcSwatches();
       }
 
       void HookCalcBoxes()
@@ -290,46 +322,15 @@ namespace OpenCS.Views
                (NewtonJacobianCombo.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Tag as string ?? "forward";
          };
 
-         HullColorBox.TextChanged += (_, _) =>
-         {
-            _calcSettings.HullColor = HullColorBox.Text;
-            UpdateSwatch(HullSwatch, HullColorBox.Text);
-         };
-         HullThickBox.TextChanged += (_, _) =>
-         {
-            if (Pars.ParseAny(HullThickBox.Text, out var v) && v > 0) _calcSettings.HullThickness = v;
-         };
-         HoleColorBox.TextChanged += (_, _) =>
-         {
-            _calcSettings.HoleColor = HoleColorBox.Text;
-            UpdateSwatch(HoleSwatch, HoleColorBox.Text);
-         };
-         HoleThickBox.TextChanged += (_, _) =>
-         {
-            if (Pars.ParseAny(HoleThickBox.Text, out var v) && v > 0) _calcSettings.HoleThickness = v;
-         };
-         NeutralAxisColorBox.TextChanged += (_, _) =>
-         {
-            _calcSettings.NeutralAxisColor = NeutralAxisColorBox.Text;
-            UpdateSwatch(NeutralAxisSwatch, NeutralAxisColorBox.Text);
-         };
-         NeutralAxisThickBox.TextChanged += (_, _) =>
-         {
-            if (Pars.ParseAny(NeutralAxisThickBox.Text, out var v) && v > 0) _calcSettings.NeutralAxisThickness = v;
-         };
-         CentroidNdsColorBox.TextChanged += (_, _) =>
-         {
-            _calcSettings.CentroidNdsColor = CentroidNdsColorBox.Text;
-            UpdateSwatch(CentroidNdsSwatch, CentroidNdsColorBox.Text);
-         };
-         CentroidNdsSizeBox.TextChanged += (_, _) =>
-         {
-            if (Pars.ParseAny(CentroidNdsSizeBox.Text, out var v) && v > 0) _calcSettings.CentroidNdsSize = v;
-         };
-         LabelFontSizeBox.TextChanged += (_, _) =>
-         {
-            if (Pars.ParseAny(LabelFontSizeBox.Text, out var v) && v > 0) _calcSettings.FiberLabelFontSize = v;
-         };
+         HookColor(HullField, v => _calcSettings.HullColor = v);
+         HookColor(HoleField, v => _calcSettings.HoleColor = v);
+         HookColor(NeutralAxisField, v => _calcSettings.NeutralAxisColor = v);
+         HookColor(CentroidNdsField, v => _calcSettings.CentroidNdsColor = v);
+         HookNumber(HullThickBox, 0.1, 20, v => _calcSettings.HullThickness = v);
+         HookNumber(HoleThickBox, 0.1, 20, v => _calcSettings.HoleThickness = v);
+         HookNumber(NeutralAxisThickBox, 0.1, 20, v => _calcSettings.NeutralAxisThickness = v);
+         HookNumber(CentroidNdsSizeBox, 1, 30, v => _calcSettings.CentroidNdsSize = v);
+         HookNumber(LabelFontSizeBox, 5, 48, v => _calcSettings.FiberLabelFontSize = v);
          Sp63EtaMinBox.TextChanged += (_, _) =>
          {
             if (Pars.ParseAny(Sp63EtaMinBox.Text, out var v) && v > 0 && v < 1)
@@ -444,14 +445,6 @@ namespace OpenCS.Views
          LiraInvertShellMxMyCb.Unchecked += (_, _) => _liraSettings.InvertShellBendingMoments = false;
          LiraTextDirBox.TextChanged += (_, _) =>
             _liraSettings.TextFileDirectory = string.IsNullOrWhiteSpace(LiraTextDirBox.Text) ? null : LiraTextDirBox.Text.Trim();
-      }
-
-      void UpdateCalcSwatches()
-      {
-         UpdateSwatch(HullSwatch,        HullColorBox.Text);
-         UpdateSwatch(HoleSwatch,        HoleColorBox.Text);
-         UpdateSwatch(NeutralAxisSwatch, NeutralAxisColorBox.Text);
-         UpdateSwatch(CentroidNdsSwatch, CentroidNdsColorBox.Text);
       }
 
       void LoadAcadToUi()
@@ -731,36 +724,26 @@ namespace OpenCS.Views
          if (combo.Items.Count > 0) combo.SelectedIndex = 0;
       }
 
-      void Reset_Click(object sender, RoutedEventArgs e)
+      /// <summary>Сброс только вкладки «Графики»: графики, холст сечения и стили линий НДС.</summary>
+      void ResetPlotTab_Click(object sender, RoutedEventArgs e)
       {
          var def = PlotSettings.Default;
-         _settings.Background = def.Background;
-         _settings.Grid = def.Grid;
-         _settings.Curve = def.Curve;
-         _settings.Fill = def.Fill;
-         _settings.MarkerFill = def.MarkerFill;
-         _settings.Text = def.Text;
-         _settings.Highlight = def.Highlight;
-         _settings.CurveThickness = def.CurveThickness;
-         _settings.MarkerSize = def.MarkerSize;
-         _settings.FontSize = def.FontSize;
-         _settings.ShowGrid = def.ShowGrid;
-         _settings.ShowPointLabels = def.ShowPointLabels;
-         _settings.ShowTooltips = def.ShowTooltips;
-         _settings.ShowAxesValues = def.ShowAxesValues;
-         _settings.AxesAtOrigin = def.AxesAtOrigin;
-         _settings.ShowOriginReferenceAxes = def.ShowOriginReferenceAxes;
-         _settings.AxesColor = def.AxesColor;
-         _settings.AxesFontSize = def.AxesFontSize;
-         _settings.GridThickness = def.GridThickness;
-         _settings.TickCount = def.TickCount;
-         _settings.ScaleX = def.ScaleX;
-         _settings.ScaleY = def.ScaleY;
-         _settings.DxfCanvasBackground = def.DxfCanvasBackground;
-         _settings.CentroidColor = def.CentroidColor;
-         _settings.CentroidSize = def.CentroidSize;
-         _settings.ForceSetColorize = def.ForceSetColorize;
+         foreach (var pr in typeof(PlotSettings).GetProperties())
+            if (pr.CanWrite) pr.SetValue(_settings, pr.GetValue(def));
+
+         var cd = CalcSettings.Default;
+         _calcSettings.HullColor = cd.HullColor;
+         _calcSettings.HullThickness = cd.HullThickness;
+         _calcSettings.HoleColor = cd.HoleColor;
+         _calcSettings.HoleThickness = cd.HoleThickness;
+         _calcSettings.NeutralAxisColor = cd.NeutralAxisColor;
+         _calcSettings.NeutralAxisThickness = cd.NeutralAxisThickness;
+         _calcSettings.CentroidNdsColor = cd.CentroidNdsColor;
+         _calcSettings.CentroidNdsSize = cd.CentroidNdsSize;
+         _calcSettings.FiberLabelFontSize = cd.FiberLabelFontSize;
+
          LoadToUi();
+         LoadCalcToUi();
       }
    }
 }
