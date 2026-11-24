@@ -2964,10 +2964,10 @@ namespace OpenCS
          set { customMaterials = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasCustomMaterials)); }
       }
 
-      /// <summary>Есть материалы со своими диаграммами — узел «Свои диаграммы» в дереве показывается только тогда.</summary>
+      /// <summary>Есть материалы со своими диаграммами — узел «Пользовательские» в дереве показывается только тогда.</summary>
       public bool HasCustomMaterials => customMaterials.Count > 0;
 
-      /// <summary>Новый материал со своими диаграммами пула: страница материала с типом «Свои диаграммы».</summary>
+      /// <summary>Новый материал со своими диаграммами пула: страница материала с типом «Пользовательский материал».</summary>
       public ICommand NewCustomMaterialCommand { get; set; } = null!;
 
       void CrossSectionsRenumber()

@@ -113,7 +113,7 @@ namespace OpenCS.ViewModels
 
       /// <summary>
       /// Новый материал без обозначения и с исходным типом — пустая страница (тип может быть задан заранее: «Добавить»
-      /// в узле «Свои диаграммы» открывает материал с типом <see cref="MatType.Custom"/>).
+      /// в узле «Пользовательские» открывает материал с типом <see cref="MatType.Custom"/>).
       /// </summary>
       public bool IsBlank => material.Id == 0 && material.Type == _blankType && string.IsNullOrWhiteSpace(material.Tag)
          && material.CustomDiagramIds.Count == 0;

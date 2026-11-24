@@ -24,6 +24,7 @@
          </DataTrigger>
          <DataTrigger Binding="{Binding}" Value="{x:Static core:MatType.Custom}">
             <Setter TargetName="text" Property="Text" Value="{DynamicResource MatType_Custom}"/>
+            <Setter TargetName="text" Property="ToolTip" Value="{DynamicResource MatType_CustomHint}"/>
          </DataTrigger>
       </DataTemplate.Triggers>
    </DataTemplate>

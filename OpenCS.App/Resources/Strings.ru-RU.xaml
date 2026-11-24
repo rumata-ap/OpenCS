@@ -7072,7 +7072,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="MatType_ReSteelF">Арматура с физическим пределом текучести</system:String>
    <system:String x:Key="MatType_ReSteelU">Арматура с условным пределом текучести</system:String>
    <system:String x:Key="MatType_Steel">Конструкционная сталь</system:String>
-   <system:String x:Key="MatType_Custom">Свои диаграммы</system:String>
+   <system:String x:Key="MatType_Custom">Пользовательский материал</system:String>
    <system:String x:Key="SteelNormLabel">Норма:</system:String>
    <system:String x:Key="SteelRolledTypeLabel">Тип проката:</system:String>
    <system:String x:Key="SteelGradeLabel">Марка:</system:String>
@@ -7496,4 +7496,6 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliThermal_none">не выполнен</system:String>
    <system:String x:Key="CliThermal_current">актуален</system:String>
    <system:String x:Key="CliThermal_stale">устарел</system:String>
+   <system:String x:Key="MatType_CustomHint">Материал задаётся своими кривыми σ(ε) из пула диаграмм — по одной на виды расчёта C, CL, N, NL</system:String>
+   <system:String x:Key="CustomMaterialsNode">Пользовательские</system:String>
 </ResourceDictionary>

@@ -515,7 +515,7 @@
                        <TreeViewItem.Header>
                           <StackPanel Orientation="Horizontal" Margin="2">
                              <Image Source="/Images/diagramma--32.png"/>
-                             <TextBlock Text="{DynamicResource MatType_Custom}" Margin="5,0,0,0"/>
+                             <TextBlock Text="{DynamicResource CustomMaterialsNode}" Margin="5,0,0,0" ToolTip="{DynamicResource MatType_CustomHint}"/>
                           </StackPanel>
                        </TreeViewItem.Header>
                        <TreeViewItem.ContextMenu>

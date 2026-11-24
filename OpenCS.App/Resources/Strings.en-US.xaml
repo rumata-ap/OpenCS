@@ -7072,7 +7072,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="MatType_ReSteelF">Rebar with physical yield point</system:String>
    <system:String x:Key="MatType_ReSteelU">Rebar with conventional yield point</system:String>
    <system:String x:Key="MatType_Steel">Structural steel</system:String>
-   <system:String x:Key="MatType_Custom">Custom diagrams</system:String>
+   <system:String x:Key="MatType_Custom">Custom material</system:String>
    <system:String x:Key="SteelNormLabel">Standard:</system:String>
    <system:String x:Key="SteelRolledTypeLabel">Rolled product:</system:String>
    <system:String x:Key="SteelGradeLabel">Grade:</system:String>
@@ -7496,4 +7496,6 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliThermal_none">not run</system:String>
    <system:String x:Key="CliThermal_current">current</system:String>
    <system:String x:Key="CliThermal_stale">out of date</system:String>
+   <system:String x:Key="MatType_CustomHint">The material is defined by your own σ(ε) curves from the diagram pool — one per analysis type C, CL, N, NL</system:String>
+   <system:String x:Key="CustomMaterialsNode">Custom</system:String>
 </ResourceDictionary>
