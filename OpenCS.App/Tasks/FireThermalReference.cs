@@ -74,7 +74,8 @@ public static class FireThermalReference
       FireThermalInput current;
       try
       {
-         current = FireThermalInputSnapshot.Build(def, section, EffectiveAggregate(def, section));
+         current = FireThermalInputSnapshot.Build(def, section,
+            OpenCS.Services.FireSectionAuthoring.EffectiveAggregate(def, section, db.Materials));
       }
       catch (InvalidOperationException)
       {
@@ -114,15 +115,5 @@ public static class FireThermalReference
             string.Format(Loc.S("FireThermal_TimeBeyondDuration"), t, last));
 
       return best;
-   }
-
-   /// <summary>Эффективный тип заполнителя — так же, как при запуске теплового расчёта.</summary>
-   static string EffectiveAggregate(FireSectionDef def, CrossSection section)
-   {
-      if (!string.IsNullOrWhiteSpace(def.AggregateType))
-         return def.AggregateType.Trim().ToLowerInvariant();
-      var concrete = section.Areas.Select(a => a.Material).FirstOrDefault(m => m?.Type == MatType.Concrete);
-      return concrete is null || string.IsNullOrWhiteSpace(concrete.AggregateType)
-         ? "silicate" : concrete.AggregateType;
    }
 }

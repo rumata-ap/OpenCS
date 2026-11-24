@@ -92,6 +92,14 @@ public static class FireMeshBuilder
     }
 
     private static MaterialArea GetPrimaryConcreteArea(CrossSection section)
+        => TryGetPrimaryConcreteArea(section)
+           ?? throw new InvalidOperationException("Не найдена основная бетонная область с внешним контуром Hull.");
+
+    /// <summary>
+    /// Основная (бетонная) область сечения, контур и отверстия которой образуют тепловую сетку; null — такой нет.
+    /// Индексы рёбер ручных граничных условий относятся к её контуру (без замыкающей вершины) и отверстиям.
+    /// </summary>
+    public static MaterialArea? TryGetPrimaryConcreteArea(CrossSection section)
     {
         static bool IsPointOnly(MaterialArea area)
         {
@@ -107,11 +115,21 @@ public static class FireMeshBuilder
         if (preferred != null)
             return preferred;
 
-        var fallback = section.Areas.FirstOrDefault(a => a.Hull != null && !IsPointOnly(a));
-        if (fallback != null)
-            return fallback;
+        return section.Areas.FirstOrDefault(a => a.Hull != null && !IsPointOnly(a));
+    }
 
-        throw new InvalidOperationException("Не найдена основная бетонная область с внешним контуром Hull.");
+    /// <summary>Число рёбер внешнего контура и каждого отверстия основной области (без замыкающей вершины); null — области нет.</summary>
+    public static (int Outer, int[] Holes)? ContourEdgeCounts(CrossSection section)
+    {
+        var area = TryGetPrimaryConcreteArea(section);
+        if (area?.Hull == null) return null;
+        static int Count(Contour c)
+        {
+            int n = c.X.Count;
+            if (n > 1 && NearlyEqual(c.X[0], c.X[n - 1]) && NearlyEqual(c.Y[0], c.Y[n - 1])) n--;
+            return n;
+        }
+        return (Count(area.Hull), area.Holes.Select(Count).ToArray());
     }
 
     private static List<(double X, double Y)> ExtractContourVertices(Contour contour)

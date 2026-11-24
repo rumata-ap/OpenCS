@@ -14,10 +14,5 @@ public static class FireMeshWarning
 {
    /// <summary>Текст предупреждения; null, если шаг в рекомендуемом диапазоне.</summary>
    public static string? Text(CrossSection section, FireSectionDef def)
-   {
-      var check = FireMeshStepValidator.Check(section, def.MeshStepM);
-      return check.OutOfRecommendedRange
-         ? string.Format(Loc.S("FireSection_MeshStepOutOfRange"), def.MeshStepM)
-         : null;
-   }
+      => FireThermalRunner.MeshRangeWarning(section, def.MeshStepM);
 }
