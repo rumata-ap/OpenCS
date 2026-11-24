@@ -130,7 +130,11 @@ namespace OpenCS.Tasks
                TaskTag  = task.Tag,
                Created  = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
                Status   = "error",
-               DataJson = $"{{\"error\":\"Unknown task kind: {task.Kind}\"}}"
+               DataJson = System.Text.Json.JsonSerializer.Serialize(new
+               {
+                  error = string.Format(OpenCS.Utilites.Loc.S("CalcTaskErrKind"), task.Kind),
+                  reason_code = "unknown_kind"
+               })
             };
          }
          return handler.Run(task, section!, item, settings, ctx);

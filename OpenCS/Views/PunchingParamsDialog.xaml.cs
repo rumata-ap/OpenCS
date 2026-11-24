@@ -50,8 +50,13 @@ public partial class PunchingParamsDialog : Window
         _app?.db.SaveCalcTask(_task);
     }
 
+    /// <summary>Поле с отложенной записью (Delay) отдаёт текст в модель до проверки: Enter сразу после ввода не теряет его.</summary>
+    static void FlushFocusedField() =>
+        (Keyboard.FocusedElement as TextBox)?.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
+
     void Save_Click(object sender, RoutedEventArgs e)
     {
+        FlushFocusedField();
         if (!InputsValid()) return;
         Save();
         DialogResult = true;
@@ -59,6 +64,7 @@ public partial class PunchingParamsDialog : Window
 
     void SaveAndRun_Click(object sender, RoutedEventArgs e)
     {
+        FlushFocusedField();
         if (!InputsValid() || _vm.HasErrors) return;
         Save();
         RunRequested = true;

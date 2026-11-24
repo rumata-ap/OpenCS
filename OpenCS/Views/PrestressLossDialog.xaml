@@ -2,10 +2,16 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        xmlns:u="clr-namespace:OpenCS.Utilites"
+        xmlns:vm="clr-namespace:OpenCS.ViewModels"
         Title="{DynamicResource PrestressLossDialogTitle}"
         Width="1150" Height="540" MinWidth="860" MinHeight="420"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False">
+   <Window.Resources>
+      <!-- Ячейки чисел: запятая или точка; неверный ввод — красная рамка, «Сохранить» отказывает. -->
+      <u:StrictDoubleConverter x:Key="NumConv"/>
+   </Window.Resources>
    <Grid Margin="8">
       <Grid.RowDefinitions>
          <RowDefinition Height="Auto"/>
@@ -59,40 +65,31 @@
                   <TextBlock Text="{DynamicResource ColGroup}"/>
                </DataGridTextColumn.Header>
             </DataGridTextColumn>
-            <DataGridTextColumn Binding="{Binding SigSp0, StringFormat=F1}" Width="75">
+            <DataGridTextColumn Binding="{Binding SigSp0, Converter={StaticResource NumConv}, ConverterParameter=F1}" Width="75">
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ColSigSp0}" ToolTip="{DynamicResource TtColSigSp0}"/>
                </DataGridTextColumn.Header>
             </DataGridTextColumn>
             <DataGridComboBoxColumn x:Name="colRelax"
-                                    SelectedItemBinding="{Binding RelaxFormulaStr, UpdateSourceTrigger=PropertyChanged}"
+                                    ItemsSource="{x:Static vm:PrestressGroupRowVM.RelaxFormulaChoices}"
+                                    DisplayMemberPath="Label" SelectedValuePath="Value"
+                                    SelectedValueBinding="{Binding RelaxFormulaIndex, UpdateSourceTrigger=PropertyChanged}"
                                     Width="110">
                <DataGridComboBoxColumn.Header>
                   <TextBlock Text="{DynamicResource ColRelaxFormula}" ToolTip="{DynamicResource TtColRelaxFormula}"/>
                </DataGridComboBoxColumn.Header>
-               <DataGridComboBoxColumn.ItemsSource>
-                  <x:Array Type="sys:String">
-                     <sys:String>A600–A1000</sys:String>
-                     <sys:String>Вр/К (упрочн.)</sys:String>
-                     <sys:String>К (стаб.)</sys:String>
-                  </x:Array>
-               </DataGridComboBoxColumn.ItemsSource>
-            </DataGridComboBoxColumn>
+                           </DataGridComboBoxColumn>
             <!-- Механический / электротермический (только на упоры) -->
             <DataGridComboBoxColumn x:Name="colSubMethod"
-                                    SelectedItemBinding="{Binding SubMethodStr, UpdateSourceTrigger=PropertyChanged}"
+                                    ItemsSource="{x:Static vm:PrestressGroupRowVM.SubMethodChoices}"
+                                    DisplayMemberPath="Label" SelectedValuePath="Value"
+                                    SelectedValueBinding="{Binding SubMethodIndex, UpdateSourceTrigger=PropertyChanged}"
                                     Width="100">
                <DataGridComboBoxColumn.Header>
                   <TextBlock Text="{DynamicResource ColSubMethod}" ToolTip="{DynamicResource TtColSubMethod}"/>
                </DataGridComboBoxColumn.Header>
-               <DataGridComboBoxColumn.ItemsSource>
-                  <x:Array Type="sys:String">
-                     <sys:String>Механ.</sys:String>
-                     <sys:String>Электротерм.</sys:String>
-                  </x:Array>
-               </DataGridComboBoxColumn.ItemsSource>
-            </DataGridComboBoxColumn>
-            <DataGridTextColumn Binding="{Binding RelaxR, StringFormat=F2}" Width="45">
+                           </DataGridComboBoxColumn>
+            <DataGridTextColumn Binding="{Binding RelaxR, Converter={StaticResource NumConv}, ConverterParameter=F2}" Width="45">
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ColRelaxR}" ToolTip="{DynamicResource TtColRelaxR}"/>
                </DataGridTextColumn.Header>
@@ -105,7 +102,7 @@
                </DataGridCheckBoxColumn.Header>
             </DataGridCheckBoxColumn>
             <DataGridTextColumn x:Name="colDt"
-                                Binding="{Binding DeltaT, StringFormat=F1}" Width="55">
+                                Binding="{Binding DeltaT, Converter={StaticResource NumConv}, ConverterParameter=F1}" Width="55">
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ColDeltaT}" ToolTip="{DynamicResource TtColDt}"/>
                </DataGridTextColumn.Header>
@@ -123,13 +120,13 @@
                </DataGridTextColumn.Header>
             </DataGridTextColumn>
             <DataGridTextColumn x:Name="colDlForm"
-                                Binding="{Binding DeltaLForm, StringFormat=F1}" Width="65">
+                                Binding="{Binding DeltaLForm, Converter={StaticResource NumConv}, ConverterParameter=F1}" Width="65">
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ColDeltaLForm}" ToolTip="{DynamicResource TtColDlForm}"/>
                </DataGridTextColumn.Header>
             </DataGridTextColumn>
             <DataGridTextColumn x:Name="colLForm"
-                                Binding="{Binding LForm, StringFormat=F2}" Width="55">
+                                Binding="{Binding LForm, Converter={StaticResource NumConv}, ConverterParameter=F2}" Width="55">
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ColLForm}" ToolTip="{DynamicResource TtColLForm}"/>
                </DataGridTextColumn.Header>
@@ -141,38 +138,38 @@
                </DataGridCheckBoxColumn.Header>
             </DataGridCheckBoxColumn>
             <DataGridTextColumn x:Name="colDlAnchor"
-                                Binding="{Binding DeltaLAnchor, StringFormat=F1}" Width="65">
+                                Binding="{Binding DeltaLAnchor, Converter={StaticResource NumConv}, ConverterParameter=F1}" Width="65">
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ColDeltaLAnchor}" ToolTip="{DynamicResource TtColDlAnchor}"/>
                </DataGridTextColumn.Header>
             </DataGridTextColumn>
             <DataGridTextColumn x:Name="colLAnchor"
-                                Binding="{Binding LAnchor, StringFormat=F2}" Width="55">
+                                Binding="{Binding LAnchor, Converter={StaticResource NumConv}, ConverterParameter=F2}" Width="55">
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ColLAnchor}" ToolTip="{DynamicResource TtColLAnchor}"/>
                </DataGridTextColumn.Header>
             </DataGridTextColumn>
             <!-- OnConcrete only -->
             <DataGridTextColumn x:Name="colOmega1"
-                                Binding="{Binding Omega1, StringFormat=F3}" Width="55">
+                                Binding="{Binding Omega1, Converter={StaticResource NumConv}, ConverterParameter=F3}" Width="55">
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ColOmega1}" ToolTip="{DynamicResource TtColOmega1}"/>
                </DataGridTextColumn.Header>
             </DataGridTextColumn>
             <DataGridTextColumn x:Name="colKFric"
-                                Binding="{Binding KFriction, StringFormat=F3}" Width="50">
+                                Binding="{Binding KFriction, Converter={StaticResource NumConv}, ConverterParameter=F3}" Width="50">
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ColKFriction}" ToolTip="{DynamicResource TtColKFriction}"/>
                </DataGridTextColumn.Header>
             </DataGridTextColumn>
             <DataGridTextColumn x:Name="colX"
-                                Binding="{Binding XLength, StringFormat=F2}" Width="50">
+                                Binding="{Binding XLength, Converter={StaticResource NumConv}, ConverterParameter=F2}" Width="50">
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ColXLength}" ToolTip="{DynamicResource TtColX}"/>
                </DataGridTextColumn.Header>
             </DataGridTextColumn>
             <DataGridTextColumn x:Name="colTheta"
-                                Binding="{Binding Theta, StringFormat=F3}" Width="55">
+                                Binding="{Binding Theta, Converter={StaticResource NumConv}, ConverterParameter=F3}" Width="55">
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ColTheta}" ToolTip="{DynamicResource TtColTheta}"/>
                </DataGridTextColumn.Header>
@@ -183,7 +180,7 @@
                   <TextBlock Text="{DynamicResource ColSigmaBpAuto}" ToolTip="{DynamicResource TtColSigmaBpAuto}"/>
                </DataGridCheckBoxColumn.Header>
             </DataGridCheckBoxColumn>
-            <DataGridTextColumn Binding="{Binding SigmaBpManual, StringFormat=F1}" Width="70">
+            <DataGridTextColumn Binding="{Binding SigmaBpManual, Converter={StaticResource NumConv}, ConverterParameter=F1}" Width="70">
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ColSigmaBpManual}" ToolTip="{DynamicResource TtColSigmaBpManual}"/>
                </DataGridTextColumn.Header>
@@ -193,9 +190,9 @@
 
       <!-- Кнопки -->
       <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
-         <Button Content="{DynamicResource Save}"   Command="{Binding SaveCommand}"
+         <Button Content="{DynamicResource Save}"   Click="Save_Click" IsDefault="True"
                  Padding="16,4" Margin="0,0,8,0"/>
-         <Button Content="{DynamicResource Cancel}" Command="{Binding CancelCommand}"
+         <Button Content="{DynamicResource Cancel}" IsCancel="True"
                  Padding="16,4"/>
       </StackPanel>
    </Grid>

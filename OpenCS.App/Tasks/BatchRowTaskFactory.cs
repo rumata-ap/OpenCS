@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using CScore;
 using CScore.Batch;
+using OpenCS.Utilites;
 
 namespace OpenCS.Tasks;
 
@@ -56,7 +57,7 @@ public static class BatchRowTaskFactory
         IReadOnlyList<ForceSet> forceSets, IReadOnlyList<PlateSection> plateSections)
     {
         if (!Supports(batch.Kind))
-            throw new InvalidOperationException($"Одиночная задача по строке пакета «{batch.Kind}» не поддерживается.");
+            throw new InvalidOperationException(string.Format(Loc.S("BatchRowTaskErrUnsupported"), batch.Kind));
 
         var task = new CalcTask
         {
@@ -72,7 +73,7 @@ public static class BatchRowTaskFactory
         {
             var item = ShellItem(batch, rowNum, forceSets);
             double h = plateSections.FirstOrDefault(s => s.Id == batch.SectionId)?.H
-                ?? throw new InvalidOperationException($"Плитное сечение id={batch.SectionId} не найдено.");
+                ?? throw new InvalidOperationException(string.Format(Loc.S("BatchRowTaskErrPlateNotFound"), batch.SectionId));
             paramsJson = PlateParams(batch, item, h);
             label = item.Label;
         }
@@ -208,11 +209,11 @@ public static class BatchRowTaskFactory
         if (p.ForcesMode == "two_sets" && p.ForceSetLongId is int longSetId)
         {
             var longSet = forceSets.FirstOrDefault(f => f.Id == longSetId)
-                ?? throw new InvalidOperationException($"Набор длительных усилий id={longSetId} не найден.");
+                ?? throw new InvalidOperationException(string.Format(Loc.S("BatchRowTaskErrLongSetNotFound"), longSetId));
             int index = Set(batch, forceSets).Items.IndexOf(item);
             var longItem = (!string.IsNullOrEmpty(item.Label) ? longSet.Items.FirstOrDefault(i => i.Label == item.Label) : null)
                 ?? (index < longSet.Items.Count ? longSet.Items[index] : null)
-                ?? throw new InvalidOperationException($"Не найдено длительное усилие для строки «{item.Label}».");
+                ?? throw new InvalidOperationException(string.Format(Loc.S("BatchRowTaskErrLongRowNotFound"), item.Label));
             obj[nameof(CrackWidthTaskParams.ForcesMode)] = "force_item_long";
             obj[nameof(CrackWidthTaskParams.ForceItemLongId)] = longItem.Id;
         }
@@ -234,15 +235,15 @@ public static class BatchRowTaskFactory
 
     static LoadItem BarItem(CalcTask batch, int rowNum, IReadOnlyList<ForceSet> forceSets) =>
         Set(batch, forceSets).Items.FirstOrDefault(i => i.Num == rowNum)
-        ?? throw new InvalidOperationException($"Строка усилий № {rowNum} не найдена.");
+        ?? throw new InvalidOperationException(string.Format(Loc.S("BatchRowTaskErrRowNotFound"), rowNum));
 
     static ShellLoadItem ShellItem(CalcTask batch, int rowNum, IReadOnlyList<ForceSet> forceSets) =>
         Set(batch, forceSets).ShellItems.FirstOrDefault(i => i.Num == rowNum)
-        ?? throw new InvalidOperationException($"Строка усилий № {rowNum} не найдена.");
+        ?? throw new InvalidOperationException(string.Format(Loc.S("BatchRowTaskErrRowNotFound"), rowNum));
 
     static ForceSet Set(CalcTask batch, IReadOnlyList<ForceSet> forceSets) =>
         forceSets.FirstOrDefault(f => f.Id == batch.ForceSetId)
-        ?? throw new InvalidOperationException($"Набор усилий id={batch.ForceSetId} не найден.");
+        ?? throw new InvalidOperationException(string.Format(Loc.S("BatchRowTaskErrSetNotFound"), batch.ForceSetId));
 
     static string WithSource(string json, int batchId, int rowNum)
     {

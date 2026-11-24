@@ -1,6 +1,9 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
 using CScore;
+using OpenCS.Utilites;
 using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
@@ -16,6 +19,33 @@ public partial class PrestressLossDialog : Window
         DataContext = _vm;
         _vm.PropertyChanged += VmOnPropertyChanged;
         UpdateColumnVisibility();
+    }
+
+    /// <summary>
+    /// «Сохранить» (Enter): ячейка с нераспознанным числом (красная рамка) — сообщение, окно остаётся открытым: в
+    /// параметрах осталось бы прежнее значение, и молча записывать его нельзя.
+    /// </summary>
+    void Save_Click(object sender, RoutedEventArgs e)
+    {
+        if (_vm == null) return;
+        if (FindInvalid(this) is { } bad)
+        {
+            MessageBox.Show(this, Loc.S("PunchingInvalidNumber"), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            bad.Focus();
+            return;
+        }
+        _vm.Save();
+    }
+
+    static Control? FindInvalid(DependencyObject root)
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is Control { IsVisible: true } c && Validation.GetHasError(c)) return c;
+            if (FindInvalid(child) is { } found) return found;
+        }
+        return null;
     }
 
     void VmOnPropertyChanged(object? sender, PropertyChangedEventArgs e)

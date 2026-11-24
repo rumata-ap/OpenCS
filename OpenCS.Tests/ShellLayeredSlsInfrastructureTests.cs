@@ -20,6 +20,6 @@ public class ShellLayeredSlsInfrastructureTests
       var result = TaskRunner.Run(task, null!, new LoadItem(), CalcSettings.Default);
 
       Assert.Equal("error", result.Status);
-      Assert.DoesNotContain("Unknown task kind", result.DataJson, StringComparison.Ordinal);
+      Assert.DoesNotContain("unknown_kind", result.DataJson, StringComparison.Ordinal);
    }
 }

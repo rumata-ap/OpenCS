@@ -88,7 +88,7 @@ public sealed class ParametricRebarApplicabilityTests
             CalcSettings.Default);
 
         Assert.Equal("error", result.Status);
-        Assert.DoesNotContain("Unknown task kind", result.DataJson,
+        Assert.DoesNotContain("unknown_kind", result.DataJson,
             StringComparison.Ordinal);
     }
 }

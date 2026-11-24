@@ -3,3 +3,22 @@ CL
 NL
 CL:
 NL:
+# Обозначения величин по нормам (не переводятся; единицы — через Unit_* в словарях).
+Mx
+My
+ax
+ay
+bs
+bx
+by
+cs
+dx
+dy
+hc
+sd
+sw
+cR1
+cR2
+Qb
+Qsw
+Qb + Qsw

@@ -7383,4 +7383,24 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="ConfirmDeleteCalcTaskWithResults">Delete task '{0}' and its results ({1})?</system:String>
    <system:String x:Key="ConfirmDeleteCalcTaskNamed">Delete task '{0}'?</system:String>
    <system:String x:Key="CalcTaskDuplicate">Duplicate task</system:String>
+   <system:String x:Key="PrestressRelaxA600">A600–A1000</system:String>
+   <system:String x:Key="PrestressRelaxWire">Wire/strand (cold-worked)</system:String>
+   <system:String x:Key="PrestressRelaxStable">Strand (stabilised)</system:String>
+   <system:String x:Key="PrestressSubMechanical">Mechanical</system:String>
+   <system:String x:Key="PrestressSubElectrothermal">Electrothermal</system:String>
+   <system:String x:Key="Unit_kN_m">kN·m</system:String>
+   <system:String x:Key="Unit_kPa">kPa</system:String>
+   <system:String x:Key="PunchingColXmm">x, mm</system:String>
+   <system:String x:Key="PunchingColYmm">y, mm</system:String>
+   <system:String x:Key="PunchingColXcMm">xc, mm</system:String>
+   <system:String x:Key="PunchingColYcMm">yc, mm</system:String>
+   <system:String x:Key="PunchingColBxMm">bx, mm</system:String>
+   <system:String x:Key="PunchingColByMm">by, mm</system:String>
+   <system:String x:Key="PunchingColDMm">D, mm</system:String>
+   <system:String x:Key="BatchRowTaskErrUnsupported">A single task from a row of batch '{0}' is not supported.</system:String>
+   <system:String x:Key="BatchRowTaskErrPlateNotFound">Plate section id={0} not found.</system:String>
+   <system:String x:Key="BatchRowTaskErrLongSetNotFound">Long-term force set id={0} not found.</system:String>
+   <system:String x:Key="BatchRowTaskErrLongRowNotFound">No long-term forces found for row '{0}'.</system:String>
+   <system:String x:Key="BatchRowTaskErrRowNotFound">Force row No. {0} not found.</system:String>
+   <system:String x:Key="BatchRowTaskErrSetNotFound">Force set id={0} not found.</system:String>
 </ResourceDictionary>

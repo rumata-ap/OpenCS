@@ -7383,4 +7383,24 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="ConfirmDeleteCalcTaskWithResults">Удалить задачу «{0}» и её результаты ({1})?</system:String>
    <system:String x:Key="ConfirmDeleteCalcTaskNamed">Удалить задачу «{0}»?</system:String>
    <system:String x:Key="CalcTaskDuplicate">Копировать задачу</system:String>
+   <system:String x:Key="PrestressRelaxA600">A600–A1000</system:String>
+   <system:String x:Key="PrestressRelaxWire">Вр/К (упрочн.)</system:String>
+   <system:String x:Key="PrestressRelaxStable">К (стаб.)</system:String>
+   <system:String x:Key="PrestressSubMechanical">Механ.</system:String>
+   <system:String x:Key="PrestressSubElectrothermal">Электротерм.</system:String>
+   <system:String x:Key="Unit_kN_m">кН·м</system:String>
+   <system:String x:Key="Unit_kPa">кПа</system:String>
+   <system:String x:Key="PunchingColXmm">x, мм</system:String>
+   <system:String x:Key="PunchingColYmm">y, мм</system:String>
+   <system:String x:Key="PunchingColXcMm">xc, мм</system:String>
+   <system:String x:Key="PunchingColYcMm">yc, мм</system:String>
+   <system:String x:Key="PunchingColBxMm">bx, мм</system:String>
+   <system:String x:Key="PunchingColByMm">by, мм</system:String>
+   <system:String x:Key="PunchingColDMm">D, мм</system:String>
+   <system:String x:Key="BatchRowTaskErrUnsupported">Одиночная задача по строке пакета «{0}» не поддерживается.</system:String>
+   <system:String x:Key="BatchRowTaskErrPlateNotFound">Сечение пластины id={0} не найдено.</system:String>
+   <system:String x:Key="BatchRowTaskErrLongSetNotFound">Набор длительных усилий id={0} не найден.</system:String>
+   <system:String x:Key="BatchRowTaskErrLongRowNotFound">Не найдено длительное усилие для строки «{0}».</system:String>
+   <system:String x:Key="BatchRowTaskErrRowNotFound">Строка усилий № {0} не найдена.</system:String>
+   <system:String x:Key="BatchRowTaskErrSetNotFound">Набор усилий id={0} не найден.</system:String>
 </ResourceDictionary>

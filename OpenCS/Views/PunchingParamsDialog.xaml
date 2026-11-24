@@ -96,12 +96,12 @@
                         <TextBlock Text="a1" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingWallA1Hint}"/>
                         <TextBox Style="{StaticResource Num}" ToolTip="{DynamicResource PunchingWallA1Hint}"
                                  Text="{Binding WallA1, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                         <StackPanel Orientation="Horizontal" Visibility="{Binding IsWallCorner, Converter={StaticResource BoolToVisibility}}">
                            <TextBlock Text="a2" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingWallA2Hint}"/>
                            <TextBox Style="{StaticResource Num}" ToolTip="{DynamicResource PunchingWallA2Hint}"
                                     Text="{Binding WallA2, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                           <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                           <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                         </StackPanel>
                      </WrapPanel>
                      <!-- Подвешенная плита (СП 430, рис. 6.3): контур — от крайних подвешивающих стержней. -->
@@ -110,11 +110,11 @@
                            <TextBlock Text="bs" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingHangerWidthHint}"/>
                            <TextBox Style="{StaticResource Num}" ToolTip="{DynamicResource PunchingHangerWidthHint}"
                                     Text="{Binding HangerWidth, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                           <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                           <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                            <TextBlock Text="cs" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingHangerOffsetHint}"/>
                            <TextBox Style="{StaticResource Num}" ToolTip="{DynamicResource PunchingHangerOffsetHint}"
                                     Text="{Binding HangerOffset, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                           <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                           <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                         </WrapPanel>
                         <StackPanel Orientation="Horizontal">
                            <TextBlock Text="{DynamicResource PunchingHangerLegs}" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingHangerLegsHint}"/>
@@ -142,27 +142,27 @@
                   <WrapPanel Visibility="{Binding IsRectangle, Converter={StaticResource BoolToVisibility}}">
                      <TextBlock Text="bx" Style="{StaticResource Lbl}"/>
                      <TextBox Style="{StaticResource Num}" Text="{Binding Bx, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                     <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                      <TextBlock Text="by" Style="{StaticResource Lbl}"/>
                      <TextBox Style="{StaticResource Num}" Text="{Binding By, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                     <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                   </WrapPanel>
                   <WrapPanel Visibility="{Binding IsRound, Converter={StaticResource BoolToVisibility}}">
                      <TextBlock Text="D" Style="{StaticResource Lbl}"/>
                      <TextBox Style="{StaticResource Num}" Text="{Binding D, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                     <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                      <TextBlock Text="t" Style="{StaticResource Lbl}" Visibility="{Binding IsRing, Converter={StaticResource BoolToVisibility}}"/>
                      <TextBox Style="{StaticResource Num}" Visibility="{Binding IsRing, Converter={StaticResource BoolToVisibility}}"
                               Text="{Binding T, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                     <TextBlock Text="мм" Style="{StaticResource Unit}" Visibility="{Binding IsRing, Converter={StaticResource BoolToVisibility}}"/>
+                     <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}" Visibility="{Binding IsRing, Converter={StaticResource BoolToVisibility}}"/>
                   </WrapPanel>
                   <StackPanel Visibility="{Binding IsPolygon, Converter={StaticResource BoolToVisibility}}">
                      <TextBlock Text="{DynamicResource PunchingPolygonHint}" Style="{StaticResource Hint}"/>
                      <DataGrid ItemsSource="{Binding Points}" SelectedItem="{Binding SelectedPoint}" AutoGenerateColumns="False"
                                CanUserAddRows="False" HeadersVisibility="Column" MaxHeight="160" Margin="0,2">
                         <DataGrid.Columns>
-                           <DataGridTextColumn Header="x, мм" Width="*" Binding="{Binding X, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=LostFocus}"/>
-                           <DataGridTextColumn Header="y, мм" Width="*" Binding="{Binding Y, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=LostFocus}"/>
+                           <DataGridTextColumn Header="{DynamicResource PunchingColXmm}" Width="*" Binding="{Binding X, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=LostFocus}"/>
+                           <DataGridTextColumn Header="{DynamicResource PunchingColYmm}" Width="*" Binding="{Binding Y, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=LostFocus}"/>
                         </DataGrid.Columns>
                      </DataGrid>
                      <StackPanel Orientation="Horizontal">
@@ -182,15 +182,15 @@
                   <WrapPanel>
                      <TextBlock Text="h" Style="{StaticResource Lbl}"/>
                      <TextBox Style="{StaticResource Num}" Text="{Binding H, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                     <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                      <TextBlock Text="ax" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingAxHint}"/>
                      <TextBox Style="{StaticResource Num}" Width="60" ToolTip="{DynamicResource PunchingAxHint}"
                               Text="{Binding Ax, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                     <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                      <TextBlock Text="ay" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingAyHint}"/>
                      <TextBox Style="{StaticResource Num}" Width="60" ToolTip="{DynamicResource PunchingAyHint}"
                               Text="{Binding Ay, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                     <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                   </WrapPanel>
                   <TextBlock Text="{Binding H0Text}" Style="{StaticResource Hint}"/>
                   <StackPanel Orientation="Horizontal">
@@ -202,7 +202,7 @@
                      <CheckBox Content="{DynamicResource PunchingRbtManual}" IsChecked="{Binding RbtManual}" Margin="0,4,8,2"/>
                      <TextBox Style="{StaticResource Num}" IsEnabled="{Binding RbtManual}"
                               Text="{Binding RbtManualValue, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                     <TextBlock Text="МПа" Style="{StaticResource Unit}"/>
+                     <TextBlock Text="{DynamicResource Unit_MPa}" Style="{StaticResource Unit}"/>
                   </StackPanel>
                   <TextBlock Text="{Binding RbtText}" Style="{StaticResource Hint}"/>
                   <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
@@ -223,21 +223,21 @@
                      <WrapPanel Visibility="{Binding IsNotRound, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="bx" Style="{StaticResource Lbl}"/>
                         <TextBox Style="{StaticResource Num}" Text="{Binding CapitalBx, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                         <TextBlock Text="by" Style="{StaticResource Lbl}"/>
                         <TextBox Style="{StaticResource Num}" Text="{Binding CapitalBy, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                      </WrapPanel>
                      <WrapPanel Visibility="{Binding IsRound, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="D" Style="{StaticResource Lbl}"/>
                         <TextBox Style="{StaticResource Num}" Text="{Binding CapitalD, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                      </WrapPanel>
                      <WrapPanel>
                         <TextBlock Text="hc" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingCapitalHcHint}"/>
                         <TextBox Style="{StaticResource Num}" ToolTip="{DynamicResource PunchingCapitalHcHint}"
                                  Text="{Binding CapitalHc, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                      </WrapPanel>
                      <WrapPanel Visibility="{Binding IsNotRound, Converter={StaticResource BoolToVisibility}}" ToolTip="{DynamicResource PunchingCapitalOffsetHint}">
                         <TextBlock Text="{DynamicResource PunchingCapitalOffset}" Style="{StaticResource Lbl}"/>
@@ -245,7 +245,7 @@
                         <TextBox Style="{StaticResource Num}" Text="{Binding CapitalDx, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
                         <TextBlock Text="dy" Style="{StaticResource Lbl}"/>
                         <TextBox Style="{StaticResource Num}" Text="{Binding CapitalDy, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                      </WrapPanel>
                      <TextBlock Text="{DynamicResource PunchingCapitalHint}" Style="{StaticResource Hint}"/>
                   </StackPanel>
@@ -265,7 +265,7 @@
                      <ComboBox Width="56" ItemsSource="{Binding Sides}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding Edge1Side}"/>
                      <TextBlock Text="c" Style="{StaticResource Lbl}" Margin="6,2,4,2"/>
                      <TextBox Style="{StaticResource Num}" Width="60" Text="{Binding Edge1C, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                     <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                      <TextBlock Text="α" Style="{StaticResource Lbl}" Margin="0,2,4,2"/>
                      <TextBox Style="{StaticResource Num}" Width="44" Text="{Binding Edge1Angle, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
                      <TextBlock Text="°" Style="{StaticResource Unit}"/>
@@ -275,7 +275,7 @@
                      <ComboBox Width="56" ItemsSource="{Binding Sides}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding Edge2Side}"/>
                      <TextBlock Text="c" Style="{StaticResource Lbl}" Margin="6,2,4,2"/>
                      <TextBox Style="{StaticResource Num}" Width="60" Text="{Binding Edge2C, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                     <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                      <TextBlock Text="α" Style="{StaticResource Lbl}" Margin="0,2,4,2"/>
                      <TextBox Style="{StaticResource Num}" Width="44" Text="{Binding Edge2Angle, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
                      <TextBlock Text="°" Style="{StaticResource Unit}"/>
@@ -302,11 +302,11 @@
                               </DataTemplate>
                            </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTextColumn Header="xc, мм" Width="*" Binding="{Binding Cx, Converter={StaticResource AnyDoubleConv}}"/>
-                        <DataGridTextColumn Header="yc, мм" Width="*" Binding="{Binding Cy, Converter={StaticResource AnyDoubleConv}}"/>
-                        <DataGridTextColumn Header="bx, мм" Width="*" Binding="{Binding Bx, Converter={StaticResource AnyDoubleConv}}"/>
-                        <DataGridTextColumn Header="by, мм" Width="*" Binding="{Binding By, Converter={StaticResource AnyDoubleConv}}"/>
-                        <DataGridTextColumn Header="D, мм" Width="*" Binding="{Binding D, Converter={StaticResource AnyDoubleConv}}"/>
+                        <DataGridTextColumn Header="{DynamicResource PunchingColXcMm}" Width="*" Binding="{Binding Cx, Converter={StaticResource AnyDoubleConv}}"/>
+                        <DataGridTextColumn Header="{DynamicResource PunchingColYcMm}" Width="*" Binding="{Binding Cy, Converter={StaticResource AnyDoubleConv}}"/>
+                        <DataGridTextColumn Header="{DynamicResource PunchingColBxMm}" Width="*" Binding="{Binding Bx, Converter={StaticResource AnyDoubleConv}}"/>
+                        <DataGridTextColumn Header="{DynamicResource PunchingColByMm}" Width="*" Binding="{Binding By, Converter={StaticResource AnyDoubleConv}}"/>
+                        <DataGridTextColumn Header="{DynamicResource PunchingColDMm}" Width="*" Binding="{Binding D, Converter={StaticResource AnyDoubleConv}}"/>
                      </DataGrid.Columns>
                   </DataGrid>
                   <StackPanel Orientation="Horizontal">
@@ -333,7 +333,7 @@
                      <WrapPanel>
                         <TextBlock Text="d" Style="{StaticResource Lbl}"/>
                         <TextBox Style="{StaticResource Num}" Width="50" Text="{Binding Diameter, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                         <StackPanel Orientation="Horizontal" Visibility="{Binding ShowLegacyCount, Converter={StaticResource BoolToVisibility}}">
                            <TextBlock Text="n" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingSwCountHint}"/>
                            <TextBox Style="{StaticResource Num}" Width="40" ToolTip="{DynamicResource PunchingSwCountHint}"
@@ -343,7 +343,7 @@
                            <TextBlock Text="sw" Style="{StaticResource Lbl}" Margin="6,2,8,2" ToolTip="{DynamicResource PunchingSwStepHint}"/>
                            <TextBox Style="{StaticResource Num}" Width="50" ToolTip="{DynamicResource PunchingSwStepHint}"
                                     Text="{Binding Step, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                           <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                           <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                         </StackPanel>
                      </WrapPanel>
 
@@ -354,11 +354,11 @@
                         <TextBlock Text="s1" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingSwFirstRowHint}"/>
                         <TextBox Style="{StaticResource Num}" Width="50" ToolTip="{DynamicResource PunchingSwFirstRowHint}"
                                  Text="{Binding FirstRow, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                         <TextBlock Text="sd" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingSwRowStepHint}"/>
                         <TextBox Style="{StaticResource Num}" Width="50" ToolTip="{DynamicResource PunchingSwRowStepHint}"
                                  Text="{Binding RowStep, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                         <TextBlock Text="{DynamicResource PunchingSwRowCount}" Style="{StaticResource Lbl}"/>
                         <TextBox Style="{StaticResource Num}" Width="40" Text="{Binding RowCount, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
                      </WrapPanel>
@@ -372,7 +372,7 @@
                                   ToolTip="{DynamicResource PunchingSwZoneHint}"/>
                         <TextBox Style="{StaticResource Num}" IsEnabled="{Binding ZoneEnabled}"
                                  Text="{Binding Zone, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                      </StackPanel>
 
                      <!-- Лучи креста (рис. 8.11г): линии стержней поперёк луча, Lsw = (n − 1)·sw -->
@@ -383,7 +383,7 @@
                            <TextBox Style="{StaticResource Num}" Width="36" Text="{Binding CrossXLines, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
                            <TextBlock Text="sw" Style="{StaticResource Lbl}" Margin="6,2,8,2"/>
                            <TextBox Style="{StaticResource Num}" Width="46" Text="{Binding CrossXStep, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                           <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                           <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                            <CheckBox Content="+X" IsChecked="{Binding CrossXPos}" Margin="4,4,4,2"/>
                            <CheckBox Content="−X" IsChecked="{Binding CrossXNeg}" Margin="4,4,8,2"/>
                            <TextBlock Text="{Binding CrossXWidthText}" Style="{StaticResource Hint}" VerticalAlignment="Center"/>
@@ -394,7 +394,7 @@
                            <TextBox Style="{StaticResource Num}" Width="36" Text="{Binding CrossYLines, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
                            <TextBlock Text="sw" Style="{StaticResource Lbl}" Margin="6,2,8,2"/>
                            <TextBox Style="{StaticResource Num}" Width="46" Text="{Binding CrossYStep, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                           <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                           <TextBlock Text="{DynamicResource Unit_mm}" Style="{StaticResource Unit}"/>
                            <CheckBox Content="+Y" IsChecked="{Binding CrossYPos}" Margin="4,4,4,2"/>
                            <CheckBox Content="−Y" IsChecked="{Binding CrossYNeg}" Margin="4,4,8,2"/>
                            <TextBlock Text="{Binding CrossYWidthText}" Style="{StaticResource Hint}" VerticalAlignment="Center"/>
@@ -404,7 +404,7 @@
                         <CheckBox Content="{DynamicResource PunchingRswManual}" IsChecked="{Binding RswManual}" Margin="0,4,8,2"/>
                         <TextBox Style="{StaticResource Num}" IsEnabled="{Binding RswManual}"
                                  Text="{Binding RswManualValue, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                        <TextBlock Text="МПа" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="{DynamicResource Unit_MPa}" Style="{StaticResource Unit}"/>
                      </StackPanel>
                      <TextBlock Text="{Binding SwText}" Style="{StaticResource Hint}"/>
                   </StackPanel>
@@ -425,17 +425,17 @@
                   <WrapPanel Visibility="{Binding IsSingle, Converter={StaticResource BoolToVisibility}}">
                      <TextBlock Text="F" Style="{StaticResource Lbl}"/>
                      <TextBox Style="{StaticResource Num}" Text="{Binding F, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                     <TextBlock Text="кН" Style="{StaticResource Unit}"/>
+                     <TextBlock Text="{DynamicResource Unit_kN}" Style="{StaticResource Unit}"/>
                      <StackPanel Orientation="Horizontal" Visibility="{Binding ShowMx, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="{Binding MxLabel}" Style="{StaticResource Lbl}" ToolTip="{Binding MxHint}"/>
                         <TextBox Style="{StaticResource Num}" Width="64" ToolTip="{Binding MxHint}"
                                  Text="{Binding Mx, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                        <TextBlock Text="кН·м" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="{DynamicResource Unit_kN_m}" Style="{StaticResource Unit}"/>
                      </StackPanel>
                      <StackPanel Orientation="Horizontal" Visibility="{Binding ShowMy, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="My" Style="{StaticResource Lbl}"/>
                         <TextBox Style="{StaticResource Num}" Width="64" Text="{Binding My, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                        <TextBlock Text="кН·м" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="{DynamicResource Unit_kN_m}" Style="{StaticResource Unit}"/>
                      </StackPanel>
                   </WrapPanel>
                   <!-- Торец стены: ΔM и помощник по моментам с двух сторон стены -->
@@ -448,11 +448,11 @@
                               <TextBlock Text="{DynamicResource PunchingWallMPlus}" Style="{StaticResource Lbl}"/>
                               <TextBox Style="{StaticResource Num}" Width="64"
                                        Text="{Binding WallMPlus, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                              <TextBlock Text="кН·м" Style="{StaticResource Unit}"/>
+                              <TextBlock Text="{DynamicResource Unit_kN_m}" Style="{StaticResource Unit}"/>
                               <TextBlock Text="{DynamicResource PunchingWallMMinus}" Style="{StaticResource Lbl}"/>
                               <TextBox Style="{StaticResource Num}" Width="64"
                                        Text="{Binding WallMMinus, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                              <TextBlock Text="кН·м" Style="{StaticResource Unit}"/>
+                              <TextBlock Text="{DynamicResource Unit_kN_m}" Style="{StaticResource Unit}"/>
                            </WrapPanel>
                            <TextBlock Text="{DynamicResource PunchingWallMomentsBySidesHint}" Style="{StaticResource Hint}"/>
                         </StackPanel>
@@ -470,14 +470,14 @@
                      <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{DynamicResource PunchingFCapital}" Style="{StaticResource Lbl}"/>
                         <TextBox Style="{StaticResource Num}" Text="{Binding FCapitalText, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                        <TextBlock Text="кН" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="{DynamicResource Unit_kN}" Style="{StaticResource Unit}"/>
                      </StackPanel>
                      <TextBlock Text="{DynamicResource PunchingFCapitalHint}" Style="{StaticResource Hint}"/>
                   </StackPanel>
                   <StackPanel Orientation="Horizontal">
                      <TextBlock Text="{DynamicResource PunchingCounterPressure}" Style="{StaticResource Lbl}"/>
                      <TextBox Style="{StaticResource Num}" Text="{Binding CounterPressure, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                     <TextBlock Text="кПа" Style="{StaticResource Unit}"/>
+                     <TextBlock Text="{DynamicResource Unit_kPa}" Style="{StaticResource Unit}"/>
                   </StackPanel>
                   <StackPanel Visibility="{Binding ShowForceRow, Converter={StaticResource BoolToVisibility}}">
                      <TextBlock Text="{Binding ForceRowText}" Style="{StaticResource Hint}"/>
@@ -544,7 +544,7 @@
       <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
          <Button Content="{DynamicResource PunchingSaveAndRun}" Click="SaveAndRun_Click" Padding="14,4" Margin="0,0,8,0"
                  IsEnabled="{Binding HasErrors, Converter={StaticResource InverseBool}}"/>
-         <Button Content="{DynamicResource Save}" Click="Save_Click" Padding="14,4" Margin="0,0,8,0"/>
+         <Button Content="{DynamicResource Save}" Click="Save_Click" IsDefault="True" Padding="14,4" Margin="0,0,8,0"/>
          <Button Content="{DynamicResource Cancel}" IsCancel="True" Padding="14,4"/>
       </StackPanel>
    </Grid>

@@ -24,19 +24,27 @@ public class PrestressGroupRowVM : ViewModelBase
         _p = p; AreaId = p.AreaId; AreaTag = areaTag;
     }
 
-    static readonly string[] RelaxFormulaItems = ["A600–A1000", "Вр/К (упрочн.)", "К (стаб.)"];
-    static readonly string[] SubMethodItems    = ["Механ.", "Электротерм."];
+    /// <summary>Пункт списка в ячейке: значение перечисления и подпись на языке интерфейса.</summary>
+    public sealed record Choice(int Value, string Label);
+
+    /// <summary>Формулы релаксации (порядок — как у <see cref="RelaxFormula"/>); выбор — по значению, не по тексту.</summary>
+    public static IReadOnlyList<Choice> RelaxFormulaChoices =>
+        [new(0, Loc.S("PrestressRelaxA600")), new(1, Loc.S("PrestressRelaxWire")), new(2, Loc.S("PrestressRelaxStable"))];
+
+    /// <summary>Способ натяжения на упоры (порядок — как у <see cref="TensionSubMethod"/>).</summary>
+    public static IReadOnlyList<Choice> SubMethodChoices =>
+        [new(0, Loc.S("PrestressSubMechanical")), new(1, Loc.S("PrestressSubElectrothermal"))];
 
     public double SigSp0         { get => _p.SigSp0;  set { _p.SigSp0  = value; OnPropertyChanged(); } }
-    public string RelaxFormulaStr
+    public int RelaxFormulaIndex
     {
-        get => RelaxFormulaItems[(int)_p.RelaxFormula];
-        set { int i = Array.IndexOf(RelaxFormulaItems, value); if (i >= 0) _p.RelaxFormula = (RelaxFormula)i; OnPropertyChanged(); }
+        get => (int)_p.RelaxFormula;
+        set { if (value >= 0) _p.RelaxFormula = (RelaxFormula)value; OnPropertyChanged(); }
     }
-    public string SubMethodStr
+    public int SubMethodIndex
     {
-        get => SubMethodItems[(int)_p.SubMethod];
-        set { int i = Array.IndexOf(SubMethodItems, value); if (i >= 0) _p.SubMethod = (TensionSubMethod)i; OnPropertyChanged(); }
+        get => (int)_p.SubMethod;
+        set { if (value >= 0) _p.SubMethod = (TensionSubMethod)value; OnPropertyChanged(); }
     }
     public double RelaxR          { get => _p.RelaxR;         set { _p.RelaxR         = value; OnPropertyChanged(); } }
     public bool   UseDefaultDeltaT      { get => _p.UseDefaultDeltaT;      set { _p.UseDefaultDeltaT      = value; OnPropertyChanged(); } }
@@ -119,7 +127,7 @@ public class PrestressLossDlgVM : ViewModelBase
             var h = _humidityIndex switch { 0 => HumidityClass.Above75, 2 => HumidityClass.Below40, _ => HumidityClass.H40_75 };
             double cc = _concrClassAuto
                 ? GetConcreteClassFromSection()
-                : (double.TryParse(_concrClassText, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : 30);
+                : (NumberInput.TryParse(_concrClassText, out var v) ? v : 30);
             cc = Math.Clamp(cc, 10, 100);
             return $"{PrestressLossCalc.PhiBCr(h, cc):F1}";
         }
@@ -171,20 +179,34 @@ public class PrestressLossDlgVM : ViewModelBase
         CancelCommand = new RelayCommand(_ => _window.DialogResult = false);
     }
 
-    void Save()
+    /// <summary>
+    /// «Сохранить»: класс бетона при ручном вводе — число 10…100 (запятая или точка); иначе сообщение и окно остаётся
+    /// открытым (раньше нераспознанное молча становилось 30). Возвращает true, если записано.
+    /// </summary>
+    public bool Save()
     {
+        double concreteClass = 30;
+        if (!_concrClassAuto)
+        {
+            if (!NumberInput.TryParse(_concrClassText, out concreteClass) || concreteClass < 10 || concreteClass > 100)
+            {
+                _app.Notifier.Warning(Loc.S("PrestressErrConcreteClass"), Loc.S("Warning"));
+                return false;
+            }
+        }
+        else if (NumberInput.TryParse(_concrClassText, out var kept)) concreteClass = kept;
         var p = new PrestressLossParams
         {
             Method              = _methodIndex == 1 ? TensionMethod.OnConcrete : TensionMethod.OnSupports,
             HeatTreated         = _heatTreated,
             Humidity            = _humidityIndex switch { 0 => HumidityClass.Above75, 2 => HumidityClass.Below40, _ => HumidityClass.H40_75 },
             ConcreteClassAuto   = _concrClassAuto,
-            ConcreteClassOverride = double.TryParse(_concrClassText, NumberStyles.Float,
-                CultureInfo.InvariantCulture, out var v) ? v : 30,
+            ConcreteClassOverride = concreteClass,
             Groups              = Groups.Select(r => r.ToParams()).ToList()
         };
         _task.ParamsJson = JsonSerializer.Serialize(p);
         _app.db.SaveCalcTask(_task);
-        _window.DialogResult = true;
+        if (_window.IsLoaded) _window.DialogResult = true;
+        return true;
     }
 }

@@ -1327,7 +1327,7 @@
                              Margin="0,0,0,4"
                              Visibility="{Binding HasTorsionMkFromSet, Converter={StaticResource BoolToVisibility}}">
                      <Run Text="{Binding TorsionMkFromSetText, Mode=OneWay}"/>
-                     <Run Text=" кН·м"/>
+                     <Run Text="{DynamicResource Unit_kN_m}"/>
                   </TextBlock>
 
                   <TextBlock Grid.Row="8" Grid.Column="0" Text="{DynamicResource TorsionMkManual}"
@@ -1348,7 +1348,7 @@
                              Margin="0,0,0,4"
                              Visibility="{Binding HasTorsionVxFromSet, Converter={StaticResource BoolToVisibility}}">
                      <Run Text="{Binding TorsionVxFromSetText, Mode=OneWay}"/>
-                     <Run Text=" кН"/>
+                     <Run Text="{DynamicResource Unit_kN}"/>
                   </TextBlock>
 
                   <TextBlock Grid.Row="10" Grid.Column="0" Text="{DynamicResource TorsionVxManual}"
@@ -1366,7 +1366,7 @@
                              Margin="0,0,0,4"
                              Visibility="{Binding HasTorsionVyFromSet, Converter={StaticResource BoolToVisibility}}">
                      <Run Text="{Binding TorsionVyFromSetText, Mode=OneWay}"/>
-                     <Run Text=" кН"/>
+                     <Run Text="{DynamicResource Unit_kN}"/>
                   </TextBlock>
 
                   <TextBlock Grid.Row="12" Grid.Column="0" Text="{DynamicResource TorsionVyManual}"
@@ -1384,7 +1384,7 @@
                              Margin="0,0,0,4"
                              Visibility="{Binding HasTorsionNFromSet, Converter={StaticResource BoolToVisibility}}">
                      <Run Text="{Binding TorsionNFromSetText, Mode=OneWay}"/>
-                     <Run Text=" кН"/>
+                     <Run Text="{DynamicResource Unit_kN}"/>
                   </TextBlock>
 
                   <TextBlock Grid.Row="14" Grid.Column="0" Text="{DynamicResource TorsionNManual}"
@@ -1402,7 +1402,7 @@
                              Margin="0,0,0,4"
                              Visibility="{Binding HasTorsionMxFromSet, Converter={StaticResource BoolToVisibility}}">
                      <Run Text="{Binding TorsionMxFromSetText, Mode=OneWay}"/>
-                     <Run Text=" кН·м"/>
+                     <Run Text="{DynamicResource Unit_kN_m}"/>
                   </TextBlock>
 
                   <TextBlock Grid.Row="16" Grid.Column="0" Text="{DynamicResource TorsionMxManual}"
@@ -1420,7 +1420,7 @@
                              Margin="0,0,0,4"
                              Visibility="{Binding HasTorsionMyFromSet, Converter={StaticResource BoolToVisibility}}">
                      <Run Text="{Binding TorsionMyFromSetText, Mode=OneWay}"/>
-                     <Run Text=" кН·м"/>
+                     <Run Text="{DynamicResource Unit_kN_m}"/>
                   </TextBlock>
 
                   <TextBlock Grid.Row="18" Grid.Column="0" Text="{DynamicResource TorsionMyManual}"
