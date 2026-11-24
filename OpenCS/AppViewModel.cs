@@ -1148,6 +1148,8 @@ namespace OpenCS
       public ICommand EditCalcTaskCommand   { get; set; } = null!;
       /// <summary>Команда удаления задачи (параметр CalcTask).</summary>
       public ICommand DeleteCalcTaskCommand { get; set; } = null!;
+      /// <summary>Команда копирования задачи (параметр CalcTask).</summary>
+      public ICommand DuplicateCalcTaskCommand { get; set; } = null!;
       /// <summary>Команда удаления всех результатов задачи (параметр CalcTask).</summary>
       public ICommand DeleteCalcResultsCommand { get; set; } = null!;
       /// <summary>Команда экспорта отчёта по результату расчёта (параметр CalcResult).</summary>
@@ -1970,7 +1972,10 @@ namespace OpenCS
          RenameFireSectionCommand     = new RelayCommand(_ => RenameFireSection());
          OpenCalcTasksCommand         = new RelayCommand(_ => CurrentPage = new Views.CalcTasksPage(this));
          CancelBusyCommand            = new RelayCommand(_ => CancelBusy(), _ => IsBusy);
+         ShowCalcTaskDialog = DefaultCalcTaskDialog;
+         ShowCalcTaskParamsWindow = DefaultCalcTaskParamsWindow;
          NewCalcTaskCommand    = new RelayCommand(p => NewCalcTask(p as string));
+         DuplicateCalcTaskCommand = new RelayCommand(p => DuplicateCalcTask(p as CalcTask), p => p is CalcTask);
          RunCalcTaskCommand    = new RelayCommand(p => _ = RunCalcTaskAsync(p as CalcTask), p => p is CalcTask && !IsBusy);
          EditCalcTaskCommand   = new RelayCommand(p => EditCalcTask(p as CalcTask),   p => p is CalcTask);
          DeleteCalcTaskCommand = new RelayCommand(p => DeleteCalcTask(p as CalcTask), p => p is CalcTask);
@@ -3574,19 +3579,51 @@ namespace OpenCS
          CurrentPage = null!;
       }
 
-      void NewCalcTask(string? groupKey = null)
+      /// <summary>Окно задачи: существующая (правка) или новая в группе дерева; null — «Отмена». Заменяется в тестах.</summary>
+      public Func<CalcTask?, string?, CalcTask?> ShowCalcTaskDialog { get; set; } = null!;
+
+      CalcTask? DefaultCalcTaskDialog(CalcTask? existing, string? groupKey)
       {
-         var dlg = new CalcTaskPropsDialog(this, groupKey: groupKey)
+         var dlg = new CalcTaskPropsDialog(this, existing, groupKey) { Owner = Application.Current?.MainWindow };
+         return dlg.ShowDialog() == true ? dlg.Result : null;
+      }
+
+      /// <summary>Окно параметров задачи с отдельным окном (потери, продавливание). Заменяется в тестах.</summary>
+      public Action<CalcTask> ShowCalcTaskParamsWindow { get; set; } = null!;
+
+      /// <summary>Вопрос «Да / Нет / Отмена». Заменяется в тестах.</summary>
+      public Func<string, MessageBoxResult> AskYesNoCancel { get; set; } = text => MessageBox.Show(
+         text, Loc.S("Warning"), MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+
+      /// <summary>Параметры потерь и продавливания задаются в своих окнах — открыть после создания или правки.</summary>
+      void OpenCalcTaskParamsWindow(CalcTask ct)
+      {
+         if (CalcTaskKinds.Get(ct.Kind)?.ParamsInOwnWindow == true) ShowCalcTaskParamsWindow(ct);
+      }
+
+      void DefaultCalcTaskParamsWindow(CalcTask ct)
+      {
+         var owner = Application.Current?.MainWindow;
+         if (ct.Kind == "prestress_loss")
+            new PrestressLossDialog(this, ct) { Owner = owner }.ShowDialog();
+         else if (PunchingBatchRunner.IsPunchingKind(ct.Kind))
+            PunchingParamsDialog.Edit(this, ct, owner);
+      }
+
+      /// <summary>Новая задача (из дерева или со страницы задач) через службу: номер, проверка, окно параметров.</summary>
+      internal CalcTask? NewCalcTask(string? groupKey = null)
+      {
+         var ct = ShowCalcTaskDialog(null, groupKey);
+         if (ct == null) return null;
+         var errors = CalcTaskAuthoring.Save(db, ct);
+         if (errors.Count > 0)
          {
-            Owner = Application.Current.MainWindow
-         };
-         if (dlg.ShowDialog() != true || dlg.Result == null) return;
-         var ct = dlg.Result;
-         ct.Num = CalcTasks.Count > 0 ? CalcTasks.Max(t => t.Num) + 1 : 1;
-         db.SaveCalcTask(ct);
+            Notifier.Warning(string.Join(Environment.NewLine, errors.Select(e => e.Message).Distinct()), Loc.S("Warning"));
+            return null;
+         }
          LogService.Info(string.Format(Loc.S("CalcTaskCreated"), ct.Tag));
-         if (PunchingBatchRunner.IsPunchingKind(ct.Kind))
-            PunchingParamsDialog.Edit(this, ct, Application.Current.MainWindow);
+         OpenCalcTaskParamsWindow(ct);
+         return ct;
       }
 
       async Task RunCalcTaskAsync(CalcTask? ct)
@@ -3595,44 +3632,63 @@ namespace OpenCS
          await CalcTaskExecutor.RunAsync(this, ct, showResult: r => CurrentPage = new CalcResultView(r, this));
       }
 
-      void EditCalcTask(CalcTask? ct)
+      /// <summary>
+      /// Правка задачи: окно, затем, если входные данные изменились, а результаты есть, — вопрос «удалить устаревшие
+      /// результаты?» (Да — удалить, Нет — оставить, Отмена — не сохранять правку). Запись — через службу.
+      /// </summary>
+      internal bool EditCalcTask(CalcTask? ct)
       {
-         if (ct == null) return;
-         var dlg = new CalcTaskPropsDialog(this, ct)
+         if (ct == null) return false;
+         var edited = ShowCalcTaskDialog(ct, null);
+         if (edited == null) return false;
+         bool deleteResults = false;
+         int results = CalcTaskAuthoring.ResultCount(db, ct);
+         if (results > 0 && CalcTaskAuthoring.InputsChanged(ct, edited))
          {
-            Owner = Application.Current.MainWindow
-         };
-         if (dlg.ShowDialog() != true || dlg.Result == null) return;
-         var src = dlg.Result;
-         ct.Tag         = src.Tag;
-         ct.Kind        = src.Kind;
-         ct.SectionId   = src.SectionId;
-         ct.ForceSetId  = src.ForceSetId;
-         ct.ForceItemId = src.ForceItemId;
-         ct.CalcType    = src.CalcType;
-         ct.ParamsJson  = src.ParamsJson;
-         db.SaveCalcTask(ct);
+            var answer = AskYesNoCancel(string.Format(Loc.S("CalcTaskResultsStale"), ct.Tag, results));
+            if (answer == MessageBoxResult.Cancel || answer == MessageBoxResult.None) return false;
+            deleteResults = answer == MessageBoxResult.Yes;
+         }
+         var errors = CalcTaskAuthoring.Update(db, ct, edited, deleteResults);
+         if (errors.Count > 0)
+         {
+            Notifier.Warning(string.Join(Environment.NewLine, errors.Select(e => e.Message).Distinct()), Loc.S("Warning"));
+            return false;
+         }
          CalcTaskModified?.Invoke();
-         if (PunchingBatchRunner.IsPunchingKind(ct.Kind))
-            PunchingParamsDialog.Edit(this, ct, Application.Current.MainWindow);
+         OpenCalcTaskParamsWindow(ct);
+         return true;
       }
 
-      void DeleteCalcTask(CalcTask? ct)
+      /// <summary>Копия задачи: те же входные данные, новый номер, «(копия)» в имени, без результатов.</summary>
+      internal CalcTask? DuplicateCalcTask(CalcTask? ct)
       {
-         if (ct == null) return;
-         var res = MessageBox.Show(Loc.S("ConfirmDeleteCalcTask"), Loc.S("Warning"),
-            MessageBoxButton.YesNo, MessageBoxImage.Warning);
-         if (res != MessageBoxResult.Yes) return;
-         db.DeleteCalcTask(ct);
+         if (ct == null) return null;
+         var copy = CalcTaskAuthoring.Duplicate(db, ct);
+         LogService.Info(string.Format(Loc.S("CalcTaskCreated"), copy.Tag));
+         return copy;
       }
 
-      void DeleteCalcResults(CalcTask? ct)
+      /// <summary>Удаление задачи с её результатами — после подтверждения (в вопросе — число результатов).</summary>
+      internal bool DeleteCalcTask(CalcTask? ct)
       {
-         if (ct == null) return;
-         var res = MessageBox.Show(string.Format(Loc.S("ConfirmDeleteCalcResults"), ct.Tag), Loc.S("Warning"),
-            MessageBoxButton.YesNo, MessageBoxImage.Warning);
-         if (res != MessageBoxResult.Yes) return;
+         if (ct == null) return false;
+         int results = CalcTaskAuthoring.ResultCount(db, ct);
+         string question = results > 0
+            ? string.Format(Loc.S("ConfirmDeleteCalcTaskWithResults"), ct.Tag, results)
+            : string.Format(Loc.S("ConfirmDeleteCalcTaskNamed"), ct.Tag);
+         if (AskConfirmDelete(question) != MessageBoxResult.Yes) return false;
+         if (CurrentPage is CalcResultView view && view.Result.TaskId == ct.Id) CurrentPage = null!;
+         CalcTaskAuthoring.Delete(db, ct);
+         return true;
+      }
+
+      internal bool DeleteCalcResults(CalcTask? ct)
+      {
+         if (ct == null) return false;
+         if (AskConfirmDelete(string.Format(Loc.S("ConfirmDeleteCalcResults"), ct.Tag)) != MessageBoxResult.Yes) return false;
          db.DeleteCalcResultsByTaskId(ct.Id);
+         return true;
       }
 
       #region FEM

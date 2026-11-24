@@ -14,6 +14,7 @@ using CScore.Sp63.CrackWidth;
 using CScore.Sp63.Deflection;
 using CSfea.Torsion;
 using OpenCS.LimitSurface;
+using OpenCS.Services;
 using OpenCS.Tasks;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
@@ -2065,6 +2066,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    {
       _app = app;
       _window = window;
+      _existingNum = existing?.Num ?? 0;
 
       _allSections = [..app.CrossSections];
       FireSections = new ObservableCollection<FireSectionDef>(app.FireSections);
@@ -2590,20 +2592,53 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       return true;
    }
 
+   readonly int _existingNum;
+
+   /// <summary>Имя задачи из формы; пусто — имя по умолчанию по номеру задачи (новой — следующему).</summary>
+   string TagOrDefault() => string.IsNullOrWhiteSpace(Tag)
+      ? CalcTaskAuthoring.DefaultTag(Kind, _existingNum > 0 ? _existingNum : CalcTaskAuthoring.NextNum(_app.db))
+      : Tag.Trim();
+
+   /// <summary>
+   /// «ОК»: задача собирается из формы, затем проверяются числа полей (запятая или точка; нераспознанное — ошибка, а
+   /// не ноль) и вся задача службой <see cref="CalcTaskAuthoring"/> — той же проверкой, что у консоли.
+   /// </summary>
    void Commit()
+   {
+      _numberErrors.Clear();
+      Result = null;
+      CommitCore();
+      if (Result == null) return;
+      var messages = new List<string>(_numberErrors);
+      if (messages.Count == 0)
+         messages.AddRange(CalcTaskAuthoring.Validate(_app.db, Result).Select(e => e.Message).Distinct());
+      if (messages.Count > 0)
+      {
+         Result = null;
+         _app.Notifier.Warning(string.Join(Environment.NewLine, messages), Loc.S("Warning"));
+         return;
+      }
+      (Accept ?? (() => _window.DialogResult = true))();
+   }
+
+   /// <summary>Закрытие окна с «ОК» (тесты подменяют: окно не показано модально).</summary>
+   internal Action? Accept { get; set; }
+
+   /// <summary>Собирает задачу из формы по виду (Result); ошибки ветки — сообщением, Result остаётся null.</summary>
+   void CommitCore()
    {
       if (IsPunching)
       {
          // Пакету нужен набор усилий целиком.
          if (IsPunchingBatch && SelectedForceSet == null)
          {
-            MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"));
             return;
          }
          // Сечение не нужно; строка набора — необязательный источник усилий для окна параметров.
          Result = new CalcTask
          {
-            Tag = string.IsNullOrWhiteSpace(Tag) ? $"Продавливание {_app.CalcTasks.Count + 1}" : Tag,
+            Tag = TagOrDefault(),
             Kind = Kind,
             SectionId = 0,
             ForceSetId = SelectedForceSet?.Id ?? 0,
@@ -2611,7 +2646,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             CalcType = SelectedCalcType,
             ParamsJson = _punchingParamsJson
          };
-         _window.DialogResult = true;
          return;
       }
 
@@ -2619,15 +2653,13 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       {
          if (SelectedSection == null)
          {
-            MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"));
             return;
          }
 
          if (LimitSurfaceUseForceSet && SelectedForceSet == null)
          {
-            MessageBox.Show(Loc.S("LimitSurfaceNeedForceSet"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("LimitSurfaceNeedForceSet"), Loc.S("Warning"));
             return;
          }
 
@@ -2636,22 +2668,20 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          {
             // Ширина раскрытия: параметры crack_width (режим «доля», k ∈ (0; 1]) и точность — в одном ParamsJson.
             var invAc = System.Globalization.CultureInfo.InvariantCulture;
-            if (!double.TryParse(CrackWidthLongShare, System.Globalization.NumberStyles.Float, invAc, out var k)
+            if (!NumberInput.TryParse(CrackWidthLongShare, out var k)
                 || !(k > 0 && k <= 1))
             {
-               MessageBox.Show(Loc.S("AcrcSurface_LongShareInvalid"), Loc.S("Warning"),
-                  MessageBoxButton.OK, MessageBoxImage.Warning);
+               _app.Notifier.Warning(Loc.S("AcrcSurface_LongShareInvalid"), Loc.S("Warning"));
                return;
             }
-            if (!double.TryParse(CrackWidthAcrcUltLong, System.Globalization.NumberStyles.Float, invAc, out var ultLong)
-                || !double.TryParse(CrackWidthAcrcUltShort, System.Globalization.NumberStyles.Float, invAc, out var ultShort)
+            if (!NumberInput.TryParse(CrackWidthAcrcUltLong, out var ultLong)
+                || !NumberInput.TryParse(CrackWidthAcrcUltShort, out var ultShort)
                 || !(ultLong > 0) || !(ultShort > 0))
             {
-               MessageBox.Show(Loc.S("AcrcSurface_UltInvalid"), Loc.S("Warning"),
-                  MessageBoxButton.OK, MessageBoxImage.Warning);
+               _app.Notifier.Warning(Loc.S("AcrcSurface_UltInvalid"), Loc.S("Warning"));
                return;
             }
-            double.TryParse(CrackWidthPhi2, System.Globalization.NumberStyles.Float, invAc, out var phi2Ac);
+            double phi2Ac = Num(CrackWidthPhi2, "CrackWidthPhi2");
             var node = System.Text.Json.Nodes.JsonNode.Parse(new CrackWidthTaskParams
             {
                AcrcUltLong = ultLong, AcrcUltShort = ultShort, Phi2 = phi2Ac,
@@ -2664,7 +2694,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
          Result = new CalcTask
          {
-            Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+            Tag = TagOrDefault(),
             Kind = Kind,
             SectionId = SelectedSection.Id,
             ForceSetId = LimitSurfaceUseForceSet ? SelectedForceSet!.Id : 0,
@@ -2672,7 +2702,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             CalcType = SelectedCalcType,
             ParamsJson = surfaceJson
          };
-         _window.DialogResult = true;
          return;
       }
 
@@ -2680,30 +2709,25 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       {
          if (SelectedSection == null)
          {
-            MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"));
             return;
          }
 
          if (SelectedForceSet == null)
          {
-            MessageBox.Show(Loc.S("OpenSeesSpatialNeedForceSet"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("OpenSeesSpatialNeedForceSet"), Loc.S("Warning"));
             return;
          }
 
          var inv = System.Globalization.CultureInfo.InvariantCulture;
          string ParseNumberText(string value) => (value ?? "").Trim().Replace(',', '.');
-         if (!double.TryParse(ParseNumberText(OpenSeesAngleStepDegrees),
-                 System.Globalization.NumberStyles.Float, inv, out double angleStep) ||
+         if (!NumberInput.TryParse(ParseNumberText(OpenSeesAngleStepDegrees), out double angleStep) ||
              !int.TryParse((OpenSeesAdditionalAxialSlices ?? "").Trim(), out int additionalAxialSlices) ||
-              !double.TryParse(ParseNumberText(OpenSeesCurvatureStep),
-                  System.Globalization.NumberStyles.Float, inv, out double curvatureStep) ||
+              !NumberInput.TryParse(ParseNumberText(OpenSeesCurvatureStep), out double curvatureStep) ||
               !int.TryParse((OpenSeesMaxSteps ?? "").Trim(), out int maxSteps) ||
              !int.TryParse((OpenSeesTimeoutSeconds ?? "").Trim(), out int timeoutSeconds))
          {
-            MessageBox.Show(Loc.S("OpenSeesSpatialInvalidParams"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("OpenSeesSpatialInvalidParams"), Loc.S("Warning"));
             return;
          }
 
@@ -2726,7 +2750,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
             Result = new CalcTask
             {
-               Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+               Tag = TagOrDefault(),
                Kind = Kind,
                SectionId = SelectedSection.Id,
                ForceSetId = SelectedForceSet.Id,
@@ -2734,12 +2758,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                CalcType = SelectedCalcType,
                ParamsJson = validated.ToJson()
             };
-            _window.DialogResult = true;
          }
          catch (ArgumentException)
          {
-            MessageBox.Show(Loc.S("OpenSeesSpatialInvalidParams"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("OpenSeesSpatialInvalidParams"), Loc.S("Warning"));
          }
          return;
       }
@@ -2748,14 +2770,12 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       {
          if (SelectedSection == null)
          {
-            MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"));
             return;
          }
          if (!Sp63DeflectionUseManualForces && (SelectedForceSet == null || SelectedForceItem == null))
          {
-            MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"));
             return;
          }
 
@@ -2764,8 +2784,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              || !TryParseSp63NormalNumber(Sp63DeflectionShare, false, false, out var share)
              || share is < 0 or > 1)
          {
-            MessageBox.Show(Loc.S("Sp63Deflection_InvalidTaskParams"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("Sp63Deflection_InvalidTaskParams"), Loc.S("Warning"));
             return;
          }
          double? n = null, mx = null, my = null;
@@ -2774,8 +2793,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                  || !TryParseSp63NormalNumber(Sp63DeflectionMx, false, false, out mx)
                  || !TryParseSp63NormalNumber(Sp63DeflectionMy, false, false, out my)))
          {
-            MessageBox.Show(Loc.S("Sp63Deflection_InvalidTaskParams"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("Sp63Deflection_InvalidTaskParams"), Loc.S("Warning"));
             return;
          }
          double? nl = null, mxl = null, myl = null;
@@ -2784,8 +2802,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                  || !TryParseSp63NormalNumber(Sp63DeflectionMxLong, false, false, out mxl)
                  || !TryParseSp63NormalNumber(Sp63DeflectionMyLong, false, false, out myl)))
          {
-            MessageBox.Show(Loc.S("Sp63Deflection_InvalidTaskParams"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("Sp63Deflection_InvalidTaskParams"), Loc.S("Warning"));
             return;
          }
 
@@ -2806,14 +2823,13 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          };
          if (!deflectionParams.TryToOptions(out _, out _))
          {
-            MessageBox.Show(Loc.S("Sp63Deflection_InvalidTaskParams"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("Sp63Deflection_InvalidTaskParams"), Loc.S("Warning"));
             return;
          }
 
          Result = new CalcTask
          {
-            Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+            Tag = TagOrDefault(),
             Kind = Kind,
             SectionId = SelectedSection.Id,
             ForceSetId = Sp63DeflectionUseManualForces ? 0 : SelectedForceSet!.Id,
@@ -2821,7 +2837,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             CalcType = SelectedCalcType,
             ParamsJson = deflectionParams.ToJson()
          };
-         _window.DialogResult = true;
          return;
       }
 
@@ -2829,16 +2844,14 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       {
          if (SelectedSection == null)
          {
-            MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"));
             return;
          }
 
          if (!Sp63NormalUseManualForces
              && (SelectedForceSet == null || SelectedForceItem == null))
          {
-            MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"));
             return;
          }
 
@@ -2853,8 +2866,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              || !TryParseSp63NormalNumber(Sp63NormalSlendernessThreshold, optional: false, positive: true,
                 out var slendernessThreshold))
          {
-            MessageBox.Show(Loc.S("Sp63NormalInvalidTaskParams"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("Sp63NormalInvalidTaskParams"), Loc.S("Warning"));
             return;
          }
 
@@ -2864,8 +2876,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                  || !TryParseSp63NormalNumber(Sp63NormalManualMx, optional: false, positive: false, out mx)
                  || !TryParseSp63NormalNumber(Sp63NormalManualMy, optional: false, positive: false, out my)))
          {
-            MessageBox.Show(Loc.S("Sp63NormalInvalidTaskParams"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("Sp63NormalInvalidTaskParams"), Loc.S("Warning"));
             return;
          }
 
@@ -2894,7 +2905,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
          Result = new CalcTask
          {
-            Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+            Tag = TagOrDefault(),
             Kind = Kind,
             SectionId = SelectedSection.Id,
             ForceSetId = Sp63NormalUseManualForces ? 0 : SelectedForceSet!.Id,
@@ -2902,7 +2913,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             CalcType = SelectedCalcType,
             ParamsJson = normalParams.ToJson()
          };
-         _window.DialogResult = true;
          return;
       }
 
@@ -2910,16 +2920,14 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       {
          if (SelectedSection == null)
          {
-            MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"));
             return;
          }
 
          if (!Sp63CrackWidthUseManualForces
              && (SelectedForceSet == null || SelectedForceItem == null))
          {
-            MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"));
             return;
          }
 
@@ -2935,8 +2943,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                 out var longTermShare)
              || longTermShare is < 0 or > 1)
          {
-            MessageBox.Show(Loc.S("Sp63CrackWidthInvalidTaskParams"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("Sp63CrackWidthInvalidTaskParams"), Loc.S("Warning"));
             return;
          }
 
@@ -2946,8 +2953,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                  || !TryParseSp63NormalNumber(Sp63CrackWidthManualMx, optional: false, positive: false, out mx)
                  || !TryParseSp63NormalNumber(Sp63CrackWidthManualMy, optional: false, positive: false, out my)))
          {
-            MessageBox.Show(Loc.S("Sp63CrackWidthInvalidTaskParams"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("Sp63CrackWidthInvalidTaskParams"), Loc.S("Warning"));
             return;
          }
 
@@ -2971,7 +2977,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
          Result = new CalcTask
          {
-            Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+            Tag = TagOrDefault(),
             Kind = Kind,
             SectionId = SelectedSection.Id,
             ForceSetId = Sp63CrackWidthUseManualForces ? 0 : SelectedForceSet!.Id,
@@ -2979,7 +2985,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             CalcType = SelectedCalcType,
             ParamsJson = crackWidthParams.ToJson()
          };
-         _window.DialogResult = true;
          return;
       }
 
@@ -2987,20 +2992,18 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       {
          if (SelectedSection is not StagedSection)
          {
-            MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"));
             return;
          }
          var historyParams = LoadHistory.Build(out var historyErrors);
          if (historyErrors.Count > 0)
          {
-            MessageBox.Show(string.Join(Environment.NewLine, historyErrors.Select(c => Loc.S("LoadHistoryErr_" + c))), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(string.Join(Environment.NewLine, historyErrors.Select(c => Loc.S("LoadHistoryErr_" + c))), Loc.S("Warning"));
             return;
          }
          Result = new CalcTask
          {
-            Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+            Tag = TagOrDefault(),
             Kind = Kind,
             SectionId = SelectedSection.Id,
             ForceSetId = 0,
@@ -3008,7 +3011,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             CalcType = SelectedCalcType,
             ParamsJson = historyParams.ToJson()
          };
-         _window.DialogResult = true;
          return;
       }
 
@@ -3016,8 +3018,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       {
           if (SelectedShellSimplSection == null)
           {
-             MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+             _app.Notifier.Warning(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"));
              return;
           }
 
@@ -3026,13 +3027,12 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           {
               if (SelectedShellForceSet == null)
               {
-                  MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
-                     MessageBoxButton.OK, MessageBoxImage.Warning);
+                  _app.Notifier.Warning(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"));
                   return;
               }
               Result = new CalcTask
               {
-                  Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+                  Tag = TagOrDefault(),
                   Kind = Kind,
                   SectionId = SelectedShellSimplSection.Id,
                   ForceSetId = SelectedShellForceSet.Id,
@@ -3040,20 +3040,19 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                   CalcType = SelectedCalcType,
                   ParamsJson = JsonSerializer.Serialize(new ShellStrainParams { AutoStressToForce = AutoStressToForce })
               };
-              _window.DialogResult = true;
               return;
           }
 
-          double snx  = double.TryParse(ShellSimplNx,  System.Globalization.NumberStyles.Float, invs, out var snxv)  ? snxv  : 0;
-          double sny  = double.TryParse(ShellSimplNy,  System.Globalization.NumberStyles.Float, invs, out var snyv)  ? snyv  : 0;
-          double snxy = double.TryParse(ShellSimplNxy, System.Globalization.NumberStyles.Float, invs, out var snxyv) ? snxyv : 0;
-          double smx  = double.TryParse(ShellSimplMx,  System.Globalization.NumberStyles.Float, invs, out var smxv)  ? smxv  : 0;
-          double smy  = double.TryParse(ShellSimplMy,  System.Globalization.NumberStyles.Float, invs, out var smyv)  ? smyv  : 0;
-          double smxy = double.TryParse(ShellSimplMxy, System.Globalization.NumberStyles.Float, invs, out var smxyv) ? smxyv : 0;
+          double snx  = Num(ShellSimplNx, "ShellSimplNx", 0);
+          double sny  = Num(ShellSimplNy, "ShellSimplNy", 0);
+          double snxy = Num(ShellSimplNxy, "ShellSimplNxy", 0);
+          double smx  = Num(ShellSimplMx, "ShellSimplMx", 0);
+          double smy  = Num(ShellSimplMy, "ShellSimplMy", 0);
+          double smxy = Num(ShellSimplMxy, "ShellSimplMxy", 0);
 
           Result = new CalcTask
           {
-              Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+              Tag = TagOrDefault(),
               Kind = Kind,
               SectionId = SelectedShellSimplSection.Id,
               ForceSetId = 0,
@@ -3065,7 +3064,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                   AutoStressToForce = AutoStressToForce
               })
           };
-          _window.DialogResult = true;
           return;
       }
 
@@ -3073,33 +3071,31 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       {
           if (SelectedShellSimplSection == null)
           {
-             MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+             _app.Notifier.Warning(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"));
              return;
           }
 
           var inv = System.Globalization.CultureInfo.InvariantCulture;
-          double nx  = double.TryParse(ShellSimplNx,  System.Globalization.NumberStyles.Float, inv, out var nxv)  ? nxv : 0;
-          double ny  = double.TryParse(ShellSimplNy,  System.Globalization.NumberStyles.Float, inv, out var nyv)  ? nyv : 0;
-          double nxy = double.TryParse(ShellSimplNxy, System.Globalization.NumberStyles.Float, inv, out var nxyv) ? nxyv : 0;
-          double mx  = double.TryParse(ShellSimplMx,  System.Globalization.NumberStyles.Float, inv, out var mxv)  ? mxv : 0;
-          double my  = double.TryParse(ShellSimplMy,  System.Globalization.NumberStyles.Float, inv, out var myv)  ? myv : 0;
-          double mxy = double.TryParse(ShellSimplMxy, System.Globalization.NumberStyles.Float, inv, out var mxyv) ? mxyv : 0;
-          double acrcLim = double.TryParse(ShellSimplAcrcLim, System.Globalization.NumberStyles.Float, inv, out var alv) ? alv : 0.3;
-          double phi1 = double.TryParse(ShellSimplPhi1, System.Globalization.NumberStyles.Float, inv, out var p1v) ? p1v : 1.0;
-          double phi2 = double.TryParse(ShellSimplPhi2, System.Globalization.NumberStyles.Float, inv, out var p2v) ? p2v : 0.5;
+          double nx  = Num(ShellSimplNx, "ShellSimplNx", 0);
+          double ny  = Num(ShellSimplNy, "ShellSimplNy", 0);
+          double nxy = Num(ShellSimplNxy, "ShellSimplNxy", 0);
+          double mx  = Num(ShellSimplMx, "ShellSimplMx", 0);
+          double my  = Num(ShellSimplMy, "ShellSimplMy", 0);
+          double mxy = Num(ShellSimplMxy, "ShellSimplMxy", 0);
+          double acrcLim = Num(ShellSimplAcrcLim, "ShellSimplAcrcLim", 0.3);
+          double phi1 = Num(ShellSimplPhi1, "ShellSimplPhi1", 1.0);
+          double phi2 = Num(ShellSimplPhi2, "ShellSimplPhi2", 0.5);
 
           if (IsShellLayeredBatch)
           {
               if (SelectedShellForceSet == null)
               {
-                  MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
-                     MessageBoxButton.OK, MessageBoxImage.Warning);
+                  _app.Notifier.Warning(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"));
                   return;
               }
               Result = new CalcTask
               {
-                  Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+                  Tag = TagOrDefault(),
                   Kind = Kind,
                   SectionId = SelectedShellSimplSection.Id,
                   ForceSetId = SelectedShellForceSet.Id,
@@ -3111,13 +3107,12 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                       AutoStressToForce = AutoStressToForce
                   }.ToJson()
               };
-              _window.DialogResult = true;
               return;
           }
 
           Result = new CalcTask
           {
-              Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+              Tag = TagOrDefault(),
               Kind = Kind,
               SectionId = SelectedShellSimplSection.Id,
               ForceSetId = 0,
@@ -3130,7 +3125,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                   AutoStressToForce = AutoStressToForce
               }.ToJson()
           };
-          _window.DialogResult = true;
           return;
       }
 
@@ -3138,8 +3132,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       {
           if (SelectedShellSimplSection == null)
           {
-             MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+             _app.Notifier.Warning(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"));
              return;
           }
 
@@ -3148,13 +3141,12 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           {
               if (SelectedShellForceSet == null)
               {
-                  MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
-                     MessageBoxButton.OK, MessageBoxImage.Warning);
+                  _app.Notifier.Warning(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"));
                   return;
               }
               Result = new CalcTask
               {
-                  Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+                  Tag = TagOrDefault(),
                   Kind = Kind,
                   SectionId = SelectedShellSimplSection.Id,
                   ForceSetId = SelectedShellForceSet.Id,
@@ -3162,20 +3154,19 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                   CalcType = SelectedCalcType,
                   ParamsJson = JsonSerializer.Serialize(new ShellStrainParams { AutoStressToForce = AutoStressToForce })
               };
-              _window.DialogResult = true;
               return;
           }
 
-          double snx  = double.TryParse(ShellSimplNx,  System.Globalization.NumberStyles.Float, invs, out var snxv)  ? snxv  : 0;
-          double sny  = double.TryParse(ShellSimplNy,  System.Globalization.NumberStyles.Float, invs, out var snyv)  ? snyv  : 0;
-          double snxy = double.TryParse(ShellSimplNxy, System.Globalization.NumberStyles.Float, invs, out var snxyv) ? snxyv : 0;
-          double smx  = double.TryParse(ShellSimplMx,  System.Globalization.NumberStyles.Float, invs, out var smxv)  ? smxv  : 0;
-          double smy  = double.TryParse(ShellSimplMy,  System.Globalization.NumberStyles.Float, invs, out var smyv)  ? smyv  : 0;
-          double smxy = double.TryParse(ShellSimplMxy, System.Globalization.NumberStyles.Float, invs, out var smxyv) ? smxyv : 0;
+          double snx  = Num(ShellSimplNx, "ShellSimplNx", 0);
+          double sny  = Num(ShellSimplNy, "ShellSimplNy", 0);
+          double snxy = Num(ShellSimplNxy, "ShellSimplNxy", 0);
+          double smx  = Num(ShellSimplMx, "ShellSimplMx", 0);
+          double smy  = Num(ShellSimplMy, "ShellSimplMy", 0);
+          double smxy = Num(ShellSimplMxy, "ShellSimplMxy", 0);
 
           Result = new CalcTask
           {
-              Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+              Tag = TagOrDefault(),
               Kind = Kind,
               SectionId = SelectedShellSimplSection.Id,
               ForceSetId = 0,
@@ -3187,7 +3178,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                   AutoStressToForce = AutoStressToForce
               })
           };
-          _window.DialogResult = true;
           return;
       }
 
@@ -3195,28 +3185,26 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       {
           if (SelectedShellSimplSection == null)
           {
-             MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+             _app.Notifier.Warning(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"));
              return;
           }
 
           var inv = System.Globalization.CultureInfo.InvariantCulture;
-          double stepDeg  = double.TryParse(ShellSimplStepDeg, System.Globalization.NumberStyles.Float, inv, out var sdv) ? sdv : 10.0;
-          double acrcLim  = double.TryParse(ShellSimplAcrcLim, System.Globalization.NumberStyles.Float, inv, out var alv) ? alv : 0.3;
-          double phi1     = double.TryParse(ShellSimplPhi1,    System.Globalization.NumberStyles.Float, inv, out var p1v) ? p1v : 1.0;
-          double phi2     = double.TryParse(ShellSimplPhi2,    System.Globalization.NumberStyles.Float, inv, out var p2v) ? p2v : 0.5;
+          double stepDeg  = Num(ShellSimplStepDeg, "ShellSimplStepDeg", 10.0);
+          double acrcLim  = Num(ShellSimplAcrcLim, "ShellSimplAcrcLim", 0.3);
+          double phi1     = Num(ShellSimplPhi1, "ShellSimplPhi1", 1.0);
+          double phi2     = Num(ShellSimplPhi2, "ShellSimplPhi2", 0.5);
 
           if (IsShellSimplBatch)
           {
               if (SelectedShellForceSet == null)
               {
-                  MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
-                     MessageBoxButton.OK, MessageBoxImage.Warning);
+                  _app.Notifier.Warning(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"));
                   return;
               }
               Result = new CalcTask
               {
-                  Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+                  Tag = TagOrDefault(),
                   Kind = Kind,
                   SectionId = SelectedShellSimplSection.Id,
                   ForceSetId  = SelectedShellForceSet.Id,
@@ -3231,23 +3219,22 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                       CapriCheckMode = ShellSimplCapriCheckModeKey
                   })
               };
-              _window.DialogResult = true;
               return;
           }
 
-          double nx  = double.TryParse(ShellSimplNx,  System.Globalization.NumberStyles.Float, inv, out var nxv)  ? nxv : 0;
-          double ny  = double.TryParse(ShellSimplNy,  System.Globalization.NumberStyles.Float, inv, out var nyv)  ? nyv : 0;
-          double nxy = double.TryParse(ShellSimplNxy, System.Globalization.NumberStyles.Float, inv, out var nxyv) ? nxyv : 0;
-          double mx  = double.TryParse(ShellSimplMx,  System.Globalization.NumberStyles.Float, inv, out var mxv)  ? mxv : 0;
-          double my  = double.TryParse(ShellSimplMy,  System.Globalization.NumberStyles.Float, inv, out var myv)  ? myv : 0;
-          double mxy = double.TryParse(ShellSimplMxy, System.Globalization.NumberStyles.Float, inv, out var mxyv) ? mxyv : 0;
+          double nx  = Num(ShellSimplNx, "ShellSimplNx", 0);
+          double ny  = Num(ShellSimplNy, "ShellSimplNy", 0);
+          double nxy = Num(ShellSimplNxy, "ShellSimplNxy", 0);
+          double mx  = Num(ShellSimplMx, "ShellSimplMx", 0);
+          double my  = Num(ShellSimplMy, "ShellSimplMy", 0);
+          double mxy = Num(ShellSimplMxy, "ShellSimplMxy", 0);
           // Поперечная сила — только в задачах ПС1; в ПС2 поля скрыты и не сохраняются.
-          double qx = ShowShellSimplShear && double.TryParse(ShellSimplQx, System.Globalization.NumberStyles.Float, inv, out var qxv) ? qxv : 0;
-          double qy = ShowShellSimplShear && double.TryParse(ShellSimplQy, System.Globalization.NumberStyles.Float, inv, out var qyv) ? qyv : 0;
+          double qx = ShowShellSimplShear ? Num(ShellSimplQx, "ShellSimplQx") : 0;
+          double qy = ShowShellSimplShear ? Num(ShellSimplQy, "ShellSimplQy") : 0;
 
           Result = new CalcTask
           {
-              Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+              Tag = TagOrDefault(),
               Kind = Kind,
               SectionId = SelectedShellSimplSection.Id,
               ForceSetId  = SelectedShellForceSet?.Id ?? 0,
@@ -3265,7 +3252,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                       CapriCheckMode = ShellSimplCapriCheckModeKey
               })
           };
-          _window.DialogResult = true;
           return;
       }
 
@@ -3273,16 +3259,15 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       {
          if (SelectedSection == null)
          {
-            MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"));
             return;
          }
 
          var invCw = System.Globalization.CultureInfo.InvariantCulture;
-         double.TryParse(CrackWidthAcrcUltLong,  System.Globalization.NumberStyles.Float, invCw, out var acrcLong);
-         double.TryParse(CrackWidthAcrcUltShort, System.Globalization.NumberStyles.Float, invCw, out var acrcShort);
-         double.TryParse(CrackWidthPhi2,         System.Globalization.NumberStyles.Float, invCw, out var phi2);
-         double.TryParse(CrackWidthLongShare,    System.Globalization.NumberStyles.Float, invCw, out var longShare);
+         double acrcLong = Num(CrackWidthAcrcUltLong, "CrackWidthAcrcUltLong");
+         double acrcShort = Num(CrackWidthAcrcUltShort, "CrackWidthAcrcUltShort");
+         double phi2 = Num(CrackWidthPhi2, "CrackWidthPhi2");
+         double longShare = Num(CrackWidthLongShare, "CrackWidthLongShare");
 
          var cwp = new CrackWidthTaskParams
          {
@@ -3298,8 +3283,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          {
             if (SelectedForceSet == null)
             {
-               MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
-                  MessageBoxButton.OK, MessageBoxImage.Warning);
+               _app.Notifier.Warning(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"));
                return;
             }
             if (CrackWidthForcesMode == "two_sets")
@@ -3307,7 +3291,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
             Result = new CalcTask
             {
-               Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+               Tag = TagOrDefault(),
                Kind = Kind,
                SectionId = SelectedSection.Id,
                ForceSetId = SelectedForceSet.Id,
@@ -3315,29 +3299,27 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                CalcType = SelectedCalcType,
                ParamsJson = MergeCrackParamsWithEta(cwp)
             };
-            _window.DialogResult = true;
             return;
          }
 
          // Одиночная crack_width: полная нагрузка — через ManualN/Mx/My (ShowManualForces=true).
-         double.TryParse(ManualN,  System.Globalization.NumberStyles.Float, invCw, out var nTotal);
-         double.TryParse(ManualMx, System.Globalization.NumberStyles.Float, invCw, out var mxTotal);
-         double.TryParse(ManualMy, System.Globalization.NumberStyles.Float, invCw, out var myTotal);
+         double nTotal = Num(ManualN, "ManualN");
+         double mxTotal = Num(ManualMx, "ManualMx");
+         double myTotal = Num(ManualMy, "ManualMy");
          cwp.N = nTotal; cwp.Mx = mxTotal; cwp.My = myTotal;
 
          if (CrackWidthForcesMode == "manual")
          {
-            double.TryParse(CrackWidthManualNLong,  System.Globalization.NumberStyles.Float, invCw, out var nLongM);
-            double.TryParse(CrackWidthManualMxLong, System.Globalization.NumberStyles.Float, invCw, out var mxLongM);
-            double.TryParse(CrackWidthManualMyLong, System.Globalization.NumberStyles.Float, invCw, out var myLongM);
+            double nLongM = Num(CrackWidthManualNLong, "CrackWidthManualNLong");
+            double mxLongM = Num(CrackWidthManualMxLong, "CrackWidthManualMxLong");
+            double myLongM = Num(CrackWidthManualMyLong, "CrackWidthManualMyLong");
             cwp.NLongManual = nLongM; cwp.MxLongManual = mxLongM; cwp.MyLongManual = myLongM;
          }
          else if (CrackWidthForcesMode == "force_item_long")
          {
             if (SelectedCrackWidthLongForceSet == null || SelectedCrackWidthLongForceItem == null)
             {
-               MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
-                  MessageBoxButton.OK, MessageBoxImage.Warning);
+               _app.Notifier.Warning(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"));
                return;
             }
             cwp.ForceSetLongId = SelectedCrackWidthLongForceSet.Id;
@@ -3346,7 +3328,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
          Result = new CalcTask
          {
-            Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+            Tag = TagOrDefault(),
             Kind = Kind,
             SectionId = SelectedSection.Id,
             ForceSetId = 0,
@@ -3354,7 +3336,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             CalcType = SelectedCalcType,
             ParamsJson = MergeCrackParamsWithEta(cwp)
          };
-         _window.DialogResult = true;
          return;
       }
 
@@ -3362,14 +3343,12 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       {
          if (SelectedSection == null)
          {
-            MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"));
             return;
          }
 
          var invTc = System.Globalization.CultureInfo.InvariantCulture;
-         double.TryParse(TotalCurvatureLongShare,
-            System.Globalization.NumberStyles.Float, invTc, out var longShare);
+         double longShare = Num(TotalCurvatureLongShare, "TotalCurvatureLongShare");
          var tcp = new TotalCurvatureTaskParams
          {
             ForcesMode = TotalCurvatureForcesMode,
@@ -3380,14 +3359,13 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          {
             if (SelectedForceSet == null)
             {
-               MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
-                  MessageBoxButton.OK, MessageBoxImage.Warning);
+               _app.Notifier.Warning(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"));
                return;
             }
 
             Result = new CalcTask
             {
-               Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+               Tag = TagOrDefault(),
                Kind = Kind,
                SectionId = SelectedSection.Id,
                ForceSetId = SelectedForceSet.Id,
@@ -3395,29 +3373,26 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                CalcType = SelectedCalcType,
                ParamsJson = tcp.ToJson()
             };
-            _window.DialogResult = true;
             return;
          }
 
-         double.TryParse(ManualN, System.Globalization.NumberStyles.Float, invTc, out var nTotal);
-         double.TryParse(ManualMx, System.Globalization.NumberStyles.Float, invTc, out var mxTotal);
-         double.TryParse(ManualMy, System.Globalization.NumberStyles.Float, invTc, out var myTotal);
+         double nTotal = Num(ManualN, "ManualN");
+         double mxTotal = Num(ManualMx, "ManualMx");
+         double myTotal = Num(ManualMy, "ManualMy");
          tcp.N = nTotal;
          tcp.Mx = mxTotal;
          tcp.My = myTotal;
          if (TotalCurvatureForcesMode == "manual")
          {
-            double.TryParse(TotalCurvatureManualMxLong,
-               System.Globalization.NumberStyles.Float, invTc, out var mxLongManual);
-            double.TryParse(TotalCurvatureManualMyLong,
-               System.Globalization.NumberStyles.Float, invTc, out var myLongManual);
+            double mxLongManual = Num(TotalCurvatureManualMxLong, "TotalCurvatureManualMxLong");
+            double myLongManual = Num(TotalCurvatureManualMyLong, "TotalCurvatureManualMyLong");
             tcp.MxLongManual = mxLongManual;
             tcp.MyLongManual = myLongManual;
          }
 
          Result = new CalcTask
          {
-            Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+            Tag = TagOrDefault(),
             Kind = Kind,
             SectionId = SelectedSection.Id,
             ForceSetId = 0,
@@ -3425,7 +3400,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             CalcType = SelectedCalcType,
             ParamsJson = tcp.ToJson()
          };
-         _window.DialogResult = true;
          return;
       }
 
@@ -3433,15 +3407,14 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       {
          if (SelectedSection == null)
          {
-            MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"));
             return;
          }
 
          var invMc = System.Globalization.CultureInfo.InvariantCulture;
-         double.TryParse(ManualN, System.Globalization.NumberStyles.Float, invMc, out var mcN);
-         double.TryParse(ManualMx, System.Globalization.NumberStyles.Float, invMc, out var mcMx);
-         double.TryParse(ManualMy, System.Globalization.NumberStyles.Float, invMc, out var mcMy);
+         double mcN = Num(ManualN, "ManualN");
+         double mcMx = Num(ManualMx, "ManualMx");
+         double mcMy = Num(ManualMy, "ManualMy");
 
          var mcp = new MomentCurvatureBiaxialTaskParams
          {
@@ -3454,7 +3427,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
          Result = new CalcTask
          {
-            Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+            Tag = TagOrDefault(),
             Kind = Kind,
             SectionId = SelectedSection.Id,
             ForceSetId = 0,
@@ -3462,7 +3435,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             CalcType = SelectedCalcType,
             ParamsJson = mcp.ToJson()
          };
-         _window.DialogResult = true;
          return;
       }
 
@@ -3470,50 +3442,46 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       {
           if (SelectedSection == null)
           {
-              MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
-                  MessageBoxButton.OK, MessageBoxImage.Warning);
+              _app.Notifier.Warning(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"));
               return;
           }
 
           var inv = System.Globalization.CultureInfo.InvariantCulture;
-          double elem = double.TryParse(TorsionElementSize, System.Globalization.NumberStyles.Float, inv, out var es) ? es : 0.05;
+          double elem = Num(TorsionElementSize, "TorsionElementSize", 0.05);
           if (elem <= 0) elem = 0.05;
-          double.TryParse(TorsionMk, System.Globalization.NumberStyles.Float, inv, out var mkManual);
-          double.TryParse(TorsionVx, System.Globalization.NumberStyles.Float, inv, out var vxManual);
-          double.TryParse(TorsionVy, System.Globalization.NumberStyles.Float, inv, out var vyManual);
-          double.TryParse(TorsionN, System.Globalization.NumberStyles.Float, inv, out var nManual);
-          double.TryParse(TorsionMx, System.Globalization.NumberStyles.Float, inv, out var mxManual);
-          double.TryParse(TorsionMy, System.Globalization.NumberStyles.Float, inv, out var myManual);
+          double mkManual = Num(TorsionMk, "TorsionMk");
+          double vxManual = Num(TorsionVx, "TorsionVx");
+          double vyManual = Num(TorsionVy, "TorsionVy");
+          double nManual = Num(TorsionN, "TorsionN");
+          double mxManual = Num(TorsionMx, "TorsionMx");
+          double myManual = Num(TorsionMy, "TorsionMy");
 
           double autoH0 = 0;
           int autoRuns = 0;
           if (TorsionAutoConverge)
           {
               string hRaw = (TorsionAutoH0 ?? "").Trim().Replace(',', '.');
-              if (!double.TryParse(hRaw, System.Globalization.NumberStyles.Float, inv, out autoH0) || autoH0 <= 0)
+              if (!NumberInput.TryParse(hRaw, out autoH0) || autoH0 <= 0)
               {
-                  MessageBox.Show(Loc.S("TorsionAutoH0Invalid"), Loc.S("Warning"),
-                      MessageBoxButton.OK, MessageBoxImage.Warning);
+                  _app.Notifier.Warning(Loc.S("TorsionAutoH0Invalid"), Loc.S("Warning"));
                   return;
               }
               if (!int.TryParse((TorsionAutoRuns ?? "").Trim(), out autoRuns) || autoRuns < 2)
               {
-                  MessageBox.Show(Loc.S("TorsionAutoRunsInvalid"), Loc.S("Warning"),
-                      MessageBoxButton.OK, MessageBoxImage.Warning);
+                  _app.Notifier.Warning(Loc.S("TorsionAutoRunsInvalid"), Loc.S("Warning"));
                   return;
               }
           }
 
           if (SelectedForceSet != null && SelectedForceItem == null && mkManual <= 0)
           {
-              MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
-                  MessageBoxButton.OK, MessageBoxImage.Warning);
+              _app.Notifier.Warning(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"));
               return;
           }
 
           Result = new CalcTask
           {
-              Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+              Tag = TagOrDefault(),
               Kind = Kind,
               SectionId = SelectedSection.Id,
               ForceSetId = SelectedForceSet?.Id ?? 0,
@@ -3537,7 +3505,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                   AutoRuns = TorsionAutoConverge ? autoRuns : 0
               }.ToJson()
           };
-          _window.DialogResult = true;
           return;
       }
 
@@ -3545,15 +3512,14 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       {
           if (SelectedSection == null)
           {
-              MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
-                  MessageBoxButton.OK, MessageBoxImage.Warning);
+              _app.Notifier.Warning(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"));
               return;
           }
 
           // Нераспознанное число не должно молча становиться 0: lef = 0 даёт φ = 1 и «проходящую» устойчивость.
           if (!SteelEditor.TryBuild(out var steelParams, out var steelError))
           {
-              MessageBox.Show(steelError, Loc.S("Warning"), MessageBoxButton.OK, MessageBoxImage.Warning);
+              _app.Notifier.Warning(steelError, Loc.S("Warning"));
               return;
           }
 
@@ -3563,7 +3529,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           {
               if (SelectedForceSet == null)
               {
-                  MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                  _app.Notifier.Warning(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"));
                   return;
               }
           }
@@ -3574,7 +3540,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                   SteelDesignParamsEditorVM.ParseNumber(SteelManualVy), SteelDesignParamsEditorVM.ParseNumber(SteelManualT)];
               if (values.Any(v => v == null))
               {
-                  MessageBox.Show(Loc.S("Sp16InvalidForces"), Loc.S("Warning"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                  _app.Notifier.Warning(Loc.S("Sp16InvalidForces"), Loc.S("Warning"));
                   return;
               }
               // Совместимый формат: Qy = Vx, Qz = Vy, Mz = T.
@@ -3587,13 +3553,13 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           else if (Kind != "steel_constructive" && (SelectedForceSet == null || SelectedForceItem == null))
           {
               // Предельной гибкости усилия не обязательны; остальным видам нужна строка набора.
-              MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"), MessageBoxButton.OK, MessageBoxImage.Warning);
+              _app.Notifier.Warning(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"));
               return;
           }
 
           Result = new CalcTask
           {
-              Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+              Tag = TagOrDefault(),
               Kind = Kind,
               SectionId = SelectedSection.Id,
               ForceSetId = steelManual ? 0 : (SelectedForceSet?.Id ?? 0),
@@ -3601,7 +3567,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
               CalcType = SelectedCalcType,
               ParamsJson = (steelParams with { ManualForces = mf }).ToJson()
           };
-          _window.DialogResult = true;
           return;
       }
 
@@ -3609,73 +3574,66 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       {
          if (SelectedFireSection == null)
          {
-            MessageBox.Show(Loc.S("CalcTaskNeedFireSection"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("CalcTaskNeedFireSection"), Loc.S("Warning"));
             return;
          }
           SelectedSection = _allSections.FirstOrDefault(s => s.Id == SelectedFireSection.SectionId);
 
          if (FireTaskParamsBuilder.NeedsForceSet(Kind) && SelectedForceSet == null)
          {
-            MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"));
             return;
          }
          if (FireTaskParamsBuilder.NeedsForceItem(Kind) && SelectedForceItem == null)
          {
-            MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
+            _app.Notifier.Warning(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"));
             return;
          }
        }
 
        if (SelectedSection == null)
        {
-          MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
-             MessageBoxButton.OK, MessageBoxImage.Warning);
+          _app.Notifier.Warning(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"));
           return;
        }
 
        if (IsLimitBatch && SelectedForceSet == null)
        {
-          MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
-             MessageBoxButton.OK, MessageBoxImage.Warning);
+          _app.Notifier.Warning(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"));
           return;
        }
 
        if (!ShowManualForces && !ShowShearManualForces && !IsShearInclinedBatch
            && !IsLimitBatch && ShowForceItem && (SelectedForceSet == null || SelectedForceItem == null))
        {
-          MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
-             MessageBoxButton.OK, MessageBoxImage.Warning);
+          _app.Notifier.Warning(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"));
           return;
        }
 
        // Наклонное сечение без поперечной силы проверять нечего: расчёт даст пустой результат.
        if (ShowShearManualForces && !BuildShearInclinedParams().ManualForces!.HasShearForce)
        {
-          MessageBox.Show(Loc.S("ShearInclinedNeedShearForce"), Loc.S("Warning"),
-             MessageBoxButton.OK, MessageBoxImage.Warning);
+          _app.Notifier.Warning(Loc.S("ShearInclinedNeedShearForce"), Loc.S("Warning"));
           return;
        }
 
        if (SupportsEta && EtaEnabled)
        {
-          var invEta = System.Globalization.CultureInfo.InvariantCulture;
-          bool validL   = double.TryParse(EtaL, System.Globalization.NumberStyles.Float, invEta, out var lCheck) && lCheck > 0;
-          bool validMuX = !double.TryParse(EtaMuX, System.Globalization.NumberStyles.Float, invEta, out var muxCheck) || muxCheck > 0;
-          bool validMuY = !double.TryParse(EtaMuY, System.Globalization.NumberStyles.Float, invEta, out var muyCheck) || muyCheck > 0;
-          bool validThreshold = !double.TryParse(EtaSlendernessThreshold, System.Globalization.NumberStyles.Float, invEta, out var thCheck) || thCheck > 0;
+          // Пустые μ и порог — умолчания; введённые — числа больше нуля (нераспознанное — не «умолчание»).
+          static bool PositiveOrEmpty(string? text) =>
+             string.IsNullOrWhiteSpace(text) || NumberInput.TryParse(text, out var v) && v > 0;
+          bool validL   = NumberInput.TryParse(EtaL, out var lCheck) && lCheck > 0;
+          bool validMuX = PositiveOrEmpty(EtaMuX);
+          bool validMuY = PositiveOrEmpty(EtaMuY);
+          bool validThreshold = PositiveOrEmpty(EtaSlendernessThreshold);
           if (!validL || !validMuX || !validMuY)
           {
-             MessageBox.Show(Loc.S("EtaNeedL0"), Loc.S("Warning"),
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+             _app.Notifier.Warning(Loc.S("EtaNeedL0"), Loc.S("Warning"));
              return;
           }
           if (!validThreshold)
           {
-             MessageBox.Show(Loc.S("EtaInvalidThreshold"), Loc.S("Warning"),
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+             _app.Notifier.Warning(Loc.S("EtaInvalidThreshold"), Loc.S("Warning"));
              return;
           }
        }
@@ -3683,10 +3641,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
        string paramsJson = "{}";
        if (Kind == "fire_thermal_curvature" && SelectedFireSection != null)
        {
-          var invFire = System.Globalization.CultureInfo.InvariantCulture;
-          double normalizedLimit = double.TryParse(FireNormalizedLimit,
-             System.Globalization.NumberStyles.Float, invFire, out var limit) && limit > 0.0
-             ? limit : 120.0;
+          double normalizedLimit = string.IsNullOrWhiteSpace(FireNormalizedLimit) ? 120.0 : Num(FireNormalizedLimit, "FireNormalizedLimit", 120.0);
+          if (!(normalizedLimit > 0)) _numberErrors.Add(string.Format(Loc.S("CalcTaskErrPositive"), FieldSymbol("FireNormalizedLimit")));
           paramsJson = new FireThermalCurvatureParams
           {
              FireSectionId = SelectedFireSection.Id,
@@ -3707,9 +3663,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
        else if (ShowManualForces)
        {
           var inv = System.Globalization.CultureInfo.InvariantCulture;
-          double n  = double.TryParse(ManualN,  System.Globalization.NumberStyles.Float, inv, out var nv)  ? nv : 0;
-          double mx = double.TryParse(ManualMx, System.Globalization.NumberStyles.Float, inv, out var mxv) ? mxv : 0;
-          double my = double.TryParse(ManualMy, System.Globalization.NumberStyles.Float, inv, out var myv) ? myv : 0;
+          double n  = Num(ManualN, "ManualN", 0);
+          double mx = Num(ManualMx, "ManualMx", 0);
+          double my = Num(ManualMy, "ManualMy", 0);
           if (IsLimitSingle)
           {
              var lfp = new LimitForceParams { Solver = SolverId, N = n, Mx = mx, My = my };
@@ -3748,7 +3704,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
       Result = new CalcTask
       {
-         Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+         Tag = TagOrDefault(),
          Kind = Kind,
          SectionId = SelectedSection.Id,
          // Для strain_state и limit_* (одиночных) силы в ParamsJson — ForceItemId не используется
@@ -3758,7 +3714,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          ParamsJson = paramsJson
       };
 
-      _window.DialogResult = true;
    }
 
    /// <summary>
@@ -3772,16 +3727,49 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    {
       lfp.EtaEnabled   = true;
       lfp.EtaIterative = EtaIterative;
-      if (double.TryParse(EtaL,   System.Globalization.NumberStyles.Float, inv, out var l))   lfp.EtaL   = l;
-      if (double.TryParse(EtaMuX, System.Globalization.NumberStyles.Float, inv, out var mux)) lfp.EtaMuX = mux;
-      if (double.TryParse(EtaMuY, System.Globalization.NumberStyles.Float, inv, out var muy)) lfp.EtaMuY = muy;
-      if (double.TryParse(EtaSlendernessThreshold, System.Globalization.NumberStyles.Float, inv, out var th) && th > 0)
-         lfp.EtaSlendernessThreshold = th;
+      // Обязательна только L; пустые μ, ψ и порог — умолчания расчёта, нераспознанные — ошибка (а не умолчание).
+      lfp.EtaL = Num(EtaL, "EtaL");
+      lfp.EtaMuX = NumOpt(EtaMuX, "EtaMuX") ?? lfp.EtaMuX;
+      lfp.EtaMuY = NumOpt(EtaMuY, "EtaMuY") ?? lfp.EtaMuY;
+      lfp.EtaSlendernessThreshold = NumOpt(EtaSlendernessThreshold, "EtaSlendernessThreshold") ?? lfp.EtaSlendernessThreshold;
       if (!EtaIterative && !IsCrackWidthAny)
       {
-         if (double.TryParse(EtaPsiX, System.Globalization.NumberStyles.Float, inv, out var psix)) lfp.EtaPsiX = psix;
-         if (double.TryParse(EtaPsiY, System.Globalization.NumberStyles.Float, inv, out var psiy)) lfp.EtaPsiY = psiy;
+         lfp.EtaPsiX = NumOpt(EtaPsiX, "EtaPsiX") ?? lfp.EtaPsiX;
+         lfp.EtaPsiY = NumOpt(EtaPsiY, "EtaPsiY") ?? lfp.EtaPsiY;
       }
+   }
+
+   readonly List<string> _numberErrors = [];
+
+   /// <summary>
+   /// Число поля формы: десятичный разделитель — запятая или точка. Нераспознанный или пустой ввод попадает в список
+   /// ошибок (задача не сохраняется), а не превращается молча в ноль или умолчание.
+   /// </summary>
+   double Num(string? text, string field, double fallback = 0)
+   {
+      if (NumberInput.TryParse(text, out double v)) return v;
+      string message = string.Format(Loc.S("CalcTaskErrNumber"), FieldSymbol(field), text ?? "");
+      if (!_numberErrors.Contains(message)) _numberErrors.Add(message);
+      return fallback;
+   }
+
+   /// <summary>Необязательное число: пустое поле — null, нераспознанное — ошибка.</summary>
+   double? NumOpt(string? text, string field) => string.IsNullOrWhiteSpace(text) ? null : Num(text, field);
+
+   /// <summary>Обозначение поля для сообщения: имя свойства без префикса группы (ShellSimplNx → Nx, EtaMuX → μx).</summary>
+   internal static string FieldSymbol(string property)
+   {
+      string s = property;
+      foreach (var prefix in new[] { "ShellSimpl", "Manual", "TorsionAuto", "Torsion", "CrackWidthManual", "CrackWidth",
+                   "TotalCurvatureManual", "TotalCurvature", "ShearManual", "Shear", "Eta" })
+         if (s.StartsWith(prefix, StringComparison.Ordinal) && s.Length > prefix.Length) { s = s[prefix.Length..]; break; }
+      return s switch
+      {
+         "Phi1" => "φ1", "Phi2" => "φ2", "MuX" => "μx", "MuY" => "μy", "PsiX" => "ψx", "PsiY" => "ψy",
+         "AcrcLim" => "acrc,lim", "AcrcUltLong" => "acrc,ult,l", "AcrcUltShort" => "acrc,ult,s",
+         "StepDeg" => "Δα", "SlendernessThreshold" => "λ", "ElementSize" => "h", "H0" => "h0",
+         _ => s
+      };
    }
 
    /// <summary>Собирает параметры задачи расчёта наклонных сечений из полей диалога.</summary>
@@ -3790,22 +3778,19 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       var inv = System.Globalization.CultureInfo.InvariantCulture;
       var style = System.Globalization.NumberStyles.Float;
 
-      double Num(string text) =>
-         double.TryParse(text, style, inv, out var value) ? value : 0.0;
-
+      // Обрывы стержней — через пробел или «;»: запятая — десятичный разделитель («1,5 2,4»); «1.5, 2.4» тоже читается.
       var cutoffs = (ShearBarCutoffsText ?? "")
-         .Split([' ', ';', ','], StringSplitOptions.RemoveEmptyEntries)
-         .Select(part => double.TryParse(part, style, inv, out var value) ? value : double.NaN)
-         .Where(double.IsFinite)
+         .Split([' ', ';', '\t'], StringSplitOptions.RemoveEmptyEntries)
+         .Select(part => part.TrimEnd(','))
+         .Where(part => part.Length > 0)
+         .Select(part => Num(part, "BarCutoffs"))
          .ToArray();
 
       int? femStep = int.TryParse(ShearFemStepIndex, style, inv, out var stepValue)
          ? (int)stepValue
          : null;
 
-      double? NullableNum(string text) =>
-         string.IsNullOrWhiteSpace(text) ? null
-         : double.TryParse(text, style, inv, out var value) ? value : null;
+      double? NullableNum(string text, string field) => NumOpt(text, field);
 
       return new ShearInclinedParams
       {
@@ -3814,8 +3799,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          EquivalentSectionNote = ShearEquivalentNote ?? "",
          ForceSource = ShearForceSource,
          ElementKind = ShearElementKind,
-         DistributedLoad = Num(ShearDistributedLoad),
-         DistanceToSupport = Num(ShearDistanceToSupport),
+         DistributedLoad = NumOpt(ShearDistributedLoad, "ShearDistributedLoad") ?? 0,
+         DistanceToSupport = NumOpt(ShearDistanceToSupport, "ShearDistanceToSupport") ?? 0,
          SupportDirection = ShearSupportDirection,
          SupportAtStart = ShearSupportAtStart,
          SupportAtEnd = ShearSupportAtEnd,
@@ -3829,20 +3814,20 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          ManualForces = ShowShearManualForces
             ? new ShearManualForces
               {
-                 N  = Num(ShearManualN),
-                 Mx = Num(ShearManualMx),
-                 My = Num(ShearManualMy),
-                 Vy = Num(ShearManualVy),
-                 Vx = Num(ShearManualVx),
-                 T = Num(ShearManualT)
+                 N  = Num(ShearManualN, "ShearManualN"),
+                 Mx = Num(ShearManualMx, "ShearManualMx"),
+                 My = Num(ShearManualMy, "ShearManualMy"),
+                 Vy = Num(ShearManualVy, "ShearManualVy"),
+                 Vx = Num(ShearManualVx, "ShearManualVx"),
+                 T = Num(ShearManualT, "ShearManualT")
               }
             : null,
          // Диалог пока редактирует только b; остальные старые переопределения нельзя
          // потерять при открытии и повторном сохранении задачи.
-         OverridesVy = NullableNum(ShearOverrideVyB) is double vyB
+         OverridesVy = NullableNum(ShearOverrideVyB, "ShearOverrideVyB") is double vyB
             ? (_shearLegacySteps?.OverridesVy ?? new ShearInclinedOverrides()) with { B = vyB }
             : _shearLegacySteps?.OverridesVy,
-         OverridesVx = NullableNum(ShearOverrideVxB) is double vxB
+         OverridesVx = NullableNum(ShearOverrideVxB, "ShearOverrideVxB") is double vxB
             ? (_shearLegacySteps?.OverridesVx ?? new ShearInclinedOverrides()) with { B = vxB }
             : _shearLegacySteps?.OverridesVx,
          // Задача, сохранённая до переноса этих параметров в настройки расчёта, сохраняет

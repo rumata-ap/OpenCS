@@ -1180,6 +1180,11 @@
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Model,
                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <MenuItem Header="{DynamicResource CalcTaskDuplicate}"
+                                           Command="{Binding PlacementTarget.Tag.DuplicateCalcTaskCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext.Model,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                  <Separator/>
                                   <MenuItem Header="{DynamicResource CalcTaskDelete}"
                                             Command="{Binding PlacementTarget.Tag.DeleteCalcTaskCommand,

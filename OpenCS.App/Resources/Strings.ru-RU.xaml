@@ -7378,4 +7378,9 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CalcTaskDefaultTag">Задача {0}</system:String>
    <system:String x:Key="CalcTaskDefaultTagPunching">Продавливание {0}</system:String>
    <system:String x:Key="CalcTaskCopyTag">{0} (копия)</system:String>
+   <system:String x:Key="CalcTaskErrNumber">«{0}»: не распознано число «{1}» (десятичный разделитель — запятая или точка)</system:String>
+   <system:String x:Key="CalcTaskResultsStale" xml:space="preserve">Задача «{0}» изменена, а её результаты ({1}) рассчитаны по прежним данным.\n\nДа — удалить устаревшие результаты.\nНет — оставить результаты.\nОтмена — не сохранять изменения.</system:String>
+   <system:String x:Key="ConfirmDeleteCalcTaskWithResults">Удалить задачу «{0}» и её результаты ({1})?</system:String>
+   <system:String x:Key="ConfirmDeleteCalcTaskNamed">Удалить задачу «{0}»?</system:String>
+   <system:String x:Key="CalcTaskDuplicate">Копировать задачу</system:String>
 </ResourceDictionary>

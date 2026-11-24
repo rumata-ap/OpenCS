@@ -69,13 +69,7 @@ class CalcTasksRootNode
 
     CalcTaskVM BuildVM(CalcTask ct)
     {
-        var vm  = new CalcTaskVM(ct);
-        var sec = _app.CrossSections.FirstOrDefault(s => s.Id == ct.SectionId);
-        var fs  = _app.BarForceSets.FirstOrDefault(f => f.Id == ct.ForceSetId);
-        var fi  = fs?.Items.FirstOrDefault(i => i.Id == ct.ForceItemId);
-        vm.SectionTag     = sec?.Tag  ?? "";
-        vm.ForceSetTag    = fs?.Tag   ?? "";
-        vm.ForceItemLabel = fi?.Label ?? "";
+        var vm = CalcTaskVM.Build(ct, _app.db);
         foreach (var r in _app.CalcResults.Where(r => r.TaskId == ct.Id))
             vm.Results.Add(r);
         return vm;

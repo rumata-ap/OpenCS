@@ -1,4 +1,5 @@
 using CScore;
+using OpenCS.Services;
 using OpenCS.Utilites;
 using System.Collections.ObjectModel;
 
@@ -53,5 +54,34 @@ namespace OpenCS.ViewModels
       }
 
       public CalcTaskVM(CalcTask model) => Model = model;
+
+      /// <summary>
+      /// Подписи сечения, набора и строки по виду задачи: сечение пластины, огневое (его стержневое сечение) или
+      /// стержневое; набор — среди всех наборов; метка строки — запросом к базе, без загрузки строк набора
+      /// (наборы РСУ бывают в миллионы строк). Не найдено — «?», нет ссылки — пусто.
+      /// </summary>
+      public static CalcTaskVM Build(CalcTask ct, DatabaseService db)
+      {
+         var vm = new CalcTaskVM(ct);
+         var spec = CalcTaskKinds.Get(ct.Kind);
+         if (ct.SectionId != 0)
+         {
+            string? tag = spec?.Section == CalcTaskSectionKind.Plate
+               ? db.PlateSections.FirstOrDefault(s => s.Id == ct.SectionId)?.Tag
+               : db.CrossSections.FirstOrDefault(s => s.Id == ct.SectionId)?.Tag;
+            vm.sectionTag = tag ?? "?";
+         }
+         if (ct.ForceSetId != 0)
+         {
+            var fs = db.ForceSets.FirstOrDefault(f => f.Id == ct.ForceSetId);
+            vm.forceSetTag = fs?.Tag ?? "?";
+            if (ct.ForceItemId != 0)
+            {
+               var row = fs == null ? null : db.ForceItemRef(ct.ForceItemId, fs.Kind == "shell");
+               vm.forceItemLabel = row is { } r ? (string.IsNullOrWhiteSpace(r.Label) ? r.Num.ToString() : r.Label) : "?";
+            }
+         }
+         return vm;
+      }
    }
 }

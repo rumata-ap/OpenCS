@@ -28,6 +28,9 @@
             <Button Content="{DynamicResource CalcTaskEdit}"
                     Command="{Binding EditTaskCommand}"
                     Padding="10,3" Margin="0,0,6,0"/>
+            <Button Content="{DynamicResource CalcTaskDuplicate}"
+                    Command="{Binding DuplicateTaskCommand}"
+                    Padding="10,3" Margin="0,0,6,0"/>
             <Button Content="{DynamicResource CalcTaskDelete}"
                     Command="{Binding DeleteTaskCommand}"
                     Padding="10,3"/>
@@ -53,6 +56,7 @@
                 SelectionUnit="FullRow"
                 IsReadOnly="True"
                 HeadersVisibility="Column"
+                MouseDoubleClick="TaskGrid_MouseDoubleClick"
                 Margin="0,0,0,0">
          <DataGrid.Columns>
             <DataGridTextColumn Header="#"     Binding="{Binding Model.Num}"  Width="40"/>
