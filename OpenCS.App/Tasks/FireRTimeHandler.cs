@@ -21,15 +21,15 @@ public sealed class FireRTimeHandler : ITaskHandler
       try
       {
          if (ctx?.Database is null)
-            throw new InvalidOperationException("Для fire_r_time требуется контекст с DatabaseService.");
+            throw new InvalidOperationException(Loc.S("FireTaskErrNoDatabase"));
 
          var p = FireTaskParamsBuilder.Parse(Kind, task.ParamsJson);
          if (p.FireSectionId <= 0)
-            throw new InvalidOperationException("Не задан fire_section_id в params_json.");
+            throw new InvalidOperationException(Loc.S("CalcTaskNeedFireSection"));
 
          FireSectionDef? fireDef = ctx.FireSections?.FirstOrDefault(f => f.Id == p.FireSectionId);
          if (fireDef is null)
-            throw new InvalidOperationException($"Огневое сечение id={p.FireSectionId} не найдено.");
+            throw new InvalidOperationException(string.Format(Loc.S("FireTaskErrFireSectionNotFound"), p.FireSectionId));
 
          section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams,
             rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);

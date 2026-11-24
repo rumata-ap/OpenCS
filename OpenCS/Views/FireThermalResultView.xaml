@@ -58,8 +58,8 @@
                      <DataGrid ItemsSource="{Binding RebarRows}" AutoGenerateColumns="False"
                                IsReadOnly="True" CanUserAddRows="False" MaxHeight="160">
                         <DataGrid.Columns>
-                           <DataGridTextColumn Header="ID" Binding="{Binding IdText, Mode=OneWay}" Width="60"/>
-                           <DataGridTextColumn Header="T_max" Binding="{Binding MaxTempText, Mode=OneWay}" Width="*"/>
+                           <DataGridTextColumn Header="{DynamicResource FireThermal_ColRebar}" Binding="{Binding IdText, Mode=OneWay}" Width="60"/>
+                           <DataGridTextColumn Header="{DynamicResource FireThermal_ColTmax}" Binding="{Binding MaxTempText, Mode=OneWay}" Width="*"/>
                         </DataGrid.Columns>
                      </DataGrid>
                   </GroupBox>

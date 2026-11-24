@@ -428,10 +428,12 @@ namespace OpenCS
          get => currentFireSection;
          set
          {
+            if (ReferenceEquals(currentFireSection, value) && value != null
+                && CurrentPage is Views.FireSectionView shown && shown.ViewModel.Model == value) return;
+            var page = value != null ? new Views.FireSectionView(value, this) : null;
+            CurrentPage = page!;
+            if (!ReferenceEquals(CurrentPage, page)) return;   // уход со страницы с правками отменён
             currentFireSection = value;
-            CurrentPage = value != null
-               ? new Views.FireSectionView(value, this)
-               : null!;
             OnPropertyChanged();
          }
       }
@@ -1160,10 +1162,10 @@ namespace OpenCS
 
       /// <summary>Команда создания нового огневого сечения.</summary>
       public ICommand NewFireSectionCommand { get; set; } = null!;
-      /// <summary>Команда удаления выбранного огневого сечения.</summary>
+      /// <summary>Удаление огневого сечения (параметр — сечение элемента дерева; без него — выбранное).</summary>
       public ICommand DeleteFireSectionCommand { get; set; } = null!;
-      /// <summary>Команда переименования/редактирования выбранного огневого сечения.</summary>
-      public ICommand RenameFireSectionCommand { get; set; } = null!;
+      /// <summary>Копия огневого сечения (параметр — сечение элемента дерева; без него — выбранное).</summary>
+      public ICommand DuplicateFireSectionCommand { get; set; } = null!;
 
       /// <summary>Текущий выбранный набор усилий стержня. При установке открывает BarForceSetPage.</summary>
       public ForceSet? CurrentBarForceSet
@@ -1968,11 +1970,14 @@ namespace OpenCS
           DeleteEquivalentSectionCommand = new RelayCommand(p => DeleteEquivalentSection(p as EquivalentSection));
           RecalculateEquivalentSectionCommand = new RelayCommand(p => RecalculateEquivalentSection(p as EquivalentSection));
          NewFireSectionCommand        = new RelayCommand(_ => NewFireSection());
-         DeleteFireSectionCommand     = new RelayCommand(_ => DeleteFireSection());
-         RenameFireSectionCommand     = new RelayCommand(_ => RenameFireSection());
+         DeleteFireSectionCommand     = new RelayCommand(p => DeleteFireSection(p as FireSectionDef),
+                                                         p => (p as FireSectionDef ?? CurrentFireSection) != null);
+         DuplicateFireSectionCommand  = new RelayCommand(p => DuplicateFireSection(p as FireSectionDef),
+                                                         p => (p as FireSectionDef ?? CurrentFireSection) != null);
          OpenCalcTasksCommand         = new RelayCommand(_ => CurrentPage = new Views.CalcTasksPage(this));
          CancelBusyCommand            = new RelayCommand(_ => CancelBusy(), _ => IsBusy);
          ShowCalcTaskDialog = DefaultCalcTaskDialog;
+         ShowFireSectionDialog = DefaultFireSectionDialog;
          ShowCalcTaskParamsWindow = DefaultCalcTaskParamsWindow;
          NewCalcTaskCommand    = new RelayCommand(p => NewCalcTask(p as string));
          DuplicateCalcTaskCommand = new RelayCommand(p => DuplicateCalcTask(p as CalcTask), p => p is CalcTask);
@@ -3523,61 +3528,80 @@ namespace OpenCS
          LogService.Info(string.Format(Loc.S("PlateSavedNewLog"), copy.Tag));
       }
 
-      void NewFireSection()
-      {
-         var dlg = new Views.Dialogs.FireSectionDialog(this)
-         {
-            Owner = Application.Current.MainWindow
-         };
-         if (dlg.ShowDialog() != true || dlg.Result == null) return;
+      /// <summary>Окно создания огневого сечения; null — «Отмена». Заменяется в тестах.</summary>
+      public Func<FireSectionDef?> ShowFireSectionDialog { get; set; } = null!;
 
-         var section = dlg.Result;
-         section.Num = FireSections.Count > 0 ? FireSections.Max(s => s.Num) + 1 : 1;
-         db.SaveFireSection(section);
+      FireSectionDef? DefaultFireSectionDialog()
+      {
+         var dlg = new Views.Dialogs.FireSectionDialog(this);
+         return dlg.ShowDialog() == true ? dlg.Result : null;
+      }
+
+      /// <summary>Новое огневое сечение: окно создания, запись через службу, открытие страницы.</summary>
+      public void NewFireSection()
+      {
+         if (CrossSections.Count == 0)
+         {
+            Notifier.Warning(Loc.S("FireSection_NoCrossSections"), Loc.S("Warning"));
+            return;
+         }
+         var section = ShowFireSectionDialog();
+         if (section == null) return;
+         var errors = Services.FireSectionAuthoring.Save(db, section);
+         if (errors.Count > 0)
+         {
+            foreach (var e in errors)
+               LogService.Error(string.Format(Loc.S("FireSection_SaveErrorLog"), section.Tag, e.Message));
+            return;
+         }
          RenumberFireSections();
+         LogService.Info(string.Format(Loc.S("FireSection_SavedLog"), section.Tag));
          CurrentFireSection = section;
       }
 
-      void RenameFireSection()
+      /// <summary>Копия огневого сечения (все параметры и ручные ГУ; тепловой расчёт — нет).</summary>
+      public void DuplicateFireSection(FireSectionDef? src = null)
       {
-         if (CurrentFireSection == null) return;
-         var dlg = new Views.Dialogs.FireSectionDialog(this, CurrentFireSection)
-         {
-            Owner = Application.Current.MainWindow
-         };
-         if (dlg.ShowDialog() != true || dlg.Result == null) return;
-
-         var updated = dlg.Result;
-         CurrentFireSection.Tag = updated.Tag;
-         CurrentFireSection.SectionId = updated.SectionId;
-         CurrentFireSection.FireDurationMin = updated.FireDurationMin;
-         CurrentFireSection.FireCurve = updated.FireCurve;
-         CurrentFireSection.MeshStepM = updated.MeshStepM;
-         CurrentFireSection.TimeStepS = updated.TimeStepS;
-         CurrentFireSection.BcPreset = updated.BcPreset;
-         CurrentFireSection.HoleBcPreset = updated.HoleBcPreset;
-         db.SaveFireSection(CurrentFireSection);
-         OnPropertyChanged(nameof(FireSections));
-         OnPropertyChanged(nameof(CurrentFireSection));
-         CurrentPage = new Views.FireSectionView(CurrentFireSection, this);
-      }
-
-      void DeleteFireSection()
-      {
-         if (CurrentFireSection == null) return;
-         var res = MessageBox.Show(
-            Loc.S("FireSection_ConfirmDelete"),
-            Loc.S("Warning"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
-         if (res != MessageBoxResult.Yes) return;
-
-         int deletedId = CurrentFireSection.Id;
-         db.DeleteFireSection(deletedId);
+         src ??= CurrentFireSection;
+         if (src == null) return;
+         var copy = Services.FireSectionAuthoring.Duplicate(db, src);
          RenumberFireSections();
-         CurrentFireSection = null;
-         CurrentPage = null!;
+         LogService.Info(string.Format(Loc.S("FireSection_SavedLog"), copy.Tag));
       }
+
+      /// <summary>Удаление огневого сечения: используемое задачами — отказ с именами задач, иначе вопрос.</summary>
+      public void DeleteFireSection(FireSectionDef? target = null)
+      {
+         var fs = target ?? CurrentFireSection;
+         if (fs == null) return;
+         var usedBy = Services.FireSectionAuthoring.UsedBy(db, fs);
+         if (usedBy.Count > 0)
+         {
+            Notifier.Warning(string.Format(Loc.S("FireSection_InUseCannotDelete"), fs.Tag, usedBy.Count,
+               Services.FireSectionAuthoring.UsedByText(usedBy)), Loc.S("Warning"));
+            return;
+         }
+         if (AskConfirmDelete(string.Format(Loc.S("FireSection_ConfirmDeleteNamed"), fs.Tag)) != MessageBoxResult.Yes) return;
+         // Удаляемое огневое сечение на странице с правками — не спрашивать о сохранении.
+         if (CurrentPage?.DataContext is ViewModels.FireSectionVM page && page.Model == fs)
+         {
+            page.DiscardChanges();
+            CurrentPage = null!;
+            if (CurrentPage != null) return;
+         }
+         if (!Services.FireSectionAuthoring.TryDelete(db, fs, out _)) return;
+         RenumberFireSections();
+         if (fs == currentFireSection)
+         {
+            currentFireSection = null;
+            OnPropertyChanged(nameof(CurrentFireSection));
+         }
+         LogService.Info(string.Format(Loc.S("FireSection_DeletedLog"), fs.Tag));
+      }
+
+      /// <summary>Обновить подписи огневых сечений в дереве (у модели нет INotifyPropertyChanged).</summary>
+      public void RefreshFireSectionsView() =>
+         System.Windows.Data.CollectionViewSource.GetDefaultView(FireSections)?.Refresh();
 
       /// <summary>Окно задачи: существующая (правка) или новая в группе дерева; null — «Отмена». Заменяется в тестах.</summary>
       public Func<CalcTask?, string?, CalcTask?> ShowCalcTaskDialog { get; set; } = null!;

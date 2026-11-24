@@ -1419,10 +1419,10 @@
 
    <!-- Fire -->
    <system:String x:Key="FireSection_Node">Fire</system:String>
-   <system:String x:Key="FireSection_New">New fire section</system:String>
+   <system:String x:Key="FireSection_New">New fire section…</system:String>
    <system:String x:Key="FireSection_Delete">Delete fire section</system:String>
    <system:String x:Key="FireSection_Rename">Rename / parameters...</system:String>
-   <system:String x:Key="FireSection_DialogTitle">Fire section parameters</system:String>
+   <system:String x:Key="FireSection_DialogTitle">New fire section</system:String>
    <system:String x:Key="FireSection_CrossSection">Linked section</system:String>
    <system:String x:Key="FireSection_Duration">Fire duration, min</system:String>
    <system:String x:Key="FireSection_Curve">Fire curve</system:String>
@@ -7448,4 +7448,36 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FireSection_SnapshotStep">Field snapshot step, min</system:String>
    <system:String x:Key="FireSection_PicardTol">Iteration tolerance, °C</system:String>
    <system:String x:Key="FireSection_PicardMaxIter">Max iterations per step</system:String>
+   <system:String x:Key="FireSection_Duplicate">Duplicate</system:String>
+   <system:String x:Key="FireSection_DialogHint">Mesh step, time step, hole conditions and manual edge conditions are set on the fire section page.</system:String>
+   <system:String x:Key="FireSection_NoCrossSections">Create a reinforced concrete section first: the fire section is built on its contour.</system:String>
+   <system:String x:Key="FireSection_SaveErrorLog">Fire section "{0}": {1}</system:String>
+   <system:String x:Key="FireSection_InUseCannotDelete" xml:space="preserve">Fire section "{0}" is used by tasks ({1}) and cannot be deleted:&#x0a;{2}</system:String>
+   <system:String x:Key="FireSection_ConfirmDeleteNamed">Delete fire section "{0}" together with its thermal analysis?</system:String>
+   <system:String x:Key="FireSection_DeletedLog">Fire section "{0}" deleted</system:String>
+   <system:String x:Key="FireSection_EdgesResetOnSection">Section changed — manual edge conditions were reset (they referred to the previous section contour).</system:String>
+   <system:String x:Key="FireSection_EdgesReset">Manual edge conditions reset — the preset applies.</system:String>
+   <system:String x:Key="FireSection_ManualEdgesCount">Edges with manual conditions: {0}</system:String>
+   <system:String x:Key="FireSection_ResetEdges">Reset manual conditions</system:String>
+   <system:String x:Key="FireSection_AggregateFromSection">From the section concrete: {0}</system:String>
+   <system:String x:Key="FireSection_AggregateAuto">From the section concrete</system:String>
+   <system:String x:Key="FireErrNotNumber">not a number</system:String>
+   <system:String x:Key="FireErrNotInteger">not an integer</system:String>
+   <system:String x:Key="FireSection_ConfirmSectionChange">Tasks ({0}) refer to this fire section. They will be computed on section "{1}", and their results ({2}) will be deleted. Continue?</system:String>
+   <system:String x:Key="FireSection_CardFire">Fire</system:String>
+   <system:String x:Key="FireSection_CardBc">Boundary conditions</system:String>
+   <system:String x:Key="FireSection_CardMesh">Mesh</system:String>
+   <system:String x:Key="FireSection_CardTime">Time integration</system:String>
+   <system:String x:Key="FireSection_Solver">Solver</system:String>
+   <system:String x:Key="FireSection_HoleBc">Holes</system:String>
+   <system:String x:Key="FireSection_HoleAmbient">Ambient</system:String>
+   <system:String x:Key="FireSection_HoleAdiabatic">Adiabatic (no heat exchange)</system:String>
+   <system:String x:Key="FireSection_Algorithm">Mesh algorithm</system:String>
+   <system:String x:Key="FireSection_AlgRuppert">Ruppert (Delaunay)</system:String>
+   <system:String x:Key="FireSection_AlgAdvancingFront">Advancing front</system:String>
+   <system:String x:Key="FireSection_Theta">Scheme parameter θ (0 — explicit, 1 — implicit)</system:String>
+   <system:String x:Key="FireThermal_ColRebar">Bar</system:String>
+   <system:String x:Key="FireThermal_ColTmax">Tmax, °C</system:String>
+   <system:String x:Key="FireTaskErrNoDatabase">A fire task needs the project database (run context has none)</system:String>
+   <system:String x:Key="FireTaskErrFireSectionNotFound">The fire section of the task was not found (Id {0}) — select a fire section in the task</system:String>
 </ResourceDictionary>

@@ -1419,10 +1419,10 @@
 
    <!-- Огнестойкость -->
    <system:String x:Key="FireSection_Node">Огнестойкость</system:String>
-   <system:String x:Key="FireSection_New">Новое огневое сечение</system:String>
+   <system:String x:Key="FireSection_New">Новое огневое сечение…</system:String>
    <system:String x:Key="FireSection_Delete">Удалить огневое сечение</system:String>
    <system:String x:Key="FireSection_Rename">Переименовать / параметры...</system:String>
-   <system:String x:Key="FireSection_DialogTitle">Параметры огневого сечения</system:String>
+   <system:String x:Key="FireSection_DialogTitle">Новое огневое сечение</system:String>
    <system:String x:Key="FireSection_CrossSection">Связанное сечение</system:String>
    <system:String x:Key="FireSection_Duration">Длительность пожара, мин</system:String>
    <system:String x:Key="FireSection_Curve">Огневая кривая</system:String>
@@ -7448,4 +7448,36 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FireSection_SnapshotStep">Шаг снимков поля, мин</system:String>
    <system:String x:Key="FireSection_PicardTol">Допуск итераций, °C</system:String>
    <system:String x:Key="FireSection_PicardMaxIter">Итераций на шаге, не более</system:String>
+   <system:String x:Key="FireSection_Duplicate">Копировать</system:String>
+   <system:String x:Key="FireSection_DialogHint">Шаг сетки, шаг по времени, условия на отверстиях и ручные ГУ рёбер задаются на странице огневого сечения.</system:String>
+   <system:String x:Key="FireSection_NoCrossSections">Сначала создайте железобетонное сечение: огневое сечение строится по его контуру.</system:String>
+   <system:String x:Key="FireSection_SaveErrorLog">Огневое сечение «{0}»: {1}</system:String>
+   <system:String x:Key="FireSection_InUseCannotDelete" xml:space="preserve">Огневое сечение «{0}» используется задачами ({1}) и не может быть удалено:&#x0a;{2}</system:String>
+   <system:String x:Key="FireSection_ConfirmDeleteNamed">Удалить огневое сечение «{0}» вместе с тепловым расчётом?</system:String>
+   <system:String x:Key="FireSection_DeletedLog">Огневое сечение «{0}» удалено</system:String>
+   <system:String x:Key="FireSection_EdgesResetOnSection">Сечение изменено — ручные ГУ рёбер сброшены (они относились к контуру прежнего сечения).</system:String>
+   <system:String x:Key="FireSection_EdgesReset">Ручные ГУ рёбер сброшены — действует шаблон.</system:String>
+   <system:String x:Key="FireSection_ManualEdgesCount">Рёбер с ручными ГУ: {0}</system:String>
+   <system:String x:Key="FireSection_ResetEdges">Сбросить ручные ГУ</system:String>
+   <system:String x:Key="FireSection_AggregateFromSection">Из бетона сечения: {0}</system:String>
+   <system:String x:Key="FireSection_AggregateAuto">Из бетона сечения</system:String>
+   <system:String x:Key="FireErrNotNumber">не число</system:String>
+   <system:String x:Key="FireErrNotInteger">не целое число</system:String>
+   <system:String x:Key="FireSection_ConfirmSectionChange">На огневое сечение ссылаются задачи ({0}). Они будут считаться на сечении «{1}», их результаты ({2}) будут удалены. Продолжить?</system:String>
+   <system:String x:Key="FireSection_CardFire">Пожар</system:String>
+   <system:String x:Key="FireSection_CardBc">Граничные условия</system:String>
+   <system:String x:Key="FireSection_CardMesh">Сетка</system:String>
+   <system:String x:Key="FireSection_CardTime">Расчёт по времени</system:String>
+   <system:String x:Key="FireSection_Solver">Решатель</system:String>
+   <system:String x:Key="FireSection_HoleBc">Отверстия</system:String>
+   <system:String x:Key="FireSection_HoleAmbient">Окружающая среда</system:String>
+   <system:String x:Key="FireSection_HoleAdiabatic">Адиабата (без теплообмена)</system:String>
+   <system:String x:Key="FireSection_Algorithm">Алгоритм сетки</system:String>
+   <system:String x:Key="FireSection_AlgRuppert">Рупперт (Делоне)</system:String>
+   <system:String x:Key="FireSection_AlgAdvancingFront">Продвигающийся фронт</system:String>
+   <system:String x:Key="FireSection_Theta">Параметр схемы θ (0 — явная, 1 — неявная)</system:String>
+   <system:String x:Key="FireThermal_ColRebar">Стержень</system:String>
+   <system:String x:Key="FireThermal_ColTmax">Tmax, °C</system:String>
+   <system:String x:Key="FireTaskErrNoDatabase">Огневой задаче нужна база проекта (контекст расчёта без базы)</system:String>
+   <system:String x:Key="FireTaskErrFireSectionNotFound">Огневое сечение задачи не найдено (Id {0}) — выберите огневое сечение в задаче</system:String>
 </ResourceDictionary>

@@ -23,19 +23,19 @@ public sealed class FireRCheckBatchHandler : ITaskHandler
         try
         {
             if (ctx?.Database is null)
-                throw new InvalidOperationException("Для fire_r_check_batch требуется контекст с DatabaseService.");
+                throw new InvalidOperationException(Loc.S("FireTaskErrNoDatabase"));
 
             var p = FireRCheckParams.Parse(task.ParamsJson);
             if (p.FireSectionId <= 0)
-                throw new InvalidOperationException("Не задан fire_section_id в params_json.");
+                throw new InvalidOperationException(Loc.S("CalcTaskNeedFireSection"));
 
             FireSectionDef? fireDef = ctx.FireSections?.FirstOrDefault(f => f.Id == p.FireSectionId);
             if (fireDef is null)
-                throw new InvalidOperationException($"Огневое сечение id={p.FireSectionId} не найдено.");
+                throw new InvalidOperationException(string.Format(Loc.S("FireTaskErrFireSectionNotFound"), p.FireSectionId));
 
             var forceSet = ctx.Database.ForceSets.FirstOrDefault(fs => fs.Id == task.ForceSetId);
             if (forceSet is null)
-                throw new InvalidOperationException("Набор усилий задачи не найден.");
+                throw new InvalidOperationException(Loc.S("CalcTaskErrSetNotFound"));
 
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx?.Database?.Diagrams,
                rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);

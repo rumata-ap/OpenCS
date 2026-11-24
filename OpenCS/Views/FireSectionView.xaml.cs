@@ -1,38 +1,36 @@
 using CScore;
-using CScore.Fire;
 using CScore.Fire.Entities;
-using OpenCS.Tasks;
-using OpenCS.Utilites;
 using OpenCS.ViewModels;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace OpenCS.Views
 {
    /// <summary>
-   /// Базовое представление огневого сечения с запуском теплового расчёта.
+   /// Страница огневого сечения: параметры (черновик <see cref="FireSectionVM"/>), превью с ручными ГУ рёбер,
+   /// тепловой расчёт и его результат.
    /// </summary>
    public partial class FireSectionView : UserControl
    {
-      readonly FireSectionViewModel _vm;
+      readonly FireSectionVM _vm;
       FireThermalResultView? _thermalResultView;
       bool _thermalTabLoaded;
 
       public FireSectionView(FireSectionDef model, AppViewModel app)
       {
          InitializeComponent();
-         _vm = new FireSectionViewModel(model, app);
+         _vm = new FireSectionVM(model, app);
          DataContext = _vm;
-         Loaded += (_, _) => Dispatcher.BeginInvoke(DispatcherPriority.Background, RefreshPreview);
+         Loaded += (_, _) => Dispatcher.BeginInvoke(DispatcherPriority.Background, _vm.RefreshPreview);
       }
+
+      /// <summary>VM страницы.</summary>
+      public FireSectionVM ViewModel => _vm;
 
       void MainTab_SelectionChanged(object sender, SelectionChangedEventArgs e)
       {
@@ -43,437 +41,14 @@ namespace OpenCS.Views
          _thermalResultView = new FireThermalResultView();
          _thermalResultView.SetBinding(
             DataContextProperty,
-            new System.Windows.Data.Binding(nameof(FireSectionViewModel.ThermalResult)) { Source = _vm });
+            new System.Windows.Data.Binding(nameof(FireSectionVM.ThermalResult)) { Source = _vm });
          thermalResultHost.Content = _thermalResultView;
-      }
-
-      internal void BcPreset_SelectionChanged(object sender, SelectionChangedEventArgs e)
-      {
-         if (!IsLoaded) return;
-         RefreshPreview();
-      }
-
-      internal void RefreshPreview()
-      {
-         _vm.RefreshPreview();
-         noPreviewLabel.Visibility = _vm.Preview.HasGeometry
-            ? Visibility.Collapsed
-            : Visibility.Visible;
       }
 
       void ShowMesh_Changed(object sender, RoutedEventArgs e)
       {
          if (!IsLoaded) return;
-         _vm.OnShowMeshChanged(_vm.Preview.ShowMesh);
-      }
-
-      void MeshStep_LostFocus(object sender, RoutedEventArgs e)
-      {
-         if (!IsLoaded) return;
-         _vm.OnMeshStepChanged();
-      }
-   }
-
-   /// <summary>
-   /// ViewModel представления огневого сечения.
-   /// </summary>
-   public class FireSectionViewModel : ViewModelBase
-   {
-      readonly FireSectionDef _model;
-      readonly AppViewModel _app;
-
-      string tag;
-      string fireDurationMinText;
-      string fireCurve;
-      string meshStepMText;
-      string timeStepSText;
-      string bcPreset;
-      string aggregateType;
-      string meshElementType;
-      string lastRunInfo = "";
-      int _thermalLoadToken;
-      bool _thermalRunning;
-      string thermalStatusText = "";
-      bool thermalStatusIsProblem;
-      string meshWarningText = "";
-      bool hasThermalResult;
-
-      public ICommand SaveCommand { get; }
-      public ICommand RunThermalCommand { get; }
-      public ICommand DeleteThermalCommand { get; }
-      public FirePreviewVM Preview { get; }
-
-      public FireSectionDef Model => _model;
-      public AppViewModel App => _app;
-
-      public string Tag
-      {
-         get => tag;
-         set { tag = value; OnPropertyChanged(); }
-      }
-
-      public string LinkedCrossSectionName
-      {
-         get
-         {
-            var sec = _app.CrossSections.FirstOrDefault(x => x.Id == _model.SectionId);
-            return sec?.Tag ?? Loc.S("FireSection_SectionNotFound");
-         }
-      }
-
-      public string FireDurationMinText
-      {
-         get => fireDurationMinText;
-         set { fireDurationMinText = value; OnPropertyChanged(); }
-      }
-
-      public string FireCurve
-      {
-         get => fireCurve;
-         set { fireCurve = value; OnPropertyChanged(); }
-      }
-
-      public string MeshStepMText
-      {
-         get => meshStepMText;
-         set { meshStepMText = value; OnPropertyChanged(); }
-      }
-
-      public string TimeStepSText
-      {
-         get => timeStepSText;
-         set { timeStepSText = value; OnPropertyChanged(); }
-      }
-
-      public string BcPreset
-      {
-         get => bcPreset;
-         set
-         {
-            bcPreset = value;
-            OnPropertyChanged();
-            RefreshPreview();
-         }
-      }
-
-      public string AggregateType
-      {
-         get => aggregateType;
-         set { aggregateType = value; OnPropertyChanged(); }
-      }
-
-      public string MeshElementType
-      {
-         get => meshElementType;
-         set
-         {
-            meshElementType = value;
-            OnPropertyChanged();
-            RefreshPreview();
-         }
-      }
-
-      public string LastRunInfo
-      {
-         get => lastRunInfo;
-         set { lastRunInfo = value; OnPropertyChanged(); }
-      }
-
-      /// <summary>Идёт тепловой расчёт — команда запуска заблокирована.</summary>
-      public bool ThermalRunning
-      {
-         get => _thermalRunning;
-         private set
-         {
-            _thermalRunning = value;
-            OnPropertyChanged();
-            CommandManager.InvalidateRequerySuggested();
-         }
-      }
-
-      /// <summary>Состояние теплового расчёта: дата, длительность, актуальность.</summary>
-      public string ThermalStatusText
-      {
-         get => thermalStatusText;
-         private set { thermalStatusText = value; OnPropertyChanged(); }
-      }
-
-      /// <summary>Расчёт не выполнен или устарел.</summary>
-      public bool ThermalStatusIsProblem
-      {
-         get => thermalStatusIsProblem;
-         private set { thermalStatusIsProblem = value; OnPropertyChanged(); }
-      }
-
-      /// <summary>Предупреждение о шаге сетки вне рекомендуемого диапазона п. 6.2 СП 468.</summary>
-      public string MeshWarningText
-      {
-         get => meshWarningText;
-         private set
-         {
-            meshWarningText = value;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(HasMeshWarning));
-         }
-      }
-
-      public bool HasMeshWarning => MeshWarningText.Length > 0;
-
-      public FireThermalResultVM ThermalResult { get; private set; }
-
-      public FireSectionViewModel(FireSectionDef model, AppViewModel app)
-      {
-         _model = model;
-         _app = app;
-         tag = model.Tag;
-         fireDurationMinText = model.FireDurationMin.ToString("G", CultureInfo.InvariantCulture);
-         fireCurve = model.FireCurve;
-         meshStepMText = model.MeshStepM.ToString("G", CultureInfo.InvariantCulture);
-         timeStepSText = model.TimeStepS.ToString("G", CultureInfo.InvariantCulture);
-         bcPreset = model.BcPreset;
-         aggregateType = string.IsNullOrWhiteSpace(model.AggregateType)
-            ? ResolveDefaultAggregateType()
-            : model.AggregateType;
-         meshElementType = "linear";
-         Preview = new FirePreviewVM();
-         ThermalResult = FireThermalResultVM.CreateLoading(_model);
-         SaveCommand = new RelayCommand(_ => Save());
-         RunThermalCommand = new RelayCommand(_ => RunThermalAsync(), _ => !ThermalRunning);
-         DeleteThermalCommand = new RelayCommand(_ => DeleteThermal(),
-            _ => hasThermalResult && !ThermalRunning);
-         ReloadThermalState();
-         StartLoadThermalResultAsync();
-      }
-
-      void StartLoadThermalResultAsync()
-      {
-         if (_model.Id <= 0)
-         {
-            ThermalResult = new FireThermalResultVM(_model, null, null);
-            OnPropertyChanged(nameof(ThermalResult));
-            return;
-         }
-
-         int token = ++_thermalLoadToken;
-         Task.Run<(FireThermalResult? thermal, int? rid)>(() =>
-         {
-            try
-            {
-               int? rid = _app.db.GetFireThermalResultInfo(_model.Id)?.Id;
-               if (rid is null)
-                  return (null, null);
-               return (_app.db.LoadFireThermalResult(rid.Value), rid);
-            }
-            catch
-            {
-               return (null, null);
-            }
-         }).ContinueWith(t =>
-         {
-            Application.Current?.Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
-            {
-               if (token != _thermalLoadToken)
-                  return;
-
-               var (thermal, rid) = t.Result;
-               ThermalResult = new FireThermalResultVM(_model, thermal, rid);
-               OnPropertyChanged(nameof(ThermalResult));
-            });
-         });
-      }
-
-      string ResolveDefaultAggregateType()
-      {
-         var section = _app.CrossSections.FirstOrDefault(s => s.Id == _model.SectionId);
-         if (section == null) return "silicate";
-         foreach (var area in section.Areas)
-         {
-            var mat = area.Material ?? _app.Materials.FirstOrDefault(m => m.Id == area.MaterialId);
-            if (mat?.Type == MatType.Concrete)
-               return string.IsNullOrWhiteSpace(mat.AggregateType) ? "silicate" : mat.AggregateType;
-         }
-         return "silicate";
-      }
-
-      public void RefreshPreview()
-      {
-         var section = _app.CrossSections.FirstOrDefault(s => s.Id == _model.SectionId);
-         double meshStep = ParsePositiveOrDefault(MeshStepMText, _model.MeshStepM, 0.01);
-         Preview.Configure(
-            _model,
-            section,
-            BcPreset,
-            meshStep,
-            _model.Algorithm,
-            _model.SmoothIterTri,
-            MeshElementType);
-      }
-
-      internal void OnShowMeshChanged(bool show) => Preview.OnShowMeshChanged(show);
-
-      internal void OnMeshStepChanged()
-      {
-         double meshStep = ParsePositiveOrDefault(MeshStepMText, _model.MeshStepM, 0.01);
-         Preview.OnMeshStepChanged(meshStep);
-      }
-
-      void RefreshThermalResult()
-      {
-         ThermalResult = FireThermalResultVM.CreateLoading(_model);
-         OnPropertyChanged(nameof(ThermalResult));
-         StartLoadThermalResultAsync();
-      }
-
-      void Save()
-      {
-         ApplyFormToModel();
-         _app.db.SaveFireSection(_model);
-         ReloadThermalState();
-         LastRunInfo = Loc.S("FireSection_Saved");
-         _app.LogService.Info(string.Format(Loc.S("FireSection_SavedLog"), _model.Tag));
-      }
-
-      async void RunThermalAsync()
-      {
-         ApplyFormToModel();
-         var section = _app.CrossSections.FirstOrDefault(s => s.Id == _model.SectionId);
-         if (section == null)
-         {
-            LastRunInfo = Loc.S("FireSection_SectionNotFound");
-            _app.LogService.Error(Loc.S("FireSection_SectionNotFound"));
-            return;
-         }
-
-         var meshCheck = FireMeshStepValidator.Check(section, _model.MeshStepM);
-         if (meshCheck.UnknownDiameterCount > 0)
-            _app.LogService.Warning(string.Format(
-               Loc.S("FireSection_RebarDiameterUnknown"), meshCheck.UnknownDiameterCount));
-
-         if (meshCheck.BlocksRun)
-         {
-            string msg = meshCheck.TooCoarse
-               ? string.Format(Loc.S("FireSection_MeshStepTooCoarse"),
-                  _model.MeshStepM, meshCheck.MinSideM, FireMeshStepValidator.MinElementsAcross)
-               : string.Format(Loc.S("FireSection_MeshStepBelowRebarDiameter"),
-                  _model.MeshStepM, meshCheck.MaxRebarDiameterM);
-            LastRunInfo = msg;
-            _app.LogService.Error(msg);
-            return;
-         }
-
-         if (meshCheck.OutOfRecommendedRange)
-            _app.LogService.Warning(string.Format(
-               Loc.S("FireSection_MeshStepOutOfRange"), _model.MeshStepM));
-
-         // Сохраняем всегда: хеш результата считается по форме, и если оставить в базе
-         // старые параметры, после перезапуска расчёт окажется «устаревшим».
-         _app.db.SaveFireSection(_model);
-
-         string aggregate = ResolveAggregateType(section);
-         ThermalRunning = true;
-         LastRunInfo = Loc.S("FireThermal_Running");
-
-         try
-         {
-            var input = FireThermalInputSnapshot.Build(_model, section, aggregate);
-            var result = await Task.Run(
-               () => FireThermalService.Run(_model, section, aggregate)).ConfigureAwait(true);
-            _app.db.SaveFireThermalResult(_model.Id, result, input.Json, input.Hash);
-            ReloadThermalState();
-            RefreshThermalResult();
-            LastRunInfo = Loc.S("FireSection_RunOk");
-            _app.LogService.Info(string.Format(Loc.S("FireSection_RunOkLog"), _model.Tag));
-         }
-         catch (Exception ex)
-         {
-            LastRunInfo = string.Format(Loc.S("FireSection_RunError"), ex.Message);
-            _app.LogService.Error(string.Format(Loc.S("FireSection_RunError"), ex.Message));
-         }
-         finally
-         {
-            ThermalRunning = false;
-         }
-      }
-
-      /// <summary>Перечитать состояние теплового расчёта и предупреждение о сетке.</summary>
-      internal void ReloadThermalState()
-      {
-         var inv = CultureInfo.InvariantCulture;
-         var section = _app.CrossSections.FirstOrDefault(s => s.Id == _model.SectionId);
-         var info = _model.Id > 0 ? _app.db.GetFireThermalResultInfo(_model.Id) : null;
-         hasThermalResult = info is not null;
-         CommandManager.InvalidateRequerySuggested();
-
-         if (info is null)
-         {
-            ThermalStatusText = Loc.S("FireThermal_StatusNone");
-            ThermalStatusIsProblem = true;
-         }
-         else
-         {
-            string? stale = null;
-            if (section is not null)
-            {
-               try { stale = FireThermalReference.StaleReason(_app.db, _model, section, info); }
-               catch (Exception) { stale = null; }
-            }
-            string duration = info.DurationMin?.ToString("F0", inv) ?? "—";
-            string snapshots = info.SnapshotCount?.ToString(inv) ?? "—";
-            ThermalStatusText = stale is null
-               ? string.Format(Loc.S("FireThermal_StatusCurrent"), info.Created, duration, snapshots)
-               : string.Format(Loc.S("FireThermal_StatusStale"), info.Created, duration, snapshots, stale);
-            ThermalStatusIsProblem = stale is not null;
-         }
-
-         MeshWarningText = section is not null
-            && FireMeshStepValidator.Check(section, _model.MeshStepM).OutOfRecommendedRange
-            ? string.Format(Loc.S("FireSection_MeshStepOutOfRange"), _model.MeshStepM)
-            : "";
-      }
-
-      void DeleteThermal()
-      {
-         _app.db.DeleteFireThermalResultForSection(_model.Id);
-         ReloadThermalState();
-         RefreshThermalResult();
-      }
-
-      void ApplyFormToModel()
-      {
-         _model.Tag = string.IsNullOrWhiteSpace(Tag)
-            ? string.Format(Loc.S("FireSection_DefaultTag"), _app.FireSections.Count + 1)
-            : Tag.Trim();
-         _model.FireDurationMin = ParsePositiveOrDefault(FireDurationMinText, _model.FireDurationMin, 60.0);
-         _model.FireCurve = string.IsNullOrWhiteSpace(FireCurve) ? "iso834" : FireCurve;
-         _model.MeshStepM = ParsePositiveOrDefault(MeshStepMText, _model.MeshStepM, 0.01);
-         _model.TimeStepS = ParsePositiveOrDefault(TimeStepSText, _model.TimeStepS, 5.0);
-         _model.BcPreset = string.IsNullOrWhiteSpace(BcPreset) ? "manual" : BcPreset;
-         _model.AggregateType = aggregateType ?? "";
-         _model.MeshElementType = "linear";
-      }
-
-      static double ParsePositiveOrDefault(string? text, double current, double fallback)
-      {
-         if (string.IsNullOrWhiteSpace(text)) return current > 0.0 ? current : fallback;
-         string normalized = text.Trim().Replace(',', '.');
-         if (!double.TryParse(normalized, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
-            return current > 0.0 ? current : fallback;
-         return value > 0.0 ? value : (current > 0.0 ? current : fallback);
-      }
-
-      string ResolveAggregateType(CrossSection section)
-      {
-         if (!string.IsNullOrWhiteSpace(_model.AggregateType))
-            return _model.AggregateType.Trim().ToLowerInvariant();
-         if (!string.IsNullOrWhiteSpace(aggregateType))
-            return aggregateType.Trim().ToLowerInvariant();
-         foreach (var area in section.Areas)
-         {
-            var mat = area.Material ?? _app.Materials.FirstOrDefault(m => m.Id == area.MaterialId);
-            if (mat?.Type == MatType.Concrete)
-               return string.IsNullOrWhiteSpace(mat.AggregateType) ? "silicate" : mat.AggregateType;
-         }
-         return "silicate";
+         _vm.Preview.OnShowMeshChanged(_vm.Preview.ShowMesh);
       }
    }
 

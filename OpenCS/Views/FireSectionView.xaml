@@ -1,92 +1,235 @@
 <UserControl x:Class="OpenCS.Views.FireSectionView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:OpenCS.Views"
              xmlns:h="clr-namespace:OpenCS.Views.Helpers">
+   <UserControl.Resources>
+      <ResourceDictionary>
+         <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="/OpenCS;component/Resources/CardStyles.xaml"/>
+         </ResourceDictionary.MergedDictionaries>
+         <Style x:Key="Lbl" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,8,6"/>
+         </Style>
+         <Style x:Key="Fld" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="Margin" Value="0,0,0,6"/>
+         </Style>
+         <Style x:Key="Cmb" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+            <Setter Property="Margin" Value="0,0,0,6"/>
+         </Style>
+         <Style x:Key="Hint" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+            <Setter Property="Foreground" Value="Gray"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+         </Style>
+      </ResourceDictionary>
+   </UserControl.Resources>
+
    <TabControl x:Name="mainTabs" Margin="4" SelectionChanged="MainTab_SelectionChanged">
       <TabItem Header="{DynamicResource FireSection_TabParameters}">
          <Grid>
             <Grid.ColumnDefinitions>
-               <ColumnDefinition Width="420"/>
+               <ColumnDefinition Width="440"/>
                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Left: parameters -->
-            <Grid Grid.Column="0" Margin="12,12,4,12">
-               <Grid.RowDefinitions>
-                  <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="*"/>
-               </Grid.RowDefinitions>
-               <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="180"/>
-                  <ColumnDefinition Width="*"/>
-               </Grid.ColumnDefinitions>
+            <!-- Слева: параметры -->
+            <DockPanel Grid.Column="0" Margin="8,8,4,8">
+               <!-- Имя и команды -->
+               <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="Auto"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Tag}" Style="{StaticResource Lbl}"/>
+                  <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource Fld}"
+                           Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True}"/>
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource FireSection_CrossSection}" Style="{StaticResource Lbl}"/>
+                  <ComboBox Grid.Row="1" Grid.Column="1" Style="{StaticResource Cmb}"
+                            ItemsSource="{Binding Sections}" DisplayMemberPath="Tag"
+                            SelectedItem="{Binding SelectedSection, ValidatesOnNotifyDataErrors=True}"/>
+               </Grid>
 
-               <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Tag}" Margin="0,0,8,8" VerticalAlignment="Center"/>
-               <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
-
-               <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource FireSection_CrossSection}" Margin="0,0,8,8" VerticalAlignment="Center"/>
-               <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LinkedCrossSectionName}" Margin="0,0,0,8" VerticalAlignment="Center"/>
-
-               <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource FireSection_Duration}" Margin="0,0,8,8" VerticalAlignment="Center"/>
-               <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding FireDurationMinText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
-
-               <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource FireSection_Curve}" Margin="0,0,8,8" VerticalAlignment="Center"/>
-               <ComboBox Grid.Row="3" Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding FireCurve}" Margin="0,0,0,8">
-                  <ComboBoxItem Tag="iso834" Content="{DynamicResource FireSection_CurveIso834}"/>
-                  <ComboBoxItem Tag="hydrocarbon" Content="{DynamicResource FireSection_CurveHydrocarbon}"/>
-                  <ComboBoxItem Tag="slow" Content="{DynamicResource FireSection_CurveSlow}"/>
-               </ComboBox>
-
-               <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource FireSection_MeshStep}" Margin="0,0,8,8" VerticalAlignment="Center"/>
-               <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding MeshStepMText, UpdateSourceTrigger=PropertyChanged}"
-                        Margin="0,0,0,8" LostFocus="MeshStep_LostFocus"/>
-
-               <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource FireSection_TimeStep}" Margin="0,0,8,8" VerticalAlignment="Center"/>
-               <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding TimeStepSText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
-
-               <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource Material_AggregateType}" Margin="0,0,8,8" VerticalAlignment="Center"/>
-               <ComboBox Grid.Row="6" Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding AggregateType}" Margin="0,0,0,8">
-                  <ComboBoxItem Tag="silicate" Content="{DynamicResource Material_AggregateType_Silicate}"/>
-                  <ComboBoxItem Tag="carbonate" Content="{DynamicResource Material_AggregateType_Carbonate}"/>
-                  <ComboBoxItem Tag="lightweight" Content="{DynamicResource Material_AggregateType_Lightweight}"/>
-               </ComboBox>
-
-               <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource FireSection_BcPreset}" Margin="0,0,8,8" VerticalAlignment="Center"/>
-               <ComboBox Grid.Row="7" Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding BcPreset}" Margin="0,0,0,8"
-                         SelectionChanged="BcPreset_SelectionChanged">
-                  <ComboBoxItem Tag="manual" Content="{DynamicResource FireSection_BcManual}"/>
-                  <ComboBoxItem Tag="1-sided" Content="{DynamicResource FireSection_Bc1Sided}"/>
-                  <ComboBoxItem Tag="2-sided" Content="{DynamicResource FireSection_Bc2Sided}"/>
-                  <ComboBoxItem Tag="3-sided" Content="{DynamicResource FireSection_Bc3Sided}"/>
-                  <ComboBoxItem Tag="all-sided" Content="{DynamicResource FireSection_BcAllSided}"/>
-               </ComboBox>
-
-               <StackPanel Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
-                  <Button Content="{DynamicResource Save}" Command="{Binding SaveCommand}" Width="120" Margin="0,0,8,0"/>
-                  <Button Content="{DynamicResource FireSection_RunThermal}" Command="{Binding RunThermalCommand}" Width="170"/>
+               <StackPanel DockPanel.Dock="Bottom" Margin="0,4,0,0">
+                  <TextBlock Text="{Binding ErrorText}" Foreground="#B91C1C" TextWrapping="Wrap" Margin="0,0,0,6"
+                             Visibility="{Binding HasErrorText, Converter={StaticResource BoolToVisibility}}"/>
+                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                     <Button Content="{DynamicResource Save}" Command="{Binding SaveCommand}" MinWidth="110" Margin="0,0,8,0"/>
+                     <Button Content="{DynamicResource FireSection_RunThermal}" Command="{Binding RunThermalCommand}" MinWidth="170"/>
+                  </StackPanel>
+                  <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                  <TextBlock Text="{Binding ThermalStatusText}" TextWrapping="Wrap" Margin="0,4,0,0">
+                     <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                           <Style.Triggers>
+                              <DataTrigger Binding="{Binding ThermalStatusIsProblem}" Value="True">
+                                 <Setter Property="Foreground" Value="DarkOrange"/>
+                              </DataTrigger>
+                           </Style.Triggers>
+                        </Style>
+                     </TextBlock.Style>
+                  </TextBlock>
+                  <TextBlock Text="{DynamicResource FireSection_Norm48Note}" Style="{StaticResource Hint}" Margin="0,6,0,0"/>
                </StackPanel>
 
-               <Border Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,12,0,0" Padding="10"
-                       BorderThickness="1" BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}">
+               <ScrollViewer VerticalScrollBarVisibility="Auto">
                   <StackPanel>
-                     <TextBlock Text="{Binding LastRunInfo}" TextWrapping="Wrap"/>
-                     <TextBlock Text="{DynamicResource FireSection_Norm48Note}" TextWrapping="Wrap"
-                                Foreground="Gray" Margin="0,8,0,0"/>
-                  </StackPanel>
-               </Border>
-            </Grid>
+                     <!-- Пожар -->
+                     <GroupBox Header="{DynamicResource FireSection_CardFire}" Style="{StaticResource CardGroupBox}" Margin="0,0,0,8">
+                        <Grid>
+                           <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="190"/>
+                              <ColumnDefinition Width="*"/>
+                           </Grid.ColumnDefinitions>
+                           <Grid.RowDefinitions>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
+                           </Grid.RowDefinitions>
+                           <TextBlock Grid.Row="0" Text="{DynamicResource FireSection_Duration}" Style="{StaticResource Lbl}"/>
+                           <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource Fld}"
+                                    Text="{Binding FireDurationText, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True}"/>
+                           <TextBlock Grid.Row="1" Text="{DynamicResource FireSection_Curve}" Style="{StaticResource Lbl}"/>
+                           <ComboBox Grid.Row="1" Grid.Column="1" Style="{StaticResource Cmb}" SelectedValuePath="Tag"
+                                     SelectedValue="{Binding FireCurve, ValidatesOnNotifyDataErrors=True}">
+                              <ComboBoxItem Tag="iso834" Content="{DynamicResource FireSection_CurveIso834}"/>
+                              <ComboBoxItem Tag="hydrocarbon" Content="{DynamicResource FireSection_CurveHydrocarbon}"/>
+                              <ComboBoxItem Tag="slow" Content="{DynamicResource FireSection_CurveSlow}"/>
+                           </ComboBox>
+                           <TextBlock Grid.Row="2" Text="{DynamicResource Material_AggregateType}" Style="{StaticResource Lbl}"/>
+                           <ComboBox Grid.Row="2" Grid.Column="1" Style="{StaticResource Cmb}" SelectedValuePath="Tag"
+                                     SelectedValue="{Binding AggregateType, ValidatesOnNotifyDataErrors=True}">
+                              <ComboBoxItem Tag="" Content="{DynamicResource FireSection_AggregateAuto}"/>
+                              <ComboBoxItem Tag="silicate" Content="{DynamicResource Material_AggregateType_Silicate}"/>
+                              <ComboBoxItem Tag="carbonate" Content="{DynamicResource Material_AggregateType_Carbonate}"/>
+                              <ComboBoxItem Tag="lightweight" Content="{DynamicResource Material_AggregateType_Lightweight}"/>
+                           </ComboBox>
+                           <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding AggregateFromSectionText}" Style="{StaticResource Hint}"/>
+                        </Grid>
+                     </GroupBox>
 
-            <!-- Right: section preview -->
-            <Grid Grid.Column="1" Margin="4,12,12,12">
+                     <!-- Граничные условия -->
+                     <GroupBox Header="{DynamicResource FireSection_CardBc}" Style="{StaticResource CardGroupBox}" Margin="0,0,0,8">
+                        <Grid>
+                           <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="190"/>
+                              <ColumnDefinition Width="*"/>
+                           </Grid.ColumnDefinitions>
+                           <Grid.RowDefinitions>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
+                           </Grid.RowDefinitions>
+                           <TextBlock Grid.Row="0" Text="{DynamicResource FireSection_BcPreset}" Style="{StaticResource Lbl}"/>
+                           <ComboBox Grid.Row="0" Grid.Column="1" Style="{StaticResource Cmb}" SelectedValuePath="Tag"
+                                     SelectedValue="{Binding BcPreset, ValidatesOnNotifyDataErrors=True}">
+                              <ComboBoxItem Tag="manual" Content="{DynamicResource FireSection_BcManual}"/>
+                              <ComboBoxItem Tag="1-sided" Content="{DynamicResource FireSection_Bc1Sided}"/>
+                              <ComboBoxItem Tag="2-sided" Content="{DynamicResource FireSection_Bc2Sided}"/>
+                              <ComboBoxItem Tag="3-sided" Content="{DynamicResource FireSection_Bc3Sided}"/>
+                              <ComboBoxItem Tag="all-sided" Content="{DynamicResource FireSection_BcAllSided}"/>
+                           </ComboBox>
+                           <TextBlock Grid.Row="1" Text="{DynamicResource FireSection_HoleBc}" Style="{StaticResource Lbl}"/>
+                           <ComboBox Grid.Row="1" Grid.Column="1" Style="{StaticResource Cmb}" SelectedValuePath="Tag"
+                                     SelectedValue="{Binding HoleBcPreset, ValidatesOnNotifyDataErrors=True}">
+                              <ComboBoxItem Tag="ambient" Content="{DynamicResource FireSection_HoleAmbient}"/>
+                              <ComboBoxItem Tag="adiabatic" Content="{DynamicResource FireSection_HoleAdiabatic}"/>
+                           </ComboBox>
+                           <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Text="{DynamicResource FireSection_ManualHint}" Style="{StaticResource Hint}"/>
+                           <DockPanel Grid.Row="3" Grid.ColumnSpan="2">
+                              <Button DockPanel.Dock="Right" Content="{DynamicResource FireSection_ResetEdges}"
+                                      Command="{Binding ResetEdgesCommand}" Padding="8,2"/>
+                              <TextBlock Text="{Binding ManualEdgesText}" VerticalAlignment="Center"/>
+                           </DockPanel>
+                        </Grid>
+                     </GroupBox>
+
+                     <!-- Сетка -->
+                     <GroupBox Header="{DynamicResource FireSection_CardMesh}" Style="{StaticResource CardGroupBox}" Margin="0,0,0,8">
+                        <Grid>
+                           <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="190"/>
+                              <ColumnDefinition Width="*"/>
+                           </Grid.ColumnDefinitions>
+                           <Grid.RowDefinitions>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
+                           </Grid.RowDefinitions>
+                           <TextBlock Grid.Row="0" Text="{DynamicResource FireSection_MeshStep}" Style="{StaticResource Lbl}"/>
+                           <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource Fld}"
+                                    Text="{Binding MeshStepMmText, UpdateSourceTrigger=LostFocus, ValidatesOnNotifyDataErrors=True}"/>
+                           <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding MeshWarningText}" Foreground="DarkOrange"
+                                      TextWrapping="Wrap" Margin="0,0,0,6"
+                                      Visibility="{Binding HasMeshWarning, Converter={StaticResource BoolToVisibility}}"/>
+                           <TextBlock Grid.Row="2" Text="{DynamicResource FireSection_Algorithm}" Style="{StaticResource Lbl}"/>
+                           <ComboBox Grid.Row="2" Grid.Column="1" Style="{StaticResource Cmb}" SelectedValuePath="Tag"
+                                     SelectedValue="{Binding Algorithm, ValidatesOnNotifyDataErrors=True}">
+                              <ComboBoxItem Tag="ruppert" Content="{DynamicResource FireSection_AlgRuppert}"/>
+                              <ComboBoxItem Tag="advancing_front" Content="{DynamicResource FireSection_AlgAdvancingFront}"/>
+                           </ComboBox>
+                           <TextBlock Grid.Row="3" Text="{DynamicResource FireSection_Smoothing}" Style="{StaticResource Lbl}"/>
+                           <TextBox Grid.Row="3" Grid.Column="1" Style="{StaticResource Fld}"
+                                    Text="{Binding SmoothingText, UpdateSourceTrigger=LostFocus, ValidatesOnNotifyDataErrors=True}"/>
+                        </Grid>
+                     </GroupBox>
+
+                     <!-- Расчёт по времени -->
+                     <GroupBox Header="{DynamicResource FireSection_CardTime}" Style="{StaticResource CardGroupBox}" Margin="0,0,0,8">
+                        <StackPanel>
+                           <Grid>
+                              <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="190"/>
+                                 <ColumnDefinition Width="*"/>
+                              </Grid.ColumnDefinitions>
+                              <Grid.RowDefinitions>
+                                 <RowDefinition Height="Auto"/>
+                                 <RowDefinition Height="Auto"/>
+                              </Grid.RowDefinitions>
+                              <TextBlock Grid.Row="0" Text="{DynamicResource FireSection_TimeStep}" Style="{StaticResource Lbl}"/>
+                              <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource Fld}"
+                                       Text="{Binding TimeStepText, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True}"/>
+                              <TextBlock Grid.Row="1" Text="{DynamicResource FireSection_SnapshotStep}" Style="{StaticResource Lbl}"/>
+                              <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource Fld}"
+                                       Text="{Binding SnapshotStepText, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True}"/>
+                           </Grid>
+                           <Expander Header="{DynamicResource FireSection_Solver}" IsExpanded="False">
+                              <Grid Margin="0,4,0,0">
+                                 <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="186"/>
+                                    <ColumnDefinition Width="*"/>
+                                 </Grid.ColumnDefinitions>
+                                 <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                 </Grid.RowDefinitions>
+                                 <TextBlock Grid.Row="0" Text="{DynamicResource FireSection_Theta}" Style="{StaticResource Lbl}"/>
+                                 <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource Fld}"
+                                          Text="{Binding ThetaText, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True}"/>
+                                 <TextBlock Grid.Row="1" Text="{DynamicResource FireSection_PicardTol}" Style="{StaticResource Lbl}"/>
+                                 <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource Fld}"
+                                          Text="{Binding PicardTolText, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True}"/>
+                                 <TextBlock Grid.Row="2" Text="{DynamicResource FireSection_PicardMaxIter}" Style="{StaticResource Lbl}"/>
+                                 <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource Fld}"
+                                          Text="{Binding PicardMaxIterText, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True}"/>
+                              </Grid>
+                           </Expander>
+                        </StackPanel>
+                     </GroupBox>
+                  </StackPanel>
+               </ScrollViewer>
+            </DockPanel>
+
+            <!-- Справа: превью сечения -->
+            <Grid Grid.Column="1" Margin="4,8,8,8">
                <Grid.RowDefinitions>
                   <RowDefinition Height="Auto"/>
                   <RowDefinition Height="Auto"/>
@@ -129,9 +272,8 @@
 
                <TextBlock Grid.Row="2" Text="{DynamicResource FireSection_NoPreview}"
                           Foreground="Gray" HorizontalAlignment="Center" VerticalAlignment="Center"
-                          x:Name="noPreviewLabel" Visibility="Collapsed"/>
+                          Visibility="{Binding Preview.HasGeometry, Converter={StaticResource InverseBoolToVisibility}}"/>
 
-               <!-- BC legend -->
                <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,6,0,0">
                   <Ellipse Width="12" Height="12" Fill="#E02020" Margin="0,0,4,0"/>
                   <TextBlock Text="{DynamicResource FireSection_BcFire}" Margin="0,0,12,0" VerticalAlignment="Center"/>
@@ -154,23 +296,18 @@
                <Button DockPanel.Dock="Right" VerticalAlignment="Top" Margin="8,0,0,0"
                        Content="{DynamicResource FireThermal_Delete}"
                        Command="{Binding DeleteThermalCommand}"/>
-               <StackPanel>
-                  <TextBlock Text="{Binding ThermalStatusText}" TextWrapping="Wrap">
-                     <TextBlock.Style>
-                        <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
-                           <Style.Triggers>
-                              <DataTrigger Binding="{Binding ThermalStatusIsProblem}" Value="True">
-                                 <Setter Property="Foreground" Value="DarkOrange"/>
-                                 <Setter Property="FontWeight" Value="Bold"/>
-                              </DataTrigger>
-                           </Style.Triggers>
-                        </Style>
-                     </TextBlock.Style>
-                  </TextBlock>
-                  <TextBlock Text="{Binding MeshWarningText}" TextWrapping="Wrap"
-                             Foreground="DarkOrange" FontWeight="Bold" Margin="0,4,0,0"
-                             Visibility="{Binding HasMeshWarning, Converter={StaticResource BoolToVisibility}}"/>
-               </StackPanel>
+               <TextBlock Text="{Binding ThermalStatusText}" TextWrapping="Wrap">
+                  <TextBlock.Style>
+                     <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                        <Style.Triggers>
+                           <DataTrigger Binding="{Binding ThermalStatusIsProblem}" Value="True">
+                              <Setter Property="Foreground" Value="DarkOrange"/>
+                              <Setter Property="FontWeight" Value="Bold"/>
+                           </DataTrigger>
+                        </Style.Triggers>
+                     </Style>
+                  </TextBlock.Style>
+               </TextBlock>
             </DockPanel>
             <ContentControl x:Name="thermalResultHost" Grid.Row="1"/>
          </Grid>

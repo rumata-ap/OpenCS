@@ -1,155 +1,79 @@
 using CScore;
 using CScore.Fire.Entities;
+using OpenCS.Services;
 using OpenCS.Utilites;
-using System.Collections.ObjectModel;
-using System.Globalization;
 using System.Windows;
 
 namespace OpenCS.Views.Dialogs
 {
    /// <summary>
-   /// Диалог создания и редактирования огневого сечения.
+   /// Окно создания огневого сечения: имя, сечение, длительность, огневая кривая и шаблон ГУ; остальные параметры —
+   /// по умолчанию и правятся на странице огневого сечения.
    /// </summary>
    public partial class FireSectionDialog : Window
    {
-      readonly AppViewModel _app;
-      readonly FireSectionDef? _source;
-
       public FireSectionDef? Result { get; private set; }
 
-      public FireSectionDialog(AppViewModel app, FireSectionDef? existing = null)
+      public FireSectionDialog(AppViewModel app)
       {
          InitializeComponent();
-         _app = app;
-         _source = existing;
-         Owner = Application.Current.MainWindow;
-         DataContext = new FireSectionDialogVM(app, existing);
+         Owner = Application.Current?.MainWindow;
+         DataContext = new FireSectionDialogVM(app);
       }
 
       void Ok_Click(object sender, RoutedEventArgs e)
       {
          if (DataContext is not FireSectionDialogVM vm) return;
-         if (vm.SelectedSection == null)
-         {
-            MessageBox.Show(Loc.S("FireSection_NeedCrossSection"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-         }
-
-         Result = new FireSectionDef
-         {
-            Id = _source?.Id ?? 0,
-            Num = _source?.Num ?? 0,
-            Tag = string.IsNullOrWhiteSpace(vm.Tag)
-               ? string.Format(Loc.S("FireSection_DefaultTag"), _app.FireSections.Count + 1)
-               : vm.Tag.Trim(),
-            SectionId = vm.SelectedSection.Id,
-            FireDurationMin = vm.ParseFireDurationMin(),
-            FireCurve = vm.FireCurve,
-            MeshStepM = vm.ParseMeshStepM(),
-            TimeStepS = vm.ParseTimeStepS(),
-            BcPreset = vm.BcPreset,
-            HoleBcPreset = _source?.HoleBcPreset ?? "ambient",
-            Theta = _source?.Theta ?? 1.0,
-            PicardTolCelsius = _source?.PicardTolCelsius ?? 0.5,
-            PicardMaxIter = _source?.PicardMaxIter ?? 20,
-            SnapshotStepMin = _source?.SnapshotStepMin ?? 5.0,
-            Algorithm = _source?.Algorithm ?? "ruppert",
-            SmoothIterTri = _source?.SmoothIterTri ?? 5,
-            Edges = _source?.Edges ?? []
-         };
-
-         DialogResult = true;
+         Result = vm.TryBuild();
+         if (Result != null) DialogResult = true;
       }
    }
 
-   /// <summary>
-   /// ViewModel диалога параметров огневого сечения.
-   /// </summary>
+   /// <summary>VM окна создания огневого сечения: строгий разбор длительности и проверка службой.</summary>
    public class FireSectionDialogVM : ViewModelBase
    {
-      public ObservableCollection<CrossSection> CrossSections { get; }
+      readonly AppViewModel _app;
+      string _tag, _durationText = "60", _fireCurve = "iso834", _bcPreset = "3-sided", _errorText = "";
+      CrossSection? _selectedSection;
 
-      string tag = "";
-      CrossSection? selectedSection;
-      string fireDurationMinText = "60";
-      string fireCurve = "iso834";
-      string meshStepMText = "0.01";
-      string timeStepSText = "5";
-      string bcPreset = "manual";
-
-      public string Tag
+      public FireSectionDialogVM(AppViewModel app)
       {
-         get => tag;
-         set { tag = value; OnPropertyChanged(); }
+         _app = app;
+         Sections = app.CrossSections.Where(s => s.ParametricSteel == null).ToList();
+         _selectedSection = app.CurrentCrossSection is { ParametricSteel: null } cur && Sections.Contains(cur)
+            ? cur : Sections.FirstOrDefault();
+         _tag = FireSectionAuthoring.DefaultTag(FireSectionAuthoring.NextNum(app.db));
       }
 
-      public CrossSection? SelectedSection
+      public IReadOnlyList<CrossSection> Sections { get; }
+
+      public string Tag { get => _tag; set { _tag = value ?? ""; OnPropertyChanged(); } }
+      public CrossSection? SelectedSection { get => _selectedSection; set { _selectedSection = value; OnPropertyChanged(); } }
+      public string FireDurationText { get => _durationText; set { _durationText = value ?? ""; OnPropertyChanged(); } }
+      public string FireCurve { get => _fireCurve; set { _fireCurve = value ?? "iso834"; OnPropertyChanged(); } }
+      public string BcPreset { get => _bcPreset; set { _bcPreset = value ?? "manual"; OnPropertyChanged(); } }
+
+      public string ErrorText
       {
-         get => selectedSection;
-         set { selectedSection = value; OnPropertyChanged(); }
+         get => _errorText;
+         private set { _errorText = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasErrorText)); }
       }
+      public bool HasErrorText => _errorText.Length > 0;
 
-      public string FireDurationMinText
+      /// <summary>Новое огневое сечение (не записано) или null — ошибки в <see cref="ErrorText"/>.</summary>
+      public FireSectionDef? TryBuild()
       {
-         get => fireDurationMinText;
-         set { fireDurationMinText = value; OnPropertyChanged(); }
-      }
-
-      public string FireCurve
-      {
-         get => fireCurve;
-         set { fireCurve = value; OnPropertyChanged(); }
-      }
-
-      public string MeshStepMText
-      {
-         get => meshStepMText;
-         set { meshStepMText = value; OnPropertyChanged(); }
-      }
-
-      public string TimeStepSText
-      {
-         get => timeStepSText;
-         set { timeStepSText = value; OnPropertyChanged(); }
-      }
-
-      public string BcPreset
-      {
-         get => bcPreset;
-         set { bcPreset = value; OnPropertyChanged(); }
-      }
-
-      public FireSectionDialogVM(AppViewModel app, FireSectionDef? existing)
-      {
-         CrossSections = new ObservableCollection<CrossSection>(app.CrossSections);
-         if (existing != null)
-         {
-            Tag = existing.Tag;
-            SelectedSection = CrossSections.FirstOrDefault(s => s.Id == existing.SectionId);
-            FireDurationMinText = existing.FireDurationMin.ToString("G", CultureInfo.InvariantCulture);
-            FireCurve = existing.FireCurve;
-            MeshStepMText = existing.MeshStepM.ToString("G", CultureInfo.InvariantCulture);
-            TimeStepSText = existing.TimeStepS.ToString("G", CultureInfo.InvariantCulture);
-            BcPreset = existing.BcPreset;
-         }
-         else
-         {
-            SelectedSection = CrossSections.FirstOrDefault();
-         }
-      }
-
-      public double ParseFireDurationMin() => ParsePositiveOrDefault(FireDurationMinText, 60.0);
-      public double ParseMeshStepM() => ParsePositiveOrDefault(MeshStepMText, 0.01);
-      public double ParseTimeStepS() => ParsePositiveOrDefault(TimeStepSText, 5.0);
-
-      static double ParsePositiveOrDefault(string? text, double fallback)
-      {
-         if (string.IsNullOrWhiteSpace(text)) return fallback;
-         string normalized = text.Trim().Replace(',', '.');
-         if (!double.TryParse(normalized, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
-            return fallback;
-         return value > 0.0 ? value : fallback;
+         var d = FireSectionAuthoring.CreateDefault(_app.db, _selectedSection?.Id ?? 0);
+         d.Tag = string.IsNullOrWhiteSpace(_tag) ? d.Tag : _tag.Trim();
+         d.FireCurve = _fireCurve;
+         d.BcPreset = _bcPreset;
+         var messages = new List<string>();
+         if (NumberInput.TryParse(_durationText, out double dur)) d.FireDurationMin = dur;
+         else messages.Add($"{Loc.S("FireSection_Duration")}: {Loc.S("FireErrNotNumber")}");
+         if (messages.Count == 0)
+            messages.AddRange(FireSectionAuthoring.Validate(_app.db, d).Select(e => e.Message));
+         ErrorText = string.Join("\n", messages);
+         return messages.Count == 0 ? d : null;
       }
    }
 }

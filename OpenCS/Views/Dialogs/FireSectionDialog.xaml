@@ -28,13 +28,13 @@
 
       <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource FireSection_CrossSection}" VerticalAlignment="Center" Margin="0,0,8,8"/>
       <ComboBox Grid.Row="1" Grid.Column="1"
-                ItemsSource="{Binding CrossSections}"
+                ItemsSource="{Binding Sections}"
                 SelectedItem="{Binding SelectedSection}"
                 DisplayMemberPath="Tag"
                 Margin="0,0,0,8"/>
 
       <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource FireSection_Duration}" VerticalAlignment="Center" Margin="0,0,8,8"/>
-      <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding FireDurationMinText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+      <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding FireDurationText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
 
       <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource FireSection_Curve}" VerticalAlignment="Center" Margin="0,0,8,8"/>
       <ComboBox Grid.Row="3" Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding FireCurve}" Margin="0,0,0,8">
@@ -43,20 +43,21 @@
          <ComboBoxItem Tag="slow" Content="{DynamicResource FireSection_CurveSlow}"/>
       </ComboBox>
 
-      <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource FireSection_MeshStep}" VerticalAlignment="Center" Margin="0,0,8,8"/>
-      <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding MeshStepMText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
-
-      <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource FireSection_TimeStep}" VerticalAlignment="Center" Margin="0,0,8,8"/>
-      <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding TimeStepSText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
-
-      <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource FireSection_BcPreset}" VerticalAlignment="Center" Margin="0,0,8,8"/>
-      <ComboBox Grid.Row="6" Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding BcPreset}" Margin="0,0,0,8">
+      <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource FireSection_BcPreset}" VerticalAlignment="Center" Margin="0,0,8,8"/>
+      <ComboBox Grid.Row="4" Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding BcPreset}" Margin="0,0,0,8">
          <ComboBoxItem Tag="manual" Content="{DynamicResource FireSection_BcManual}"/>
          <ComboBoxItem Tag="1-sided" Content="{DynamicResource FireSection_Bc1Sided}"/>
          <ComboBoxItem Tag="2-sided" Content="{DynamicResource FireSection_Bc2Sided}"/>
          <ComboBoxItem Tag="3-sided" Content="{DynamicResource FireSection_Bc3Sided}"/>
          <ComboBoxItem Tag="all-sided" Content="{DynamicResource FireSection_BcAllSided}"/>
       </ComboBox>
+
+      <TextBlock Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2" Text="{DynamicResource FireSection_DialogHint}"
+                 Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+      <TextBlock Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding ErrorText}" Foreground="#B91C1C"
+                 TextWrapping="Wrap" Margin="0,0,0,8"
+                 Visibility="{Binding HasErrorText, Converter={StaticResource BoolToVisibility}}"/>
 
       <StackPanel Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
          <Button Content="{DynamicResource OK}" IsDefault="True" Click="Ok_Click" Width="90" Margin="0,0,8,0"/>
