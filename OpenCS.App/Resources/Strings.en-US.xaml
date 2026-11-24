@@ -7403,4 +7403,22 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="BatchRowTaskErrLongRowNotFound">No long-term forces found for row '{0}'.</system:String>
    <system:String x:Key="BatchRowTaskErrRowNotFound">Force row No. {0} not found.</system:String>
    <system:String x:Key="BatchRowTaskErrSetNotFound">Force set id={0} not found.</system:String>
+   <system:String x:Key="CliTaskSkipped">Task '{0}' not exported: {1}</system:String>
+   <system:String x:Key="CliTaskDuplicateSkipped">Task '{0}' not exported: the name repeats (the document key must be unique)</system:String>
+   <system:String x:Key="CliTaskFireSkipped">Fire tasks not exported ({0}): fire sections are not part of the document yet</system:String>
+   <system:String x:Key="CliTaskLinkedSkipped">Tasks on force sets linked to an FEM schema not exported ({0})</system:String>
+   <system:String x:Key="CliTaskRefMissing">{0} id={1} not found</system:String>
+   <system:String x:Key="CliKindPlateSection">Plate section</system:String>
+   <system:String x:Key="CliKindArea">Section area</system:String>
+   <system:String x:Key="CliTaskRowNumAmbiguous">Row number {0} repeats in force set '{1}'</system:String>
+   <system:String x:Key="CliModelErrUnknownField">Unknown field</system:String>
+   <system:String x:Key="CliTaskErrFire">Fire tasks cannot be edited through the document yet (Fire resistance section)</system:String>
+   <system:String x:Key="CliTaskErrUnknownTask">Task '{0}' found neither in the project nor in the document</system:String>
+   <system:String x:Key="CliTaskErrUnknownArea">Rebar area '{0}' not found in the section (or the name repeats)</system:String>
+   <system:String x:Key="CliTaskErrUnknownSection">Section '{0}' found neither in the project nor in the document</system:String>
+   <system:String x:Key="CliTaskErrLinkedSet">Force set '{0}' is linked to an FEM schema and is not described in the document</system:String>
+   <system:String x:Key="CliTaskErrUnknownSet">Force set '{0}' found neither in the project nor in the document</system:String>
+   <system:String x:Key="CliTaskErrRowRange">Row No. {0} is not in force set '{1}' ({2} rows)</system:String>
+   <system:String x:Key="CliTaskResultsDeleted">Task '{0}': inputs changed — outdated results deleted ({1})</system:String>
+   <system:String x:Key="CliTaskNoRowWarning">{0} — the task is created without a force set: the calculation will use zero forces (give --set or manual forces in the parameters)</system:String>
 </ResourceDictionary>

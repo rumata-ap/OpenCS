@@ -7,6 +7,7 @@ using System.Text.Json.Serialization;
 using CScore;
 using CScore.Import;
 using CScore.Sp16;
+using OpenCS.Services;
 using OpenCS.Tasks;
 using OpenCS.Utilites;
 
@@ -20,7 +21,7 @@ sealed partial class CliApp
     readonly Option<string?> _taskSet = new("--set");
     readonly Option<string[]> _param = new("--param") { Arity = ArgumentArity.ZeroOrMore };
     readonly Option<string?> _params = new("--params");
-    readonly Option<string> _calcType = new("--calc-type") { DefaultValueFactory = _ => "C" };
+    readonly Option<string?> _calcType = new("--calc-type");
 
     void DescribeTaskOptions()
     {
@@ -40,9 +41,9 @@ sealed partial class CliApp
     {
         var p = call.Parse;
         string kind = p.GetValue(_taskKind)!.Trim();
-        if (!TaskRunner.KindList.Contains(kind))
-            throw new CliException(CliExitCode.Usage, string.Format(Loc.S("CliErrUnknownKind"), kind,
-                string.Join(", ", TaskRunner.KindList.Order(StringComparer.Ordinal))));
+        var spec = CalcTaskKinds.Get(kind)
+            ?? throw new CliException(CliExitCode.Usage, string.Format(Loc.S("CliErrUnknownKind"), kind,
+                string.Join(", ", CalcTaskKinds.Names)));
         if (kind.StartsWith("shell_", StringComparison.Ordinal))
             throw new CliException(CliExitCode.Usage, string.Format(Loc.S("CliErrShellKind"), kind));
         bool batch = kind.EndsWith("_batch", StringComparison.Ordinal);
@@ -51,7 +52,8 @@ sealed partial class CliApp
         var elements = p.GetValue(_elements) is { } list ? ElementList.Parse(list) : null;
         if (batch && elements != null) throw new CliException(CliExitCode.Usage, Loc.S("CliErrBatchElements"));
         string paramsJson = BuildTaskParams(kind, p.GetValue(_params), p.GetValue(_param) ?? []);
-        var calcType = Enum.Parse<CalcType>(p.GetValue(_calcType)!);
+        // Не задан — первый допустимый для вида (трещины и прогибы — N, а не C).
+        var calcType = p.GetValue(_calcType) is { } ct ? Enum.Parse<CalcType>(ct) : spec.CalcTypes[0];
 
         return Edit(call, session =>
         {
@@ -61,7 +63,7 @@ sealed partial class CliApp
             if (set != null && set.Kind != "bar")
                 throw new CliException(CliExitCode.Usage, string.Format(Loc.S("CliErrSetNotBar"), set.Tag));
             string tag = p.GetValue(_tag) ?? kind;
-            int num = NextNum(db.CalcTasks, t => t.Num);
+            int num = CalcTaskAuthoring.NextNum(db);
             CalcTask NewTask(string taskTag, int itemId) => new()
             {
                 Num = num++, Tag = taskTag, Kind = kind, CalcType = calcType, SectionId = section.Id,
@@ -77,6 +79,20 @@ sealed partial class CliApp
                 if (rows.Count == 0) throw new CliException(CliExitCode.Usage, string.Format(Loc.S("CliErrNoRows"), set.Tag));
                 tasks.AddRange(rows.Select(i => NewTask($"{tag} — {i.Label}", i.Id)));
             }
+            // Проверка службой — та же, что у окна задачи и apply; ошибка любой задачи — ничего не записано.
+            // Строка набора, которую требует вид, но не задана (--set не указан), — предупреждение: команда исторически
+            // создаёт такие задачи-заготовки, расчёт возьмёт нулевые усилия.
+            var problems = new List<string>();
+            var warnings = new HashSet<string>();
+            foreach (var t in tasks)
+                foreach (var e in CalcTaskAuthoring.Validate(db, t))
+                {
+                    if (e.Path == "row" && t.ForceItemId == 0 && set == null) warnings.Add(e.Message);
+                    else problems.Add($"{t.Tag}: {(e.Path.StartsWith("params", StringComparison.Ordinal) ? e.Path + ": " : "")}{e.Message}");
+                }
+            if (problems.Count > 0)
+                throw new CliException(CliExitCode.Usage, string.Join(Environment.NewLine, problems.Distinct()));
+            foreach (var w in warnings) call.Log.Warning(string.Format(Loc.S("CliTaskNoRowWarning"), w));
             foreach (var t in tasks) db.SaveCalcTask(t);
 
             if (call.Json) CliOutput.WriteJson(call.Out, tasks.Select(t => new { t.Id, t.Num, t.Tag, t.Kind }).ToList());

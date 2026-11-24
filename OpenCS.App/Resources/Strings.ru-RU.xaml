@@ -7403,4 +7403,22 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="BatchRowTaskErrLongRowNotFound">Не найдено длительное усилие для строки «{0}».</system:String>
    <system:String x:Key="BatchRowTaskErrRowNotFound">Строка усилий № {0} не найдена.</system:String>
    <system:String x:Key="BatchRowTaskErrSetNotFound">Набор усилий id={0} не найден.</system:String>
+   <system:String x:Key="CliTaskSkipped">Задача «{0}» не выгружена: {1}</system:String>
+   <system:String x:Key="CliTaskDuplicateSkipped">Задача «{0}» не выгружена: имя повторяется (ключ документа должен быть уникален)</system:String>
+   <system:String x:Key="CliTaskFireSkipped">Огневые задачи не выгружены ({0}): огневые сечения в документ пока не входят</system:String>
+   <system:String x:Key="CliTaskLinkedSkipped">Задачи на наборах, привязанных к схеме МКЭ, не выгружены ({0})</system:String>
+   <system:String x:Key="CliTaskRefMissing">{0} id={1} не найден</system:String>
+   <system:String x:Key="CliKindPlateSection">Сечение пластины</system:String>
+   <system:String x:Key="CliKindArea">Область сечения</system:String>
+   <system:String x:Key="CliTaskRowNumAmbiguous">Номер строки {0} в наборе «{1}» повторяется</system:String>
+   <system:String x:Key="CliModelErrUnknownField">Неизвестное поле</system:String>
+   <system:String x:Key="CliTaskErrFire">Огневые задачи через документ пока не правятся (раздел «Огнестойкость»)</system:String>
+   <system:String x:Key="CliTaskErrUnknownTask">Задача «{0}» не найдена ни в проекте, ни в документе</system:String>
+   <system:String x:Key="CliTaskErrUnknownArea">Арматурная область «{0}» не найдена в сечении (или имя повторяется)</system:String>
+   <system:String x:Key="CliTaskErrUnknownSection">Сечение «{0}» не найдено ни в проекте, ни в документе</system:String>
+   <system:String x:Key="CliTaskErrLinkedSet">Набор «{0}» привязан к схеме МКЭ и в документе не описывается</system:String>
+   <system:String x:Key="CliTaskErrUnknownSet">Набор усилий «{0}» не найден ни в проекте, ни в документе</system:String>
+   <system:String x:Key="CliTaskErrRowRange">Строки № {0} нет в наборе «{1}» (строк: {2})</system:String>
+   <system:String x:Key="CliTaskResultsDeleted">Задача «{0}»: входные данные изменены — удалены устаревшие результаты ({1})</system:String>
+   <system:String x:Key="CliTaskNoRowWarning">{0} — задача создана без набора: расчёт возьмёт нулевые усилия (укажите --set или ручные усилия в параметрах)</system:String>
 </ResourceDictionary>
