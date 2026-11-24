@@ -82,12 +82,15 @@ namespace OpenCS.Utilites
                case JsonObject o:
                   foreach (var (key, value) in o)
                   {
-                     bool isSetKey = key.Equals("ForceSetId", StringComparison.OrdinalIgnoreCase)
+                     // ForceSetLongId/ForceItemLongId — длительная часть ширины раскрытия трещин (CrackWidthTaskParams).
+                     bool isLong = key.Equals("ForceSetLongId", StringComparison.OrdinalIgnoreCase);
+                     bool isSetKey = isLong || key.Equals("ForceSetId", StringComparison.OrdinalIgnoreCase)
                                      || key.Equals("NlForceSetId", StringComparison.OrdinalIgnoreCase);
                      if (isSetKey && value is JsonValue v && v.TryGetValue(out int id) && id == setId)
                      {
                         found = true;
-                        var item = o.FirstOrDefault(p => p.Key.Equals("ForceItemId", StringComparison.OrdinalIgnoreCase)).Value;
+                        string itemKey = isLong ? "ForceItemLongId" : "ForceItemId";
+                        var item = o.FirstOrDefault(p => p.Key.Equals(itemKey, StringComparison.OrdinalIgnoreCase)).Value;
                         if (items != null && item is JsonValue iv && iv.TryGetValue(out int itemId) && itemId != 0)
                            items.Add(itemId);
                      }
