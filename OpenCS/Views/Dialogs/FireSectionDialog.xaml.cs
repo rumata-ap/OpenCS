@@ -39,8 +39,8 @@ namespace OpenCS.Views.Dialogs
       public FireSectionDialogVM(AppViewModel app)
       {
          _app = app;
-         Sections = app.CrossSections.Where(s => s.ParametricSteel == null).ToList();
-         _selectedSection = app.CurrentCrossSection is { ParametricSteel: null } cur && Sections.Contains(cur)
+         Sections = app.CrossSections.Where(s => FireSectionAuthoring.HasConcreteContour(s, app.Materials)).ToList();
+         _selectedSection = app.CurrentCrossSection is { } cur && Sections.Contains(cur)
             ? cur : Sections.FirstOrDefault();
          _tag = FireSectionAuthoring.DefaultTag(FireSectionAuthoring.NextNum(app.db));
       }

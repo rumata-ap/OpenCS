@@ -466,6 +466,8 @@ public sealed class CliModelTests : IDisposable
     [InlineData("sections")]
     [InlineData("plateSections")]
     [InlineData("forceSets")]
+    [InlineData("fireSections")]
+    [InlineData("tasks")]
     public async Task Schema_Geometry_IsJson(string kind)
     {
         var r = await Run("schema", kind);

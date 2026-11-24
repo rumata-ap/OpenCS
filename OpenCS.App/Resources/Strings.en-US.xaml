@@ -7480,4 +7480,20 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FireThermal_ColTmax">Tmax, °C</system:String>
    <system:String x:Key="FireTaskErrNoDatabase">A fire task needs the project database (run context has none)</system:String>
    <system:String x:Key="FireTaskErrFireSectionNotFound">The fire section of the task was not found (Id {0}) — select a fire section in the task</system:String>
+   <system:String x:Key="CliFireDuplicateSkipped">fire section "{0}" occurs more than once in the project — the first one is exported</system:String>
+   <system:String x:Key="CliFireSkipped">Fire section "{0}" not exported: {1}</system:String>
+   <system:String x:Key="CliFireTasksMoved">Fire section "{0}": tasks ({1}) moved to section "{2}", their results ({3}) deleted</system:String>
+   <system:String x:Key="CliFireThermalStale">Fire section "{0}": the thermal analysis is out of date ({1}) — rerun: opencs run fire</system:String>
+   <system:String x:Key="CliTaskErrFireSectionField">A fire task has no section of its own — it is taken from the fire section (fireSection)</system:String>
+   <system:String x:Key="CliTaskErrFireSectionNotUsed">A fire section is used only by fire tasks (fire_*)</system:String>
+   <system:String x:Key="CliTaskErrUnknownFireSection">Fire section "{0}" was found neither in the project nor in the document</system:String>
+   <system:String x:Key="CliTaskErrFireTime">Time {0} min exceeds the fire duration of the fire section ({1} min)</system:String>
+   <system:String x:Key="CliKindFireSection">Fire section</system:String>
+   <system:String x:Key="CliCmdListFire">Fire sections and thermal analysis state</system:String>
+   <system:String x:Key="CliCmdRunFire">Thermal analysis of fire sections</system:String>
+   <system:String x:Key="CliColDuration">Fire, min</system:String>
+   <system:String x:Key="CliColThermal">Thermal analysis</system:String>
+   <system:String x:Key="CliThermal_none">not run</system:String>
+   <system:String x:Key="CliThermal_current">current</system:String>
+   <system:String x:Key="CliThermal_stale">out of date</system:String>
 </ResourceDictionary>

@@ -45,7 +45,9 @@ public sealed class FireSectionVM : ViewModelBase, IUnsavedChanges, INotifyDataE
         _app = app;
         _draft = FireSectionAuthoring.Clone(model);
         _saved = FireSectionAuthoring.Clone(model);
-        Sections = app.CrossSections.Where(s => s.ParametricSteel == null).ToList();
+        // Пригодные для теплового расчёта сечения; текущее — всегда в списке (ошибка покажется у поля при сохранении).
+        Sections = app.CrossSections.Where(s => s.Id == model.SectionId
+            || FireSectionAuthoring.HasConcreteContour(s, app.Materials)).ToList();
         Preview = new FirePreviewVM();
         Preview.EdgeBcChanged += () => { Touch(); OnPropertyChanged(nameof(ManualEdgeCount)); OnPropertyChanged(nameof(HasManualEdges)); };
         ThermalResult = FireThermalResultVM.CreateLoading(_model);

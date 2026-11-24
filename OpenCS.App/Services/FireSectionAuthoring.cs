@@ -104,7 +104,7 @@ public static class FireSectionAuthoring
             e.Add(new("section", Loc.S("FireSection_NeedCrossSection")));
             return e;
         }
-        var counts = IsSteel(section) ? null : FireMeshBuilder.ContourEdgeCounts(section);
+        var counts = HasConcreteContour(section, db.Materials) ? FireMeshBuilder.ContourEdgeCounts(section) : null;
         if (counts is not var (outer, holes))
         {
             e.Add(new("section", string.Format(Loc.S("FireErrSectionNoConcrete"), section.Tag)));
@@ -124,7 +124,10 @@ public static class FireSectionAuthoring
         return e;
     }
 
-    static bool IsSteel(CrossSection s) => s.ParametricSteel != null;
+    /// <summary>Есть область с контуром из бетона (по объекту материала или Id в пуле) — тепловой расчёт возможен.</summary>
+    public static bool HasConcreteContour(CrossSection s, IEnumerable<Material>? pool = null) =>
+        s.Areas.Any(a => a.Hull != null
+            && (a.Material ?? pool?.FirstOrDefault(m => m.Id == a.MaterialId))?.Type == MatType.Concrete);
 
     static string Num(double v) => v.ToString("G", System.Globalization.CultureInfo.CurrentCulture);
 

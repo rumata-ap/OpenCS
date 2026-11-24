@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "opencs-model: tasks[]",
-  "description": "Расчётная задача сечения (стержни и пластины). Ключ — имя (tag). Требования вида (сечение, набор, строка, допустимый тип расчёта) — как в окне задачи; проверка — та же служба. Огневые задачи (fire_*) и задачи на наборах, привязанных к схеме МКЭ, не выгружаются и через apply не правятся. Изменение входных данных существующей задачи (вид, сечение, набор, строка, тип, параметры) удаляет её результаты — с предупреждением.",
+  "description": "Расчётная задача сечения (стержни и пластины). Ключ — имя (tag). Требования вида (сечение, набор, строка, допустимый тип расчёта) — как в окне задачи; проверка — та же служба. Огневые задачи (fire_*) ссылаются на огневое сечение (fireSection); сечение у них не задаётся. Задачи на наборах, привязанных к схеме МКЭ, не выгружаются и через apply не правятся. Изменение входных данных существующей задачи (вид, сечение, набор, строка, тип, параметры) удаляет её результаты — с предупреждением.",
   "type": "object",
   "required": ["tag", "kind"],
   "properties": {
     "tag": { "type": "string", "minLength": 1, "description": "Имя задачи (ключ)" },
     "kind": {
       "type": "string",
-      "description": "Вид задачи: strain_state, strain_state_batch, limit_force, limit_moment, limit_axial (+ _batch), strength_ndm_batch, rc_check, load_history, cracking, crack_width, total_curvature (+ _batch), moment_curvature_biaxial, prestress_loss, limit_surface, crack_surface, acrc_surface, opensees_section_moment_curvature, opensees_section_interaction_nm, opensees_section_interaction_n_mx_my, sp63_normal, sp63_crack_width, sp63_deflection, shear_inclined (+ _batch), torsion_bem, torsion_fem, steel_check, steel_central_compression, steel_central_tension, steel_bending, steel_compression_bending, steel_tension_bending, steel_shear, steel_constructive, steel_check_batch, punching, punching_batch; пластины: shell_strain_state, shell_simpl_wa_uls, shell_simpl_wa_sls, shell_simpl_capri_uls, shell_simpl_capri_sls, shell_simpl_capri_design_uls, shell_simpl_capri_design_sls, shell_layered_uls, shell_layered_sls (+ _batch)."
+      "description": "Вид задачи: strain_state, strain_state_batch, limit_force, limit_moment, limit_axial (+ _batch), strength_ndm_batch, rc_check, load_history, cracking, crack_width, total_curvature (+ _batch), moment_curvature_biaxial, prestress_loss, limit_surface, crack_surface, acrc_surface, opensees_section_moment_curvature, opensees_section_interaction_nm, opensees_section_interaction_n_mx_my, sp63_normal, sp63_crack_width, sp63_deflection, shear_inclined (+ _batch), torsion_bem, torsion_fem, steel_check, steel_central_compression, steel_central_tension, steel_bending, steel_compression_bending, steel_tension_bending, steel_shear, steel_constructive, steel_check_batch, punching, punching_batch; пластины: shell_strain_state, shell_simpl_wa_uls, shell_simpl_wa_sls, shell_simpl_capri_uls, shell_simpl_capri_sls, shell_simpl_capri_design_uls, shell_simpl_capri_design_sls, shell_layered_uls, shell_layered_sls (+ _batch); огневые: fire_r_check, fire_r_check_batch, fire_r_time, fire_thermal_curvature."
     },
     "calcType": {
       "enum": ["C", "CL", "N", "NL"],
@@ -17,6 +17,10 @@
     "section": {
       "type": "string",
       "description": "Сечение: ключ из sections (стержневые, load_history — стадийное) или из plateSections (shell_*). У продавливания сечения нет."
+    },
+    "fireSection": {
+      "type": "string",
+      "description": "Огневые задачи (fire_*): огневое сечение (ключ из fireSections); сечение задачи берётся из него. Параметры: method (fiber), snapshot_time_min (момент, мин; нет — конец пожара; не больше длительности), у fire_thermal_curvature — normalized_limit_min, tension_rebar_at_heated_face, compression_zone_method."
     },
     "forceSet": { "type": "string", "description": "Набор усилий (имя из forceSets): у пакетов (_batch) обязателен; у пластин — набор shell." },
     "row": { "type": "integer", "minimum": 1, "description": "Номер строки в наборе (как в таблице набора); требуется forceSet." },

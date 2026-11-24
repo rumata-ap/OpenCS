@@ -163,7 +163,7 @@ public sealed class CliTasksModelTests : IDisposable
             """));
         Assert.Equal(CliExitCode.Usage, r.Code);
         foreach (var path in new[] { "tasks[0].kind", "tasks[1].forceSet", "tasks[2].forceSet", "tasks[3].row",
-                     "tasks[4].params", "tasks[5].params.etaL2", "tasks[6].section", "tasks[7].kind", "tasks[8].calcType", "tasks[9].lable" })
+                     "tasks[4].params", "tasks[5].params.etaL2", "tasks[6].section", "tasks[7].section", "tasks[8].calcType", "tasks[9].lable" })
             Assert.Contains(path, r.Err);
         var (tasks, sets, _, _) = Load(project);
         Assert.Empty(tasks);

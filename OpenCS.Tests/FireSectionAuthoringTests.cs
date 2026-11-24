@@ -33,7 +33,8 @@ public sealed class FireSectionAuthoringTests : IDisposable
     internal static CrossSection Rect(DatabaseService db, int id, string tag, double w = 0.2, double h = 0.4, bool hole = false)
     {
         var hull = new Contour([0.0, w, w, 0.0, 0.0], [0.0, 0.0, h, h, 0.0], "rect") { Type = ContourType.Hull };
-        var area = new MaterialArea { Tag = "concrete", Category = AreaCategory.Region, Contours = [hull] };
+        var area = new MaterialArea { Tag = "concrete", Category = AreaCategory.Region, Contours = [hull],
+            Material = new Material { Type = MatType.Concrete, Tag = "B25" } };
         area.Hull = hull;
         if (hole)
             area.Contours.Add(new Contour([0.05, 0.1, 0.1, 0.05, 0.05], [0.1, 0.1, 0.2, 0.2, 0.1], "h") { Type = ContourType.Hole });
@@ -107,6 +108,9 @@ public sealed class FireSectionAuthoringTests : IDisposable
         var db = NewDb("nc.db");
         db.CrossSections.Add(new CrossSection { Id = 5, Tag = "Пусто" });
         HasError(FireSectionAuthoring.Validate(db, Def(5)), "section");
+        var steel = Rect(db, 6, "Сталь");
+        steel.Areas[0].Material = new Material { Type = MatType.Steel, Tag = "C245" };
+        HasError(FireSectionAuthoring.Validate(db, Def(6)), "section");
     }
 
     [Fact]
@@ -223,7 +227,7 @@ public sealed class FireSectionAuthoringTests : IDisposable
         var s = Rect(db, 1, "К1");
         var f = Def(1);
         Assert.Equal("silicate", FireSectionAuthoring.EffectiveAggregate(f, s));
-        s.Areas[0].Material = new Material { Type = MatType.Concrete, AggregateType = "carbonate" };
+        s.Areas[0].Material!.AggregateType = "carbonate";
         Assert.Equal("carbonate", FireSectionAuthoring.EffectiveAggregate(f, s));
         f.AggregateType = "lightweight";
         Assert.Equal("lightweight", FireSectionAuthoring.EffectiveAggregate(f, s));

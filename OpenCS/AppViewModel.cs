@@ -3540,7 +3540,7 @@ namespace OpenCS
       /// <summary>Новое огневое сечение: окно создания, запись через службу, открытие страницы.</summary>
       public void NewFireSection()
       {
-         if (CrossSections.Count == 0)
+         if (!CrossSections.Any(s => Services.FireSectionAuthoring.HasConcreteContour(s, Materials)))
          {
             Notifier.Warning(Loc.S("FireSection_NoCrossSections"), Loc.S("Warning"));
             return;

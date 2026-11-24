@@ -7480,4 +7480,20 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FireThermal_ColTmax">Tmax, °C</system:String>
    <system:String x:Key="FireTaskErrNoDatabase">Огневой задаче нужна база проекта (контекст расчёта без базы)</system:String>
    <system:String x:Key="FireTaskErrFireSectionNotFound">Огневое сечение задачи не найдено (Id {0}) — выберите огневое сечение в задаче</system:String>
+   <system:String x:Key="CliFireDuplicateSkipped">огневое сечение «{0}» встречается в проекте не один раз — выгружено первое</system:String>
+   <system:String x:Key="CliFireSkipped">Огневое сечение «{0}» не выгружено: {1}</system:String>
+   <system:String x:Key="CliFireTasksMoved">Огневое сечение «{0}»: задачи ({1}) переведены на сечение «{2}», их результаты ({3}) удалены</system:String>
+   <system:String x:Key="CliFireThermalStale">Огневое сечение «{0}»: тепловой расчёт устарел ({1}) — пересчитайте: opencs run fire</system:String>
+   <system:String x:Key="CliTaskErrFireSectionField">У огневой задачи сечение не задаётся — оно берётся из огневого сечения (fireSection)</system:String>
+   <system:String x:Key="CliTaskErrFireSectionNotUsed">Огневое сечение задаётся только у огневых задач (fire_*)</system:String>
+   <system:String x:Key="CliTaskErrUnknownFireSection">Огневое сечение «{0}» не найдено ни в проекте, ни в документе</system:String>
+   <system:String x:Key="CliTaskErrFireTime">Момент {0} мин больше длительности пожара огневого сечения ({1} мин)</system:String>
+   <system:String x:Key="CliKindFireSection">Огневое сечение</system:String>
+   <system:String x:Key="CliCmdListFire">Огневые сечения и состояние теплового расчёта</system:String>
+   <system:String x:Key="CliCmdRunFire">Тепловой расчёт огневых сечений</system:String>
+   <system:String x:Key="CliColDuration">Пожар, мин</system:String>
+   <system:String x:Key="CliColThermal">Тепловой расчёт</system:String>
+   <system:String x:Key="CliThermal_none">не выполнен</system:String>
+   <system:String x:Key="CliThermal_current">актуален</system:String>
+   <system:String x:Key="CliThermal_stale">устарел</system:String>
 </ResourceDictionary>

@@ -13,7 +13,8 @@ namespace OpenCS.Cli.Model;
 /// задачи, единицы — базы (как в окне задачи; продавливание — м, кН, кПа); ссылки по Id внутри заменены ключами:
 /// <c>ForceSet</c>/<c>ForceItem</c> (этапы), <c>ForceSetLong</c>/<c>ForceItemLong</c> (длительная часть ширины
 /// раскрытия), <c>concreteMaterial</c>/<c>material</c> (продавливание), <c>Area</c> (группы потерь),
-/// <c>batchSource.task</c>/<c>surfaceSource.task</c>. Огневые задачи и задачи на
+/// <c>batchSource.task</c>/<c>surfaceSource.task</c>. Огневые задачи — с ключом огневого сечения <c>fireSection</c>
+/// (сечение задачи берётся из него, <c>section</c> запрещено, <c>fire_section_id</c> в параметрах нет). Задачи на
 /// наборах, привязанных к схеме МКЭ, не выгружаются и через <c>apply</c> не правятся. Изменение входных данных
 /// существующей задачи удаляет её результаты (решение пользователя 24.11) — с предупреждением в журнале.
 /// </summary>
@@ -34,14 +35,11 @@ sealed class TasksKind : IModelKind
     static bool Is(string key, string name) => string.Equals(key, name, StringComparison.OrdinalIgnoreCase);
     static string DocKey(string idKey) => idKey[..^2];
 
-    /// <summary>Задача не переносится документом: огневая, неизвестный вид.</summary>
-    static string? Excluded(CalcTask t)
-    {
-        var spec = CalcTaskKinds.Get(t.Kind);
-        if (spec == null) return "kind";
-        if (spec.Section == CalcTaskSectionKind.Fire) return "fire";
-        return null;
-    }
+    /// <summary>Задача не переносится документом: неизвестный вид.</summary>
+    static string? Excluded(CalcTask t) => CalcTaskKinds.Get(t.Kind) == null ? "kind" : null;
+
+    /// <summary>Служебные поля огневых параметров: Id огневого сечения (в документе — ключ задачи) и устаревший индекс снимка.</summary>
+    static readonly string[] FireIdKeys = ["fire_section_id", "snapshot_index"];
 
     static bool LinkedSet(ForceSet fs) => fs.SourceSchemaId != null || fs.SourceMemberId != null || fs.SourceElementId != null;
 
@@ -52,14 +50,14 @@ sealed class TasksKind : IModelKind
         var db = ctx.Db;
         var items = new JsonArray();
         var seen = new HashSet<string>();
-        int fire = 0, linked = 0;
+        int linked = 0;
         var taskTags = db.CalcTasks.GroupBy(t => t.Tag.Trim()).Where(g => g.Count() == 1).ToDictionary(g => g.Single().Id, g => g.Key);
         foreach (var t in db.CalcTasks.OrderBy(t => t.Num))
         {
-            switch (Excluded(t))
+            if (Excluded(t) == "kind")
             {
-                case "fire": fire++; continue;
-                case "kind": warn(string.Format(Loc.S("CliTaskSkipped"), t.Tag, string.Format(Loc.S("CalcTaskErrKind"), t.Kind))); continue;
+                warn(string.Format(Loc.S("CliTaskSkipped"), t.Tag, string.Format(Loc.S("CalcTaskErrKind"), t.Kind)));
+                continue;
             }
             string key = t.Tag.Trim();
             if (!seen.Add(key))
@@ -80,7 +78,6 @@ sealed class TasksKind : IModelKind
                 warn(string.Format(Loc.S("CliTaskSkipped"), key, e.Message));
             }
         }
-        if (fire > 0) warn(string.Format(Loc.S("CliTaskFireSkipped"), fire));
         if (linked > 0) warn(string.Format(Loc.S("CliTaskLinkedSkipped"), linked));
         return items;
     }
@@ -120,7 +117,9 @@ sealed class TasksKind : IModelKind
         var db = ctx.Db;
         var spec = CalcTaskKinds.Get(t.Kind)!;
         var o = new JsonObject { ["tag"] = t.Tag.Trim(), ["kind"] = t.Kind, ["calcType"] = t.CalcType.ToString() };
-        if (t.SectionId != 0)
+        if (spec.Section == CalcTaskSectionKind.Fire)
+            o["fireSection"] = UniqueTag(db.FireSections, FireSectionAuthoring.FireSectionIdOf(t), f => f.Id, f => f.Tag, "CliKindFireSection");
+        else if (t.SectionId != 0)
             o["section"] = spec.Section == CalcTaskSectionKind.Plate
                 ? UniqueTag(db.PlateSections, t.SectionId, s => s.Id, s => s.Tag, "CliKindPlateSection")
                 : UniqueTag(db.CrossSections, t.SectionId, s => s.Id, s => s.Tag, "CliKindSection");
@@ -132,6 +131,8 @@ sealed class TasksKind : IModelKind
         if (!string.IsNullOrWhiteSpace(t.ParamsJson) && JsonNode.Parse(t.ParamsJson) is JsonObject p && p.Count > 0)
         {
             var section = db.CrossSections.FirstOrDefault(s => s.Id == t.SectionId);
+            if (spec.Section == CalcTaskSectionKind.Fire)
+                foreach (var k in FireIdKeys) p.Remove(k);
             ParamsToDoc(p, db, section, taskTags);
             if (p.Count > 0) o["params"] = p;
         }
@@ -197,13 +198,13 @@ sealed class TasksKind : IModelKind
 
     /// <summary>Задача документа: поля и параметры с ключами вместо Id.</summary>
     sealed record TaskDoc(string Path, string Tag, string Kind, CalcType CalcType, string? Section, string? ForceSet, int? Row,
-        JsonObject Params);
+        JsonObject Params, string? FireSection = null);
 
     static TaskDoc? Parse(JsonObject o, string path, ModelErrors errors)
     {
         int before = errors.Count;
         foreach (var (key, _) in o)
-            if (key is not ("tag" or "kind" or "calcType" or "section" or "forceSet" or "row" or "params"))
+            if (key is not ("tag" or "kind" or "calcType" or "section" or "fireSection" or "forceSet" or "row" or "params"))
                 errors.Add($"{path}.{key}", Loc.S("CliModelErrUnknownField"));
         string? tag = SectionJson.Str(o, "tag", path, errors, required: true);
         if (tag != null && tag.Trim().Length == 0) errors.Add($"{path}.tag", Loc.S("CalcTaskErrTagEmpty"));
@@ -211,8 +212,6 @@ sealed class TasksKind : IModelKind
         var spec = CalcTaskKinds.Get(kind);
         if (kind != null && spec == null)
             errors.Add($"{path}.kind", string.Format(Loc.S("CalcTaskErrKind"), kind));
-        else if (spec?.Section == CalcTaskSectionKind.Fire)
-            errors.Add($"{path}.kind", Loc.S("CliTaskErrFire"));
         string calc = SectionJson.Str(o, "calcType", path, errors) ?? spec?.CalcTypes[0].ToString() ?? "C";
         if (!Enum.TryParse<CalcType>(calc, out var calcType) || !Enum.IsDefined(calcType))
         {
@@ -220,13 +219,22 @@ sealed class TasksKind : IModelKind
             calcType = CalcType.C;
         }
         string? section = SectionJson.Str(o, "section", path, errors);
+        string? fireSection = SectionJson.Str(o, "fireSection", path, errors);
+        bool isFire = spec?.Section == CalcTaskSectionKind.Fire;
+        if (isFire && section != null) errors.Add($"{path}.section", Loc.S("CliTaskErrFireSectionField"));
+        if (isFire && fireSection == null) errors.Add($"{path}.fireSection", Loc.S("CliModelErrRequired"));
+        if (!isFire && fireSection != null) errors.Add($"{path}.fireSection", Loc.S("CliTaskErrFireSectionNotUsed"));
         string? set = SectionJson.Str(o, "forceSet", path, errors);
         int? row = SectionJson.Int(o, "row", path, errors);
         JsonObject p = new();
         if (o["params"] is JsonObject po) p = (JsonObject)po.DeepClone();
         else if (o["params"] != null) errors.Add($"{path}.params", Loc.S("CliModelErrNotObject"));
         if (errors.Count > before) return null;
-        return new TaskDoc(path, tag!.Trim(), kind!, calcType, section?.Trim(), set?.Trim(), row, p);
+        if (isFire)
+            foreach (var k in FireIdKeys.Where(k => p[k] != null))
+                errors.Add($"{path}.params.{k}", Loc.S("CliModelErrUnknownField"));
+        if (errors.Count > before) return null;
+        return new TaskDoc(path, tag!.Trim(), kind!, calcType, section?.Trim(), set?.Trim(), row, p, fireSection?.Trim());
     }
 
     /// <summary>Разрешение ключей: в плане — объекты проекта и документа (Id документа — −1), при записи — проекта.</summary>
@@ -240,6 +248,8 @@ sealed class TasksKind : IModelKind
         int? Material(string tag);
         int? Area(string sectionTag, string areaTag, out string? error);
         int? Task(string tag);
+        /// <summary>Огневое сечение: Id, Id его сечения и длительность пожара, мин; null — нет.</summary>
+        (int Id, int SectionId, double DurationMin)? Fire(string tag, out string? error);
     }
 
     /// <summary>Ключи → Id в параметрах (на месте); ошибки — с путём.</summary>
@@ -401,6 +411,23 @@ sealed class TasksKind : IModelKind
             var t = _db.CalcTasks.Where(x => x.Tag.Trim() == tag).ToList();
             return t.Count == 1 ? t[0].Id : null;
         }
+
+        public (int Id, int SectionId, double DurationMin)? Fire(string tag, out string? error)
+        {
+            error = null;
+            if (DocItem("fireSections", tag) is { } d)
+            {
+                double dur = d["fire"] is JsonObject f && f["durationMin"] is JsonValue v && v.TryGetValue(out double x) ? x : 60;
+                string? st = d["section"] is JsonValue sv && sv.TryGetValue(out string? s) ? s.Trim() : null;
+                int sid = st != null && Section(st, CalcTaskSectionKind.Cross, out _) is int id ? id : -1;
+                return (-1, sid, dur);
+            }
+            var found = _db.FireSections.Where(f => f.Tag.Trim() == tag).ToList();
+            if (found.Count == 1) return (found[0].Id, found[0].SectionId, found[0].FireDurationMin);
+            error = found.Count > 1 ? string.Format(Loc.S("CliModelErrAmbiguousKey"), found.Count, tag)
+                  : string.Format(Loc.S("CliTaskErrUnknownFireSection"), tag);
+            return null;
+        }
     }
 
     /// <summary>Ключи → Id проекта при записи (всё из документа уже записано предыдущими видами и задачами).</summary>
@@ -439,6 +466,13 @@ sealed class TasksKind : IModelKind
         }
 
         public int? Task(string tag) => db.CalcTasks.SingleOrDefault(t => t.Tag.Trim() == tag)?.Id;
+
+        public (int Id, int SectionId, double DurationMin)? Fire(string tag, out string? error)
+        {
+            error = null;
+            var f = db.FireSections.SingleOrDefault(x => x.Tag.Trim() == tag);
+            return f == null ? null : (f.Id, f.SectionId, f.FireDurationMin);
+        }
     }
 
     /// <summary>Задача документа с Id по ключам; ошибки ключей — в <paramref name="errors"/>.</summary>
@@ -472,6 +506,18 @@ sealed class TasksKind : IModelKind
         }
         else if (d.Row != null) errors.Add($"{d.Path}.row", Loc.S("CalcTaskErrRowNotUsed"));
         var p = (JsonObject)d.Params.DeepClone();
+        if (spec.Section == CalcTaskSectionKind.Fire && d.FireSection != null)
+        {
+            if (refs.Fire(d.FireSection, out var fe) is { } fire)
+            {
+                t.SectionId = fire.SectionId;
+                p["fire_section_id"] = fire.Id;
+                if (p["snapshot_time_min"] is JsonValue tv && tv.TryGetValue(out double tm) && tm > fire.DurationMin + 1e-9)
+                    errors.Add($"{d.Path}.params.snapshot_time_min",
+                        string.Format(Loc.S("CliTaskErrFireTime"), tm, fire.DurationMin));
+            }
+            else errors.Add($"{d.Path}.fireSection", fe ?? "");
+        }
         ParamsFromDoc(p, refs, d.Section, $"{d.Path}.params", errors);
         t.ParamsJson = p.ToJsonString();
         return errors.Count > before ? null : t;
@@ -513,9 +559,9 @@ sealed class TasksKind : IModelKind
                 continue;
             }
             var target = existing.SingleOrDefault();
-            if (target != null && Excluded(target) is { } why)
+            if (target != null && Excluded(target) != null)
             {
-                errors.Add($"{d.Path}.tag", why == "fire" ? Loc.S("CliTaskErrFire") : string.Format(Loc.S("CalcTaskErrKind"), target.Kind));
+                errors.Add($"{d.Path}.tag", string.Format(Loc.S("CalcTaskErrKind"), target.Kind));
                 continue;
             }
             int before = errors.Count;

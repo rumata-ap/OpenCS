@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "opencs-model: fireSections[]",
+  "description": "Огневое сечение — параметры теплового расчёта по СП 468 для железобетонного сечения. Ключ — обозначение (tag). Длительность и шаг снимков — мин, шаг сетки — мм, шаг по времени — с, температура — °C. Тепловой расчёт в документе не описывается: при изменении входных данных он остаётся и показывается устаревшим (opencs run fire пересчитывает). Смена сечения переводит огневые задачи на новое сечение и удаляет их результаты.",
+  "type": "object",
+  "required": ["tag", "section"],
+  "additionalProperties": false,
+  "properties": {
+    "tag": { "type": "string", "minLength": 1 },
+    "section": { "type": "string", "description": "Железобетонное сечение (ключ из sections) с бетонной областью с контуром" },
+    "fire": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "durationMin": { "type": "number", "exclusiveMinimum": 0, "maximum": 600, "default": 60, "description": "Длительность пожара, мин" },
+        "curve": { "enum": ["iso834", "hydrocarbon", "slow"], "default": "iso834", "description": "Огневая кривая: стандартная, углеводородная, медленного нагрева" },
+        "aggregate": { "enum": ["silicate", "carbonate", "lightweight"], "description": "Заполнитель бетона; нет — из бетона сечения" }
+      }
+    },
+    "mesh": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stepMm": { "type": "number", "exclusiveMinimum": 0, "default": 10, "description": "Шаг сетки, мм; рекомендуемый 10–30 мм, больше диаметра арматуры и не меньше 10 элементов по меньшей стороне (п. 6.2 СП 468)" },
+        "algorithm": { "enum": ["ruppert", "advancing_front"], "default": "ruppert" },
+        "smoothing": { "type": "integer", "minimum": 0, "maximum": 50, "default": 5, "description": "Итераций сглаживания сетки" }
+      }
+    },
+    "time": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stepS": { "type": "number", "exclusiveMinimum": 0, "maximum": 600, "default": 5, "description": "Шаг по времени, с" },
+        "snapshotStepMin": { "type": "number", "exclusiveMinimum": 0, "default": 5, "description": "Шаг снимков поля, мин (моменты, доступные огневым задачам); не больше длительности" },
+        "theta": { "type": "number", "minimum": 0, "maximum": 1, "default": 1, "description": "Параметр θ-схемы: 0 — явная, 1 — неявная" },
+        "picardTol": { "type": "number", "exclusiveMinimum": 0, "default": 0.5, "description": "Допуск итераций Пикара, °C" },
+        "picardMaxIter": { "type": "integer", "minimum": 1, "default": 20 }
+      }
+    },
+    "bc": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "preset": { "enum": ["manual", "1-sided", "2-sided", "3-sided", "all-sided"], "default": "manual", "description": "Шаблон обогрева внешнего контура: ручной (все рёбра — адиабата), снизу, с боков, кроме верха, со всех сторон" },
+        "holes": { "enum": ["ambient", "adiabatic"], "default": "ambient", "description": "Условие на отверстиях" },
+        "edges": {
+          "type": "array",
+          "description": "Ручные условия рёбер — действуют поверх шаблона. Индексы — от первой вершины контура основной бетонной области (как в sections[].areas[].hull), с 0.",
+          "items": {
+            "type": "object",
+            "required": ["edge", "type"],
+            "additionalProperties": false,
+            "properties": {
+              "contour": { "enum": ["outer", "hole"], "default": "outer" },
+              "hole": { "type": "integer", "minimum": 0, "description": "Номер отверстия (для contour = hole)" },
+              "edge": { "type": "integer", "minimum": 0 },
+              "type": { "enum": ["fire", "ambient", "adiabatic"] },
+              "alpha": { "type": "number", "minimum": 0, "description": "Коэффициент конвекции, Вт/(м²·°C); по умолчанию 25 (огонь), 9 (среда)" },
+              "emissivity": { "type": "number", "minimum": 0, "maximum": 1, "description": "Степень черноты; по умолчанию 0,7 (огонь), 0,8 (среда)" },
+              "tAmbient": { "type": "number", "default": 20, "description": "Температура среды, °C" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
