@@ -63,6 +63,9 @@
             <DataGridTextColumn Header="{DynamicResource Tag}"  Binding="{Binding Model.Tag}"  Width="*"/>
             <DataGridTextColumn Header="{DynamicResource CalcTaskKind}" Binding="{Binding Model.Kind, Converter={StaticResource LocKeyConv}, ConverterParameter=CalcTaskKind_}" Width="240"/>
             <DataGridTextColumn Header="{DynamicResource CalcType}"     Binding="{Binding Model.CalcType}" Width="60"/>
+            <DataGridTextColumn Header="{DynamicResource CalcTaskSection}"   Binding="{Binding SectionTag}"     Width="140"/>
+            <DataGridTextColumn Header="{DynamicResource CalcTaskForceSet}"  Binding="{Binding ForceSetTag}"    Width="160"/>
+            <DataGridTextColumn Header="{DynamicResource CalcTaskForceItem}" Binding="{Binding ForceItemLabel}" Width="90"/>
          </DataGrid.Columns>
       </DataGrid>
 

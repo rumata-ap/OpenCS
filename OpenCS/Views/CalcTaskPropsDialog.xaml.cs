@@ -1351,9 +1351,11 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    /// чекбокса — без этого снятие галки оставляло бы в полях устаревшее σ·h до следующего
    /// пере-выбора строки.
    /// </summary>
+   bool _suppressShellPrefill;
+
    void ApplyShellForceItemPrefill()
    {
-       if (selectedShellForceItem is not { } value) return;
+       if (_suppressShellPrefill || selectedShellForceItem is not { } value) return;
 
        var inv = System.Globalization.CultureInfo.InvariantCulture;
        double h = SelectedShellSimplSection?.H ?? 0;
@@ -2091,6 +2093,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
       if (existing != null)
       {
+         // Загрузка задачи: выбор сохранённой строки набора не должен затирать сохранённые усилия пластины
+         // (предзаполнение из строки — только при выборе пользователем).
+         _suppressShellPrefill = true;
          Tag = existing.Tag;
          Kind = existing.Kind;
          SelectedSection = _allSections.FirstOrDefault(s => s.Id == existing.SectionId);
@@ -2474,6 +2479,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
           NotifyTorsionForceProps();
           RefreshTorsionLmin();
+          _suppressShellPrefill = false;
        }
        else
        {
@@ -2609,6 +2615,13 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       Result = null;
       CommitCore();
       if (Result == null) return;
+      // Скрытые для вида поля формы (набор и строка предвыбраны по умолчанию) в задачу не попадают.
+      if (CalcTaskKinds.Get(Result.Kind) is { } spec)
+      {
+         if (spec.Set == CalcTaskRefNeed.None) { Result.ForceSetId = 0; Result.ForceItemId = 0; }
+         if (spec.Row == CalcTaskRefNeed.None) Result.ForceItemId = 0;
+         if (spec.Section == CalcTaskSectionKind.None) Result.SectionId = 0;
+      }
       var messages = new List<string>(_numberErrors);
       if (messages.Count == 0)
          messages.AddRange(CalcTaskAuthoring.Validate(_app.db, Result).Select(e => e.Message).Distinct());

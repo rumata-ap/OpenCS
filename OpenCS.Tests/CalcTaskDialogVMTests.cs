@@ -124,4 +124,41 @@ public class CalcTaskDialogVMTests
         Assert.Null(vm.Result);
         Assert.Contains(notifier.Warnings, w => w.Contains("φ1"));
     });
+
+    /// <summary>Открытие задачи пластины со строкой набора: сохранённые усилия не затираются строкой (ручная проверка B5).</summary>
+    [Fact]
+    public void Plate_EditExisting_KeepsSavedForces() => WithDialog((app, _, notifier, _) =>
+    {
+        var shell = ForceSetAuthoringTests.Shell("РСУ плиты");
+        Assert.Empty(ForceSetAuthoring.Save(app.db, shell));
+        var vm = new CalcTaskPropsDlgVM(app, null, new Window()) { Accept = () => { } };
+        vm.Kind = "shell_simpl_wa_uls";
+        vm.SelectedShellSimplSection = app.PlateSections[0];
+        vm.SelectedShellForceSet = app.ShellForceSets.Single();
+        Assert.Equal("12.5", vm.ShellSimplMx);          // предзаполнение из первой строки при выборе
+        vm.ShellSimplMx = "-25,5";
+        vm.OkCommand.Execute(null);
+        var task = vm.Result!;
+        Assert.NotEqual(0, task.ForceItemId);
+        Assert.Empty(CalcTaskAuthoring.Save(app.db, task));
+
+        var edit = new CalcTaskPropsDlgVM(app, task, new Window());
+        Assert.Equal(-25.5, NumberInput.Parse(edit.ShellSimplMx));
+    });
+
+    /// <summary>Задача потерь: предвыбранный (скрытый) набор усилий в задачу не попадает (ручная проверка E1).</summary>
+    [Fact]
+    public void Prestress_HiddenForceSet_Dropped() => WithDialog((app, vm, notifier, accepted) =>
+    {
+        Assert.Empty(ForceSetAuthoring.Save(app.db, ForceSetAuthoringTests.Bar("G")));
+        var dlg = new CalcTaskPropsDlgVM(app, null, new Window());
+        bool ok = false;
+        dlg.Accept = () => ok = true;
+        dlg.Kind = "prestress_loss";
+        dlg.SelectedSection = app.CrossSections[0];
+        dlg.SelectedForceSet = app.BarForceSets.Single();
+        dlg.OkCommand.Execute(null);
+        Assert.True(ok, string.Join("; ", notifier.Warnings));
+        Assert.Equal(0, dlg.Result!.ForceSetId);
+    });
 }

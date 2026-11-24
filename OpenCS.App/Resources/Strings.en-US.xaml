@@ -7379,7 +7379,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CalcTaskDefaultTagPunching">Punching {0}</system:String>
    <system:String x:Key="CalcTaskCopyTag">{0} (copy)</system:String>
    <system:String x:Key="CalcTaskErrNumber">'{0}': '{1}' is not a number (use a comma or a point as the decimal separator)</system:String>
-   <system:String x:Key="CalcTaskResultsStale" xml:space="preserve">Task '{0}' has changed, but its results ({1}) were computed from the previous data.\n\nYes — delete the outdated results.\nNo — keep the results.\nCancel — do not save the changes.</system:String>
+   <system:String x:Key="CalcTaskResultsStale" xml:space="preserve">Task '{0}' has changed, but its results ({1}) were computed from the previous data.&#x0a;&#x0a;Yes — delete the outdated results.&#x0a;No — keep the results.&#x0a;Cancel — do not save the changes.</system:String>
    <system:String x:Key="ConfirmDeleteCalcTaskWithResults">Delete task '{0}' and its results ({1})?</system:String>
    <system:String x:Key="ConfirmDeleteCalcTaskNamed">Delete task '{0}'?</system:String>
    <system:String x:Key="CalcTaskDuplicate">Duplicate task</system:String>
