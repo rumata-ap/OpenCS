@@ -225,4 +225,17 @@ public sealed class CalcTaskAuthoringTests : IDisposable
         Assert.Contains("Т", usage.Tasks);
         Assert.Contains(p.Bar.Items[0].Id, usage.ItemIds);
     }
+
+    /// <summary>Списки окна потерь — по значению, подписи на языке интерфейса (ручная проверка R6 — язык в меню).</summary>
+    [Fact]
+    public void PrestressChoices_Localized()
+    {
+        Loc.SetLanguage("en-US");
+        Assert.Equal(["A600–A1000", "Wire/strand (cold-worked)", "Strand (stabilised)"],
+            OpenCS.ViewModels.PrestressGroupRowVM.RelaxFormulaChoices.Select(c => c.Label));
+        Assert.Equal(["Mechanical", "Electrothermal"], OpenCS.ViewModels.PrestressGroupRowVM.SubMethodChoices.Select(c => c.Label));
+        Loc.SetLanguage("ru-RU");
+        Assert.Equal("К (стаб.)", OpenCS.ViewModels.PrestressGroupRowVM.RelaxFormulaChoices[2].Label);
+        Assert.Equal(2, OpenCS.ViewModels.PrestressGroupRowVM.RelaxFormulaChoices[2].Value);
+    }
 }
