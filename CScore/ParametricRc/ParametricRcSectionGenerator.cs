@@ -55,6 +55,7 @@ public static class ParametricRcSectionGenerator
                 "Нижняя арматура", definition.LongitudinalMaterialId);
             AddLayer(section, concrete, definition, definition.UpperRebar,
                 "Верхняя арматура", definition.LongitudinalMaterialId);
+            AddPerimeterBars(section, concrete, definition);
             AddExtraBars(section, concrete, definition);
             AddStirrupCuts(section, definition);
         }
@@ -80,6 +81,8 @@ public static class ParametricRcSectionGenerator
             if (layer.IsIdealized && (!(layer.AreaM2 > 0) || layer.Axis is null)) errors.Add("Расчётный слой требует площадь и ось изгиба.");
             if (!layer.IsIdealized && layer.Count < 1) errors.Add("Число физических стержней должно быть не менее одного.");
         }
+        if (d.PerimeterRebar is { } pr)
+            ValidatePerimeter(d, pr, errors);
         if (d.ExtraBars.Count > 0)
         {
             if (d.Shape is ParametricRcShape.Circle or ParametricRcShape.Annulus)
@@ -142,6 +145,89 @@ public static class ParametricRcSectionGenerator
                 errors.Add($"Зона {cut.Zone}, направление {cut.Direction}: зона недоступна для формы {d.Shape}.");
         }
         return errors;
+    }
+
+    static void ValidatePerimeter(ParametricRcSectionDefinition d, ParametricPerimeterRebar pr, List<string> errors)
+    {
+        if (d.Shape != ParametricRcShape.Rectangle)
+        {
+            errors.Add("Контурная раскладка арматуры («углы + промежуточные») доступна только для прямоугольного сечения.");
+            return;
+        }
+        if (d.UpperRebar?.Enabled == true || d.LowerRebar?.Enabled == true)
+        {
+            errors.Add("Контурная раскладка несовместима с нижним и верхним рядами арматуры.");
+            return;
+        }
+        if (!(pr.CornerDiameterM > 0) || !(pr.IntermediateDiameterM > 0) || !(pr.CoverM > 0) ||
+            pr.CountAlongWidth < 0 || pr.CountAlongHeight < 0)
+        {
+            errors.Add("Контурная арматура: диаметры и расстояние до грани должны быть положительными, числа стержней — неотрицательными.");
+            return;
+        }
+        if (!(d.WidthM > 0) || !(d.HeightM > 0)) return;
+        double rMax = Math.Max(pr.CornerDiameterM, pr.IntermediateDiameterM) / 2;
+        if (pr.CoverM < rMax || 2 * pr.CoverM >= Math.Min(d.WidthM, d.HeightM))
+        {
+            errors.Add("Контурная арматура: стержни выходят за контур сечения или расстояние до грани слишком велико.");
+            return;
+        }
+        double clear = (pr.CornerDiameterM + pr.IntermediateDiameterM) / 2;
+        double spanX = d.WidthM - 2 * pr.CoverM, spanY = d.HeightM - 2 * pr.CoverM;
+        double stepX = spanX / (pr.CountAlongWidth + 1), stepY = spanY / (pr.CountAlongHeight + 1);
+        if ((pr.CountAlongWidth > 0 && stepX < Math.Max(clear, pr.IntermediateDiameterM)) ||
+            (pr.CountAlongHeight > 0 && stepY < Math.Max(clear, pr.IntermediateDiameterM)) ||
+            (pr.CountAlongWidth == 0 && spanX < pr.CornerDiameterM) ||
+            (pr.CountAlongHeight == 0 && spanY < pr.CornerDiameterM))
+            errors.Add("Контурная арматура: стержни не помещаются по длине грани (шаг меньше диаметра).");
+    }
+
+    /// <summary>
+    /// Центры и диаметры стержней контурной раскладки (углы + промежуточные на гранях) в системе координат сечения,
+    /// м. Общая точка для генератора и предпросмотра диалога. Для нерасчётных входных данных — пустой список.
+    /// </summary>
+    public static IReadOnlyList<(double X, double Y, double DiameterM)> GetPerimeterBars(
+        ParametricRcSectionDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        var pr = definition.PerimeterRebar;
+        if (pr is null || definition.Shape != ParametricRcShape.Rectangle ||
+            !(definition.WidthM > 0) || !(definition.HeightM > 0) || !(pr.CoverM > 0)) return [];
+        double hx = definition.WidthM / 2 - pr.CoverM, hy = definition.HeightM / 2 - pr.CoverM;
+        if (hx < 0 || hy < 0) return [];
+        var bars = new List<(double X, double Y, double DiameterM)>
+        {
+            (-hx, -hy, pr.CornerDiameterM), (hx, -hy, pr.CornerDiameterM),
+            (hx, hy, pr.CornerDiameterM), (-hx, hy, pr.CornerDiameterM)
+        };
+        for (int i = 1; i <= pr.CountAlongWidth; i++)
+        {
+            double x = -hx + i * 2 * hx / (pr.CountAlongWidth + 1);
+            bars.Add((x, -hy, pr.IntermediateDiameterM));
+            bars.Add((x, hy, pr.IntermediateDiameterM));
+        }
+        for (int i = 1; i <= pr.CountAlongHeight; i++)
+        {
+            double y = -hy + i * 2 * hy / (pr.CountAlongHeight + 1);
+            bars.Add((-hx, y, pr.IntermediateDiameterM));
+            bars.Add((hx, y, pr.IntermediateDiameterM));
+        }
+        return bars;
+    }
+
+    static void AddPerimeterBars(CrossSection section, MaterialArea concrete, ParametricRcSectionDefinition definition)
+    {
+        var bars = GetPerimeterBars(definition);
+        if (bars.Count == 0) return;
+        var area = new MaterialArea
+        {
+            Tag = "Контурная арматура", Category = AreaCategory.RebarGroup,
+            MaterialId = definition.LongitudinalMaterialId, HostArea = concrete, HostAreaId = concrete.Id,
+            RebarRepresentation = RebarRepresentation.PhysicalBars,
+        };
+        foreach (var (x, y, d) in bars)
+            area.Fibers.Add(Bar(x, y, Math.PI * d * d / 4.0, d));
+        section.Areas.Add(area);
     }
 
     static List<(double X, double Y)> OuterPoints(ParametricRcSectionDefinition d) => d.Shape switch

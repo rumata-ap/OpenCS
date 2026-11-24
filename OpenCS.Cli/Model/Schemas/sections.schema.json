@@ -68,6 +68,15 @@
           "type": "object", "required": ["count", "d", "r"], "description": "Равномерная раскладка по окружности (круг, кольцо)",
           "properties": { "count": { "type": "integer", "minimum": 7 }, "d": { "type": "number" }, "r": { "type": "number", "description": "Радиус окружности центров, мм" } }
         },
+        "perimeter": {
+          "type": "object", "required": ["cornerD", "intermediateD", "cover"], "description": "Прямоугольник: угловые стержни + промежуточные на гранях (вместо top/bottom)",
+          "properties": {
+            "cornerD": { "type": "number", "description": "Диаметр угловых, мм" }, "intermediateD": { "type": "number", "description": "Диаметр промежуточных, мм" },
+            "cover": { "type": "number", "description": "От грани до центра стержней, мм" },
+            "countWidth": { "type": "integer", "minimum": 0, "description": "Промежуточных на верхней и нижней гранях" },
+            "countHeight": { "type": "integer", "minimum": 0, "description": "Промежуточных на левой и правой гранях" }
+          }
+        },
         "stirrups": {
           "type": "array", "description": "Наборы открытых срезов поперечной арматуры",
           "items": {

@@ -35,6 +35,9 @@ public sealed class ParametricRcSectionVM : ViewModelBase
     ParametricStirrupZone _stirrupZone = ParametricStirrupZone.Body;
     ParametricStirrupDirection _stirrupDirection = ParametricStirrupDirection.Vertical;
     IReadOnlyList<ParametricRebarPoint> _extraBars = [];
+    bool _perimeterEnabled;
+    double _perimeterCornerDiameterMm = 20, _perimeterIntermediateDiameterMm = 16, _perimeterCoverMm = 40;
+    int _perimeterCountWidth = 1, _perimeterCountHeight = 2;
 
     /// <summary>Дополнительные наборы срезов; основной набор задаётся полями мастера.</summary>
     public ObservableCollection<ParametricStirrupCutSet> AdditionalStirrupCuts { get; } = [];
@@ -128,6 +131,39 @@ public sealed class ParametricRcSectionVM : ViewModelBase
         Loc.S("ParametricRcExtraBars"), _extraBars.Count, _extraBars.Sum(b => b.AreaM2) * 1e4);
     /// <summary>Убрать отдельные стержни.</summary>
     public void ClearExtraBars() => ExtraBars = [];
+
+    /// <summary>Включает контурную раскладку «угловые + промежуточные стержни» (только прямоугольник).</summary>
+    public bool PerimeterEnabled
+    {
+        get => _perimeterEnabled;
+        set { _perimeterEnabled = value; OnPropertyChanged(); RefreshPreview(); }
+    }
+    /// <summary>Диаметр угловых стержней контурной раскладки, мм.</summary>
+    public double PerimeterCornerDiameterMm { get => _perimeterCornerDiameterMm; set { _perimeterCornerDiameterMm = value; OnPropertyChanged(); RefreshPreview(); } }
+    /// <summary>Диаметр промежуточных стержней контурной раскладки, мм.</summary>
+    public double PerimeterIntermediateDiameterMm { get => _perimeterIntermediateDiameterMm; set { _perimeterIntermediateDiameterMm = value; OnPropertyChanged(); RefreshPreview(); } }
+    /// <summary>Расстояние от грани бетона до центров стержней контурной раскладки, мм.</summary>
+    public double PerimeterCoverMm { get => _perimeterCoverMm; set { _perimeterCoverMm = value; OnPropertyChanged(); RefreshPreview(); } }
+    /// <summary>Число промежуточных стержней на каждой горизонтальной грани (верх и низ).</summary>
+    public int PerimeterCountWidth { get => _perimeterCountWidth; set { _perimeterCountWidth = value; OnPropertyChanged(); RefreshPreview(); } }
+    /// <summary>Число промежуточных стержней на каждой вертикальной грани (лево и право).</summary>
+    public int PerimeterCountHeight { get => _perimeterCountHeight; set { _perimeterCountHeight = value; OnPropertyChanged(); RefreshPreview(); } }
+    /// <summary>Контурная раскладка применима к форме (прямоугольник).</summary>
+    public bool ShowPerimeterFields => Shape == ParametricRcShape.Rectangle;
+    /// <summary>Контурная раскладка включена и действует (ряды нижней/верхней арматуры при этом не используются).</summary>
+    public bool PerimeterActive => PerimeterEnabled && ShowPerimeterFields;
+    /// <summary>Доступны ли поля нижнего и верхнего рядов (не заняты контурной раскладкой).</summary>
+    public bool AreLayerFieldsEnabled => !PerimeterActive;
+    /// <summary>Подпись итога контурной раскладки: число стержней и ΣAs.</summary>
+    public string PerimeterSummary
+    {
+        get
+        {
+            var bars = ParametricRcSectionGenerator.GetPerimeterBars(BuildDefinition());
+            double area = bars.Sum(b => Math.PI * b.DiameterM * b.DiameterM / 4.0) * 1e4;
+            return string.Format(CultureInfo.CurrentCulture, Loc.S("ParametricRcPerimeterSummary"), bars.Count, area);
+        }
+    }
 
     /// <summary>Включает нижний продольный слой.</summary>
     public bool LowerRebarEnabled { get => _lowerRebarEnabled; set { _lowerRebarEnabled = value; OnPropertyChanged(); RefreshPreview(); } }
@@ -257,6 +293,15 @@ public sealed class ParametricRcSectionVM : ViewModelBase
         LoadLayer(definition.LowerRebar, true);
         LoadLayer(definition.UpperRebar, false);
         ExtraBars = definition.ExtraBars;
+        if (definition.PerimeterRebar is { } perimeter)
+        {
+            PerimeterCornerDiameterMm = perimeter.CornerDiameterM * 1000.0;
+            PerimeterIntermediateDiameterMm = perimeter.IntermediateDiameterM * 1000.0;
+            PerimeterCoverMm = perimeter.CoverM * 1000.0;
+            PerimeterCountWidth = perimeter.CountAlongWidth;
+            PerimeterCountHeight = perimeter.CountAlongHeight;
+        }
+        PerimeterEnabled = definition.PerimeterRebar is not null;
         var cut = definition.StirrupCuts.FirstOrDefault();
         StirrupsEnabled = definition.StirrupCuts.Any(c => c.Count > 0);
         if (cut is not null)
@@ -302,10 +347,10 @@ public sealed class ParametricRcSectionVM : ViewModelBase
             Tag = Tag.Trim(),
             ConcreteMaterialId = ConcreteMaterialId,
             LongitudinalMaterialId = LongitudinalMaterialId,
-            LowerRebar = BuildLayer(LowerRebarEnabled, LowerRebarIdealized, LowerRebarCount,
+            LowerRebar = BuildLayer(LowerRebarEnabled && !PerimeterActive, LowerRebarIdealized, LowerRebarCount,
                 LowerRebarDiameterMm, LowerRebarAreaMm2,
                 LayerCoordinateM(bounds, true, LowerRebarIdealized, LowerRebarAxis, LowerRebarOffsetMm), LowerRebarAxis),
-            UpperRebar = BuildLayer(UpperRebarEnabled, UpperRebarIdealized, UpperRebarCount,
+            UpperRebar = BuildLayer(UpperRebarEnabled && !PerimeterActive, UpperRebarIdealized, UpperRebarCount,
                 UpperRebarDiameterMm, UpperRebarAreaMm2,
                 LayerCoordinateM(bounds, false, UpperRebarIdealized, UpperRebarAxis, UpperRebarOffsetMm), UpperRebarAxis),
             PolarRebar = ShowPolarFields
@@ -313,6 +358,11 @@ public sealed class ParametricRcSectionVM : ViewModelBase
                     PolarRebarRadiusMm / 1000.0)
                 : null,
             ExtraBars = ShowPolarFields ? [] : _extraBars,
+            PerimeterRebar = PerimeterActive
+                ? new ParametricPerimeterRebar(PerimeterCornerDiameterMm / 1000.0,
+                    PerimeterIntermediateDiameterMm / 1000.0, PerimeterCoverMm / 1000.0,
+                    PerimeterCountWidth, PerimeterCountHeight)
+                : null,
         };
 
         var cuts = new List<ParametricStirrupCutSet>();
@@ -474,6 +524,10 @@ public sealed class ParametricRcSectionVM : ViewModelBase
         OnPropertyChanged(nameof(CanUseStirrups));
         OnPropertyChanged(nameof(IsStirrupFieldsEnabled));
         OnPropertyChanged(nameof(ShowPolarFields));
+        OnPropertyChanged(nameof(ShowPerimeterFields));
+        OnPropertyChanged(nameof(PerimeterActive));
+        OnPropertyChanged(nameof(AreLayerFieldsEnabled));
+        OnPropertyChanged(nameof(PerimeterSummary));
         OnPropertyChanged(nameof(ShowTeeApplicability));
         OnPropertyChanged(nameof(ShowRoundApplicability));
     }

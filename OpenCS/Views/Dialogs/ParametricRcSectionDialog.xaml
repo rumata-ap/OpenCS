@@ -88,7 +88,31 @@
                      <ComboBox Grid.Column="1" ItemsSource="{Binding ReinforcementMaterials}"
                                DisplayMemberPath="Tag" SelectedValuePath="Id" SelectedValue="{Binding LongitudinalMaterialId}" Margin="0,2"/>
                   </Grid>
-                  <GroupBox Header="{DynamicResource ParametricRcLower}" Margin="0,0,0,6"
+                  <GroupBox Header="{DynamicResource ParametricRcPerimeter}" Margin="0,0,0,6"
+                            Visibility="{Binding ShowPerimeterFields, Converter={StaticResource BoolToVisibility}}">
+                     <StackPanel Margin="7">
+                        <CheckBox IsChecked="{Binding PerimeterEnabled}" Margin="0,0,0,5">
+                           <TextBlock Text="{DynamicResource ParametricRcPerimeterEnabled}" TextWrapping="Wrap"/>
+                        </CheckBox>
+                        <Grid IsEnabled="{Binding PerimeterEnabled}">
+                           <Grid.ColumnDefinitions><ColumnDefinition Width="115"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                           <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                           <TextBlock Grid.Row="0" Text="{DynamicResource ParametricRcPerimeterCornerDiameter}" VerticalAlignment="Center" Margin="0,2,8,2" TextWrapping="Wrap"/>
+                           <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding PerimeterCornerDiameterMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,1"/>
+                           <TextBlock Grid.Row="1" Text="{DynamicResource ParametricRcPerimeterIntermediateDiameter}" VerticalAlignment="Center" Margin="0,2,8,2" TextWrapping="Wrap"/>
+                           <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding PerimeterIntermediateDiameterMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,1"/>
+                           <TextBlock Grid.Row="2" Text="{DynamicResource ParametricRcPerimeterCover}" VerticalAlignment="Center" Margin="0,2,8,2" TextWrapping="Wrap"/>
+                           <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding PerimeterCoverMm, Converter={StaticResource num}, UpdateSourceTrigger=LostFocus}" Margin="0,1"/>
+                           <TextBlock Grid.Row="3" Text="{DynamicResource ParametricRcPerimeterCountWidth}" VerticalAlignment="Center" Margin="0,2,8,2" TextWrapping="Wrap"/>
+                           <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding PerimeterCountWidth, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                           <TextBlock Grid.Row="4" Text="{DynamicResource ParametricRcPerimeterCountHeight}" VerticalAlignment="Center" Margin="0,2,8,2" TextWrapping="Wrap"/>
+                           <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding PerimeterCountHeight, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                        </Grid>
+                        <TextBlock Text="{Binding PerimeterSummary}" TextWrapping="Wrap" Margin="0,5,0,0"
+                                   Visibility="{Binding PerimeterActive, Converter={StaticResource BoolToVisibility}}"/>
+                     </StackPanel>
+                  </GroupBox>
+                  <GroupBox Header="{DynamicResource ParametricRcLower}" Margin="0,0,0,6" IsEnabled="{Binding AreLayerFieldsEnabled}"
                             Visibility="{Binding ShowLayerRebarFields, Converter={StaticResource BoolToVisibility}}">
                      <StackPanel Margin="7">
                         <CheckBox Content="{DynamicResource ParametricRcRebarEnabled}" IsChecked="{Binding LowerRebarEnabled}" Margin="0,0,0,5"/>
@@ -112,7 +136,7 @@
                         </Grid>
                      </StackPanel>
                   </GroupBox>
-                  <GroupBox Header="{DynamicResource ParametricRcUpper}" Margin="0,0,0,6"
+                  <GroupBox Header="{DynamicResource ParametricRcUpper}" Margin="0,0,0,6" IsEnabled="{Binding AreLayerFieldsEnabled}"
                             Visibility="{Binding ShowLayerRebarFields, Converter={StaticResource BoolToVisibility}}">
                      <StackPanel Margin="7">
                         <CheckBox Content="{DynamicResource ParametricRcRebarEnabled}" IsChecked="{Binding UpperRebarEnabled}" Margin="0,0,0,5"/>

@@ -87,6 +87,14 @@
    <system:String x:Key="ParametricRcRebarAxis">Ось</system:String>
    <system:String x:Key="ParametricRcAxisMx">Mx</system:String>
    <system:String x:Key="ParametricRcAxisMy">My</system:String>
+   <system:String x:Key="ParametricRcPerimeter">Контурная раскладка (углы + промежуточные)</system:String>
+   <system:String x:Key="ParametricRcPerimeterEnabled">Угловые стержни + промежуточные ряды (вместо нижнего и верхнего)</system:String>
+   <system:String x:Key="ParametricRcPerimeterCornerDiameter">Ø угловых, мм</system:String>
+   <system:String x:Key="ParametricRcPerimeterIntermediateDiameter">Ø промежуточных, мм</system:String>
+   <system:String x:Key="ParametricRcPerimeterCover">До центра стержней от грани, мм</system:String>
+   <system:String x:Key="ParametricRcPerimeterCountWidth">Промежуточных на верхней и нижней грани</system:String>
+   <system:String x:Key="ParametricRcPerimeterCountHeight">Промежуточных на левой и правой грани</system:String>
+   <system:String x:Key="ParametricRcPerimeterSummary">Стержней: {0}, ΣAs = {1:0.##} см²</system:String>
    <system:String x:Key="ParametricRcPolarRebar">Полярная арматура</system:String>
    <system:String x:Key="ParametricRcPolarCount">n</system:String>
    <system:String x:Key="ParametricRcPolarDiameterRadius">Ø / r, мм</system:String>

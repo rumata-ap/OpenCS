@@ -54,6 +54,19 @@ public sealed record ParametricPolarRebar(int Count, double DiameterM, double Ra
 /// <param name="DiameterM">Диаметр (у распределённой арматуры — эквивалентный по площади), м.</param>
 public sealed record ParametricRebarPoint(double X, double Y, double AreaM2, double DiameterM);
 
+/// <summary>
+/// Контурная раскладка продольной арматуры прямоугольного сечения: четыре угловых стержня и промежуточные
+/// стержни на каждой из четырёх граней (равномерно между угловыми), как у стержневых сечений из импорта.
+/// </summary>
+/// <param name="CornerDiameterM">Диаметр угловых стержней, м.</param>
+/// <param name="IntermediateDiameterM">Диаметр промежуточных стержней, м.</param>
+/// <param name="CoverM">Расстояние от грани бетона до центра стержней, м (центр углового стержня — в (c, c)).</param>
+/// <param name="CountAlongWidth">Число промежуточных стержней на каждой горизонтальной грани (верх и низ).</param>
+/// <param name="CountAlongHeight">Число промежуточных стержней на каждой вертикальной грани (лево и право).</param>
+public sealed record ParametricPerimeterRebar(
+    double CornerDiameterM, double IntermediateDiameterM, double CoverM,
+    int CountAlongWidth, int CountAlongHeight);
+
 /// <summary>Параметрический источник типового железобетонного сечения в единицах СИ.</summary>
 public sealed record ParametricRcSectionDefinition(
     ParametricRcShape Shape, double WidthM, double HeightM, double WebThicknessM,
@@ -75,6 +88,11 @@ public sealed record ParametricRcSectionDefinition(
     /// рядов; не для круга и кольца. Записи без поля читаются как пустой список.
     /// </summary>
     public IReadOnlyList<ParametricRebarPoint> ExtraBars { get; init; } = [];
+    /// <summary>
+    /// Контурная раскладка «углы + промежуточные стержни» (только прямоугольник; взаимоисключающе с нижним и
+    /// верхним рядами). Записи без поля читаются как null.
+    /// </summary>
+    public ParametricPerimeterRebar? PerimeterRebar { get; init; }
     /// <summary>Создаёт прямоугольное сечение.</summary>
     public static ParametricRcSectionDefinition Rectangle(double widthM, double heightM) =>
         new(ParametricRcShape.Rectangle, widthM, heightM, 0, 0, 0, "Параметрическое сечение", null, null, null);

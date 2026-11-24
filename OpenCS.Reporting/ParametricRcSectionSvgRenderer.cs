@@ -84,6 +84,8 @@ public sealed class ParametricRcSectionSvgRenderer
     {
         AppendLayer(svg, definition, definition.LowerRebar, scale);
         AppendLayer(svg, definition, definition.UpperRebar, scale);
+        foreach (var (px, py, pd) in ParametricRcSectionGenerator.GetPerimeterBars(definition))
+            svg.Append($"<circle class=\"rebar\" cx=\"{N(X(px))}\" cy=\"{N(Y(py))}\" r=\"{N(Math.Max(2, pd * scale / 2))}\"/>");
         foreach (var bar in definition.ExtraBars)
             svg.Append($"<circle class=\"rebar\" cx=\"{N(X(bar.X))}\" cy=\"{N(Y(bar.Y))}\" r=\"{N(Math.Max(2, bar.DiameterM * scale / 2))}\"/>");
         if (definition.PolarRebar is not { } polar || polar.Count <= 0)

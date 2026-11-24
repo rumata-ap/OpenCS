@@ -87,6 +87,14 @@
    <system:String x:Key="ParametricRcRebarAxis">Axis</system:String>
    <system:String x:Key="ParametricRcAxisMx">Mx</system:String>
    <system:String x:Key="ParametricRcAxisMy">My</system:String>
+   <system:String x:Key="ParametricRcPerimeter">Perimeter layout (corners + intermediate)</system:String>
+   <system:String x:Key="ParametricRcPerimeterEnabled">Corner bars + intermediate rows (instead of lower and upper)</system:String>
+   <system:String x:Key="ParametricRcPerimeterCornerDiameter">Corner bar Ø, mm</system:String>
+   <system:String x:Key="ParametricRcPerimeterIntermediateDiameter">Intermediate bar Ø, mm</system:String>
+   <system:String x:Key="ParametricRcPerimeterCover">Face to bar centre, mm</system:String>
+   <system:String x:Key="ParametricRcPerimeterCountWidth">Intermediate bars on top and bottom faces</system:String>
+   <system:String x:Key="ParametricRcPerimeterCountHeight">Intermediate bars on left and right faces</system:String>
+   <system:String x:Key="ParametricRcPerimeterSummary">Bars: {0}, ΣAs = {1:0.##} cm²</system:String>
    <system:String x:Key="ParametricRcPolarRebar">Polar reinforcement</system:String>
    <system:String x:Key="ParametricRcPolarCount">n</system:String>
    <system:String x:Key="ParametricRcPolarDiameterRadius">Ø / r, mm</system:String>

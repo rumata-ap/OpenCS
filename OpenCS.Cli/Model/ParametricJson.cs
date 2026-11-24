@@ -120,6 +120,12 @@ static class ParametricJson
                 });
             o["stirrups"] = cuts;
         }
+        if (d.PerimeterRebar is { } pr)
+            o["perimeter"] = new JsonObject
+            {
+                ["cornerD"] = ToMm(pr.CornerDiameterM), ["intermediateD"] = ToMm(pr.IntermediateDiameterM),
+                ["cover"] = ToMm(pr.CoverM), ["countWidth"] = pr.CountAlongWidth, ["countHeight"] = pr.CountAlongHeight,
+            };
         if (d.ExtraBars.Count > 0)
         {
             var bars = new JsonArray();
@@ -254,6 +260,18 @@ static class ParametricJson
             }
         else if (o["stirrups"] != null) errors.Add($"{path}.stirrups", Loc.S("CliModelErrNotArray"));
 
+        ParametricPerimeterRebar? perimeter = null;
+        if (o["perimeter"] is JsonObject qo)
+        {
+            string qp = $"{path}.perimeter";
+            perimeter = new((SectionJson.Num(qo, "cornerD", qp, errors, true) ?? 0) / Mm,
+                            (SectionJson.Num(qo, "intermediateD", qp, errors, true) ?? 0) / Mm,
+                            (SectionJson.Num(qo, "cover", qp, errors, true) ?? 0) / Mm,
+                            SectionJson.Int(qo, "countWidth", qp, errors) ?? 0,
+                            SectionJson.Int(qo, "countHeight", qp, errors) ?? 0);
+        }
+        else if (o["perimeter"] != null) errors.Add($"{path}.perimeter", Loc.S("CliModelErrNotObject"));
+
         var extra = new List<ParametricRebarPoint>();
         if (o["extraBars"] is JsonArray ea)
             for (int i = 0; i < ea.Count; i++)
@@ -280,6 +298,7 @@ static class ParametricJson
         {
             StirrupCuts = cuts,
             ExtraBars = extra,
+            PerimeterRebar = perimeter,
         };
         return new ParametricDoc(path, def, null, concrete, rebar, cutMaterials, null);
     }

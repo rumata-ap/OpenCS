@@ -129,12 +129,14 @@ public sealed class ParametricRcPreviewControl : FrameworkElement
         }
 
         var definition = vm.BuildDefinition();
-        DrawLayer(dc, boundary, definition, definition.LowerRebar, vm.LowerRebarEnabled, vm.LowerRebarIdealized,
+        DrawLayer(dc, boundary, definition, definition.LowerRebar, vm.LowerRebarEnabled && !vm.PerimeterActive, vm.LowerRebarIdealized,
             vm.LowerRebarDiameterMm, vm.LowerRebarAreaMm2, vm.GetRebarCentroidCoordinateMm(true),
             vm.LowerRebarAxis, Math.Max(0, vm.StirrupCoverMm) / 1000.0, toScreen, scale);
-        DrawLayer(dc, boundary, definition, definition.UpperRebar, vm.UpperRebarEnabled, vm.UpperRebarIdealized,
+        DrawLayer(dc, boundary, definition, definition.UpperRebar, vm.UpperRebarEnabled && !vm.PerimeterActive, vm.UpperRebarIdealized,
             vm.UpperRebarDiameterMm, vm.UpperRebarAreaMm2, vm.GetRebarCentroidCoordinateMm(false),
             vm.UpperRebarAxis, Math.Max(0, vm.StirrupCoverMm) / 1000.0, toScreen, scale);
+        foreach (var (px, py, pd) in ParametricRcSectionGenerator.GetPerimeterBars(definition))
+            DrawBar(dc, toScreen((px, py)), pd * scale);
         foreach (var bar in definition.ExtraBars)
             DrawBar(dc, toScreen((bar.X, bar.Y)), bar.DiameterM * scale);
     }

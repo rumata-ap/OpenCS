@@ -285,4 +285,22 @@ public sealed class ParametricRcSectionVMTests
         Assert.Equal(0.10, lowerSpan.Max - lowerSpan.Min, 12);
         Assert.Equal(0.54, upperSpan.Max - upperSpan.Min, 12);
     }
+
+    [Fact]
+    public void Perimeter_BuildLoadRoundTrip_DisablesLayers()
+    {
+        var vm = new OpenCS.ViewModels.ParametricRcSectionVM();
+        vm.LowerRebarEnabled = true;
+        vm.PerimeterEnabled = true;
+        vm.PerimeterCountWidth = 2; vm.PerimeterCountHeight = 3;
+        var def = vm.BuildDefinition();
+        Assert.NotNull(def.PerimeterRebar);
+        Assert.Null(def.LowerRebar);
+        Assert.False(vm.AreLayerFieldsEnabled);
+
+        var vm2 = new OpenCS.ViewModels.ParametricRcSectionVM();
+        vm2.LoadDefinition(def);
+        Assert.True(vm2.PerimeterEnabled);
+        Assert.Equal(def.PerimeterRebar, vm2.BuildDefinition().PerimeterRebar);
+    }
 }
