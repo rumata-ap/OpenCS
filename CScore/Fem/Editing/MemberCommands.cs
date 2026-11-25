@@ -12,6 +12,9 @@ public sealed class DeleteMemberCommand(FemMember member) : IFemEditCommand
     List<(FemMemberGroup group, string oldJson)> _groupEdits = [];
     List<FemMemberLoad> _loadEdits = [];
     List<(int Index, FemLineSupport Support)> _lineSupports = [];
+    // Нагрузки на КЭ с целью «КонЭ по тегам»: без удалённого тега цели нагрузка теряет его, без целей — удаляется.
+    List<(FemElementLoad Load, string OldJson)> _elementTargetEdits = [];
+    List<(int Index, FemElementLoad Load)> _elementLoadsRemoved = [];
 
     public void Do(FemSchemaEditSession session)
     {
@@ -20,6 +23,25 @@ public sealed class DeleteMemberCommand(FemMember member) : IFemEditCommand
         _loadEdits = session.MemberLoads.Where(load => load.MemberId == member.Id).ToList();
         foreach (var load in _loadEdits) session.MemberLoads.Remove(load);
         _groupEdits = FemGroupComposition.RemoveMemberTags(session.MemberGroups, [member.ElemTag]);
+
+        _elementTargetEdits = [];
+        _elementLoadsRemoved = [];
+        for (int i = session.ElementLoads.Count - 1; i >= 0; i--)
+        {
+            var load = session.ElementLoads[i];
+            if (load.TargetKind != FemLoadTargetKinds.Members || !load.TargetTags.Contains(member.ElemTag)) continue;
+            var rest = load.TargetTags.Where(t => t != member.ElemTag).ToList();
+            if (rest.Count == 0)
+            {
+                _elementLoadsRemoved.Add((i, load));
+                session.ElementLoads.RemoveAt(i);
+            }
+            else
+            {
+                _elementTargetEdits.Add((load, load.TargetTagsJson));
+                load.SetTargetTags(rest);
+            }
+        }
     }
 
     public void Undo(FemSchemaEditSession session)
@@ -28,6 +50,13 @@ public sealed class DeleteMemberCommand(FemMember member) : IFemEditCommand
         LineSupportCascade.Restore(session, _lineSupports);
         foreach (var load in _loadEdits) session.MemberLoads.Add(load);
         foreach (var (group, oldJson) in _groupEdits) group.MemberTagsJson = oldJson;
+        // Удалялись с конца списка — возвращаются в обратном порядке, на прежние места.
+        for (int k = _elementLoadsRemoved.Count - 1; k >= 0; k--)
+        {
+            var (index, load) = _elementLoadsRemoved[k];
+            session.ElementLoads.Insert(Math.Min(index, session.ElementLoads.Count), load);
+        }
+        foreach (var (load, oldJson) in _elementTargetEdits) load.TargetTagsJson = oldJson;
     }
 }
 

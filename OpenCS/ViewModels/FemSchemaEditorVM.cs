@@ -16,10 +16,14 @@ namespace OpenCS.ViewModels;
 /// <summary>ViewModel редактора FEM-схемы: держит сессию, выбор, режимы создания и сохранение.
 /// Nodes/Elements/Members/LoadCases — ObservableCollection-зеркала Session.* (та же ссылка на
 /// доменные объекты), пересинхронизируемые после каждой команды, чтобы гриды видели изменения.</summary>
-public sealed class FemSchemaEditorVM : ViewModelBase
+public sealed class FemSchemaEditorVM : ViewModelBase, IUnsavedChanges
 {
-    /// <summary>Есть несохранённые правки — отметка «(изменено)» в заголовке страницы схемы.</summary>
+    /// <summary>Есть несохранённые правки — отметка «(изменено)» в заголовке страницы схемы и «*» в заголовке вида.</summary>
     public bool IsDirty => Session.IsDirty;
+
+    string IUnsavedChanges.DisplayName => Session.Schema.Tag;
+    bool IUnsavedChanges.SaveChanges() => Save();
+    void IUnsavedChanges.DiscardChanges() => ReloadSessionFromDb();
 
     readonly AppViewModel _app;
     readonly DatabaseService _db;
@@ -1280,43 +1284,14 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     /// импорта (ЛИРА/SCAD) и элементы на ней сохраняются как есть. Изменившаяся сетка сбрасывает результаты
     /// постановок схемы; наборы усилий по прежней сетке перечисляются в журнале.
     /// </summary>
-    /// <summary>Состав сессии — из БД (узлы, КонЭ, нагрузки, линейные связи, пружины узлов) и схемы (группы, загружения,
-    /// определения).</summary>
-    void LoadSession()
-    {
-        var schema = Session.Schema;
-        Session.Nodes.AddRange(_db.GetFemNodes(schema.Id));
-        Session.Members.AddRange(_db.GetFemMembers(schema.Id));
-        Session.MemberGroups.AddRange(schema.MemberGroups);
-        Session.LoadCases.AddRange(schema.LoadCases);
-        Session.NodeLoads.AddRange(_db.GetFemNodeLoads(schema.Id));
-        Session.MemberLoads.AddRange(_db.GetFemMemberLoads(schema.Id));
-        Session.KinematicLoads.AddRange(_db.GetFemKinematicLoads(schema.Id));
-        Session.ElementLoads.AddRange(_db.GetFemElementLoads(schema.Id));
-        Session.MeshNodeLoads.AddRange(_db.GetFemMeshNodeLoads(schema.Id));
-        Session.LineSupports.AddRange(_db.GetFemLineSupports(schema.Id));
-        Session.NodeSprings.AddRange(_db.GetFemSprings(schema.Id).Where(s => s.TargetKind == FemSpringTargetKinds.Node));
-        Session.LoadDefinitions.AddRange(schema.LoadDefinitions);
-    }
+    /// <summary>Состав сессии — из БД и схемы (<see cref="FemSchemaAuthoring.LoadSession"/>).</summary>
+    void LoadSession() => FemSchemaAuthoring.LoadSession(_db, Session);
 
-    /// <summary>Сессия заново из БД (сборка сетки сняла замки сохранённой сетки фрагмента и перенесла ГУ и нагрузки);
-    /// история правок сбрасывается — сессия была сохранена.</summary>
-    void ReloadSessionFromDb()
+    /// <summary>Сессия заново из БД (сборка сетки сняла замки, область пластины записана диалогом, правки отброшены);
+    /// история правок сбрасывается.</summary>
+    public void ReloadSessionFromDb()
     {
-        Session.Nodes.Clear();
-        Session.Members.Clear();
-        Session.MemberGroups.Clear();
-        Session.LoadCases.Clear();
-        Session.NodeLoads.Clear();
-        Session.MemberLoads.Clear();
-        Session.KinematicLoads.Clear();
-        Session.ElementLoads.Clear();
-        Session.MeshNodeLoads.Clear();
-        Session.LineSupports.Clear();
-        Session.NodeSprings.Clear();
-        Session.LoadDefinitions.Clear();
         LoadSession();
-        Session.MarkSaved();
         Selection.Clear();
         RefreshCollections();
         _afterSave?.Invoke();
@@ -1382,33 +1357,13 @@ public sealed class FemSchemaEditorVM : ViewModelBase
 
     public bool Save()
     {
-        // Схема с импортированной сеткой (ЛИРА): группы ссылаются на номера КЭ сетки, а узлы элементов
-        // с заблокированной сеткой сверяются с узлами сетки.
-        bool imported = _db.HasImportedMesh(Session.Schema.Id);
-        var importedNodes = imported
-            ? _db.GetFemMeshNodes(Session.Schema.Id).Where(n => n.Origin == FemMember.MeshSourceImported).ToList()
-            : null;
-        var importedElementTags = imported
-            ? _db.GetFemMeshElements(Session.Schema.Id).Where(e => e.Origin == FemMember.MeshSourceImported)
-                .Select(e => e.ElemTag).ToHashSet(StringComparer.Ordinal)
-            : null;
-        Diagnostics = FemTopologyValidator.Validate(Session.Schema, Session.Nodes, Session.Members, Session.MemberGroups,
-                importedNodes, importedElementTags)
-            .Concat(FemCanonicalValidator.Validate(Session.Schema, Session.LoadCases, Session.Nodes,
-                Session.NodeLoads, Session.Members, Session.MemberLoads, Session.KinematicLoads))
-            .Concat(FemLoadDefinitionValidator.Validate(Session.Schema, Session.LoadDefinitions, Session.LoadCases))
-            .ToList();
-        var errors = Diagnostics.Where(d => d.IsError).ToList();
-        if (errors.Count > 0)
+        bool saved = FemSchemaAuthoring.Save(_db, Session, out var diagnostics);
+        Diagnostics = diagnostics;
+        if (!saved)
         {
-            SaveBlocked?.Invoke(errors);
+            SaveBlocked?.Invoke(diagnostics.Where(d => d.IsError).ToList());
             return false;
         }
-
-        _db.SaveFemSchemaEdit(Session.Schema.Id, Session.Nodes, Session.Members, Session.MemberGroups,
-            Session.LoadCases, Session.NodeLoads, Session.MemberLoads, Session.KinematicLoads, Session.LoadDefinitions,
-            Session.ElementLoads, Session.MeshNodeLoads, Session.LineSupports, Session.NodeSprings);
-        Session.MarkSaved();
         RefreshCollections();
         _afterSave?.Invoke();
         return true;

@@ -455,6 +455,44 @@ namespace OpenCS
          }
       }
 
+      /// <summary>Страница редактора этой схемы, если она сейчас открыта.</summary>
+      Views.FemSchemaPage? OpenEditorPageOf(CScore.Fem.FemSchema schema) =>
+         activeFemSchemaEditor?.Session.Schema.Id == schema.Id && CurrentPage is Views.FemSchemaPage page ? page : null;
+
+      /// <summary>Свойства пластины из дерева или таблицы «Пластины»: при открытом редакторе схемы — через него (сохранение
+      /// схемы, сессия), иначе окно области напрямую; «Удалить» в окне — как <see cref="DeleteFemPlanarMember"/>.</summary>
+      public void EditFemPlanarMember(CScore.Fem.FemSchema schema, CScore.Fem.FemMember member)
+      {
+         if (OpenEditorPageOf(schema) is { } page)
+         {
+            page.OpenPlanarRegionEdit(member.ElemTag);
+            return;
+         }
+         if (member.PlanarRegionId is not int regionId
+             || db.GetPlanarRegions(schema.Id).FirstOrDefault(r => r.Id == regionId) is not { } region) return;
+         var dlg = new Views.PlanarRegionMemberDialog(this, schema, region.Frame, member, region) { Owner = Application.Current?.MainWindow };
+         dlg.ShowDialog();
+         if (dlg.DeletedMember is { } deleted) DeleteFemPlanarMember(schema, deleted);
+         RefreshFemSchemaTreeCounts(schema);
+      }
+
+      /// <summary>Удаление пластины из дерева или таблицы «Пластины»: вопрос с тем, что она потеряет; при открытом
+      /// редакторе схемы — командой его сессии (с отменой), иначе службой сразу в базу.</summary>
+      public bool DeleteFemPlanarMember(CScore.Fem.FemSchema schema, CScore.Fem.FemMember member)
+      {
+         if (OpenEditorPageOf(schema) is { } page)
+         {
+            page.DeletePlanarRegionMember(member.ElemTag);
+            return true;
+         }
+         var session = Services.FemSchemaAuthoring.OpenSession(db, schema);
+         if (!Notifier.Confirm(Services.FemSchemaAuthoring.PlanarDeleteQuestion(session, member.ElemTag), Loc.S("Confirmation")))
+            return false;
+         Services.FemSchemaAuthoring.DeletePlanarMember(db, schema, member.ElemTag);
+         RefreshFemSchemaTreeCounts(schema);
+         return true;
+      }
+
       /// <summary>Регистрирует редактор FEM, пока его сессия существует в памяти.</summary>
       public void RegisterFemSchemaEditor(ViewModels.FemSchemaEditorVM editor) => activeFemSchemaEditor = editor;
 
@@ -956,6 +994,8 @@ namespace OpenCS
          }
          else
          {
+            // Правки отброшены: сессия — снова из базы, чтобы общий вопрос страницы (IUnsavedChanges) не повторился.
+            editor.ReloadSessionFromDb();
             activeFemSchemaEditor = null;
             pendingSupportsRefresh = null;
             RefreshFemSchemaTreeCounts(editor.Session.Schema);
@@ -3743,16 +3783,22 @@ namespace OpenCS
 
       #region FEM
 
-      void NewFemSchema()
+      /// <summary>«Новая схема»: пустая родная схема со свободным именем «Схема N» — сразу открывается (имя меняется
+      /// «Переименовать»).</summary>
+      public void NewFemSchema()
       {
-         var schema = new CScore.Fem.FemSchema { Tag = "Схема", SourceType = "internal" };
-         db.SaveFemSchema(schema);
+         var schema = Services.FemSchemaAuthoring.CreateNew(db);
+         LogService.Info(string.Format(Loc.S("FemSchemaCreated"), schema.Tag));
+         CurrentFemSchema = schema;
       }
 
-      void DuplicateFemSchema(CScore.Fem.FemSchema? schema)
+      /// <summary>«Копировать»: вход схемы, сетка и её ГУ под свободным именем «… (копия)»; постановки и результаты — нет.</summary>
+      public void DuplicateFemSchema(CScore.Fem.FemSchema? schema)
       {
          if (schema == null) return;
-         db.DuplicateFemSchema(schema.Id, schema.Tag + " (копия)");
+         if (ReferenceEquals(schema, currentFemSchema) && !TryLeaveFemSchemaEditor()) return;
+         var copy = Services.FemSchemaAuthoring.Duplicate(db, schema);
+         LogService.Info(string.Format(Loc.S("FemSchemaCopied"), copy.Tag));
       }
 
       /// <summary>
@@ -4020,10 +4066,12 @@ namespace OpenCS
       {
          if (schema == null) return;
          var dlg = new Views.Dialogs.TextInputDialog(
-            Loc.S("FemSchemaRenameTitle"), Loc.S("FemSchemaRenameLabel"), schema.Tag);
+            Loc.S("FemSchemaRenameTitle"), Loc.S("FemSchemaRenameLabel"), schema.Tag)
+         {
+            Validate = t => Services.FemSchemaAuthoring.TagError(db, t, schema.Id),
+         };
          if (dlg.ShowDialog() != true) return;
-         schema.Tag = dlg.Value;
-         db.SaveFemSchema(schema);
+         Services.FemSchemaAuthoring.Rename(db, schema, dlg.Value);
       }
 
       void ImportLiraSchemaFromCsv()
@@ -4811,16 +4859,35 @@ namespace OpenCS
 
 
 
-      void DeleteFemSchema(CScore.Fem.FemSchema? schema = null)
+      /// <summary>
+      /// «Удалить схему»: вопрос с именем и составом удаляемого (постановки, результаты, проверки, поля, несовершенства);
+      /// у родителя субмоделей — отказ с их именами. Открытая в редакторе схема закрывается без вопроса о сохранении.
+      /// </summary>
+      public void DeleteFemSchema(CScore.Fem.FemSchema? schema = null)
       {
          schema ??= currentFemSchema;
          if (schema == null) return;
-         db.DeleteFemSchema(schema);
+         var impact = Services.FemSchemaAuthoring.DeleteImpact(db, schema);
+         if (impact.Blocked)
+         {
+            Notifier.Warning(Services.FemSchemaAuthoring.BlockedText(schema, impact), Loc.S("Warning"));
+            return;
+         }
+         if (AskConfirmDelete(Services.FemSchemaAuthoring.DeleteQuestion(schema, impact)) != MessageBoxResult.Yes) return;
          if (currentFemSchema == schema)
          {
+            activeFemSchemaEditor?.ReloadSessionFromDb();
+            activeFemSchemaEditor = null;
             currentFemSchema = null;
             CurrentPage = null!;
+            OnPropertyChanged(nameof(CurrentFemSchema));
          }
+         if (!Services.FemSchemaAuthoring.TryDelete(db, schema, out var refusal))
+         {
+            Notifier.Warning(refusal!, Loc.S("Warning"));
+            return;
+         }
+         LogService.Info(string.Format(Loc.S("FemSchemaDeleted"), schema.Tag));
       }
 
       async void ImportLiraSchemaFromApi()

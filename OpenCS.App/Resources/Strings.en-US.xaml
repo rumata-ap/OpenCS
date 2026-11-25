@@ -7530,4 +7530,26 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliThermal_stale">out of date</system:String>
    <system:String x:Key="MatType_CustomHint">The material is defined by your own σ(ε) curves from the diagram pool — one per analysis type C, CL, N, NL</system:String>
    <system:String x:Key="CustomMaterialsNode">Custom</system:String>
+   <system:String x:Key="FemSchemaErrTagEmpty">Schema name is empty.</system:String>
+   <system:String x:Key="FemSchemaErrTagDuplicate">Schema «{0}» already exists — choose another name.</system:String>
+   <system:String x:Key="FemSchemaDefaultTag">Schema {0}</system:String>
+   <system:String x:Key="FemSchemaCopyTag">{0} (copy)</system:String>
+   <system:String x:Key="FemSchemaCopyTagN">{0} (copy {1})</system:String>
+   <system:String x:Key="FemSchemaDeleteConfirm">Delete schema «{0}»?</system:String>
+   <system:String x:Key="FemSchemaDeleteAlso">This will also delete:</system:String>
+   <system:String x:Key="FemSchemaDeleteAnalyses">analysis setups: {0}</system:String>
+   <system:String x:Key="FemSchemaDeleteResults">analysis results: {0}</system:String>
+   <system:String x:Key="FemSchemaDeleteChecks">FE checks: {0}</system:String>
+   <system:String x:Key="FemSchemaDeleteFields">fields: {0}</system:String>
+   <system:String x:Key="FemSchemaDeleteImperfections">imperfection items: {0}</system:String>
+   <system:String x:Key="FemSchemaDeleteFragments">Fragments {0} will remain but lose the link to the parent schema.</system:String>
+   <system:String x:Key="FemSchemaDeleteHasSubmodels">Schema «{0}» cannot be deleted: submodels {1} were extracted from it. Delete them first.</system:String>
+   <system:String x:Key="FemSchemaDeleted">Schema «{0}» deleted.</system:String>
+   <system:String x:Key="FemSchemaCreated">Schema «{0}» created.</system:String>
+   <system:String x:Key="FemSchemaCopied">Copy «{0}» created.</system:String>
+   <system:String x:Key="FemPlanarDeleteConfirm">Delete plate «{0}» together with its region?</system:String>
+   <system:String x:Key="FemPlanarDeleteSupports">edge line supports: {0}</system:String>
+   <system:String x:Key="FemPlanarDeleteLoads">loads on it: {0}</system:String>
+   <system:String x:Key="FemPlanarDeleteGroups">removed from groups: {0}</system:String>
+   <system:String x:Key="FemPlanarSaveBeforeEdit">The plate region is saved immediately, and schema «{0}» has unsaved edits. Save the schema and continue?</system:String>
 </ResourceDictionary>

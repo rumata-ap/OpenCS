@@ -579,31 +579,41 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         _editorVm.DeleteNodesByTags(nodeTags);
     }
 
+    /// <summary>
+    /// Окно пластинчатой области. Область, её сечения и снимки сетки окно пишет в базу сразу, поэтому несохранённая
+    /// схема сначала сохраняется (с вопросом), а после окна сессия перечитывается из базы. «Удалить» в окне —
+    /// команда сессии (отмена, запись по «Сохранить»), как удаление из 3D.
+    /// </summary>
     void OpenPlanarRegionMemberDialog(CScore.Planar.Frame3D frame,
         FemMember? existingMember = null, CScore.Planar.PlanarRegion? existingRegion = null)
     {
+        if (!EnsureSavedForPlanarDialog()) return;
         var dlg = new PlanarRegionMemberDialog(_app, _schema, frame, existingMember, existingRegion)
         {
             Owner = Window.GetWindow(this)
         };
         dlg.ShowDialog();
 
-        if (dlg.SavedMember is { } saved)
+        if (dlg.DeletedMember is { } deleted)
+            DeletePlanarRegionMember(deleted.ElemTag);
+        else if (dlg.SavedMember is not null)
         {
-            _editorVm.Session.Members.RemoveAll(m => m.Id == saved.Id);
-            _editorVm.Session.Members.Add(saved);
-            _editorVm.RefreshCollections();
-            _fem3d.LoadFromSession(_editorVm.Session);
-        }
-        else if (dlg.DeletedMember is { } deleted)
-        {
-            _editorVm.Session.Members.RemoveAll(m => m.Id == deleted.Id);
-            _editorVm.RefreshCollections();
+            _editorVm.ReloadSessionFromDb();
             _fem3d.LoadFromSession(_editorVm.Session);
         }
     }
 
-    void OpenPlanarRegionEdit(string elemTag)
+    /// <summary>Несохранённая схема перед окном области: вопрос «Сохранить и продолжить?»; false — окно не открывать.</summary>
+    bool EnsureSavedForPlanarDialog()
+    {
+        if (!_editorVm.Session.IsDirty) return true;
+        if (!_app.Notifier.Confirm(string.Format(Loc.S("FemPlanarSaveBeforeEdit"), _schema.Tag), Loc.S("Confirmation")))
+            return false;
+        return _editorVm.Save();
+    }
+
+    /// <summary>Свойства пластины по тегу (3D, дерево).</summary>
+    public void OpenPlanarRegionEdit(string elemTag)
     {
         var member = _editorVm.Session.Members.FirstOrDefault(m => m.ElemTag == elemTag);
         if (member?.PlanarRegionId is not int regionId) return;
@@ -612,15 +622,14 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         OpenPlanarRegionMemberDialog(region.Frame, member, region);
     }
 
-    void DeletePlanarRegionMember(string elemTag)
+    /// <summary>Удаление пластины (3D, дерево, окно области): вопрос с тем, что она потеряет, затем команда сессии —
+    /// Ctrl+Z возвращает; область удаляется из базы при сохранении схемы.</summary>
+    public void DeletePlanarRegionMember(string elemTag)
     {
-        var member = _editorVm.Session.Members.FirstOrDefault(m => m.ElemTag == elemTag);
-        if (member == null) return;
-        _app.db.DeleteFemMember(member);
-        if (member.PlanarRegionId is int regionId) _app.db.DeletePlanarRegion(regionId);
-
-        _editorVm.Session.Members.RemoveAll(m => m.Id == member.Id);
-        _editorVm.RefreshCollections();
+        if (!_editorVm.Session.Members.Any(m => m.ElemTag == elemTag)) return;
+        if (!_app.Notifier.Confirm(FemSchemaAuthoring.PlanarDeleteQuestion(_editorVm.Session, elemTag), Loc.S("Confirmation")))
+            return;
+        _editorVm.DeleteMemberByTag(elemTag);
         _fem3d.LoadFromSession(_editorVm.Session);
     }
 

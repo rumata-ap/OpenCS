@@ -60,8 +60,8 @@ internal static class FemMemberTreeMenus
         if (item.IsShell && member.PlanarRegionId is int regionId)
         {
             items.Add(new Separator());
-            items.Add(Item("FemMemberTreeProperties", () => EditPlanar(app, schema, member, regionId)));
-            items.Add(Item("FemShellDelete", () => DeletePlanar(app, schema, member, regionId)));
+            items.Add(Item("FemMemberTreeProperties", () => app.EditFemPlanarMember(schema, member)));
+            items.Add(Item("FemShellDelete", () => app.DeleteFemPlanarMember(schema, member)));
         }
         else
         {
@@ -300,28 +300,6 @@ internal static class FemMemberTreeMenus
         string? tag = defaultTag == null && dlg.MemberTag == initialTag ? null : dlg.MemberTag;
         if (app.FemGroups.CreateMembersGroup(schema, members.Select(m => m.ElemTag), tag, dlg.MemberType) is { } group)
             app.LogService.Info(string.Format(Loc.S("FemGroupCreated"), group.Tag, group.Tags.Count));
-    }
-
-    /// <summary>Свойства плоского элемента — тот же диалог, что двойной щелчок в таблице «Пластины».</summary>
-    static void EditPlanar(AppViewModel app, FemSchema schema, FemMember member, int regionId)
-    {
-        var region = app.db.GetPlanarRegions(schema.Id).FirstOrDefault(r => r.Id == regionId);
-        if (region == null) return;
-        new PlanarRegionMemberDialog(app, schema, region.Frame, member, region)
-        {
-            Owner = Application.Current.MainWindow
-        }.ShowDialog();
-        app.RefreshFemSchemaTreeCounts(schema);
-    }
-
-    /// <summary>Удаление плоского элемента с его областью — как кнопка «Удалить» таблицы «Пластины».</summary>
-    static void DeletePlanar(AppViewModel app, FemSchema schema, FemMember member, int regionId)
-    {
-        if (MessageBox.Show(string.Format(Loc.S("FemMemberTreeDeleteConfirm"), member.ElemTag), Loc.S("Confirmation"),
-                MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
-        app.db.DeleteFemMember(member);
-        app.db.DeletePlanarRegion(regionId);
-        app.RefreshFemSchemaTreeCounts(schema);
     }
 
     internal static MenuItem Item(string key, Action action)

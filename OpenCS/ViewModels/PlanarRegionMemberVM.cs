@@ -964,12 +964,12 @@ public partial class PlanarRegionMemberVM : ViewModelBase
         }
     }
 
+    /// <summary>«Удалить»: в базу не пишет — удаляет тот, кто открыл окно (редактор схемы — командой сессии с
+    /// отменой, дерево и таблица «Пластины» — службой <c>FemSchemaAuthoring.DeletePlanarMember</c>), с вопросом.</summary>
     void Delete()
     {
         if (_existingMember == null) return;
         RebarLayoutDirty = false;
-        _app.db.DeleteFemMember(_existingMember);
-        if (_existingMember.PlanarRegionId is int prid) _app.db.DeletePlanarRegion(prid);
         DeleteCompleted?.Invoke(_existingMember);
     }
 

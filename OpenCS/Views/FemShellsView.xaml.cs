@@ -40,15 +40,8 @@ public partial class FemShellsView : UserControl
 
     async void ShellsGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (shellsGrid.SelectedItem is not FemMember member || member.PlanarRegionId is not int regionId) return;
-        var region = _app.db.GetPlanarRegions(_node.Owner.Schema.Id).FirstOrDefault(r => r.Id == regionId);
-        if (region == null) return;
-
-        var dlg = new PlanarRegionMemberDialog(_app, _node.Owner.Schema, region.Frame, member, region)
-        {
-            Owner = Window.GetWindow(this)
-        };
-        dlg.ShowDialog();
+        if (shellsGrid.SelectedItem is not FemMember member || member.PlanarRegionId is null) return;
+        _app.EditFemPlanarMember(_node.Owner.Schema, member);
 
         var elems = await _node.Owner.LoadShellsAsync();
         shellsGrid.ItemsSource = elems;
@@ -70,9 +63,8 @@ public partial class FemShellsView : UserControl
 
     async void DeleteShell_Click(object sender, RoutedEventArgs e)
     {
-        if (shellsGrid.SelectedItem is not FemMember member || member.PlanarRegionId is not int regionId) return;
-        _app.db.DeleteFemMember(member);
-        _app.db.DeletePlanarRegion(regionId);
+        if (shellsGrid.SelectedItem is not FemMember member || member.PlanarRegionId is null) return;
+        if (!_app.DeleteFemPlanarMember(_node.Owner.Schema, member)) return;
 
         var elems = await _node.Owner.LoadShellsAsync();
         shellsGrid.ItemsSource = elems;

@@ -7530,4 +7530,26 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliThermal_stale">устарел</system:String>
    <system:String x:Key="MatType_CustomHint">Материал задаётся своими кривыми σ(ε) из пула диаграмм — по одной на виды расчёта C, CL, N, NL</system:String>
    <system:String x:Key="CustomMaterialsNode">Пользовательские</system:String>
+   <system:String x:Key="FemSchemaErrTagEmpty">Имя схемы не задано.</system:String>
+   <system:String x:Key="FemSchemaErrTagDuplicate">Схема «{0}» уже есть — выберите другое имя.</system:String>
+   <system:String x:Key="FemSchemaDefaultTag">Схема {0}</system:String>
+   <system:String x:Key="FemSchemaCopyTag">{0} (копия)</system:String>
+   <system:String x:Key="FemSchemaCopyTagN">{0} (копия {1})</system:String>
+   <system:String x:Key="FemSchemaDeleteConfirm">Удалить схему «{0}»?</system:String>
+   <system:String x:Key="FemSchemaDeleteAlso">Вместе с ней будут удалены:</system:String>
+   <system:String x:Key="FemSchemaDeleteAnalyses">постановки расчёта: {0}</system:String>
+   <system:String x:Key="FemSchemaDeleteResults">результаты расчёта: {0}</system:String>
+   <system:String x:Key="FemSchemaDeleteChecks">проверки по КЭ: {0}</system:String>
+   <system:String x:Key="FemSchemaDeleteFields">поля: {0}</system:String>
+   <system:String x:Key="FemSchemaDeleteImperfections">элементы несовершенств: {0}</system:String>
+   <system:String x:Key="FemSchemaDeleteFragments">Фрагменты {0} останутся, но потеряют связь с родительской схемой.</system:String>
+   <system:String x:Key="FemSchemaDeleteHasSubmodels">Схему «{0}» нельзя удалить: из неё извлечены субмодели {1}. Сначала удалите их.</system:String>
+   <system:String x:Key="FemSchemaDeleted">Схема «{0}» удалена.</system:String>
+   <system:String x:Key="FemSchemaCreated">Создана схема «{0}».</system:String>
+   <system:String x:Key="FemSchemaCopied">Создана копия «{0}».</system:String>
+   <system:String x:Key="FemPlanarDeleteConfirm">Удалить пластину «{0}» вместе с её областью?</system:String>
+   <system:String x:Key="FemPlanarDeleteSupports">линейные связи граней: {0}</system:String>
+   <system:String x:Key="FemPlanarDeleteLoads">нагрузки на неё: {0}</system:String>
+   <system:String x:Key="FemPlanarDeleteGroups">исключится из групп: {0}</system:String>
+   <system:String x:Key="FemPlanarSaveBeforeEdit">Область пластины сохраняется сразу, а в схеме «{0}» есть несохранённые правки. Сохранить схему и продолжить?</system:String>
 </ResourceDictionary>
