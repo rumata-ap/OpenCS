@@ -3796,7 +3796,7 @@ namespace OpenCS
       public void DuplicateFemSchema(CScore.Fem.FemSchema? schema)
       {
          if (schema == null) return;
-         if (ReferenceEquals(schema, currentFemSchema) && !TryLeaveFemSchemaEditor()) return;
+         if (!ConfirmFemSchemaSaved(schema, "FemSchemaConfirmSaveBeforeCopy")) return;
          var copy = Services.FemSchemaAuthoring.Duplicate(db, schema);
          LogService.Info(string.Format(Loc.S("FemSchemaCopied"), copy.Tag));
       }
@@ -6758,14 +6758,19 @@ namespace OpenCS
       /// диалог берёт загружения и комбинации из сохранённой схемы, а дерево показывает правки редактора.
       /// «Да» — сохранить, «Нет» — продолжить по сохранённой версии, «Отмена» — не открывать диалог.
       /// </summary>
-      bool ConfirmFemSchemaSavedForAnalysis(CScore.Fem.FemSchema schema)
+      bool ConfirmFemSchemaSavedForAnalysis(CScore.Fem.FemSchema schema) =>
+         ConfirmFemSchemaSaved(schema, "FemSchemaConfirmSaveBeforeAnalysis");
+
+      /// <summary>Действие берёт сохранённую схему, а в открытом редакторе — несохранённые правки: «Да» — сохранить,
+      /// «Нет» — продолжить по сохранённой версии, «Отмена» — не выполнять. Текст вопроса — ключ <paramref name="questionKey"/>.</summary>
+      bool ConfirmFemSchemaSaved(CScore.Fem.FemSchema schema, string questionKey)
       {
          var editor = activeFemSchemaEditor;
          if (editor == null || !editor.Session.IsDirty || editor.Session.Schema.Id != schema.Id)
             return true;
 
          var result = MessageBox.Show(
-            string.Format(Loc.S("FemSchemaConfirmSaveBeforeAnalysis"), schema.Tag),
+            string.Format(Loc.S(questionKey), schema.Tag),
             Loc.S("Confirmation"),
             MessageBoxButton.YesNoCancel,
             MessageBoxImage.Warning);
