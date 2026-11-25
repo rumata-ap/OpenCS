@@ -48,7 +48,6 @@ namespace OpenCS.ViewModels
 
          GenerateCommand = new RelayCommand(_ => Generate());
          ApplyCommand    = new RelayCommand(_ => Apply());
-         CancelCommand   = new RelayCommand(_ => Cancel());
 
          RefreshPreview();
       }
@@ -150,7 +149,6 @@ namespace OpenCS.ViewModels
 
       public ICommand GenerateCommand { get; }
       public ICommand ApplyCommand    { get; }
-      public ICommand CancelCommand   { get; }
 
       void Generate()
       {
@@ -183,11 +181,12 @@ namespace OpenCS.ViewModels
          _window.DialogResult = true;
       }
 
-      void Cancel()
+      /// <summary>Окно закрыто без «Применить» (Отмена, Esc, крестик): волокна области — прежние, предпросмотр отброшен.</summary>
+      public void RestoreIfNotApplied()
       {
+         if (_window.DialogResult == true) return;
          _area.Fibers.Clear();
          _area.Fibers.AddRange(_backup);
-         _window.DialogResult = false;
       }
 
       void RefreshPreview()

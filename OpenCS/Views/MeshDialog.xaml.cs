@@ -21,6 +21,7 @@ namespace OpenCS.Views
                UpdatePreview();
          };
          UpdatePreview();
+         Closed += (_, _) => _vm.RestoreIfNotApplied();
       }
 
       void UpdatePreview()

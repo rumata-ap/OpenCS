@@ -92,10 +92,9 @@
                     Command="{Binding GenerateCommand}"
                     Padding="12,4" Margin="0,0,8,0"/>
             <Button Content="{DynamicResource MeshApply}"
-                    Command="{Binding ApplyCommand}"
+                    Command="{Binding ApplyCommand}" IsDefault="True"
                     Padding="12,4" Margin="0,0,8,0"/>
-            <Button Content="{DynamicResource Cancel}"
-                    Command="{Binding CancelCommand}"
+            <Button Content="{DynamicResource Cancel}" IsCancel="True"
                     Padding="12,4"/>
          </StackPanel>
       </Grid>
