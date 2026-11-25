@@ -30,6 +30,14 @@ namespace OpenCS
 
          DataContext = new AppViewModel(logService, fileDialogService);
          vm = (AppViewModel)DataContext;
+         // Горячие клавиши редактора схемы работают, где бы ни был фокус в окне (дерево, 3D, панели), кроме полей ввода.
+         PreviewKeyDown += (_, e) =>
+         {
+            if (System.Windows.Input.Keyboard.Modifiers == System.Windows.Input.ModifierKeys.Control && vm.CurrentPage is Views.FemSchemaPage page
+                && System.Windows.Input.Keyboard.FocusedElement is not System.Windows.Controls.Primitives.TextBoxBase
+                && page.HandleShortcut(e.Key))
+               e.Handled = true;
+         };
          vm.FireSectionReselect += def =>
          {
             // Подписи огневых сечений перестроены — вернуть выделение тому же элементу (без перехода по дереву).

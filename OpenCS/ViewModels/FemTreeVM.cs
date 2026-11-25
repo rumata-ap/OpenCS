@@ -171,6 +171,12 @@ class FemSchemaTreeVM : System.ComponentModel.INotifyPropertyChanged
     public FemSchema    Schema   { get; }
     public FemSubNode[] SubNodes { get; }
 
+    /// <summary>Имя схемы для дерева (FemSchema не уведомляет об изменениях — после переименования <see cref="RefreshTag"/>).</summary>
+    public string Tag => Schema.Tag;
+
+    /// <summary>Перечитать имя схемы в дереве.</summary>
+    public void RefreshTag() => PropertyChanged?.Invoke(this, new(nameof(Tag)));
+
     internal FemNodesSubNode    NodesSubNode    { get; }
     internal FemElementsSubNode ElementsSubNode { get; }
     internal FemBoundarySubNode BoundarySubNode { get; }

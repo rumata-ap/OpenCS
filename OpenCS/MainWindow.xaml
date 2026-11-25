@@ -1574,7 +1574,7 @@
                            </ContextMenu>
                         </StackPanel.ContextMenu>
                         <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Schema}"/>
-                        <TextBlock Text="{Binding Schema.Tag}"/>
+                        <TextBlock Text="{Binding Tag}"/>
                         <TextBlock Text=" *" Foreground="DarkOrange" FontWeight="Bold" ToolTip="{DynamicResource FemSchemaModifiedTip}"
                                    Visibility="{Binding IsModified, Converter={StaticResource BoolToVisibility}}"/>
                         <TextBlock Text=" [" Foreground="Gray"/>

@@ -7586,4 +7586,5 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliMeshCurrent">Сетка схемы «{0}» актуальна.</system:String>
    <system:String x:Key="CliMeshFailed">Сетка схемы «{0}» не построена.</system:String>
    <system:String x:Key="FemSchemaConfirmSaveBeforeCopy" xml:space="preserve">Схема «{0}» изменена, правки не сохранены. Копия берётся из сохранённой схемы. Сохранить схему?&#x0a;&#x0a;Да — сохранить и скопировать, Нет — скопировать сохранённую версию, Отмена — не копировать.</system:String>
+   <system:String x:Key="FemNoLoadCasesHint">В схеме нет загружений — нагрузку задать некуда. Создайте загружение: дерево схемы → «Загружения» → «Создать загружение…».</system:String>
 </ResourceDictionary>

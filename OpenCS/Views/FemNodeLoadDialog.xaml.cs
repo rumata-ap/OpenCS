@@ -22,6 +22,8 @@ public partial class FemNodeLoadDialog : Window
         _editor = editor;
         selectionText.Text = string.Format(Loc.S("FemLoadSelectedCount"), nodes.Count);
         loadCaseCombo.ItemsSource = editor.Session.LoadCases;
+        // Без загружений нагрузку задать некуда — сказать об этом сразу, а не молчать на «Применить».
+        noLoadCasesText.Visibility = editor.Session.LoadCases.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         loadCaseCombo.SelectedItem = editor.SelectedLoadCase ?? editor.Session.LoadCases.FirstOrDefault();
         LoadFields();
         _initializing = false;
@@ -48,7 +50,11 @@ public partial class FemNodeLoadDialog : Window
 
     void Apply_Click(object sender, RoutedEventArgs e)
     {
-        if (loadCaseCombo.SelectedItem is not FemLoadCase loadCase) return;
+        if (loadCaseCombo.SelectedItem is not FemLoadCase loadCase)
+        {
+            MessageBox.Show(this, Loc.S("FemNoLoadCasesHint"), Title, MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
         // Нераспознанное значение — ошибка у поля, а не молчаливый 0.
         Helpers.FieldCheck.Clear(fxBox, fyBox, fzBox, mxBox, myBox, mzBox);
         if (!Helpers.FieldCheck.Read(this, fxBox, "FemNodePropsFx", out var fxK)

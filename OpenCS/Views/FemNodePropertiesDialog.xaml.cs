@@ -35,6 +35,8 @@ public partial class FemNodePropertiesDialog : Window
         ShowBoundary();
 
         loadCaseCombo.ItemsSource = editorVm.Session.LoadCases;
+        // Без загружений нагрузку задать некуда — сказать об этом сразу, а не молчать на «Применить».
+        noLoadCasesText.Visibility = editorVm.Session.LoadCases.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         loadCaseCombo.SelectedItem = editorVm.Session.LoadCases.FirstOrDefault();
         LoadLoadFields();
 
@@ -117,7 +119,11 @@ public partial class FemNodePropertiesDialog : Window
 
     void ApplyLoad_Click(object sender, RoutedEventArgs e)
     {
-        if (loadCaseCombo.SelectedItem is not FemLoadCase lc) return;
+        if (loadCaseCombo.SelectedItem is not FemLoadCase lc)
+        {
+            MessageBox.Show(this, Loc.S("FemNoLoadCasesHint"), Title, MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
         if (_node.Id == 0)
         {
             MessageBox.Show((string)Application.Current.FindResource("FemNodeLoadSkippedUnsavedTitle"));

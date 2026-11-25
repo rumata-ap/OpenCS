@@ -200,7 +200,6 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
             string.Join("\n", errors.Select(d => d.Message)),
             Loc.S("FemSaveBlockedTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
 
-        PreviewKeyDown += OnPreviewKeyDown;
         LoadFragmentBanner();
         var bc = new FragmentCutBcVM(app.db, schema);
         fragmentBcPanel.DataContext = bc;
@@ -547,7 +546,7 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
             MessageBoxImage.Information);
     }
 
-    void OpenMemberProperties(string tag)
+    public void OpenMemberProperties(string tag)
     {
         var member = _editorVm.Session.Members.FirstOrDefault(m => m.ElemTag == tag);
         if (member == null) return;
@@ -634,7 +633,7 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
     }
 
     /// <summary>«Шаг сетки…»: локальный шаг щёлкнутого КонЭ; если он выделен — всех выделенных КонЭ.</summary>
-    void OpenMemberMeshStep(string tag)
+    public void OpenMemberMeshStep(string tag)
     {
         var selected = _editorVm.Selection.SelectedElemTags;
         var tags = selected.Contains(tag) ? selected.ToList() : [tag];
@@ -706,7 +705,7 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         _editorVm.SetMembersRigidJunction(members.Select(m => m.ElemTag).ToList(), dlg.Off, dlg.Coupled, dlg.Dofs, dlg.ClearTrace);
     }
 
-    void OpenMemberRotation(string tag)
+    public void OpenMemberRotation(string tag)
     {
         var member = _editorVm.Session.Members.FirstOrDefault(m => m.ElemTag == tag);
         if (member == null) return;
@@ -719,27 +718,32 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         }) { Owner = Window.GetWindow(this) }.Show();
     }
 
-    void OnPreviewKeyDown(object sender, KeyEventArgs e)
+    /// <summary>
+    /// Ctrl+Z / Ctrl+Y / Ctrl+S / Ctrl+C / Ctrl+V редактора схемы. Вызывает главное окно, где бы ни был фокус (дерево,
+    /// 3D-вид, панели), кроме текстовых полей; true — сочетание обработано.
+    /// </summary>
+    public bool HandleShortcut(Key key)
     {
-        bool ctrl = Keyboard.Modifiers == ModifierKeys.Control;
-        if (!ctrl) return;
-
-        if (e.Key == Key.C)
+        switch (key)
         {
-            _editorVm.CopySelection();
-        }
-        else if (e.Key == Key.V && _editorVm.HasClipboard)
-        {
-            var dlg = new FemFragmentOffsetDialog("FemPasteOffsetTitle", null, showCopies: true) { Owner = Window.GetWindow(this) };
-            if (dlg.ShowDialog() == true) _editorVm.PasteClipboard(dlg.Dx, dlg.Dy, dlg.Dz, dlg.Copies);
-        }
-        else if (e.Key == Key.Z && _editorVm.UndoCommand.CanExecute(null))
-        {
-            _editorVm.UndoCommand.Execute(null);
-        }
-        else if (e.Key == Key.Y && _editorVm.RedoCommand.CanExecute(null))
-        {
-            _editorVm.RedoCommand.Execute(null);
+            case Key.C:
+                _editorVm.CopySelection();
+                return true;
+            case Key.V when _editorVm.HasClipboard:
+                var dlg = new FemFragmentOffsetDialog("FemPasteOffsetTitle", null, showCopies: true) { Owner = Window.GetWindow(this) };
+                if (dlg.ShowDialog() == true) _editorVm.PasteClipboard(dlg.Dx, dlg.Dy, dlg.Dz, dlg.Copies);
+                return true;
+            case Key.Z:
+                if (_editorVm.UndoCommand.CanExecute(null)) _editorVm.UndoCommand.Execute(null);
+                return true;
+            case Key.Y:
+                if (_editorVm.RedoCommand.CanExecute(null)) _editorVm.RedoCommand.Execute(null);
+                return true;
+            case Key.S:
+                if (_editorVm.SaveCommand.CanExecute(null)) _editorVm.SaveCommand.Execute(null);
+                return true;
+            default:
+                return false;
         }
     }
 }

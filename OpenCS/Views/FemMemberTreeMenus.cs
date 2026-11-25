@@ -20,6 +20,17 @@ internal static class FemMemberTreeMenus
         var member = item.Member;
         var schema = item.Schema;
 
+        // Свойства стержня — те же окна, что в 3D-виде редактора (из дерева удобнее, чем попадать мышью в стержень).
+        if (!item.IsShell && member.PlanarRegionId == null)
+        {
+            string tag = member.ElemTag;
+            items.Add(Item("FemMemberPropertiesCtx", () => app.InFemSchemaEditorDeferred(schema, page => page.OpenMemberProperties(tag))));
+            items.Add(Item("FemMemberRotationCtx", () => app.InFemSchemaEditorDeferred(schema, page => page.OpenMemberRotation(tag))));
+            if (!member.IsMeshLocked)
+                items.Add(Item("FemMemberMeshStepCtx", () => app.InFemSchemaEditorDeferred(schema, page => page.OpenMemberMeshStep(tag))));
+            items.Add(new Separator());
+        }
+
         items.Add(Item("FemCheckAddUls", () => app.AddFemCheck(member)));
         if (item.IsShell)
             items.Add(Item("FemCheckAddSls", () => app.AddSlsFemCheck(member)));

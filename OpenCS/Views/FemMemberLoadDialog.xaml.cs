@@ -22,6 +22,8 @@ public partial class FemMemberLoadDialog : Window
         _editor = editor;
         selectionText.Text = string.Format(Loc.S("FemLoadSelectedCount"), members.Count);
         loadCaseCombo.ItemsSource = editor.Session.LoadCases;
+        // Без загружений нагрузку задать некуда — сказать об этом сразу, а не молчать на «Применить».
+        noLoadCasesText.Visibility = editor.Session.LoadCases.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         loadCaseCombo.SelectedItem = editor.SelectedLoadCase ?? editor.Session.LoadCases.FirstOrDefault();
         coordinateCombo.SelectedValue = "local";
         distributionCombo.SelectedValue = "uniform";
@@ -80,7 +82,11 @@ public partial class FemMemberLoadDialog : Window
 
     void Apply_Click(object sender, RoutedEventArgs e)
     {
-        if (loadCaseCombo.SelectedItem is not FemLoadCase loadCase) return;
+        if (loadCaseCombo.SelectedItem is not FemLoadCase loadCase)
+        {
+            MessageBox.Show(this, Loc.S("FemNoLoadCasesHint"), Title, MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
         string coordinate = coordinateCombo.SelectedValue as string ?? "local";
         string distribution = distributionCombo.SelectedValue as string ?? "uniform";
         bool isPoint = distribution == "point";

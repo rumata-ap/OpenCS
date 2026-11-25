@@ -7586,4 +7586,5 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliMeshCurrent">Mesh of schema «{0}» is current.</system:String>
    <system:String x:Key="CliMeshFailed">Mesh of schema «{0}» was not built.</system:String>
    <system:String x:Key="FemSchemaConfirmSaveBeforeCopy" xml:space="preserve">Schema «{0}» has unsaved changes. The copy is made from the saved schema. Save the schema?&#x0a;&#x0a;Yes — save and copy, No — copy the saved version, Cancel — do not copy.</system:String>
+   <system:String x:Key="FemNoLoadCasesHint">The schema has no load cases — there is nowhere to put the load. Create a load case: schema tree → «Load cases» → «New load case…».</system:String>
 </ResourceDictionary>

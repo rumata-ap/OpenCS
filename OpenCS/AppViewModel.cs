@@ -455,6 +455,15 @@ namespace OpenCS
          }
       }
 
+      /// <summary>Открывает редактор схемы и выполняет на его странице действие с окном (свойства КонЭ, поворот, шаг):
+      /// после показа страницы — у только что созданной ещё нет окна-владельца.</summary>
+      public void InFemSchemaEditorDeferred(CScore.Fem.FemSchema schema, Action<Views.FemSchemaPage> action)
+      {
+         CurrentFemSchema = schema;
+         if (currentFemSchema == schema && CurrentPage is Views.FemSchemaPage page)
+            page.Dispatcher.BeginInvoke(() => action(page), System.Windows.Threading.DispatcherPriority.Loaded);
+      }
+
       /// <summary>Страница редактора этой схемы, если она сейчас открыта.</summary>
       Views.FemSchemaPage? OpenEditorPageOf(CScore.Fem.FemSchema schema) =>
          activeFemSchemaEditor?.Session.Schema.Id == schema.Id && CurrentPage is Views.FemSchemaPage page ? page : null;
@@ -4071,7 +4080,8 @@ namespace OpenCS
             Validate = t => Services.FemSchemaAuthoring.TagError(db, t, schema.Id),
          };
          if (dlg.ShowDialog() != true) return;
-         Services.FemSchemaAuthoring.Rename(db, schema, dlg.Value);
+         if (Services.FemSchemaAuthoring.Rename(db, schema, dlg.Value) != null) return;
+         femSchemasGroup?.Schemas.FirstOrDefault(x => x.Schema == schema)?.RefreshTag();
       }
 
       void ImportLiraSchemaFromCsv()
