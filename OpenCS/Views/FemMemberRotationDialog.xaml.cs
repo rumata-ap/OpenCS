@@ -12,6 +12,8 @@ public partial class FemMemberRotationDialog : Window
     public FemMemberRotationDialog(double rotationDeg, Action<double> onApply)
     {
         InitializeComponent();
+        // Немодальное окно: после закрытия вернуть фокус главному окну (иначе Windows может отдать его другой программе).
+        Closed += (_, _) => Owner?.Activate();
         angleBox.Text = rotationDeg.ToString("G", CultureInfo.CurrentCulture);
         _onApply = onApply;
     }

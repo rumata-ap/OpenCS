@@ -19,6 +19,8 @@ public partial class FemNodePropertiesDialog : Window
     public FemNodePropertiesDialog(FemNode node, FemSchemaEditorVM editorVm)
     {
         InitializeComponent();
+        // Немодальное окно: после закрытия вернуть фокус главному окну (иначе Windows может отдать его другой программе).
+        Closed += (_, _) => Owner?.Activate();
         _node = node;
         _editorVm = editorVm;
 

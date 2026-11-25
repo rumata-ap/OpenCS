@@ -17,6 +17,8 @@ public partial class FemMemberPropertiesDialog : Window
     public FemMemberPropertiesDialog(FemMember member, FemSchemaEditorVM editorVm)
     {
         InitializeComponent();
+        // Немодальное окно: после закрытия вернуть фокус главному окну (иначе Windows может отдать его другой программе).
+        Closed += (_, _) => Owner?.Activate();
         _member = member;
         _editorVm = editorVm;
 
@@ -69,16 +71,19 @@ public partial class FemMemberPropertiesDialog : Window
     }
 
     /// <summary>Неверный ввод немодального окна: красная рамка и подсказка с причиной; значение КонЭ не меняется.</summary>
-    static bool Mark(System.Windows.Controls.TextBox box, string? error)
+    /// <remarks>Текст ошибки — под полем: рамку шаблон поля перекрашивает при наведении и фокусе, её не видно.</remarks>
+    bool Mark(System.Windows.Controls.TextBox box, string? error)
     {
+        var label = box == targetLengthBox ? targetLengthErrorText : gjErrorText;
         if (error == null)
         {
             box.ClearValue(BorderBrushProperty);
-            box.ClearValue(ToolTipProperty);
+            label.Visibility = Visibility.Collapsed;
             return true;
         }
         box.BorderBrush = System.Windows.Media.Brushes.Red;
-        box.ToolTip = error;
+        label.Text = error;
+        label.Visibility = Visibility.Visible;
         return false;
     }
 
