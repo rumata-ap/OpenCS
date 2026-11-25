@@ -4521,7 +4521,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMemberPropsNodes">Nodes</system:String>
     <system:String x:Key="FemMemberPropsLength">Length, m</system:String>
     <system:String x:Key="FemMemberPropsType">Type</system:String>
-    <system:String x:Key="FemMemberPropsTargetLength">Target mesh element length, m (empty — command default)</system:String>
+   <system:String x:Key="FemMemberPropsTargetLength">Member mesh step, m (empty — schema common step)</system:String>
     <system:String x:Key="FemNodePropsTitle">Node properties</system:String>
     <system:String x:Key="FemNodePropsTag">Node</system:String>
     <system:String x:Key="FemNodePropsMembers">Belongs to members</system:String>
@@ -7552,4 +7552,8 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FemPlanarDeleteLoads">loads on it: {0}</system:String>
    <system:String x:Key="FemPlanarDeleteGroups">removed from groups: {0}</system:String>
    <system:String x:Key="FemPlanarSaveBeforeEdit">The plate region is saved immediately, and schema «{0}» has unsaved edits. Save the schema and continue?</system:String>
+   <system:String x:Key="FieldErrNumber">a number is required (decimal separator — comma or point)</system:String>
+   <system:String x:Key="FieldErrPositive">a positive number is required</system:String>
+   <system:String x:Key="FieldErrNonNegative">a non-negative number is required</system:String>
+   <system:String x:Key="FieldErrNonZero">cannot be zero</system:String>
 </ResourceDictionary>

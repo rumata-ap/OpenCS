@@ -22,3 +22,25 @@ cR2
 Qb
 Qsw
 Qb + Qsw
+# Обозначения степеней свободы и жёсткостей связей (схема МКЭ).
+Tx
+Ty
+Tz
+Rx
+Ry
+Rz
+UX
+UY
+UZ
+Kx
+Ky
+Kz
+Kux
+Kuy
+Kuz
+Kx′
+Ky′
+Kz′
+Kux′
+Kuy′
+Kuz′

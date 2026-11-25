@@ -46,7 +46,7 @@ public partial class FemMemberPropertiesDialog : Window
             .Where(t => (t.Kind is "torsion_bem" or "torsion_fem") && t.SectionId == member.CrossSectionId);
         torsionTaskCombo.SelectedItem = editorVm.AllCalcTasks.FirstOrDefault(t => t.Id == member.GjTorsionTaskId);
 
-        targetLengthBox.Text = member.TargetMeshLengthM?.ToString("F2") ?? "";
+        targetLengthBox.Text = member.TargetMeshLengthM?.ToString("0.###", CultureInfo.CurrentCulture) ?? "";
         _initializing = false;
     }
 
@@ -68,9 +68,26 @@ public partial class FemMemberPropertiesDialog : Window
         _editorVm.RefreshCollections();
     }
 
+    /// <summary>Неверный ввод немодального окна: красная рамка и подсказка с причиной; значение КонЭ не меняется.</summary>
+    static bool Mark(System.Windows.Controls.TextBox box, string? error)
+    {
+        if (error == null)
+        {
+            box.ClearValue(BorderBrushProperty);
+            box.ClearValue(ToolTipProperty);
+            return true;
+        }
+        box.BorderBrush = System.Windows.Media.Brushes.Red;
+        box.ToolTip = error;
+        return false;
+    }
+
     void GjManualValue_LostFocus(object sender, RoutedEventArgs e)
     {
-        if (!Pars.ParseAny(gjManualValueBox.Text, out var valueKilo)) return;
+        bool ok = NumberInput.TryParse(gjManualValueBox.Text, out var valueKilo);
+        if (!Mark(gjManualValueBox, !ok ? Loc.S("FieldErrNumber") : valueKilo < 0 ? Loc.S("FieldErrNonNegative") : null)) return;
+        if (_member.GjStrategy == "manual" && _member.GjManualValue is double old
+            && Math.Abs(FemUnitConverter.NewtonMetersSquaredToKiloNewtonMetersSquared(old) - valueKilo) < 1e-9) return;
         var value = FemUnitConverter.KiloNewtonMetersSquaredToNewtonMetersSquared(valueKilo);
         _editorVm.Session.Execute(new SetMemberGjCommand(_member, "manual", value, null));
         _editorVm.RefreshCollections();
@@ -84,8 +101,18 @@ public partial class FemMemberPropertiesDialog : Window
         _editorVm.RefreshCollections();
     }
 
+    /// <summary>Шаг сетки КонЭ: пусто — общий шаг схемы; число > 0 — свой. Командой сессии («*», отмена).</summary>
     void TargetLength_LostFocus(object sender, RoutedEventArgs e)
     {
-        _member.TargetMeshLengthM = double.TryParse(targetLengthBox.Text, out var v) ? v : null;
+        double? step = null;
+        if (!string.IsNullOrWhiteSpace(targetLengthBox.Text))
+        {
+            bool ok = NumberInput.TryParse(targetLengthBox.Text, out var v);
+            if (!Mark(targetLengthBox, !ok ? Loc.S("FieldErrNumber") : v <= 0 ? Loc.S("FieldErrPositive") : null)) return;
+            step = v;
+        }
+        else Mark(targetLengthBox, null);
+        if (step == _member.TargetMeshLengthM) return;
+        _editorVm.SetMembersMeshStep([_member.ElemTag], step);
     }
 }

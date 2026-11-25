@@ -49,13 +49,20 @@ public partial class FemNodeLoadDialog : Window
     void Apply_Click(object sender, RoutedEventArgs e)
     {
         if (loadCaseCombo.SelectedItem is not FemLoadCase loadCase) return;
-        double Parse(TextBox box) => Pars.ParseAny(box.Text, out var value) ? value : 0;
-        double fx = FemUnitConverter.KiloNewtonsToNewtons(Parse(fxBox));
-        double fy = FemUnitConverter.KiloNewtonsToNewtons(Parse(fyBox));
-        double fz = FemUnitConverter.KiloNewtonsToNewtons(Parse(fzBox));
-        double mx = FemUnitConverter.KiloNewtonMetersToNewtonMeters(Parse(mxBox));
-        double my = FemUnitConverter.KiloNewtonMetersToNewtonMeters(Parse(myBox));
-        double mz = FemUnitConverter.KiloNewtonMetersToNewtonMeters(Parse(mzBox));
+        // Нераспознанное значение — ошибка у поля, а не молчаливый 0.
+        Helpers.FieldCheck.Clear(fxBox, fyBox, fzBox, mxBox, myBox, mzBox);
+        if (!Helpers.FieldCheck.Read(this, fxBox, "FemNodePropsFx", out var fxK)
+            || !Helpers.FieldCheck.Read(this, fyBox, "FemNodePropsFy", out var fyK)
+            || !Helpers.FieldCheck.Read(this, fzBox, "FemNodePropsFz", out var fzK)
+            || !Helpers.FieldCheck.Read(this, mxBox, "FemNodePropsMx", out var mxK)
+            || !Helpers.FieldCheck.Read(this, myBox, "FemNodePropsMy", out var myK)
+            || !Helpers.FieldCheck.Read(this, mzBox, "FemNodePropsMz", out var mzK)) return;
+        double fx = FemUnitConverter.KiloNewtonsToNewtons(fxK);
+        double fy = FemUnitConverter.KiloNewtonsToNewtons(fyK);
+        double fz = FemUnitConverter.KiloNewtonsToNewtons(fzK);
+        double mx = FemUnitConverter.KiloNewtonMetersToNewtonMeters(mxK);
+        double my = FemUnitConverter.KiloNewtonMetersToNewtonMeters(myK);
+        double mz = FemUnitConverter.KiloNewtonMetersToNewtonMeters(mzK);
 
         int applied = 0;
         foreach (var node in _nodes.Where(node => node.Id != 0))

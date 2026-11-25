@@ -4521,7 +4521,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMemberPropsNodes">Узлы</system:String>
     <system:String x:Key="FemMemberPropsLength">Длина, м</system:String>
     <system:String x:Key="FemMemberPropsType">Тип</system:String>
-    <system:String x:Key="FemMemberPropsTargetLength">Целевая длина КЭ, м (пусто — дефолт команды)</system:String>
+   <system:String x:Key="FemMemberPropsTargetLength">Шаг сетки КонЭ, м (пусто — общий шаг схемы)</system:String>
     <system:String x:Key="FemNodePropsTitle">Свойства узла</system:String>
     <system:String x:Key="FemNodePropsTag">Узел</system:String>
     <system:String x:Key="FemNodePropsMembers">Входит в элементы</system:String>
@@ -7552,4 +7552,8 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FemPlanarDeleteLoads">нагрузки на неё: {0}</system:String>
    <system:String x:Key="FemPlanarDeleteGroups">исключится из групп: {0}</system:String>
    <system:String x:Key="FemPlanarSaveBeforeEdit">Область пластины сохраняется сразу, а в схеме «{0}» есть несохранённые правки. Сохранить схему и продолжить?</system:String>
+   <system:String x:Key="FieldErrNumber">нужно число (десятичный разделитель — запятая или точка)</system:String>
+   <system:String x:Key="FieldErrPositive">нужно положительное число</system:String>
+   <system:String x:Key="FieldErrNonNegative">нужно неотрицательное число</system:String>
+   <system:String x:Key="FieldErrNonZero">не может быть равен нулю</system:String>
 </ResourceDictionary>

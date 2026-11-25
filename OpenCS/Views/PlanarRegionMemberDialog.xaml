@@ -6,7 +6,7 @@
         xmlns:conv="clr-namespace:OpenCS.Converters"
         xmlns:util="clr-namespace:OpenCS.Utilites"
         Title="{DynamicResource PlanarRegionMemberDialogTitle}"
-        Width="720" Height="560" WindowStartupLocation="CenterOwner"
+        Width="720" Height="560" MinWidth="560" MinHeight="420" WindowStartupLocation="CenterOwner"
         Loaded="Window_Loaded" Closing="Window_Closing">
    <Window.Resources>
       <ResourceDictionary>
@@ -238,9 +238,11 @@
                   </GroupBox>
 
                   <StackPanel Orientation="Horizontal">
-                     <Button Content="{DynamicResource Save}" Command="{Binding SaveCommand}"
+                     <Button Content="{DynamicResource Save}" Click="Save_Click" IsDefault="True"
                              Padding="12,4" Margin="0,0,8,0"/>
                      <Button Content="{DynamicResource Delete}" Command="{Binding DeleteCommand}"
+                             Padding="12,4" Margin="0,0,8,0"/>
+                     <Button Content="{DynamicResource Close}" Click="Close_Click" IsCancel="True"
                              Padding="12,4"/>
                   </StackPanel>
                </StackPanel>

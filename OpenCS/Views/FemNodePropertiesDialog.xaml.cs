@@ -24,9 +24,10 @@ public partial class FemNodePropertiesDialog : Window
 
         tagText.Text = node.NodeTag;
 
+        // NodeIdsJson хранит теги узлов (числа); тег узла — строка, сравнение по строке (нечисловой тег не роняет окно).
         var owningMembers = editorVm.Session.Members
             .Where(m => (System.Text.Json.JsonSerializer.Deserialize<int[]>(m.NodeIdsJson) ?? [])
-                .Contains(int.Parse(node.NodeTag)))
+                .Any(id => id.ToString(CultureInfo.InvariantCulture) == node.NodeTag))
             .Select(m => m.ElemTag)
             .ToList();
         membersList.ItemsSource = owningMembers;
@@ -122,12 +123,14 @@ public partial class FemNodePropertiesDialog : Window
             MessageBox.Show((string)Application.Current.FindResource("FemNodeLoadSkippedUnsavedTitle"));
             return;
         }
-        if (!Pars.ParseAny(fxBox.Text, out var fxKilo)) fxKilo = 0;
-        if (!Pars.ParseAny(fyBox.Text, out var fyKilo)) fyKilo = 0;
-        if (!Pars.ParseAny(fzBox.Text, out var fzKilo)) fzKilo = 0;
-        if (!Pars.ParseAny(mxBox.Text, out var mxKilo)) mxKilo = 0;
-        if (!Pars.ParseAny(myBox.Text, out var myKilo)) myKilo = 0;
-        if (!Pars.ParseAny(mzBox.Text, out var mzKilo)) mzKilo = 0;
+        // Нераспознанное значение — ошибка у поля, а не молчаливый 0 (нагрузка пропадала без сообщения).
+        Helpers.FieldCheck.Clear(fxBox, fyBox, fzBox, mxBox, myBox, mzBox);
+        if (!Helpers.FieldCheck.Read(this, fxBox, "FemNodePropsFx", out var fxKilo)
+            || !Helpers.FieldCheck.Read(this, fyBox, "FemNodePropsFy", out var fyKilo)
+            || !Helpers.FieldCheck.Read(this, fzBox, "FemNodePropsFz", out var fzKilo)
+            || !Helpers.FieldCheck.Read(this, mxBox, "FemNodePropsMx", out var mxKilo)
+            || !Helpers.FieldCheck.Read(this, myBox, "FemNodePropsMy", out var myKilo)
+            || !Helpers.FieldCheck.Read(this, mzBox, "FemNodePropsMz", out var mzKilo)) return;
         var fx = FemUnitConverter.KiloNewtonsToNewtons(fxKilo);
         var fy = FemUnitConverter.KiloNewtonsToNewtons(fyKilo);
         var fz = FemUnitConverter.KiloNewtonsToNewtons(fzKilo);
@@ -137,4 +140,6 @@ public partial class FemNodePropertiesDialog : Window
         _editorVm.Session.Execute(new SetNodeLoadCommand(lc.Id, _node.Id, fx, fy, fz, mx, my, mz));
         _editorVm.RefreshCollections();
     }
+
+    void Close_Click(object sender, RoutedEventArgs e) => Close();
 }

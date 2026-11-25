@@ -165,6 +165,17 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
         // "Не сохранять" — ничего не делаем, закрытие продолжается без сохранения.
     }
 
+    /// <summary>«Сохранить» (и Enter): сначала зафиксировать поле в фокусе — Enter не уводит фокус, и привязка по уходу
+    /// из поля иначе сохранила бы прежнее значение.</summary>
+    void Save_Click(object sender, System.Windows.RoutedEventArgs e)
+    {
+        CommitFocusedTextBox();
+        if (_vm.SaveCommand.CanExecute(null)) _vm.SaveCommand.Execute(null);
+    }
+
+    /// <summary>«Закрыть» (и Esc): закрытие с вопросом о несохранённых правках (<see cref="Window_Closing"/>).</summary>
+    void Close_Click(object sender, System.Windows.RoutedEventArgs e) => Close();
+
     void FitView_Click(object sender, System.Windows.RoutedEventArgs e) => preview.FitToView();
 
     async void ToggleMesh_Click(object sender, System.Windows.RoutedEventArgs e)

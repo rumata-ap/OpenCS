@@ -446,7 +446,7 @@
                                  Text="{Binding ReactionScale, Converter={StaticResource AnyDoubleConv}, ConverterParameter=F2, UpdateSourceTrigger=PropertyChanged, Delay=500}"/>
                         <ToggleButton Style="{StaticResource IconToggleButton25}" IsChecked="{Binding ShowReactionValues}"
                                       ToolTip="{DynamicResource FemResultReactionValuesTip}">
-                            <TextBlock Text="кН" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource Unit_kN}" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                         </ToggleButton>
                     </StackPanel>
                 </StackPanel>

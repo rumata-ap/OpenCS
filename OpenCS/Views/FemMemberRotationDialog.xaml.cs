@@ -18,17 +18,11 @@ public partial class FemMemberRotationDialog : Window
 
     void Apply_Click(object sender, RoutedEventArgs e)
     {
-        if (!Pars.ParseAny(angleBox.Text, out var value) || !double.IsFinite(value))
-        {
-            MessageBox.Show(
-                (string)Application.Current.FindResource("FemMemberRotationInvalid"),
-                (string)Application.Current.FindResource("FemMemberRotationTitle"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
-            return;
-        }
-
+        Views.Helpers.FieldCheck.Clear(angleBox);
+        if (!Views.Helpers.FieldCheck.Read(this, angleBox, "FemMemberRotationDeg", out var value)) return;
         _onApply(value);
         Close();
     }
+
+    void Close_Click(object sender, RoutedEventArgs e) => Close();
 }

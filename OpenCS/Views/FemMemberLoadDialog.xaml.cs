@@ -81,20 +81,35 @@ public partial class FemMemberLoadDialog : Window
     void Apply_Click(object sender, RoutedEventArgs e)
     {
         if (loadCaseCombo.SelectedItem is not FemLoadCase loadCase) return;
-        double Parse(TextBox box) => Pars.ParseAny(box.Text, out var value) ? value : 0;
         string coordinate = coordinateCombo.SelectedValue as string ?? "local";
         string distribution = distributionCombo.SelectedValue as string ?? "uniform";
         bool isPoint = distribution == "point";
-        double qxStart = FemUnitConverter.KiloNewtonsToNewtons(Parse(qxStartBox));
-        double qyStart = FemUnitConverter.KiloNewtonsToNewtons(Parse(qyStartBox));
-        double qzStart = FemUnitConverter.KiloNewtonsToNewtons(Parse(qzStartBox));
-        double qxEnd = isPoint ? 0 : distribution == "uniform" ? qxStart : FemUnitConverter.KiloNewtonsToNewtons(Parse(qxEndBox));
-        double qyEnd = isPoint ? 0 : distribution == "uniform" ? qyStart : FemUnitConverter.KiloNewtonsToNewtons(Parse(qyEndBox));
-        double qzEnd = isPoint ? 0 : distribution == "uniform" ? qzStart : FemUnitConverter.KiloNewtonsToNewtons(Parse(qzEndBox));
-        double endOffset = isPoint ? 0 : Parse(endOffsetBox);
-        double mx = isPoint ? FemUnitConverter.KiloNewtonMetersToNewtonMeters(Parse(mxBox)) : 0;
-        double my = isPoint ? FemUnitConverter.KiloNewtonMetersToNewtonMeters(Parse(myBox)) : 0;
-        double mz = isPoint ? FemUnitConverter.KiloNewtonMetersToNewtonMeters(Parse(mzBox)) : 0;
+        bool trapezoid = !isPoint && distribution != "uniform";
+        // Проверяются только поля, участвующие в выбранном виде; нераспознанное — ошибка у поля, а не молчаливый 0.
+        Helpers.FieldCheck.Clear(qxStartBox, qyStartBox, qzStartBox, qxEndBox, qyEndBox, qzEndBox,
+            startOffsetBox, endOffsetBox, mxBox, myBox, mzBox);
+        bool R(TextBox box, string key, out double v, Func<double, string?>? rule = null) =>
+            Helpers.FieldCheck.Read(this, box, key, out v, rule);
+        double qxEndK = 0, qyEndK = 0, qzEndK = 0, endOffset = 0, mxK = 0, myK = 0, mzK = 0;
+        if (!R(startOffsetBox, "FemMemberLoadStartOffset", out double startOffset, Helpers.FieldCheck.NonNegative)
+            || !R(qxStartBox, "FemMemberLoadQx", out double qxStartK)
+            || !R(qyStartBox, "FemMemberLoadQy", out double qyStartK)
+            || !R(qzStartBox, "FemMemberLoadQz", out double qzStartK)
+            || (trapezoid && (!R(qxEndBox, "FemMemberLoadQx", out qxEndK) || !R(qyEndBox, "FemMemberLoadQy", out qyEndK)
+                              || !R(qzEndBox, "FemMemberLoadQz", out qzEndK)))
+            || (!isPoint && !R(endOffsetBox, "FemMemberLoadEndOffset", out endOffset, Helpers.FieldCheck.NonNegative))
+            || (isPoint && (!R(mxBox, "FemMemberLoadMx", out mxK) || !R(myBox, "FemMemberLoadMy", out myK)
+                            || !R(mzBox, "FemMemberLoadMz", out mzK))))
+            return;
+        double qxStart = FemUnitConverter.KiloNewtonsToNewtons(qxStartK);
+        double qyStart = FemUnitConverter.KiloNewtonsToNewtons(qyStartK);
+        double qzStart = FemUnitConverter.KiloNewtonsToNewtons(qzStartK);
+        double qxEnd = isPoint ? 0 : trapezoid ? FemUnitConverter.KiloNewtonsToNewtons(qxEndK) : qxStart;
+        double qyEnd = isPoint ? 0 : trapezoid ? FemUnitConverter.KiloNewtonsToNewtons(qyEndK) : qyStart;
+        double qzEnd = isPoint ? 0 : trapezoid ? FemUnitConverter.KiloNewtonsToNewtons(qzEndK) : qzStart;
+        double mx = FemUnitConverter.KiloNewtonMetersToNewtonMeters(mxK);
+        double my = FemUnitConverter.KiloNewtonMetersToNewtonMeters(myK);
+        double mz = FemUnitConverter.KiloNewtonMetersToNewtonMeters(mzK);
         int applied = 0;
 
         foreach (var member in _members.Where(member => member.Id != 0))
@@ -109,7 +124,7 @@ public partial class FemMemberLoadDialog : Window
                 MemberId = member.Id,
                 CoordinateSystem = coordinate,
                 DistributionType = distribution,
-                StartOffsetM = Parse(startOffsetBox),
+                StartOffsetM = startOffset,
                 EndOffsetM = endOffset,
                 QxStart = qxStart, QyStart = qyStart, QzStart = qzStart,
                 QxEnd = qxEnd, QyEnd = qyEnd, QzEnd = qzEnd,
