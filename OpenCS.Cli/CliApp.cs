@@ -120,6 +120,8 @@ sealed partial class CliApp
         var listSections = new Command("sections", Loc.S("CliCmdListSections")) { _project };
         var listFire = new Command("fire", Loc.S("CliCmdListFire")) { _project };
         listFire.SetAction((p, ct) => Handle(p, ct, ListFireSectionsAsync));
+        var listSchemas = new Command("schemas", Loc.S("CliCmdListSchemas")) { _project };
+        listSchemas.SetAction((p, ct) => Handle(p, ct, ListSchemasAsync));
         listSections.SetAction((p, ct) => Handle(p, ct, ListSectionsAsync));
         var listForceSets = new Command("forcesets", Loc.S("CliCmdListForceSets")) { _project };
         listForceSets.SetAction((p, ct) => Handle(p, ct, ListForceSetsAsync));
@@ -127,7 +129,7 @@ sealed partial class CliApp
         listMaterials.SetAction((p, ct) => Handle(p, ct, ListMaterialsAsync));
         var list = new Command("list", Loc.S("CliCmdList"))
         {
-            listTasks, listChecks, listAnalyses, listResults, listSections, listFire, listForceSets, listMaterials,
+            listTasks, listChecks, listAnalyses, listResults, listSections, listFire, listSchemas, listForceSets, listMaterials,
             ListProfilesCommand()
         };
         var add = new Command("add", Loc.S("CliCmdAdd")) { AddSteelSectionCommand(), AddTasksCommand() };
@@ -140,7 +142,8 @@ sealed partial class CliApp
             RunCommand("task", "CliCmdRunTask", RunTasksAsync),
             RunCommand("check", "CliCmdRunCheck", RunChecksAsync),
             RunCommand("analysis", "CliCmdRunAnalysis", RunAnalysesAsync),
-            RunCommand("fire", "CliCmdRunFire", RunFireAsync)
+            RunCommand("fire", "CliCmdRunFire", RunFireAsync),
+            RunCommand("mesh", "CliCmdRunMesh", RunMeshAsync)
         };
 
         var exportResult = new Command("result", Loc.S("CliCmdExportResult"))

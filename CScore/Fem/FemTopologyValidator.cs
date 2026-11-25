@@ -56,10 +56,10 @@ public static class FemTopologyValidator
             foreach (var nodeTagId in ids)
                 if (!nodeTagSet.Contains(nodeTagId.ToString()))
                     errors.Add(new("element_node_missing",
-                        $"Элемент {element.ElemTag} ссылается на отсутствующий узел {nodeTagId}."));
+                        $"Элемент {element.ElemTag} ссылается на отсутствующий узел {nodeTagId}.", SourceKeys: [element.ElemTag]));
 
             if (element.ElemType == "beam" && ids.Length == 2 && ids[0] == ids[1])
-                errors.Add(new("element_zero_length", $"Стержень {element.ElemTag} имеет нулевую длину."));
+                errors.Add(new("element_zero_length", $"Стержень {element.ElemTag} имеет нулевую длину.", SourceKeys: [element.ElemTag]));
 
             if (element.CrossSectionId == null)
                 errors.Add(new("member_section_missing",

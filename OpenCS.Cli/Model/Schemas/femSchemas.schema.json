@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "opencs-model: femSchemas[]",
+  "description": "Родная МКЭ-схема (созданная в OpenCS; импортные ЛИРА/SCAD, фрагменты и субмодели не выгружаются и через apply не меняются). Ключ — имя (tag). Схема — составной объект: указанный массив (nodes, members, groups) заменяет состав схемы по этому виду — совпавшие по тегу объекты обновляются на месте, отсутствующие удаляются (с нагрузками и связями на них, с предупреждением); неуказанный массив не трогается. Координаты и длины — м, GJ — кН·м², углы — градусы. Сетка и результаты не описываются: изменённая схема получает устаревшую сетку — она перестраивается перед расчётом или командой opencs run mesh; изменившаяся сетка сбрасывает результаты постановок.",
+  "type": "object",
+  "required": ["tag"],
+  "additionalProperties": false,
+  "$defs": {
+    "point": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3, "description": "Точка [x, y, z], м" },
+    "loop": { "type": "array", "items": { "$ref": "#/$defs/point" }, "minItems": 3, "description": "Замкнутый контур без повтора первой вершины" },
+    "tag": { "type": ["string", "integer"] }
+  },
+  "properties": {
+    "tag": { "type": "string", "minLength": 1 },
+    "mesh": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "barStepM": { "type": "number", "exclusiveMinimum": 0, "description": "Общий шаг сетки стержней, м; нет — по длине КонЭ" },
+        "plateStepM": { "type": "number", "exclusiveMinimum": 0, "description": "Общий шаг сетки пластин, м" },
+        "autoRigidJunctions": { "type": "boolean", "default": true, "description": "АЖТ примыкания стержень–пластина создаются автоматически" },
+        "rigidJunctionAngleDeg": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 90, "default": 10, "description": "Порог угла примыкания для АЖТ, °" }
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["tag", "x", "y", "z"],
+        "additionalProperties": false,
+        "properties": {
+          "tag": { "type": ["integer", "string"], "description": "Целый положительный номер узла" },
+          "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" },
+          "fix": { "type": "array", "items": { "enum": ["x", "y", "z", "rx", "ry", "rz"] }, "uniqueItems": true, "description": "Закреплённые направления в общих осях; нет — узел свободен" }
+        }
+      }
+    },
+    "members": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["tag"],
+        "properties": {
+          "tag": { "$ref": "#/$defs/tag" },
+          "type": { "enum": ["beam", "truss", "shell"], "default": "beam" },
+          "nodes": { "type": "array", "items": { "$ref": "#/$defs/tag" }, "minItems": 2, "maxItems": 2, "description": "Стержень: начальный и конечный узлы" },
+          "section": { "type": "string", "description": "Стержень: сечение (ключ из sections)" },
+          "rotationDeg": { "type": "number", "default": 0, "description": "Стержень: поворот сечения вокруг оси, °" },
+          "meshStepM": { "type": "number", "exclusiveMinimum": 0, "description": "Свой шаг сетки КонЭ, м; нет — общий шаг схемы" },
+          "torsion": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "strategy": { "enum": ["manual", "saint_venant"], "default": "manual" },
+              "gj": { "type": "number", "minimum": 0, "description": "manual: GJ, кН·м²" },
+              "task": { "type": "string", "description": "saint_venant: задача кручения (ключ из tasks)" }
+            }
+          },
+          "kind": { "enum": ["plate", "wall"], "description": "Пластина: вид вручную; нет — по наклону" },
+          "plateSection": { "type": "string", "description": "Пластина: сечение (ключ из plateSections)" },
+          "region": {
+            "type": "object",
+            "required": ["outline"],
+            "additionalProperties": false,
+            "description": "Пластина: область в общих координатах (точки в одной плоскости, допуск 1 мм)",
+            "properties": {
+              "outline": { "$ref": "#/$defs/loop" },
+              "holes": { "type": "array", "items": { "$ref": "#/$defs/loop" } },
+              "xAxis": { "$ref": "#/$defs/point", "description": "Местная ось X пластины; нет — горизонтальная плита: общая X, стена: вдоль первой стороны" }
+            }
+          }
+        }
+      }
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["tag", "members"],
+        "additionalProperties": false,
+        "properties": {
+          "tag": { "type": "string", "minLength": 1 },
+          "memberType": { "enum": ["beam", "column", "plate", "wall", "shell", "truss", "top_chord", "bottom_chord", "diagonal", "bracing", "other"] },
+          "members": { "type": "array", "items": { "$ref": "#/$defs/tag" }, "description": "Теги КонЭ схемы" }
+        }
+      }
+    }
+  }
+}
