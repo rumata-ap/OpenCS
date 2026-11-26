@@ -1242,6 +1242,9 @@ public sealed class FemSchemaEditorVM : ViewModelBase, IUnsavedChanges
     public event Action<string>? GeometryLocked;
     public event EventHandler? MeshDiscretized;
 
+    /// <summary>Сетка схемы записана вне «Построить сетку» (разворот КонЭ) — виды сетки перечитываются.</summary>
+    public void NotifyMeshChanged() => MeshDiscretized?.Invoke(this, EventArgs.Empty);
+
     /// <summary>Сшивает совпадающие по координатам узлы конструктивного слоя. Возвращает короткий
     /// отчёт для лога.</summary>
     public string MergeCoincidentNodes()

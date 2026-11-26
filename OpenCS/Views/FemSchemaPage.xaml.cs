@@ -175,6 +175,7 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         view3D.MemberMeshStepRequested    += OpenMemberMeshStep;
         view3D.MemberRigidJunctionRequested += OpenMemberRigidJunction;
         view3D.MemberRemeshKeptRequested  += RemeshKeptMembersAt;
+        view3D.MembersFlipRequested       += tags => _ = FlipMembersAsync(tags);
         view3D.MemberForcesRequested      += tag => app.ShowMemberForceDiagram(schema, tag);
         view3D.FragmentTransformRequested += TransformFragment;
         view3D.NodeDeleteRequested += ConfirmAndDeleteNodes;
@@ -678,6 +679,48 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
                 Loc.S("FemMemberRemeshKeptCtx"), MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
             return;
         if (_editorVm.RemeshKeptMembers(kept)) _fem3d.LoadFromSession(_editorVm.Session);
+    }
+
+    /// <summary>
+    /// «Развернуть ось» стержней и «Сменить нормаль» пластин (3D, дерево): несохранённая схема — сначала сохранить, с
+    /// вопросом; разворот пишется в базу сразу (области и сетка вне сессии), сетка остаётся той же, повтор возвращает как
+    /// было. Итог — в журнале.
+    /// </summary>
+    public async Task FlipMembersAsync(IReadOnlyCollection<string> tags)
+    {
+        var (bars, shells) = FemMemberOrientation.Split(_editorVm.Session.Members, tags);
+        if (bars.Count + shells.Count == 0) return;
+        if (_editorVm.Session.IsDirty)
+        {
+            if (!_app.Notifier.Confirm(string.Format(Loc.S("FemOrientSaveFirst"), _schema.Tag), Loc.S("Confirmation"))) return;
+            if (!_editorVm.Save()) return;
+        }
+        var cts = _app.BeginBusyWithCancellation(Loc.S("FemOrientBusy"));
+        FemMemberOrientationOutcome? outcome = null;
+        try
+        {
+            outcome = await FemMemberOrientation.ApplyAsync(_app.db, _schema, [.. bars, .. shells], _app.GmshSettings,
+                _app.LogService, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _app.LogService.Info(Loc.S("FemSchemaMeshCancelled"));
+        }
+        finally
+        {
+            _app.EndBusy();
+        }
+        if (outcome == null) return;
+        if (!outcome.Done)
+        {
+            _app.LogService.Error(string.Format(Loc.S("FemOrientFailed"), outcome.Error));
+            return;
+        }
+        foreach (var line in outcome.Info) _app.LogService.Info(line);
+        foreach (var line in outcome.Warnings) _app.LogService.Warning(line);
+        _editorVm.ReloadSessionFromDb();
+        _fem3d.LoadFromSession(_editorVm.Session);
+        if (outcome.MeshKept) _editorVm.NotifyMeshChanged();
     }
 
     void RemeshKeptMembersAt(string tag)

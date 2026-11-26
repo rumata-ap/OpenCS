@@ -345,6 +345,7 @@ public partial class FemSchemaView3D : UserControl
             e.PropertyName == nameof(Fem3DVM.FragmentCutGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.ShowFragmentCutGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.ShowSectionGlyphs) ||
+            e.PropertyName == nameof(Fem3DVM.ShowDirectionGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.ShowLoadValues))
             BuildVisuals();
         else if (e.PropertyName == nameof(Fem3DVM.MosaicShellMeshes) && VM is { IsLoading: false })
@@ -910,6 +911,7 @@ public partial class FemSchemaView3D : UserControl
         BuildMemberLoadGlyphs();
         BuildElementLoadGlyphs();
         BuildSectionGlyphs();
+        BuildDirectionGlyphs();
         ApplyGridVisuals();
         UpdateGroundPlane();
         BuildMarker();
@@ -1422,6 +1424,31 @@ public partial class FemSchemaView3D : UserControl
         AddGlyphLine(Colors.Gold, 1.5, contours);
         AddGlyphLine(Colors.LimeGreen, 1.2, axesY);
         AddGlyphLine(Colors.DeepSkyBlue, 1.2, axesZ);
+    }
+
+    /// <summary>
+    /// Направления КонЭ: у стержня — наконечник стрелки посередине (к концу J), у пластины — стрелка нормали (к верху)
+    /// из центра области. Две линии на все знаки, как у сечений.
+    /// </summary>
+    void BuildDirectionGlyphs()
+    {
+        if (VM is not { ShowDirectionGlyphs: true } vm || vm.DirectionGlyphs.Count == 0) return;
+        var bars = new Point3DCollection();
+        var normals = new Point3DCollection();
+        foreach (var g in vm.DirectionGlyphs)
+        {
+            var d = g.Direction;
+            var side = Vector3D.CrossProduct(d, Math.Abs(d.Z) < 0.9 ? new Vector3D(0, 0, 1) : new Vector3D(1, 0, 0));
+            side.Normalize();
+            var target = g.IsNormal ? normals : bars;
+            var tip = g.IsNormal ? g.At + d * g.Size : g.At + d * (g.Size * 0.5);
+            if (g.IsNormal) { target.Add(g.At); target.Add(tip); }
+            double head = g.IsNormal ? g.Size * 0.3 : g.Size * 0.6;
+            target.Add(tip); target.Add(tip - d * head + side * head * 0.5);
+            target.Add(tip); target.Add(tip - d * head - side * head * 0.5);
+        }
+        AddGlyphLine(Colors.DarkOrange, 2.0, bars);
+        AddGlyphLine(Colors.MediumVioletRed, 2.0, normals);
     }
 
     /// <summary>Порог, после которого вместо сфер (по одной на узел) используется PointsVisual3D.
@@ -2118,10 +2145,15 @@ public partial class FemSchemaView3D : UserControl
             var menu = (ContextMenu)Resources[target.IsNode ? "NodeContextMenu" : "MemberContextMenu"];
             if (!target.IsNode)
             {
-                // «АЖТ примыкания…» — только у стержней.
-                bool isBeam = Editor?.Session.Members.FirstOrDefault(m => m.ElemTag == target.Tag)?.ElemType == "beam";
+                // «АЖТ примыкания…» — только у стержней; «Развернуть ось» — у стержней, «Сменить нормаль» — у пластин.
+                var clicked = Editor?.Session.Members.FirstOrDefault(m => m.ElemTag == target.Tag);
+                bool isBeam = clicked?.ElemType == "beam";
                 foreach (var item in menu.Items.OfType<MenuItem>().Where(i => Equals(i.Tag, "rigidJunction")))
                     item.Visibility = isBeam ? Visibility.Visible : Visibility.Collapsed;
+                foreach (var item in menu.Items.OfType<MenuItem>())
+                    if (Equals(item.Tag, "flipAxis") || Equals(item.Tag, "flipNormal"))
+                        item.Visibility = (Equals(item.Tag, "flipAxis") ? clicked is { ElemType: "beam" or "truss" } : clicked is { ElemType: "shell" })
+                            ? Visibility.Visible : Visibility.Collapsed;
                 AppendMemberGroupItems(menu, target.Tag);
             }
             SetRemeshKeptVisibility(menu, target.IsNode ? [] : ClickedWithSelection(target.Tag));
@@ -2672,6 +2704,13 @@ public partial class FemSchemaView3D : UserControl
         MemberDeleteRequested?.Invoke(tag);
     }
 
+    /// <summary>«Развернуть ось» / «Сменить нормаль»: щёлкнутый КонЭ; если он выделен — все выделенные (стержни и пластины).</summary>
+    void MemberFlipCtx_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMenuTargetTag is not { } tag) return;
+        MembersFlipRequested?.Invoke(ClickedWithSelection(tag));
+    }
+
     void PlanarRegionEditCtx_Click(object sender, RoutedEventArgs e)
     {
         if (_contextMenuTargetTag is not { } tag) return;
@@ -2779,6 +2818,8 @@ public partial class FemSchemaView3D : UserControl
     }
 
     public event Action<string>? MemberDeleteRequested;
+    /// <summary>«Развернуть ось» / «Сменить нормаль» для КонЭ.</summary>
+    public event Action<IReadOnlyCollection<string>>? MembersFlipRequested;
     public event Action<string>? MemberSplitRequested;
     public event Action<string>? MemberSectionEditRequested;
     public event Action<string>? MemberPropertiesRequested;

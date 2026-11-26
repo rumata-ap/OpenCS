@@ -36,6 +36,8 @@
             <MenuItem helpers:CommandIcons.Header="FemMemberSectionCtx" Click="MemberSectionCtx_Click"/>
             <MenuItem helpers:CommandIcons.Header="FemMemberPropertiesCtx" Click="MemberPropertiesCtx_Click"/>
             <MenuItem helpers:CommandIcons.Header="FemMemberRotationCtx" Click="MemberRotationCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemOrientFlipAxisCtx" Tag="flipAxis" Click="MemberFlipCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemOrientFlipNormalCtx" Tag="flipNormal" Click="MemberFlipCtx_Click"/>
             <MenuItem helpers:CommandIcons.Header="FemMemberMeshStepCtx" Click="MemberMeshStepCtx_Click"/>
             <MenuItem helpers:CommandIcons.Header="FemMemberRemeshKeptCtx" Tag="remeshKept" Click="MemberRemeshKeptCtx_Click"/>
             <MenuItem helpers:CommandIcons.Header="FemMemberRigidJunctionCtx" Tag="rigidJunction" Click="MemberRigidJunctionCtx_Click"/>
@@ -68,6 +70,7 @@
             <MenuItem helpers:CommandIcons.Header="FemMemberMeshStepCtx" Click="MemberMeshStepCtx_Click"/>
             <MenuItem helpers:CommandIcons.Header="FemMemberRemeshKeptCtx" Tag="remeshKept" Click="MemberRemeshKeptCtx_Click"/>
             <MenuItem helpers:CommandIcons.Header="FemLineSupportMenu" Click="PlateLineSupportCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemOrientFlipNormalCtx" Click="MemberFlipCtx_Click"/>
             <MenuItem helpers:CommandIcons.Header="PlanarRegionDeleteCtx" Click="PlanarRegionDeleteCtx_Click"/>
         </ContextMenu>
     </UserControl.Resources>

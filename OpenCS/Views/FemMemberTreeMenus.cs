@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using CScore.Fem;
+using CScore.Fem.Editing;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
 using OpenCS.Views.Helpers;
@@ -26,6 +27,8 @@ internal static class FemMemberTreeMenus
             string tag = member.ElemTag;
             items.Add(Item("FemMemberPropertiesCtx", () => app.InFemSchemaEditorDeferred(schema, page => page.OpenMemberProperties(tag))));
             items.Add(Item("FemMemberRotationCtx", () => app.InFemSchemaEditorDeferred(schema, page => page.OpenMemberRotation(tag))));
+            if (FemOrientationFlip.IsBar(member))
+                items.Add(Item("FemOrientFlipAxisCtx", () => app.InFemSchemaEditorDeferred(schema, page => _ = page.FlipMembersAsync([tag]))));
             if (!member.IsMeshLocked)
                 items.Add(Item("FemMemberMeshStepCtx", () => app.InFemSchemaEditorDeferred(schema, page => page.OpenMemberMeshStep(tag))));
             items.Add(new Separator());
@@ -68,6 +71,13 @@ internal static class FemMemberTreeMenus
             () => CreateGroup(app, schema, [member], member.ElemTag)));
         AddGroupSubmenus(items, app, schema, [member.ElemTag]);
 
+        if (item.IsShell)
+        {
+            items.Add(new Separator());
+            string shellTag = member.ElemTag;
+            items.Add(Item("FemOrientFlipNormalCtx", () => app.InFemSchemaEditorDeferred(schema, page => _ = page.FlipMembersAsync([shellTag]))));
+        }
+
         if (item.IsShell && member.PlanarRegionId is int regionId)
         {
             items.Add(new Separator());
@@ -94,6 +104,13 @@ internal static class FemMemberTreeMenus
         AddViewActions(items, app, schema, tags);
         items.Add(Item("FemFieldAssign",
             () => app.CreateFemField(schema, new CScore.Fem.Fields.FemFieldTargets { MemberTags = tags })));
+        // Направление КонЭ: стержни — «Развернуть ось», пластины — «Сменить нормаль» (одной операцией в редакторе).
+        var flipBars = selected.Where(i => FemOrientationFlip.IsBar(i.Member)).Select(i => i.Member.ElemTag).ToList();
+        var flipShells = selected.Where(i => FemOrientationFlip.IsShell(i.Member)).Select(i => i.Member.ElemTag).ToList();
+        if (flipBars.Count > 0)
+            items.Add(Item("FemOrientFlipAxisCtx", () => app.InFemSchemaEditorDeferred(schema, page => _ = page.FlipMembersAsync(flipBars))));
+        if (flipShells.Count > 0)
+            items.Add(Item("FemOrientFlipNormalCtx", () => app.InFemSchemaEditorDeferred(schema, page => _ = page.FlipMembersAsync(flipShells))));
         var kept = selected.Where(i => i.Member.IsMeshLocked).Select(i => i.Member.ElemTag).ToList();
         if (schema.IsFragment && kept.Count > 0)
             items.Add(Item("FemMemberRemeshKeptCtx", () => app.InFemSchemaEditor(schema, page => page.RemeshKeptMembers(kept))));

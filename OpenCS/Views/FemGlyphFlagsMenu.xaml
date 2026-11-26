@@ -26,6 +26,8 @@
                       IsChecked="{Binding ShowLoadGlyphs, Mode=TwoWay}"/>
             <MenuItem Header="{DynamicResource Fem3DShowSectionGlyphs}" IsCheckable="True"
                       IsChecked="{Binding ShowSectionGlyphs, Mode=TwoWay}"/>
+            <MenuItem Header="{DynamicResource Fem3DShowDirections}" IsCheckable="True"
+                      IsChecked="{Binding ShowDirectionGlyphs, Mode=TwoWay}"/>
             <MenuItem Header="{DynamicResource Fem3DShowLoadValues}" IsCheckable="True"
                       IsChecked="{Binding ShowLoadValues, Mode=TwoWay}"/>
         </MenuItem>

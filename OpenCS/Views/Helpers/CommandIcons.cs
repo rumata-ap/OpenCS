@@ -69,6 +69,8 @@ public static class CommandIcons
         ["FemMemberPropertiesCtx"] = "CmdIcon_Properties",
         ["FemMemberTreeProperties"] = "CmdIcon_Properties",
         ["FemMemberRotationCtx"] = "CmdIcon_Rotate",
+        ["FemOrientFlipAxisCtx"] = "CmdIcon_Invert",
+        ["FemOrientFlipNormalCtx"] = "CmdIcon_Invert",
         ["FemMemberRigidJunctionCtx"] = "CmdIcon_Properties",
         ["FemMemberMeshStepCtx"] = "CmdIcon_MeshStep",
         ["FemMemberRemeshKeptCtx"] = "CmdIcon_Refresh",

@@ -133,6 +133,10 @@ public class Fem3DVM : ViewModelBase
     /// <summary>Глифы нагрузок на КЭ и собственного веса выбранного загружения/определения; null — нет.</summary>
     public CScore.Fem.Loads.FemElementLoadGlyphSet? ElementLoadGlyphs { get; private set; }
     public IReadOnlyList<FemSectionGlyph> SectionGlyphs { get; private set; } = [];
+
+    /// <summary>Знаки направления КонЭ (только в редакторе схемы): у стержня — стрелка от начала к концу посередине, у
+    /// пластины — нормаль (верх) из центра области.</summary>
+    public IReadOnlyList<FemDirectionGlyph> DirectionGlyphs { get; private set; } = [];
     public List<FemDiagramLoadSource> DiagramLoadSources { get; private set; } = [];
     public IReadOnlyDictionary<int, Point3D> DiagramNodePositions { get; private set; } = new Dictionary<int, Point3D>();
 
@@ -258,6 +262,14 @@ public class Fem3DVM : ViewModelBase
         set { if (_showSectionGlyphs == value) return; _showSectionGlyphs = value; OnPropertyChanged(); }
     }
 
+    bool _showDirectionGlyphs = true;
+    /// <summary>Показывать направления КонЭ: начало → конец стержня, нормаль пластины.</summary>
+    public bool ShowDirectionGlyphs
+    {
+        get => _showDirectionGlyphs;
+        set { if (_showDirectionGlyphs == value) return; _showDirectionGlyphs = value; OnPropertyChanged(); }
+    }
+
     bool _showLoadValues;
     /// <summary>Показывать текстовые подписи значений нагрузок рядом со стрелками (узловых и на стержнях).</summary>
     public bool ShowLoadValues
@@ -270,7 +282,7 @@ public class Fem3DVM : ViewModelBase
     public void SetAllGlyphs(bool show)
     {
         ShowSupportGlyphs = ShowSpringGlyphs = ShowHingeGlyphs = ShowRigidBodyGlyphs = ShowFragmentCutGlyphs = show;
-        ShowLoadGlyphs = ShowSectionGlyphs = ShowLoadValues = show;
+        ShowLoadGlyphs = ShowSectionGlyphs = ShowLoadValues = ShowDirectionGlyphs = show;
     }
 
     FemDiagramLoadSource? _selectedDiagramLoadSource;
@@ -1058,6 +1070,7 @@ public class Fem3DVM : ViewModelBase
             NodeProxies      = [];
             BarProxies       = [];
             SectionGlyphs    = [];
+            DirectionGlyphs  = [];
             NoData           = true;
             OnPropertyChanged(nameof(BarGroups));
             OnPropertyChanged(nameof(ShellMesh));
@@ -1068,6 +1081,7 @@ public class Fem3DVM : ViewModelBase
             OnPropertyChanged(nameof(PlanarRegionMeshEdgePoints));
             OnPropertyChanged(nameof(PlanarRegionMeshNodePoints));
             OnPropertyChanged(nameof(SectionGlyphs));
+            OnPropertyChanged(nameof(DirectionGlyphs));
             return;
         }
         NoData = false;
@@ -1087,6 +1101,7 @@ public class Fem3DVM : ViewModelBase
             NodeProxies      = allNodes.Select(n => (n.NodeTag, new Point3D(n.X, n.Y, n.Z))).ToList();
             BarProxies       = [];
             SectionGlyphs    = [];
+            DirectionGlyphs  = [];
             OnPropertyChanged(nameof(BarGroups));
             OnPropertyChanged(nameof(ShellMesh));
             OnPropertyChanged(nameof(HiShellMesh));
@@ -1096,6 +1111,7 @@ public class Fem3DVM : ViewModelBase
             OnPropertyChanged(nameof(PlanarRegionMeshEdgePoints));
             OnPropertyChanged(nameof(PlanarRegionMeshNodePoints));
             OnPropertyChanged(nameof(SectionGlyphs));
+            OnPropertyChanged(nameof(DirectionGlyphs));
             return;
         }
 
@@ -1158,6 +1174,7 @@ public class Fem3DVM : ViewModelBase
         PlanarRegionVisuals = BuildPlanarRegionVisuals(elements);
         (PlanarRegionMeshEdgePoints, PlanarRegionMeshNodePoints) = BuildPlanarRegionMeshOverlay(elements);
         SectionGlyphs = FemSectionGlyphFactory.Create(elements, _db.CrossSections, nodeMap);
+        DirectionGlyphs = EditMode ? BuildDirectionGlyphs(elements, nodeMap) : [];
 
         // Узлы: в режиме просмотра — только реально используемые отображаемыми КЭ (меньше шума
         // для импортированных схем); в режиме редактирования — все, включая ещё не связанные стержнем.
@@ -1210,6 +1227,7 @@ public class Fem3DVM : ViewModelBase
         OnPropertyChanged(nameof(PlanarRegionMeshEdgePoints));
         OnPropertyChanged(nameof(PlanarRegionMeshNodePoints));
         OnPropertyChanged(nameof(SectionGlyphs));
+            OnPropertyChanged(nameof(DirectionGlyphs));
     }
 
     // -------------------------------------------------------------------------
@@ -2016,6 +2034,40 @@ public class Fem3DVM : ViewModelBase
         return ids;
     }
 
+    /// <summary>Знаки направления: стержни — по узлам КонЭ (I → J), пластины с областью — нормаль области из центра
+    /// внешнего контура; длина — по размеру КонЭ, не больше <see cref="LineGlyphSize"/>·1,5.</summary>
+    List<FemDirectionGlyph> BuildDirectionGlyphs(List<FemMember> elements, Dictionary<string, Point3D> nodeMap)
+    {
+        var result = new List<FemDirectionGlyph>();
+        const double max = LineGlyphSize * 1.5;
+        foreach (var e in elements.Where(e => e.ElemType is "beam" or "truss"))
+        {
+            if (GetBarPoints(nodeMap, e) is not { } pair) continue;
+            var d = pair.p2 - pair.p1;
+            double length = d.Length;
+            if (length < 1e-9) continue;
+            d /= length;
+            result.Add(new FemDirectionGlyph(pair.p1 + (pair.p2 - pair.p1) * 0.5, d, Math.Min(max, 0.2 * length), false));
+        }
+        var shells = elements.Where(e => e.ElemType == "shell" && e.PlanarRegionId != null).ToList();
+        if (shells.Count == 0) return result;
+        var regions = _db.GetPlanarRegions(_schemaId).ToDictionary(r => r.Id);
+        foreach (var m in shells)
+        {
+            if (!regions.TryGetValue(m.PlanarRegionId!.Value, out var region) || region.Hull is not { } hull) continue;
+            var (x, y) = PlanarRegionTopologyValidator.ToOpenLoop(hull.X, hull.Y);
+            if (x.Length < 3) continue;
+            double u = x.Average(), v = y.Average();
+            double size = Math.Sqrt(Math.Max(0, (x.Max() - x.Min()) * (y.Max() - y.Min())));
+            var f = region.Frame;
+            var c = f.Origin + f.LocalX * u + f.LocalY * v;
+            var n = f.LocalZ;
+            result.Add(new FemDirectionGlyph(new Point3D(c.X, c.Y, c.Z), new Vector3D(n.X, n.Y, n.Z),
+                Math.Min(max, 0.25 * size), true));
+        }
+        return result;
+    }
+
     static (Point3D p1, Point3D p2)? GetBarPoints(Dictionary<string, Point3D> nodeMap, FemMember e)
     {
         var ids = NodeIds(e.NodeIdsJson);
@@ -2025,3 +2077,7 @@ public class Fem3DVM : ViewModelBase
         return (p1, p2);
     }
 }
+
+/// <summary>Знак направления КонЭ в 3D: точка, единичное направление, размер; <paramref name="IsNormal"/> — нормаль пластины
+/// (стрелка из точки), иначе — направление стержня (наконечник посередине).</summary>
+public sealed record FemDirectionGlyph(Point3D At, Vector3D Direction, double Size, bool IsNormal);
