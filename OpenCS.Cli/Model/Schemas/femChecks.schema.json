@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "opencs-model: femChecks[]",
-  "description": "Нормативная проверка по КЭ 1-й и 2-й ГПС: сталь (steel), ЖБ стержни (rcBar), ЖБ пластины по прочности (rcPlate) и по трещинам (rcPlateSls). Ключ — имя (tag) в пределах схемы (schema). Найдено — обновить, нет — создать; удаления нет. Неуказанные поля существующей проверки не меняются, у новой — умолчания окна. Неизменённая проверка не перезаписывается; смена цели, вида, наборов или параметров удаляет её результат, имя — нет. Ссылки — по тегам: цель {group} или {member}, наборы усилий, набор NL, постановка расчётных длин стали. acrcLimMm — мм, lengthM — м, остальные числа безразмерные.",
+  "description": "Нормативная проверка по КЭ 1-й и 2-й ГПС: сталь (steel), ЖБ стержни (rcBar), ЖБ пластины по прочности (rcPlate) и по трещинам (rcPlateSls); продавливание по МКЭ (punching: source + punching, без target/forceSets). Ключ — имя (tag) в пределах схемы (schema). Найдено — обновить, нет — создать; удаления нет. Неуказанные поля существующей проверки не меняются, у новой — умолчания окна. Неизменённая проверка не перезаписывается; смена цели, вида, наборов или параметров удаляет её результат, имя — нет. Ссылки — по тегам: цель {group} или {member}, наборы усилий, набор NL, постановка расчётных длин стали. acrcLimMm — мм, lengthM — м, остальные числа безразмерные.",
   "type": "object",
   "required": ["schema", "tag", "kind"],
   "properties": {
     "schema": { "type": "string" },
     "tag": { "type": "string", "minLength": 1 },
-    "kind": { "enum": ["steel", "rcBar", "rcPlate", "rcPlateSls"] },
+    "kind": { "enum": ["steel", "rcBar", "rcPlate", "rcPlateSls", "punching"], "description": "Продавливание и проверки 1-й/2-й ГПС с одним именем друг в друга не превращаются — ошибка." },
     "target": {
       "type": "object", "additionalProperties": false,
       "description": "Цель: группа схемы или один конструктивный элемент (ровно одно). Обязательна у новой проверки.",
@@ -64,6 +64,87 @@
         "nlForceSet": { "type": ["string", "null"], "description": "Набор NL у layered; null — доля длительной ltFraction" },
         "ltFraction": { "type": "number", "minimum": 0, "maximum": 1 }
       }
+    },
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "description": "punching: источник усилий — ровно одно: analysis (постановка CSfea этой схемы, линейная или секущая) или snapshot (снимок результатов, приложенный к схеме). Обязателен у новой проверки.",
+      "properties": { "analysis": { "type": "string" }, "snapshot": { "enum": ["lira", "scad"] } }
+    },
+    "punching": {
+      "type": "object", "additionalProperties": false,
+      "description": "Параметры продавливания по МКЭ, как в окне; единицы — мм, МПа, градусы. Неуказанные поля не меняются, у новой — умолчания окна (бетон и арматура — первые в проекте).",
+      "properties": {
+        "method": { "enum": ["auto", "column", "contour"], "description": "auto — по разрезу у CSfea, по колоннам у импорта" },
+        "momentsAreMloc": { "type": "boolean", "description": "Моменты колонн — полные Mloc (в продавливание идёт половина, п. 8.1.46)" },
+        "concreteFromSchema": { "type": "boolean", "description": "Бетон по сечению плиты схемы, если он там задан" },
+        "concrete": { "type": ["string", "null"], "description": "Бетон проверки (у пластин без бетона и при concreteFromSchema = false)" },
+        "rbtMpa": { "type": ["number", "null"], "exclusiveMinimum": 0, "description": "Rbt вручную; null — из материала" },
+        "defaultAxMm": { "type": "number", "minimum": 0 }, "defaultAyMm": { "type": "number", "minimum": 0 },
+        "sw": {
+          "type": ["object", "null"], "additionalProperties": false,
+          "description": "Общая поперечная арматура; null — без неё (значения сохраняются для включения в окне).",
+          "properties": {
+            "material": { "type": ["string", "null"] }, "rswMpa": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+            "dMm": { "type": "number", "exclusiveMinimum": 0 }, "layout": { "enum": ["uniform", "cross"] },
+            "count": { "type": "integer", "minimum": 1 }, "stepMm": { "type": "number", "exclusiveMinimum": 0 },
+            "zoneMm": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+            "rows": {
+              "type": ["object", "null"], "additionalProperties": false, "description": "Ряды поперёк контура (п. 10.3.17); null — без рядов",
+              "properties": { "firstMm": { "type": "number", "minimum": 0 }, "stepMm": { "type": "number", "exclusiveMinimum": 0 }, "count": { "type": "integer", "minimum": 1, "maximum": 100 } }
+            },
+            "crossX": { "$ref": "#/$defs/cross" }, "crossY": { "$ref": "#/$defs/cross" }
+          }
+        },
+        "options": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "eccentricityX": { "enum": ["loading", "unloading", "auto", "ignore"] },
+            "eccentricityY": { "enum": ["loading", "unloading", "auto", "ignore"] },
+            "wb": { "enum": ["minimum", "stress_side"] }, "pylon": { "enum": ["auto", "off"] }, "pylonReduced": { "type": "boolean" },
+            "wallFigure": { "enum": ["amd1", "amd2"] }, "holeInfluence": { "type": "number", "minimum": 0, "description": "в h0" }
+          }
+        },
+        "angleDeg": { "type": "number", "minimum": 0, "exclusiveMaximum": 90 },
+        "edgeInfluence": { "type": "number", "minimum": 0, "description": "в h0" },
+        "wallRatio": { "type": "number", "exclusiveMinimum": 0 },
+        "liraContour": { "type": "boolean", "description": "Основной контур — ЛИРЫ из приложенного *.asp" },
+        "pile": {
+          "type": "object", "additionalProperties": false, "description": "Сечение свай-точек",
+          "properties": { "shape": { "enum": ["square", "circle"] }, "sizeMm": { "type": "number", "exclusiveMinimum": 0 } }
+        },
+        "nodes": {
+          "type": "array", "description": "Только отличия узлов от найденного (как переопределения окна); массив заменяет состав, без него — не меняется.",
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["node"],
+            "properties": {
+              "node": { "type": "string", "description": "Номер узла сетки" },
+              "include": { "type": "boolean", "description": "false — узел исключён из проверки" },
+              "axMm": { "type": "number", "exclusiveMinimum": 0 }, "ayMm": { "type": "number", "exclusiveMinimum": 0 },
+              "capital": {
+                "description": "auto — по схеме (как без поля), none — без капители, объект — вручную",
+                "oneOf": [ { "enum": ["auto", "none"] },
+                           { "type": "object", "additionalProperties": false, "required": ["bxMm", "byMm", "hcMm"],
+                             "properties": { "bxMm": { "type": "number" }, "byMm": { "type": "number" }, "hcMm": { "type": "number" } } } ]
+              },
+              "contour": { "enum": ["check", "opencs", "lira"] },
+              "pile": {
+                "type": "object", "additionalProperties": false,
+                "properties": { "shape": { "enum": ["check", "square", "circle"] }, "sizeMm": { "type": "number", "exclusiveMinimum": 0 } }
+              },
+              "sw": {
+                "type": "object", "additionalProperties": false, "description": "Своя арматура узла: общая с этими значениями",
+                "properties": { "dMm": { "type": "number" }, "count": { "type": "integer" }, "stepMm": { "type": "number" }, "rowCount": { "type": "integer" } }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "cross": {
+      "type": "object", "additionalProperties": false, "description": "Луч креста: линии, шаг, стороны",
+      "properties": { "lines": { "type": "integer" }, "stepMm": { "type": "number" }, "positive": { "type": "boolean" }, "negative": { "type": "boolean" } }
     }
   }
 }

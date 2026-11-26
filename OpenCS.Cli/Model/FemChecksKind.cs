@@ -17,9 +17,10 @@ namespace OpenCS.Cli.Model;
 /// (<c>{"group": имя}</c> или <c>{"member": имя}</c>), наборы усилий, набор NL, постановка расчётных длин стали.
 /// Неуказанные поля существующей проверки не меняются, у новой — умолчания окна. Неизменённая проверка не
 /// перезаписывается; смена цели, вида, наборов или параметров удаляет её результат (как правка в окне), имя — нет.
-/// Проверка — та же служба, что у окон (<see cref="FemCheckAuthoring"/>). Продавливание — отдельным видом (7в).
+/// Проверка — та же служба, что у окон (<see cref="FemCheckAuthoring"/>). Продавливание по МКЭ — вид <c>punching</c>
+/// (<c>FemChecksKind.Punching.cs</c>); имя проверки в схеме одно на все виды, смена вида с продавливанием и обратно — ошибка.
 /// </summary>
-sealed class FemChecksKind : IModelKind
+sealed partial class FemChecksKind : IModelKind
 {
     public string Name => "femChecks";
     public string SchemaResource => "OpenCS.Cli.Model.Schemas.femChecks.schema.json";
@@ -29,6 +30,7 @@ sealed class FemChecksKind : IModelKind
     [
         ("steel", FemCheckAuthoring.Steel), ("rcBar", FemCheckAuthoring.RcBar),
         ("rcPlate", FemCheckAuthoring.RcPlate), ("rcPlateSls", FemCheckAuthoring.RcPlate),
+        ("punching", PunchingFemCheckParams.NormCode),
     ];
 
     static readonly string[] Common = ["schema", "tag", "kind", "target", "forceSets", "calcType"];
@@ -38,6 +40,8 @@ sealed class FemChecksKind : IModelKind
         ["rcBar"] = [.. Common, "rebar", "eta"],
         ["rcPlate"] = [.. Common, "plate", "rebar", "eta"],
         ["rcPlateSls"] = [.. Common, "plate", "rebar"],
+        // Литералом: статические поля другой части partial-класса к этому моменту могут быть ещё не заданы.
+        ["punching"] = ["schema", "tag", "kind", "source", "punching"],
     };
     static readonly string[] SteelKeys = ["mesh", "auto"];
     static readonly string[] MeshKeys = ["muX", "muY", "muB"];
@@ -61,7 +65,11 @@ sealed class FemChecksKind : IModelKind
 
     static double R(double v) => Math.Round(v, 9) + 0.0;
 
-    /// <summary>Ссылки схемы по тегам: группы, конструктивные элементы, наборы усилий, постановки — из базы или документа.</summary>
+    /// <summary>
+    /// Ссылки схемы по тегам: группы, конструктивные элементы, наборы усилий, постановки, материалы — из базы или
+    /// документа; снимки результатов, приложенные к схеме; номера узлов сетки (null — не проверять: сетки ещё нет или
+    /// схему переписывает документ).
+    /// </summary>
     sealed class Refs
     {
         public required FemSchema Schema { get; init; }
@@ -69,8 +77,11 @@ sealed class FemChecksKind : IModelKind
         public required List<ForceSet> ForceSets { get; init; }
         public required List<FemAnalysis> Analyses { get; init; }
         public required List<FemCheck> Checks { get; init; }
+        public required List<Material> Materials { get; init; }
+        public required List<string> Snapshots { get; init; }
+        public HashSet<string>? NodeTags { get; init; }
 
-        public FemCheckRefs Service => new(Schema, Checks, Members, ForceSets, Analyses);
+        public FemCheckRefs Service => new(Schema, Checks, Members, ForceSets, Analyses, Materials, Snapshots);
         public List<FemMemberGroup> Groups(string tag) =>
             Schema.MemberGroups.Where(g => string.Equals(g.Tag.Trim(), tag, StringComparison.CurrentCultureIgnoreCase)).ToList();
         public List<FemMember> MembersByTag(string tag) =>
@@ -85,7 +96,15 @@ sealed class FemChecksKind : IModelKind
     {
         Schema = schema, Members = db.GetFemMembers(schema.Id), ForceSets = [.. db.ForceSets],
         Analyses = schema.Analyses.Count > 0 ? [.. schema.Analyses] : db.GetFemAnalyses(schema.Id), Checks = [.. db.FemChecks],
+        Materials = [.. db.Materials], Snapshots = FemCheckRefs.SnapshotsOf(db, schema.Id),
     };
+
+    /// <summary>Номера узлов сетки схемы; пусто — сетки нет, не проверять.</summary>
+    static HashSet<string>? NodeTagsOf(DatabaseService db, int schemaId)
+    {
+        var tags = db.GetFemNodes(schemaId).Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal);
+        return tags.Count > 0 ? tags : null;
+    }
 
     // ── Выгрузка ────────────────────────────────────────────────────────────────────────────
 
@@ -97,8 +116,7 @@ sealed class FemChecksKind : IModelKind
             .Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet(StringComparer.CurrentCultureIgnoreCase);
         foreach (var schema in db.FemSchemas.OrderBy(s => s.Id))
         {
-            var checks = db.FemChecks.Where(c => c.SchemaId == schema.Id && c.NormCode != PunchingFemCheckParams.NormCode)
-                .OrderBy(c => c.Id).ToList();
+            var checks = db.FemChecks.Where(c => c.SchemaId == schema.Id).OrderBy(c => c.Id).ToList();
             if (checks.Count == 0) continue;
             if (dupSchemas.Contains(schema.Tag.Trim()))
             {
@@ -127,6 +145,7 @@ sealed class FemChecksKind : IModelKind
 
     JsonObject? ToJson(FemCheck c, Refs refs, Action<string> warn)
     {
+        if (c.NormCode == PunchingFemCheckParams.NormCode) return PunchingToJson(c, refs, warn);
         string schemaTag = refs.Schema.Tag.Trim();
         JsonObject target;
         if (c.TargetsElement)
@@ -301,12 +320,13 @@ sealed class FemChecksKind : IModelKind
                     errors.Add($"{path}.schema", string.Format(Loc.S("CliFemAnalysisErrUnknownSchema"), schemaTag));
                     continue;
                 }
-                virtualRefs[schemaTag] = refs = PlanRefs(doc, docSchema, dbSchemas.SingleOrDefault(), schemaTag, db);
+                virtualRefs[schemaTag] = refs = PlanRefs(doc, docSchema, dbSchemas.SingleOrDefault(), schemaTag, ctx);
             }
 
             int before = errors.Count;
             var existing = Existing(refs, tag);
-            var built = Build(item, kind, tag, refs, existing, path, errors);
+            if (KindClash(existing, kind, tag, path, errors)) continue;
+            var built = kind == "punching" ? BuildPunching(item, tag, refs, existing, path, errors) : Build(item, kind, tag, refs, existing, path, errors);
             if (built == null || errors.Count > before) continue;
             foreach (var e in FemCheckAuthoring.Validate(refs.Service, built))
                 errors.Add($"{path}.{e.Path}", e.Message);
@@ -326,7 +346,8 @@ sealed class FemChecksKind : IModelKind
         var refs = DbRefs(db, schema);
         var existing = Existing(refs, tag);
         var errors = new ModelErrors();
-        var built = Build(item, kind, tag, refs, existing, path, errors);
+        if (KindClash(existing, kind, tag, path, errors)) errors.ThrowIfAny();
+        var built = kind == "punching" ? BuildPunching(item, tag, refs, existing, path, errors) : Build(item, kind, tag, refs, existing, path, errors);
         if (built != null)
             foreach (var e in FemCheckAuthoring.Validate(refs.Service, built))
                 errors.Add($"{path}.{e.Path}", e.Message);
@@ -335,9 +356,18 @@ sealed class FemChecksKind : IModelKind
         if (reset) ctx.LogService.Warning(string.Format(Loc.S("FemCheckResultReset"), existing!.Tag));
     }
 
+    /// <summary>Проверка схемы с этим именем (любого вида: имя в схеме одно на все проверки).</summary>
     static FemCheck? Existing(Refs refs, string tag) =>
-        refs.Checks.FirstOrDefault(c => c.SchemaId == refs.Schema.Id && c.NormCode != PunchingFemCheckParams.NormCode
+        refs.Checks.FirstOrDefault(c => c.SchemaId == refs.Schema.Id
             && string.Equals(c.Tag.Trim(), tag, StringComparison.CurrentCultureIgnoreCase));
+
+    /// <summary>Продавливание нельзя превратить в проверку 1-й/2-й ГПС и обратно — у них разные входы; ошибка у kind.</summary>
+    static bool KindClash(FemCheck? existing, string kind, string tag, string path, ModelErrors errors)
+    {
+        if (existing == null || (existing.NormCode == PunchingFemCheckParams.NormCode) == (kind == "punching")) return false;
+        errors.Add($"{path}.kind", string.Format(Loc.S("CliFemCheckErrKindClash"), tag));
+        return true;
+    }
 
     static void Unknown(JsonObject o, string[] allowed, string path, ModelErrors errors)
     {
@@ -357,8 +387,9 @@ sealed class FemChecksKind : IModelKind
     /// Ссылки для плана: группы и конструктивные элементы — из описания схемы в документе там, где он их задаёт
     /// (условные Id), иначе из проекта; наборы усилий и постановки — проекта и документа.
     /// </summary>
-    static Refs PlanRefs(JsonObject doc, JsonObject? docSchema, FemSchema? dbSchema, string schemaTag, DatabaseService db)
+    static Refs PlanRefs(JsonObject doc, JsonObject? docSchema, FemSchema? dbSchema, string schemaTag, HeadlessProjectContext ctx)
     {
+        var db = ctx.Db;
         int fake = -1;
         var schema = new FemSchema { Id = dbSchema?.Id ?? -1, Tag = dbSchema?.Tag ?? schemaTag };
         List<FemMember> members = dbSchema != null ? db.GetFemMembers(dbSchema.Id) : [];
@@ -389,9 +420,25 @@ sealed class FemChecksKind : IModelKind
             foreach (var a in aa.OfType<JsonObject>())
                 if (string.Equals(StrOf(a["schema"]), schemaTag, StringComparison.CurrentCultureIgnoreCase) && StrOf(a["tag"]) is { } t
                     && !analyses.Any(x => x.Tag.Trim() == t))
-                    analyses.Add(new FemAnalysis { Id = fake--, SchemaId = schema.Id, Tag = t });
+                    // Вид — для источника продавливания (линейная или секущая CSfea).
+                    analyses.Add(new FemAnalysis
+                    {
+                        Id = fake--, SchemaId = schema.Id, Tag = t,
+                        Kind = StrOf(a["kind"]) switch
+                        {
+                            "csfea" => FemCsfeaRunner.AnalysisKind,
+                            "csfeaLinear" => FemCsfeaRunner.LinearAnalysisKind,
+                            var k => k ?? "",
+                        },
+                    });
 
-        return new Refs { Schema = schema, Members = members, ForceSets = sets, Analyses = analyses, Checks = [.. db.FemChecks] };
+        return new Refs
+        {
+            Schema = schema, Members = members, ForceSets = sets, Analyses = analyses, Checks = [.. db.FemChecks],
+            Materials = [.. SectionsKind.PlanMaterials(doc, ctx).Values],
+            Snapshots = dbSchema != null ? FemCheckRefs.SnapshotsOf(db, dbSchema.Id) : [],
+            NodeTags = dbSchema != null && docSchema == null ? NodeTagsOf(db, dbSchema.Id) : null,
+        };
     }
 
     // ── Разбор в проверку ───────────────────────────────────────────────────────────────────
