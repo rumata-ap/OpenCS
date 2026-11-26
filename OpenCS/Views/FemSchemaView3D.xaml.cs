@@ -413,11 +413,13 @@ public partial class FemSchemaView3D : UserControl
     void UpdateResultOverlay()
     {
         if (VM is not { } vm) return;
+        // Мозаика C1/пружин родной схемы — тоже по сетке: заливка областей закрыла бы её.
+        bool hidePlanar = vm.IsResultShown || vm.IsMeshMosaicShown;
         foreach (var v in _planarVisuals)
         {
             bool attached = viewport.Children.Contains(v);
-            if (vm.IsResultShown && attached) viewport.Children.Remove(v);
-            else if (!vm.IsResultShown && !attached) viewport.Children.Add(v);
+            if (hidePlanar && attached) viewport.Children.Remove(v);
+            else if (!hidePlanar && !attached) viewport.Children.Add(v);
         }
         // Один объект на показ результата, меняются только точки: экранные линии Helix строят геометрию на кадре
         // отрисовки, и пересозданный объект при неподвижной камере мог остаться пустым (исходная схема не возвращалась).

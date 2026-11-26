@@ -688,6 +688,9 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    /// <summary>Мозаика включена и есть что показывать.</summary>
    public bool IsActive => Kind != PlateRebarMosaicSourceKind.None && SelectedComponent != null;
 
+   /// <summary>Величина задана на КЭ и узлах сетки (C1, пружины), а не на КонЭ: у родной схемы красится сетка.</summary>
+   public bool IsMeshLevelKind => Kind is PlateRebarMosaicSourceKind.Foundation or PlateRebarMosaicSourceKind.Springs;
+
    /// <summary>Показан Кисп проверки по КЭ: проверка и источник армирования (ключ в результате); null — нет.</summary>
    public (FemCheck Check, string Source)? ShownCheck =>
       Kind == PlateRebarMosaicSourceKind.Utilization && SelectedSubject?.Subject is CheckInfo c

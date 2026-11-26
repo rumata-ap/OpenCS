@@ -1043,6 +1043,7 @@ public class Fem3DVM : ViewModelBase
     void ApplyTopology(List<FemNode> allNodes, List<FemMember> allElements)
     {
         _lastTopology = (allNodes, allElements);
+        _meshMosaic = null;
         Fragment.SetMembers(allElements.Where(e => !IsMeshElement(e)).Select(e => e.ElemTag));
         // В режиме члена — фильтруем только нужные КЭ
         List<FemMember> elements;
@@ -1270,7 +1271,21 @@ public class Fem3DVM : ViewModelBase
         (HiddenGhostLines, HiddenGhostShells, int visible, int total) = _topologyGhost;
         ShellDisplayGhost = _topologyShellGhost;
         SetFragmentText(visible, total);
-        var coloring = Mosaic.Compute(_mosaicShells.Select(e => e.ElemTag.Trim()), _mosaicBars.Select(e => e.ElemTag.Trim()));
+        // C1 и пружины родной схемы лежат на КЭ сетки, а вид показывает пластины-КонЭ (области): красится сетка
+        // показанных областей, заливка областей на это время скрыта (как при показе результата).
+        var (mosaicShells, mosaicNodeMap) = (_mosaicShells, _mosaicNodeMap);
+        bool meshLevel = false;
+        if (Mosaic.IsActive && Mosaic.IsMeshLevelKind && MeshMosaicShells() is { Shells.Count: > 0 } meshShells)
+        {
+            (mosaicShells, mosaicNodeMap) = meshShells;
+            meshLevel = true;
+        }
+        if (IsMeshMosaicShown != meshLevel)
+        {
+            IsMeshMosaicShown = meshLevel;
+            OnPropertyChanged(nameof(IsMeshMosaicShown));
+        }
+        var coloring = Mosaic.Compute(mosaicShells.Select(e => e.ElemTag.Trim()), _mosaicBars.Select(e => e.ElemTag.Trim()));
         BarGroups = coloring is { Bars: true } ? BuildMosaicBars(coloring, _mosaicNodeMap, _mosaicBars) : _baseBarGroups;
         MosaicBarSegments = coloring is { Bars: true } ? BarSegments(_mosaicNodeMap, _mosaicBars) : [];
         if (MosaicBarSegments.Count > 0)
@@ -1285,8 +1300,35 @@ public class Fem3DVM : ViewModelBase
         else
         {
             HiShellMesh = null;
-            (ShellMesh, MosaicShellMeshes) = BuildMosaicShells(shellColoring, _mosaicNodeMap, _mosaicShells);
+            (ShellMesh, MosaicShellMeshes) = BuildMosaicShells(shellColoring, mosaicNodeMap, mosaicShells);
         }
+    }
+
+    /// <summary>Мозаика C1/пружин родной схемы нарисована по КЭ сетки, заливка плоских областей скрыта.</summary>
+    public bool IsMeshMosaicShown { get; private set; }
+
+    /// <summary>КЭ-пластины сетки с исходным КонЭ и узлы сетки; сбрасывается при каждом чтении схемы.</summary>
+    (List<(FemMember Elem, string? Source)> Shells, Dictionary<string, Point3D> NodeMap)? _meshMosaic;
+
+    /// <summary>
+    /// КЭ сетки пластинчатых областей, показанных сейчас (по исходному КонЭ), — для мозаики величин сетки у родной
+    /// схемы; null — показанных областей нет (импортная схема красит свои КЭ напрямую) или сетка не построена.
+    /// </summary>
+    (List<FemMember> Shells, Dictionary<string, Point3D> NodeMap)? MeshMosaicShells()
+    {
+        var regionTags = _mosaicShells.Where(e => e.PlanarRegionId.HasValue).Select(e => e.ElemTag.Trim())
+            .ToHashSet(StringComparer.Ordinal);
+        if (regionTags.Count == 0) return null;
+        if (_meshMosaic == null)
+        {
+            var nodes = _db.GetFemMeshNodes(_schemaId)
+                .ToDictionary(n => n.NodeTag, n => new Point3D(n.X, n.Y, n.Z), StringComparer.Ordinal);
+            var shells = _db.GetFemMeshElements(_schemaId).Where(e => e.ElemType == "shell")
+                .Select(e => (ToFemMember(e), e.SourceMemberTag?.Trim())).ToList();
+            _meshMosaic = (shells, nodes);
+        }
+        var (all, map) = _meshMosaic.Value;
+        return (all.Where(s => s.Source != null && regionTags.Contains(s.Source)).Select(s => s.Elem).ToList(), map);
     }
 
     // ------------------------------------------------------------------------- результат расчёта

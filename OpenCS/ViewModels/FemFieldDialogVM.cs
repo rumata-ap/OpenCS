@@ -229,9 +229,13 @@ public sealed class FemFieldDialogVM : ViewModelBase
     {
         if (IsNodes) return;
         var defaults = FieldDefaults.For(TargetSet().Shells);
-        (MaxDistance, PlaneTolerance) = (defaults.MaxDistance, defaults.PlaneTolerance);
+        // Три значащие цифры: 0,949 вместо 0,9486414102 — это оценка по размеру КЭ, а не точное число.
+        (MaxDistance, PlaneTolerance) = (Round3(defaults.MaxDistance), Round3(defaults.PlaneTolerance));
         OnPropertyChanged(string.Empty);
     }
+
+    static double Round3(double v) =>
+        v > 0 && double.IsFinite(v) ? Math.Round(v, Math.Max(0, 2 - (int)Math.Floor(Math.Log10(v)))) : v;
 
     /// <summary>Компонента по заголовку (Rz → kz…); иначе у пружины — kz (осадка свай), у C1 — c1.</summary>
     static string DefaultComponent(string quantity, string header)
