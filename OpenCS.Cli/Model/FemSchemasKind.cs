@@ -24,20 +24,39 @@ sealed class FemSchemasKind : IModelKind
     public string Name => "femSchemas";
     public string SchemaResource => "OpenCS.Cli.Model.Schemas.femSchemas.schema.json";
 
-    static readonly string[] TopKeys = ["tag", "mesh", "nodes", "members", "groups"];
+    static readonly string[] TopKeys = ["tag", "mesh", "nodes", "members", "groups", "lineSupports"];
     static readonly string[] MeshKeys = ["barStepM", "plateStepM", "autoRigidJunctions", "rigidJunctionAngleDeg"];
-    static readonly string[] NodeKeys = ["tag", "x", "y", "z", "fix"];
-    static readonly string[] BeamKeys = ["tag", "type", "nodes", "section", "rotationDeg", "meshStepM", "torsion"];
+    static readonly string[] NodeKeys = ["tag", "x", "y", "z", "fix", "springs"];
+    static readonly string[] BeamKeys = ["tag", "type", "nodes", "section", "rotationDeg", "meshStepM", "torsion", "rigidJunction"];
+    static readonly string[] RigidKeys = ["mode", "kind", "dofs"];
+    static readonly string[] LineKeys = ["member", "hole", "sides", "fix", "fixEdgeRotation", "springs"];
     static readonly string[] ShellKeys = ["tag", "type", "kind", "plateSection", "meshStepM", "region"];
     static readonly string[] RegionKeys = ["outline", "holes", "xAxis"];
     static readonly string[] TorsionKeys = ["strategy", "gj", "task"];
     static readonly string[] GroupKeys = ["tag", "memberType", "members"];
-    static readonly string[] Dofs = ["x", "y", "z", "rx", "ry", "rz"];
+    /// <summary>Направления общих осей (биты 0–5), как в окнах: X Y Z UX UY UZ.</summary>
+    static readonly string[] Dofs = ["x", "y", "z", "ux", "uy", "uz"];
+    /// <summary>Обозначения поворотов документов 6а (<c>rx ry rz</c>) — принимаются при чтении.</summary>
+    static readonly string[] LegacyDofs = ["x", "y", "z", "rx", "ry", "rz"];
+    /// <summary>Жёсткости пружин по направлениям: кН/м и кН·м/рад (погонные — на метр грани).</summary>
+    static readonly string[] SpringKeys = ["kx", "ky", "kz", "kux", "kuy", "kuz"];
 
     /// <summary>Допуск плоскостности контура пластины и совпадения геометрии области при обновлении, м.</summary>
     const double PlaneTol = 1e-3, SameTol = 1e-6;
 
     static double R(double v) => Math.Round(v, 9) + 0.0;
+
+    static JsonArray DofArray(int mask) =>
+        new(Dofs.Where((_, i) => (mask & (1 << i)) != 0).Select(d => (JsonNode)d).ToArray());
+
+    /// <summary>Ненулевые жёсткости (Н → кН); все нули — null.</summary>
+    static JsonObject? SpringJson(IReadOnlyList<double> k)
+    {
+        var o = new JsonObject();
+        for (int i = 0; i < 6; i++)
+            if (k[i] != 0) o[SpringKeys[i]] = R(k[i] / 1e3);
+        return o.Count == 0 ? null : o;
+    }
 
     // ── Выгрузка ────────────────────────────────────────────────────────────────────────────
 
@@ -74,18 +93,25 @@ sealed class FemSchemasKind : IModelKind
         mesh["autoRigidJunctions"] = auto;
         mesh["rigidJunctionAngleDeg"] = angle;
 
+        var springs = new Dictionary<string, double[]>(StringComparer.Ordinal);
+        foreach (var s in db.GetFemSprings(schema.Id).Where(s => s.TargetKind == FemSpringTargetKinds.Node))
+        {
+            if (!springs.TryGetValue(s.NodeTag, out var sum)) springs[s.NodeTag] = sum = new double[6];
+            for (int i = 0; i < 6; i++) sum[i] += s.Stiffnesses[i];
+        }
         var nodes = new JsonArray();
         foreach (var n in db.GetFemNodes(schema.Id).OrderBy(n => int.TryParse(n.NodeTag, out int t) ? t : int.MaxValue))
         {
             var o = new JsonObject { ["tag"] = int.TryParse(n.NodeTag, out int t) ? t : n.NodeTag, ["x"] = R(n.X), ["y"] = R(n.Y), ["z"] = R(n.Z) };
-            if ((n.DofMask & FemBoundaryDofs.All) != 0)
-                o["fix"] = new JsonArray(Dofs.Where((_, i) => (n.DofMask & (1 << i)) != 0).Select(d => (JsonNode)d).ToArray());
+            if ((n.DofMask & FemBoundaryDofs.All) != 0) o["fix"] = DofArray(n.DofMask & FemBoundaryDofs.All);
+            if (springs.TryGetValue(n.NodeTag, out var k) && SpringJson(k) is { } sj) o["springs"] = sj;
             nodes.Add(o);
         }
 
         var regions = db.GetPlanarRegions(schema.Id).ToDictionary(r => r.Id);
         var members = new JsonArray();
-        foreach (var m in db.GetFemMembers(schema.Id))
+        var schemaMembers = db.GetFemMembers(schema.Id);
+        foreach (var m in schemaMembers)
         {
             if (m.ElemType == "shell")
             {
@@ -116,6 +142,15 @@ sealed class FemSchemasKind : IModelKind
                 }
                 else if (m.GjManualValue is double gj)
                     o["torsion"] = new JsonObject { ["strategy"] = "manual", ["gj"] = R(FemUnitConverter.NewtonMetersSquaredToKiloNewtonMetersSquared(gj)) };
+                if (m.ElemType == "beam")
+                {
+                    // По умолчанию (авто, жёсткое тело, все направления) не пишется; явный след — только у фрагментов.
+                    var rj = new JsonObject();
+                    if (m.RigidJunctionMode == FemMember.RigidJunctionOff) rj["mode"] = "off";
+                    if (m.RigidJunctionKind == FemMember.RigidJunctionCoupled) rj["kind"] = "coupled";
+                    if (m.RigidJunctionMask is int mask && mask != FemBoundaryDofs.All) rj["dofs"] = DofArray(mask);
+                    if (rj.Count > 0) o["rigidJunction"] = rj;
+                }
                 members.Add(o);
             }
         }
@@ -131,7 +166,44 @@ sealed class FemSchemasKind : IModelKind
         return new JsonObject
         {
             ["tag"] = schema.Tag.Trim(), ["mesh"] = mesh, ["nodes"] = nodes, ["members"] = members, ["groups"] = groups,
+            ["lineSupports"] = LineSupportsJson(db, schema, schemaMembers, regions.Values, warn),
         };
+    }
+
+    /// <summary>
+    /// Линейные связи: стороны контура (с 1, в порядке вершин <c>region.outline</c>/<c>holes</c> выгрузки) с одинаковыми
+    /// параметрами на одном контуре — одной записью. Связь, потерявшая грань, пропускается с предупреждением.
+    /// </summary>
+    static JsonArray LineSupportsJson(DatabaseService db, FemSchema schema, IReadOnlyList<FemMember> members,
+        IEnumerable<PlanarRegion> regions, Action<string> warn)
+    {
+        var edges = FemLineSupportGeometry.EdgesByMember(members, regions);
+        var entries = new List<(string Member, int Hole, FemLineSupport S, List<int> Sides)>();
+        foreach (var s in db.GetFemLineSupports(schema.Id).Where(s => s.IsActive))
+        {
+            if (FemLineSupportGeometry.Match(s, edges.GetValueOrDefault(s.MemberTag)) is not { } edge)
+            {
+                warn(string.Format(Loc.S("CliFemLineSupportLost"), schema.Tag, s.Key));
+                continue;
+            }
+            int hole = edge.Key.Loop == BoundaryLoop.Hole ? edge.Key.HoleIndex + 1 : 0;
+            var entry = entries.FirstOrDefault(e => e.Member == s.MemberTag && e.Hole == hole && e.S.Mask == s.Mask
+                && e.S.FixEdgeRotation == s.FixEdgeRotation && e.S.Stiffnesses.SequenceEqual(s.Stiffnesses));
+            if (entry.Sides == null) entries.Add(entry = (s.MemberTag, hole, s, []));
+            entry.Sides.Add(edge.Key.StartVertex + 1);
+        }
+        var result = new JsonArray();
+        foreach (var (member, hole, s, sides) in entries)
+        {
+            var o = new JsonObject { ["member"] = member };
+            if (hole > 0) o["hole"] = hole;
+            o["sides"] = new JsonArray(sides.Order().Select(x => (JsonNode)x).ToArray());
+            if ((s.Mask & FemBoundaryDofs.All) != 0) o["fix"] = DofArray(s.Mask & FemBoundaryDofs.All);
+            if (s.FixEdgeRotation) o["fixEdgeRotation"] = true;
+            if (SpringJson(s.Stiffnesses) is { } k) o["springs"] = k;
+            result.Add(o);
+        }
+        return result;
     }
 
     /// <summary>Область пластины в общих координатах: контур без замыкающей вершины, отверстия, местная ось X.</summary>
@@ -163,12 +235,107 @@ sealed class FemSchemasKind : IModelKind
 
     // ── Разбор ──────────────────────────────────────────────────────────────────────────────
 
-    sealed record NodeDoc(string Path, int Tag, double X, double Y, double Z, int Mask);
+    sealed record NodeDoc(string Path, int Tag, double X, double Y, double Z, int Mask, double[] K);
+    sealed record RigidDoc(bool Off, bool Coupled, int Mask);
+    sealed record LineDoc(string Path, string Member, int Hole, List<(int Side, string Path)> Sides, int Mask, bool Rotation, double[] K);
     sealed record RegionDoc(string Path, List<PlanarVector3> Outline, List<List<PlanarVector3>> Holes, PlanarVector3? XAxis);
     sealed record MemberDoc(string Path, string Tag, string Type, int[] Nodes, string? Section, double Rotation,
-        double? MeshStep, string Gj, double? GjKnm2, string? TorsionTask, string? Kind, string? PlateSection, RegionDoc? Region);
+        double? MeshStep, string Gj, double? GjKnm2, string? TorsionTask, string? Kind, string? PlateSection, RegionDoc? Region,
+        RigidDoc? Rigid = null);
     sealed record GroupDoc(string Path, string Tag, string? MemberType, List<string> Members);
-    sealed record SchemaDoc(string Path, string Tag, JsonObject? Mesh, List<NodeDoc>? Nodes, List<MemberDoc>? Members, List<GroupDoc>? Groups);
+    sealed record SchemaDoc(string Path, string Tag, JsonObject? Mesh, List<NodeDoc>? Nodes, List<MemberDoc>? Members,
+        List<GroupDoc>? Groups, List<LineDoc>? Lines);
+
+    /// <summary>Направления массивом (<c>["x","uz"]</c>); <c>rx ry rz</c> документов 6а — как <c>ux uy uz</c>.</summary>
+    static int Mask(JsonNode? node, string path, ModelErrors errors)
+    {
+        if (node is null) return 0;
+        if (node is not JsonArray a)
+        {
+            errors.Add(path, Loc.S("CliModelErrNotArray"));
+            return 0;
+        }
+        int mask = 0;
+        for (int k = 0; k < a.Count; k++)
+        {
+            string? s = a[k] is JsonValue v && v.TryGetValue(out string? t) ? t : null;
+            int dof = s == null ? -1 : Array.IndexOf(Dofs, s) is int i and >= 0 ? i : Array.IndexOf(LegacyDofs, s);
+            if (dof < 0) errors.Add($"{path}[{k}]", string.Format(Loc.S("CliModelErrOneOf"), string.Join(", ", Dofs)));
+            else mask |= 1 << dof;
+        }
+        return mask;
+    }
+
+    /// <summary>Жёсткости пружин (кН → Н): неотрицательные, не по закреплённому направлению.</summary>
+    static double[] Springs(JsonNode? node, int fixedMask, string path, ModelErrors errors)
+    {
+        var k = new double[6];
+        if (node is null) return k;
+        if (node is not JsonObject o)
+        {
+            errors.Add(path, Loc.S("CliModelErrNotObject"));
+            return k;
+        }
+        Unknown(o, SpringKeys, path, errors);
+        for (int i = 0; i < 6; i++)
+        {
+            if (SectionJson.Num(o, SpringKeys[i], path, errors) is not double v) continue;
+            if (FemBoundaryAuthoring.StiffnessError((fixedMask & (1 << i)) != 0, v) is { } error)
+                errors.Add($"{path}.{SpringKeys[i]}", error);
+            else k[i] = v * 1e3;
+        }
+        return k;
+    }
+
+    /// <summary>Целое ≥ 1 (номер стороны, отверстия).</summary>
+    static int? Ordinal(JsonNode? node)
+    {
+        if (node is JsonValue v && v.TryGetValue(out double d) && d >= 1 && d == Math.Floor(d) && d < int.MaxValue) return (int)d;
+        return null;
+    }
+
+    static List<LineDoc>? ParseLines(JsonNode? node, string path, ModelErrors errors)
+    {
+        if (node is null) return null;
+        if (node is not JsonArray la)
+        {
+            errors.Add($"{path}.lineSupports", Loc.S("CliModelErrNotArray"));
+            return null;
+        }
+        var lines = new List<LineDoc>();
+        for (int i = 0; i < la.Count; i++)
+        {
+            string p = $"{path}.lineSupports[{i}]";
+            if (la[i] is not JsonObject lo) { errors.Add(p, Loc.S("CliModelErrNotObject")); continue; }
+            int before = errors.Count;
+            Unknown(lo, LineKeys, p, errors);
+            string? member = lo["member"] is JsonValue mv
+                ? mv.TryGetValue(out string? ms) && ms.Trim().Length > 0 ? ms.Trim()
+                  : mv.TryGetValue(out long ml) ? ml.ToString(System.Globalization.CultureInfo.InvariantCulture) : null
+                : null;
+            if (member == null) errors.Add($"{p}.member", lo["member"] is null ? Loc.S("CliModelErrRequired") : Loc.S("CliModelErrBadValue"));
+            int hole = 0;
+            if (lo["hole"] is not null)
+            {
+                if (Ordinal(lo["hole"]) is int h) hole = h;
+                else errors.Add($"{p}.hole", Loc.S("CliFemErrOrdinal"));
+            }
+            var sides = new List<(int, string)>();
+            if (lo["sides"] is JsonArray sa && sa.Count > 0)
+                for (int k = 0; k < sa.Count; k++)
+                {
+                    if (Ordinal(sa[k]) is int s) sides.Add((s, $"{p}.sides[{k}]"));
+                    else errors.Add($"{p}.sides[{k}]", Loc.S("CliFemErrOrdinal"));
+                }
+            else errors.Add($"{p}.sides", lo["sides"] is null ? Loc.S("CliModelErrRequired") : Loc.S("CliFemErrSides"));
+            int mask = Mask(lo["fix"], $"{p}.fix", errors);
+            bool rotation = SectionJson.Bool(lo, "fixEdgeRotation", p, errors) ?? false;
+            var k6 = Springs(lo["springs"], mask, $"{p}.springs", errors);
+            if (errors.Count == before && mask == 0 && !rotation && k6.All(v => v == 0)) errors.Add(p, Loc.S("CliFemErrLineEmpty"));
+            if (errors.Count == before) lines.Add(new LineDoc(p, member!, hole, sides, mask, rotation, k6));
+        }
+        return lines;
+    }
 
     static void Unknown(JsonObject o, string[] allowed, string path, ModelErrors errors)
     {
@@ -241,16 +408,9 @@ sealed class FemSchemasKind : IModelKind
                 double x = SectionJson.Num(no, "x", p, errors, required: true) ?? 0;
                 double y = SectionJson.Num(no, "y", p, errors, required: true) ?? 0;
                 double z = SectionJson.Num(no, "z", p, errors, required: true) ?? 0;
-                int mask = 0;
-                if (no["fix"] is JsonArray fa)
-                    for (int k = 0; k < fa.Count; k++)
-                    {
-                        int dof = fa[k] is JsonValue fv && fv.TryGetValue(out string? s) ? Array.IndexOf(Dofs, s) : -1;
-                        if (dof < 0) errors.Add($"{p}.fix[{k}]", string.Format(Loc.S("CliModelErrOneOf"), string.Join(", ", Dofs)));
-                        else mask |= 1 << dof;
-                    }
-                else if (no["fix"] is not null) errors.Add($"{p}.fix", Loc.S("CliModelErrNotArray"));
-                nodes.Add(new NodeDoc(p, tagInt, x, y, z, mask));
+                int mask = Mask(no["fix"], $"{p}.fix", errors);
+                var k = Springs(no["springs"], mask, $"{p}.springs", errors);
+                nodes.Add(new NodeDoc(p, tagInt, x, y, z, mask, k));
             }
         }
         else if (o["nodes"] is not null) errors.Add($"{path}.nodes", Loc.S("CliModelErrNotArray"));
@@ -296,7 +456,8 @@ sealed class FemSchemasKind : IModelKind
         else if (o["groups"] is not null) errors.Add($"{path}.groups", Loc.S("CliModelErrNotArray"));
 
         // Документ возвращается и при ошибках разбора — план проверит ещё и ссылки, чтобы показать все ошибки сразу.
-        return tag == null ? null : new SchemaDoc(path, tag, mesh, nodes, members, groups);
+        var lines = ParseLines(o["lineSupports"], path, errors);
+        return tag == null ? null : new SchemaDoc(path, tag, mesh, nodes, members, groups, lines);
     }
 
     static MemberDoc? ParseMember(JsonObject o, string p, ModelErrors errors)
@@ -356,8 +517,21 @@ sealed class FemSchemasKind : IModelKind
             if (gj == "saint_venant" && gjValue != null) errors.Add($"{tp}.gj", Loc.S("CliModelErrUnknownField"));
         }
         else if (o["torsion"] is not null) errors.Add($"{p}.torsion", Loc.S("CliModelErrNotObject"));
+        RigidDoc? rigid = null;
+        if (o["rigidJunction"] is JsonObject rjo)
+        {
+            string rp = $"{p}.rigidJunction";
+            Unknown(rjo, RigidKeys, rp, errors);
+            if (type != "beam") errors.Add(rp, Loc.S("CliFemErrRigidBeamOnly"));
+            string mode = SectionJson.Pick(rjo, "mode", [("auto", "auto"), ("off", "off")], "auto", rp, errors);
+            string kind = SectionJson.Pick(rjo, "kind", [("rigid", "rigid"), ("coupled", "coupled")], "rigid", rp, errors);
+            int mask = rjo["dofs"] is null ? FemBoundaryDofs.All : Mask(rjo["dofs"], $"{rp}.dofs", errors);
+            if (mask == 0 && rjo["dofs"] is JsonArray) errors.Add($"{rp}.dofs", Loc.S("CliFemErrNoDofs"));
+            rigid = new RigidDoc(mode == "off", kind == "coupled", mask);
+        }
+        else if (o["rigidJunction"] is not null) errors.Add($"{p}.rigidJunction", Loc.S("CliModelErrNotObject"));
         return errors.Count > before ? null
-            : new MemberDoc(p, tag!, type, [.. ids], section, rot, step, gj, gjValue, task, null, null, null);
+            : new MemberDoc(p, tag!, type, [.. ids], section, rot, step, gj, gjValue, task, null, null, null, rigid);
     }
 
     // ── Геометрия области ───────────────────────────────────────────────────────────────────
@@ -549,7 +723,7 @@ sealed class FemSchemasKind : IModelKind
 
     /// <summary>Итог сборки: сессия, новые и изменённые области (ключ — тег КонЭ), что удалено.</summary>
     sealed record Built(FemSchemaEditSession Session, Dictionary<string, PlanarRegion> Regions, int NodesRemoved,
-        int MembersRemoved, int GroupsRemoved);
+        int MembersRemoved, int GroupsRemoved, int LinesRemoved);
 
     /// <summary>
     /// Состав схемы по документу поверх текущего (или новой схемы): указанные массивы заменяют вид, совпавшие по тегу
@@ -634,6 +808,11 @@ sealed class FemSchemasKind : IModelKind
                     member.GjTorsionTaskId = m.Gj == "saint_venant" && m.TorsionTask != null
                         ? resolve ? db.CalcTasks.Single(t => t.Tag.Trim() == m.TorsionTask && t.Kind is "torsion_bem" or "torsion_fem").Id : -1
                         : null;
+                    // АЖТ примыкания: нет в документе — по умолчанию (авто, жёсткое тело, все направления); явный след
+                    // (только у фрагментов) не трогается.
+                    member.RigidJunctionMode = m.Rigid?.Off == true ? FemMember.RigidJunctionOff : null;
+                    member.RigidJunctionKind = m.Rigid?.Coupled == true ? FemMember.RigidJunctionCoupled : null;
+                    member.RigidJunctionMask = m.Rigid is { } rj && rj.Mask != FemBoundaryDofs.All ? rj.Mask : null;
                 }
                 if (added) session.Execute(new AddMemberCommand(member));
             }
@@ -665,6 +844,14 @@ sealed class FemSchemasKind : IModelKind
                 }
                 node.X = n.X; node.Y = n.Y; node.Z = n.Z;
                 node.DofMask = (node.DofMask & ~FemBoundaryDofs.All) | n.Mask;
+                // Пружины узла — как в документе (нет — пружин нет).
+                session.NodeSprings.RemoveAll(s => s.NodeTag == t);
+                if (n.K.Any(v => v != 0))
+                {
+                    var spring = new FemSpring { SchemaId = schema.Id, TargetKind = FemSpringTargetKinds.Node, NodeTag = t, Origin = FemLoadOrigin.Manual };
+                    spring.SetStiffnesses(n.K);
+                    session.NodeSprings.Add(spring);
+                }
             }
         }
 
@@ -697,6 +884,8 @@ sealed class FemSchemasKind : IModelKind
             }
         }
 
+        int linesRemoved = d.Lines != null ? BuildLineSupports(d, session, schema, regions, existingRegions, errors) : 0;
+
         // Проверка состава — та же, что у «Сохранить» редактора; ошибки — к объекту документа по тегу.
         var nodePaths = (d.Nodes ?? []).ToDictionary(n => n.Tag.ToString(System.Globalization.CultureInfo.InvariantCulture), n => n.Path);
         var memberPaths = (d.Members ?? []).GroupBy(m => m.Tag).ToDictionary(g => g.Key, g => g.First().Path);
@@ -706,7 +895,79 @@ sealed class FemSchemasKind : IModelKind
             string? p = diag.SourceKeys?.Select(k => memberPaths.GetValueOrDefault(k) ?? nodePaths.GetValueOrDefault(k)).FirstOrDefault(x => x != null);
             errors.Add(p ?? d.Path, diag.Message);
         }
-        return new Built(session, regions, nodesRemoved, membersRemoved, groupsRemoved);
+        return new Built(session, regions, nodesRemoved, membersRemoved, groupsRemoved, linesRemoved);
+    }
+
+    /// <summary>
+    /// Линейные связи схемы по документу (полная замена). Сторона k — от k-й вершины контура к следующей: контур — из
+    /// <c>region</c> документа, если пластина в нём описана, иначе сохранённый (как его пишет выгрузка); грань ищется по
+    /// концам (обход контура при записи нормализуется). Возвращает, сколько прежних связей снято.
+    /// </summary>
+    static int BuildLineSupports(SchemaDoc d, FemSchemaEditSession session, FemSchema schema,
+        Dictionary<string, PlanarRegion> regions, Dictionary<int, PlanarRegion> existingRegions, ModelErrors errors)
+    {
+        var docRegions = (d.Members ?? []).Where(m => m.Region != null).GroupBy(m => m.Tag)
+            .ToDictionary(g => g.Key, g => g.First().Region!);
+        var result = new List<FemLineSupport>();
+        var used = new Dictionary<FemPlateEdgeKey, string>();
+        foreach (var l in d.Lines!)
+        {
+            var member = session.Members.FirstOrDefault(x => x.ElemTag == l.Member);
+            var region = member is not { ElemType: "shell" } ? null
+                : regions.GetValueOrDefault(l.Member)
+                  ?? (member.PlanarRegionId is int rid && existingRegions.TryGetValue(rid, out var stored) ? stored : null);
+            if (region == null)
+            {
+                errors.Add($"{l.Path}.member", string.Format(Loc.S("CliFemErrLineMember"), l.Member));
+                continue;
+            }
+            List<PlanarVector3>? loop;
+            if (docRegions.TryGetValue(l.Member, out var rd))
+                loop = l.Hole == 0 ? rd.Outline : l.Hole <= rd.Holes.Count ? rd.Holes[l.Hole - 1] : null;
+            else
+            {
+                var contours = region.Contours.Where(c => c.Type == (l.Hole == 0 ? ContourType.Hull : ContourType.Hole)).ToList();
+                int index = l.Hole == 0 ? 0 : l.Hole - 1;
+                loop = index < contours.Count ? Global(region.Frame, contours[index]) : null;
+            }
+            if (loop == null)
+            {
+                errors.Add($"{l.Path}.hole", string.Format(Loc.S("CliFemErrNoHole"), l.Hole, l.Member));
+                continue;
+            }
+            var edges = FemLineSupportGeometry.Edges(member!, region);
+            foreach (var (side, path) in l.Sides)
+            {
+                var edge = side > loop.Count ? null
+                    : edges.FirstOrDefault(e => SameEnds(e, loop[side - 1], loop[side % loop.Count]));
+                if (edge == null)
+                {
+                    errors.Add(path, string.Format(Loc.S("CliFemErrNoSide"), side, loop.Count));
+                    continue;
+                }
+                if (!used.TryAdd(edge.Key, path))
+                {
+                    errors.Add(path, string.Format(Loc.S("CliFemErrLineDuplicate"), used[edge.Key]));
+                    continue;
+                }
+                var support = new FemLineSupport { SchemaId = schema.Id, Mask = l.Mask, FixEdgeRotation = l.Rotation, Origin = FemLoadOrigin.Manual };
+                support.SetStiffnesses(l.K);
+                support.AssignEdge(edge);
+                result.Add(support);
+            }
+        }
+        var keys = result.Select(s => s.Key).ToHashSet();
+        int removed = session.LineSupports.Count(s => !keys.Contains(s.Key));
+        session.LineSupports.Clear();
+        session.LineSupports.AddRange(result);
+        return removed;
+    }
+
+    /// <summary>Концы грани совпадают с точками документа (в любом порядке; допуск — как у плоскостности).</summary>
+    static bool SameEnds(FemPlateEdge e, PlanarVector3 a, PlanarVector3 b)
+    {
+        bool Near(PlanarVector3 p, PlanarVector3 q) => (p - q).Length <= 2 * PlaneTol;
+        return (Near(e.A, a) && Near(e.B, b)) || (Near(e.A, b) && Near(e.B, a));
     }
 
     static FemMemberGroup CloneGroup(FemMemberGroup g) => new()
@@ -744,6 +1005,8 @@ sealed class FemSchemasKind : IModelKind
             throw new CliException(CliExitCode.Usage, string.Join("; ", diagnostics.Where(x => x.IsError).Select(x => $"{d.Path}: {x.Message}")));
         if (built.NodesRemoved + built.MembersRemoved + built.GroupsRemoved > 0)
             ctx.LogService.Warning(string.Format(Loc.S("CliFemRemoved"), d.Tag, built.NodesRemoved, built.MembersRemoved, built.GroupsRemoved));
+        if (built.LinesRemoved > 0)
+            ctx.LogService.Warning(string.Format(Loc.S("CliFemLineSupportsRemoved"), d.Tag, built.LinesRemoved));
         if (hadMesh)
             ctx.LogService.Warning(string.Format(Loc.S("CliFemMeshStale"), d.Tag));
     }

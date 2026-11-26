@@ -223,6 +223,130 @@ public sealed class CliFemSchemaTests : IDisposable
         Assert.Contains("ЛИРА", ex.Out + ex.Err);
     }
 
+    /// <summary>Рама с ГУ 6б: пружины узла, АЖТ ригеля, линейные связи по внешнему контуру и стороне отверстия.</summary>
+    static string BoundarySeed => Seed.Replace("""{ "tag": 2, "x": 0, "y": 0, "z": 3 }""",
+            """{ "tag": 2, "x": 0, "y": 0, "z": 3, "fix": ["x", "y"], "springs": { "kz": 5000, "kuy": 120.5 } }""")
+        .Replace("""{ "tag": "Р1", "nodes": [2, 3], "section": "Б-1", "meshStepM": 0.25, "torsion": { "gj": 1200 } }""",
+            """{ "tag": "Р1", "nodes": [2, 3], "section": "Б-1", "meshStepM": 0.25, "torsion": { "gj": 1200 }, "rigidJunction": { "mode": "off", "kind": "coupled", "dofs": ["z", "uz"] } }""")
+        .Replace("""["К1", "К2"] } ] } ] }""",
+            """["К1", "К2"] } ], "lineSupports": [ { "member": "П1", "sides": [1, 2], "fix": ["x", "y", "z"], "fixEdgeRotation": true }, { "member": "П1", "hole": 1, "sides": [2], "springs": { "kz": 20000 } } ] } ] }""");
+
+    [Fact]
+    public async Task Apply_Boundary_SpringsRigidJunctionLineSupports_RoundTripSame()
+    {
+        Assert.Contains("lineSupports", BoundarySeed);
+        Assert.Contains("rigidJunction", BoundarySeed);
+        Assert.Contains("springs", BoundarySeed);
+        string first = await NewProject("a.db");
+        var r = await Run("apply", first, Doc("seed.json", BoundarySeed));
+        Assert.True(r.Code == CliExitCode.Ok, r.Err);
+        using (var db = new DatabaseService(first))
+        {
+            db.LoadAll();
+            var s = db.FemSchemas.Single(x => x.Tag == "Рама");
+            // rx ry rz документа 6а читаются как ux uy uz.
+            Assert.Equal(FemBoundaryDofs.All, db.GetFemNodes(s.Id).Single(n => n.NodeTag == "1").DofMask);
+            var spring = Assert.Single(db.GetFemSprings(s.Id), x => x.TargetKind == FemSpringTargetKinds.Node);
+            Assert.Equal("2", spring.NodeTag);
+            Assert.Equal(5e6, spring.Kz, 6);
+            Assert.Equal(120.5e3, spring.Kuy, 6);
+            var r1 = db.GetFemMembers(s.Id).Single(m => m.ElemTag == "Р1");
+            Assert.Equal(FemMember.RigidJunctionOff, r1.RigidJunctionMode);
+            Assert.Equal(FemMember.RigidJunctionCoupled, r1.RigidJunctionKind);
+            Assert.Equal(0b100100, r1.RigidJunctionMask);
+            Assert.Null(db.GetFemMembers(s.Id).Single(m => m.ElemTag == "К1").RigidJunctionMode);
+
+            var lines = db.GetFemLineSupports(s.Id);
+            Assert.Equal(3, lines.Count);
+            // Сторона 1 внешнего контура — от (0,0) к (6,0); сторона 2 отверстия — от (3,1) к (3,2) в порядке документа
+            // (обход отверстия при записи разворачивается).
+            Assert.Contains(lines, l => l.Loop == CScore.Planar.BoundaryLoop.Outer && l.FixEdgeRotation && l.Mask == 0b111
+                && Math.Abs(l.Y1) < 1e-9 && Math.Abs(l.Y2) < 1e-9);
+            var hole = Assert.Single(lines, l => l.Loop == CScore.Planar.BoundaryLoop.Hole);
+            Assert.Equal(2e7, hole.Kz, 6);
+            Assert.Equal(3, hole.X1, 9);
+            Assert.Equal(3, hole.X2, 9);
+            Assert.Equal(3, Math.Round(hole.Y1 + hole.Y2, 9));
+        }
+
+        string e1 = PathOf("e1.json");
+        Assert.True((await Run("export", "model", first, "--to", e1)).Code == CliExitCode.Ok);
+        var exported = JsonNode.Parse(File.ReadAllText(e1))!["femSchemas"]![0]!;
+        Assert.Equal("""["x","y","z","ux","uy","uz"]""", exported["nodes"]![0]!["fix"]!.ToJsonString());
+        Assert.Equal(5000, (double)exported["nodes"]![1]!["springs"]!["kz"]!);
+        Assert.Equal(2, exported["lineSupports"]!.AsArray().Count);
+        Assert.Null(exported["members"]!.AsArray().Single(m => (string?)m!["tag"] == "К1")!["rigidJunction"]);
+
+        string second = await NewProject("b.db");
+        var apply = await Run("apply", second, e1);
+        Assert.True(apply.Code == CliExitCode.Ok, apply.Err);
+        string e2 = PathOf("e2.json");
+        Assert.True((await Run("export", "model", second, "--to", e2)).Code == CliExitCode.Ok);
+        Assert.Equal(exported.ToJsonString(), JsonNode.Parse(File.ReadAllText(e2))!["femSchemas"]![0]!.ToJsonString());
+
+        // Без lineSupports связи не трогаются; пустой массив снимает все с предупреждением.
+        var keep = await Run("apply", second, Doc("k.json", """
+            { "format": "opencs-model", "version": 1, "femSchemas": [ { "tag": "Рама", "mesh": { "barStepM": 0.5 } } ] }
+            """));
+        Assert.True(keep.Code == CliExitCode.Ok, keep.Err);
+        using (var db = new DatabaseService(second)) { db.LoadAll(); Assert.Equal(3, db.GetFemLineSupports(db.FemSchemas.Single().Id).Count); }
+        var clear = await Run("apply", second, Doc("c.json", """
+            { "format": "opencs-model", "version": 1, "femSchemas": [ { "tag": "Рама", "lineSupports": [] } ] }
+            """));
+        Assert.True(clear.Code == CliExitCode.Ok, clear.Err);
+        Assert.Contains("линейных связей — 3", clear.Out + clear.Err);
+        using (var db = new DatabaseService(second)) { db.LoadAll(); Assert.Empty(db.GetFemLineSupports(db.FemSchemas.Single().Id)); }
+    }
+
+    [Fact]
+    public async Task Apply_BoundaryErrors_WithPaths_NothingWritten()
+    {
+        string project = await NewProject();
+        var r = await Run("apply", project, Doc("bad.json", """
+            { "format": "opencs-model", "version": 1,
+              "femSchemas": [
+                { "tag": "Ошибки",
+                  "nodes": [ { "tag": 1, "x": 0, "y": 0, "z": 0, "fix": ["z"], "springs": { "kz": 10, "kx": -1, "kq": 1 } },
+                             { "tag": 2, "x": 4, "y": 0, "z": 0 }, { "tag": 3, "x": 4, "y": 4, "z": 0 } ],
+                  "members": [
+                    { "tag": "Ф1", "type": "truss", "nodes": [1, 2], "rigidJunction": { "mode": "off" } },
+                    { "tag": "С1", "nodes": [2, 3], "rigidJunction": { "dofs": [] } } ],
+                  "lineSupports": [ { "member": "П1", "sides": [1] } ] } ] }
+            """));
+        Assert.Equal(CliExitCode.Usage, r.Code);
+        Assert.Contains("femSchemas[0].nodes[0].springs.kz", r.Err);
+        Assert.Contains("femSchemas[0].nodes[0].springs.kx", r.Err);
+        Assert.Contains("femSchemas[0].nodes[0].springs.kq", r.Err);
+        Assert.Contains("femSchemas[0].members[0].rigidJunction", r.Err);
+        Assert.Contains("femSchemas[0].members[1].rigidJunction.dofs", r.Err);
+        Assert.Contains("femSchemas[0].lineSupports[0]", r.Err);
+
+        // Ссылки линейных связей — при сборке схемы (документ без ошибок разбора).
+        var refs = await Run("apply", project, Doc("refs.json", """
+            { "format": "opencs-model", "version": 1,
+              "femSchemas": [
+                { "tag": "Ссылки",
+                  "nodes": [ { "tag": 2, "x": 4, "y": 0, "z": 0 }, { "tag": 3, "x": 4, "y": 4, "z": 0 } ],
+                  "members": [
+                    { "tag": "С1", "nodes": [2, 3] },
+                    { "tag": "П1", "type": "shell", "region": { "outline": [[0, 0, 0], [4, 0, 0], [4, 4, 0], [0, 4, 0]] } } ],
+                  "lineSupports": [
+                    { "member": "С1", "sides": [1], "fix": ["z"] },
+                    { "member": "П1", "sides": [9], "fix": ["z"] },
+                    { "member": "П1", "sides": [1, 2], "fix": ["z"] },
+                    { "member": "П1", "sides": [2], "fix": ["x"] },
+                    { "member": "П1", "hole": 1, "sides": [1], "fix": ["z"] } ] } ] }
+            """));
+        Assert.Equal(CliExitCode.Usage, refs.Code);
+        Assert.Contains("femSchemas[0].lineSupports[0].member", refs.Err);
+        Assert.Contains("femSchemas[0].lineSupports[1].sides[0]", refs.Err);
+        Assert.Contains("femSchemas[0].lineSupports[3].sides[0]", refs.Err);
+        Assert.Contains("femSchemas[0].lineSupports[4].hole", refs.Err);
+        using var db = new DatabaseService(project);
+        db.LoadAll();
+        Assert.Empty(db.FemSchemas);
+    }
+
     [Fact]
     public async Task ListSchemas_ShowsSourceAndMeshState()
     {

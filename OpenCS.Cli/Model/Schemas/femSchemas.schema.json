@@ -1,14 +1,22 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "opencs-model: femSchemas[]",
-  "description": "Родная МКЭ-схема (созданная в OpenCS; импортные ЛИРА/SCAD, фрагменты и субмодели не выгружаются и через apply не меняются). Ключ — имя (tag). Схема — составной объект: указанный массив (nodes, members, groups) заменяет состав схемы по этому виду — совпавшие по тегу объекты обновляются на месте, отсутствующие удаляются (с нагрузками и связями на них, с предупреждением); неуказанный массив не трогается. Координаты и длины — м, GJ — кН·м², углы — градусы. Сетка и результаты не описываются: изменённая схема получает устаревшую сетку — она перестраивается перед расчётом или командой opencs run mesh; изменившаяся сетка сбрасывает результаты постановок.",
+  "description": "Родная МКЭ-схема (созданная в OpenCS; импортные ЛИРА/SCAD, фрагменты и субмодели не выгружаются и через apply не меняются). Ключ — имя (tag). Схема — составной объект: указанный массив (nodes, members, groups, lineSupports) заменяет состав схемы по этому виду — совпавшие по тегу объекты обновляются на месте, отсутствующие удаляются (с нагрузками и связями на них, с предупреждением); неуказанный массив не трогается. Координаты и длины — м, GJ — кН·м², углы — градусы, жёсткости пружин — кН/м и кН·м/рад (погонные — на метр грани: кН/м² и кН·м/рад/м). Направления — общие оси x y z ux uy uz (rx ry rz документов 6а тоже принимаются). Сетка и результаты не описываются: изменённая схема получает устаревшую сетку — она перестраивается перед расчётом или командой opencs run mesh; изменившаяся сетка сбрасывает результаты постановок.",
   "type": "object",
   "required": ["tag"],
   "additionalProperties": false,
   "$defs": {
     "point": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3, "description": "Точка [x, y, z], м" },
     "loop": { "type": "array", "items": { "$ref": "#/$defs/point" }, "minItems": 3, "description": "Замкнутый контур без повтора первой вершины" },
-    "tag": { "type": ["string", "integer"] }
+    "tag": { "type": ["string", "integer"] },
+    "dofs": { "type": "array", "items": { "enum": ["x", "y", "z", "ux", "uy", "uz", "rx", "ry", "rz"] }, "uniqueItems": true },
+    "springs": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Жёсткости по направлениям общих осей (≥ 0; по закреплённому направлению не задаются); нет — 0",
+      "properties": { "kx": { "type": "number", "minimum": 0 }, "ky": { "type": "number", "minimum": 0 }, "kz": { "type": "number", "minimum": 0 },
+                      "kux": { "type": "number", "minimum": 0 }, "kuy": { "type": "number", "minimum": 0 }, "kuz": { "type": "number", "minimum": 0 } }
+    }
   },
   "properties": {
     "tag": { "type": "string", "minLength": 1 },
@@ -31,7 +39,8 @@
         "properties": {
           "tag": { "type": ["integer", "string"], "description": "Целый положительный номер узла" },
           "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" },
-          "fix": { "type": "array", "items": { "enum": ["x", "y", "z", "rx", "ry", "rz"] }, "uniqueItems": true, "description": "Закреплённые направления в общих осях; нет — узел свободен" }
+          "fix": { "$ref": "#/$defs/dofs", "description": "Закреплённые направления в общих осях; нет — узел свободен" },
+          "springs": { "$ref": "#/$defs/springs", "description": "Пружины узла: kx ky kz — кН/м, kux kuy kuz — кН·м/рад; нет — пружин нет" }
         }
       }
     },
@@ -54,6 +63,16 @@
               "strategy": { "enum": ["manual", "saint_venant"], "default": "manual" },
               "gj": { "type": "number", "minimum": 0, "description": "manual: GJ, кН·м²" },
               "task": { "type": "string", "description": "saint_venant: задача кручения (ключ из tasks)" }
+            }
+          },
+          "rigidJunction": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Стержень beam: АЖТ примыкания к пластине; нет — авто, жёсткое тело, все направления",
+            "properties": {
+              "mode": { "enum": ["auto", "off"], "default": "auto", "description": "auto — по флажку схемы mesh.autoRigidJunctions; off — не создавать у этого стержня" },
+              "kind": { "enum": ["rigid", "coupled"], "default": "rigid", "description": "rigid — абсолютно жёсткое тело; coupled — объединение перемещений" },
+              "dofs": { "$ref": "#/$defs/dofs", "minItems": 1, "description": "Связанные направления (общие оси)" }
             }
           },
           "kind": { "enum": ["plate", "wall"], "description": "Пластина: вид вручную; нет — по наклону" },
@@ -82,6 +101,23 @@
           "tag": { "type": "string", "minLength": 1 },
           "memberType": { "enum": ["beam", "column", "plate", "wall", "shell", "truss", "top_chord", "bottom_chord", "diagonal", "bracing", "other"] },
           "members": { "type": "array", "items": { "$ref": "#/$defs/tag" }, "description": "Теги КонЭ схемы" }
+        }
+      }
+    },
+    "lineSupports": {
+      "type": "array",
+      "description": "Линейные связи на гранях пластин (указан — заменяет все связи схемы). Сторона k — от k-й вершины контура (region.outline или holes[hole-1]) к следующей; одна грань — в одной записи",
+      "items": {
+        "type": "object",
+        "required": ["member", "sides"],
+        "additionalProperties": false,
+        "properties": {
+          "member": { "$ref": "#/$defs/tag", "description": "Пластина (тег КонЭ)" },
+          "hole": { "type": "integer", "minimum": 1, "description": "Номер отверстия (с 1); нет — внешний контур" },
+          "sides": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 1, "uniqueItems": true, "description": "Номера сторон контура (с 1)" },
+          "fix": { "$ref": "#/$defs/dofs", "description": "Закреплённые направления (общие оси)" },
+          "fixEdgeRotation": { "type": "boolean", "default": false, "description": "Закрепить поворот кромки (вокруг нормали к грани в плоскости пластины)" },
+          "springs": { "$ref": "#/$defs/springs", "description": "Погонные пружины: kx ky kz — кН/м², kux kuy kuz — кН·м/рад/м" }
         }
       }
     }
