@@ -6827,21 +6827,12 @@ namespace OpenCS
             CsfeaContext = CsfeaRunContext()
          };
          if (dlg.ShowDialog() != true) return;
-         // Переименование результат не сбрасывает — только смена вида, нагрузки или параметров.
-         // У пакета правка только списка вариантов результат не сбрасывает (досчёт при запуске).
-         bool batchItemsOnly = analysis.Kind == dlg.Result.Kind &&
-            Tasks.FemAnalysisParams.BatchItemsOnlyChanged(analysis.ParamsJson, dlg.Result.ParamsJson);
-         bool inputChanged = !batchItemsOnly && (analysis.Kind != dlg.Result.Kind ||
-            analysis.LoadExpressionJson != dlg.Result.LoadExpressionJson ||
-            analysis.ParamsJson != dlg.Result.ParamsJson);
-         bool changed = inputChanged || analysis.Tag != dlg.Result.Tag;
-         analysis.Tag = dlg.Result.Tag;
-         analysis.Kind = dlg.Result.Kind;
-         analysis.LoadExpressionJson = dlg.Result.LoadExpressionJson;
-         analysis.ParamsJson = dlg.Result.ParamsJson;
-         if (inputChanged)
-            analysis.InvalidateResult();
+         // Переименование результат не сбрасывает — только смена вида, нагрузки или параметров (служба постановок,
+         // то же правило у apply).
+         var (changed, reset) = Services.FemAnalysisAuthoring.ApplyEdit(analysis, dlg.Result);
+         if (!changed) return;
          db.SaveFemAnalysis(analysis);
+         if (reset) LogService.Info(string.Format(Loc.S("FemAnalysisResultReset"), analysis.Tag));
          // FemAnalysis без INotifyPropertyChanged: правка того же объекта (имя, статус после сброса результата)
          // не перерисует узел дерева — пересобрать вид коллекции.
          if (changed)
@@ -7135,7 +7126,7 @@ namespace OpenCS
       void DeleteFemAnalysis(CScore.Fem.FemAnalysis? analysis)
       {
          if (analysis == null) return;
-         db.DeleteFemAnalysis(analysis);
+         Services.FemAnalysisAuthoring.Delete(db, analysis, Notifier);
       }
 
       void ShowFemNodeResult(ViewModels.FemAnalysisResultVM vm, string tag)

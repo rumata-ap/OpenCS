@@ -6073,6 +6073,8 @@ namespace OpenCS.Utilites
                      var parameters = OpenCS.Tasks.FemAnalysisParams.Parse(a.ParamsJson);
                      // Стадии и пакет CSfea (варианты, несовершенства) — те же Id загружений.
                      paramsChanged = parameters.RemapLoadCases(id => newLoadCaseIdByOld.TryGetValue(id, out var mapped) ? mapped : id);
+                     // Узлы пути OpenSees (DisplacementControl/ArcLength) — по Id узлов КонЭ, которые тоже выданы заново.
+                     paramsChanged |= parameters.RemapNodes(newNodeIdByOld);
                      if (paramsChanged) newParamsJson = parameters.ToJson();
 
                      if (newJson != a.Json || paramsChanged)

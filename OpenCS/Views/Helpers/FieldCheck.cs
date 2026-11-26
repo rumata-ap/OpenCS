@@ -43,6 +43,28 @@ public static class FieldCheck
         return true;
     }
 
+    /// <summary>Читает целое число поля; дробное или нераспознанное — ошибка у поля.</summary>
+    public static bool ReadInt(Window owner, TextBox box, string labelKey, out int value, Func<int, string?>? rule = null)
+    {
+        value = 0;
+        if (!NumberInput.TryParse(box.Text, out double v) || v != Math.Floor(v) || Math.Abs(v) > int.MaxValue)
+        {
+            Fail(owner, box, labelKey, Loc.S("FieldErrInteger"));
+            return false;
+        }
+        value = (int)v;
+        if (rule?.Invoke(value) is { } error)
+        {
+            Fail(owner, box, labelKey, error);
+            return false;
+        }
+        return true;
+    }
+
+    /// <summary>Правило: значение в промежутке (<paramref name="min"/>; <paramref name="max"/>], текст — <paramref name="errorKey"/>.</summary>
+    public static Func<double, string?> InRange(double min, double max, string errorKey, bool minInclusive = false) =>
+        v => (minInclusive ? v >= min : v > min) && v <= max ? null : Loc.S(errorKey);
+
     /// <summary>Пустое поле — <c>null</c> (например, «общий шаг»), иначе число по правилу.</summary>
     public static bool ReadOptional(Window owner, TextBox box, string labelKey, out double? value, Func<double, string?>? rule = null)
     {

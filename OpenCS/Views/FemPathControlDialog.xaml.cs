@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Windows;
 using CScore.Fem;
 using OpenCS.OpenSees.CScore;
+using OpenCS.Tasks;
 using OpenCS.Utilites;
 
 namespace OpenCS.Views;
@@ -126,19 +127,60 @@ public partial class FemPathControlDialog : Window
         DialogResult = true;
     }
 
+    /// <summary>Выбор в списке узла или направления; не выбран — сообщение и фокус на списке.</summary>
+    bool Picked(System.Windows.Controls.ComboBox box, bool ok, string key)
+    {
+        if (ok) return true;
+        MessageBox.Show(this, string.Format(Loc.S(key), _row.Tag), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+        box.Focus();
+        return false;
+    }
+
+    /// <summary>
+    /// Правила службы постановок (те же, что у <c>apply</c>): шаги, цель, дуга. Первая ошибка — сообщением с фокусом на
+    /// поле, к которому она относится.
+    /// </summary>
+    bool CheckRules(FemAnalysisPathControl dto, IReadOnlyDictionary<string, System.Windows.Controls.TextBox> boxes)
+    {
+        var errors = new List<Services.FieldError>();
+        Services.FemAnalysisAuthoring.PathControl(dto, "p", _row.Tag, errors, null);
+        if (errors.Count == 0) return true;
+        var first = errors[0];
+        string field = first.Path["p.".Length..];
+        if (boxes.TryGetValue(field, out var box))
+        {
+            box.BorderBrush = System.Windows.Media.Brushes.Red;
+            box.Focus();
+            box.SelectAll();
+        }
+        MessageBox.Show(this, string.Join(Environment.NewLine, errors.Select(x => x.Message)), Title,
+            MessageBoxButton.OK, MessageBoxImage.Warning);
+        return false;
+    }
+
     bool TryReadDisplacementControl(out FemDisplacementControlInput? result)
     {
         result = null;
-        if (ControlNodeBox.SelectedValue is not int nodeId || ControlDofBox.SelectedItem is not DofOption dof ||
-            !Pars.ParseAny(InitialIncrementBox.Text, out var init) || !double.IsFinite(init) ||
-            !Pars.ParseAny(MinIncrementBox.Text, out var min) || !double.IsFinite(min) ||
-            !Pars.ParseAny(MaxIncrementBox.Text, out var max) || !double.IsFinite(max) ||
-            !Pars.ParseAny(TargetDisplacementBox.Text, out var target) || !double.IsFinite(target) ||
-            !int.TryParse(DisplacementMaxStepsBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var maxSteps) || maxSteps <= 0)
-        {
-            MessageBox.Show(Loc.S("FemPathControlInvalidFields"), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+        Helpers.FieldCheck.Clear(InitialIncrementBox, MinIncrementBox, MaxIncrementBox, TargetDisplacementBox, DisplacementMaxStepsBox);
+        if (!Picked(ControlNodeBox, ControlNodeBox.SelectedValue is int, "FemPathControlNodeMissing")
+            || !Picked(ControlDofBox, ControlDofBox.SelectedItem is DofOption, "FemPathControlDofInvalid")
+            || !Helpers.FieldCheck.Read(this, InitialIncrementBox, "FemPathControlInitialIncrementLabel", out var init, Helpers.FieldCheck.Positive)
+            || !Helpers.FieldCheck.Read(this, MinIncrementBox, "FemPathControlMinIncrementLabel", out var min, Helpers.FieldCheck.Positive)
+            || !Helpers.FieldCheck.Read(this, MaxIncrementBox, "FemPathControlMaxIncrementLabel", out var max, Helpers.FieldCheck.Positive)
+            || !Helpers.FieldCheck.Read(this, TargetDisplacementBox, "FemPathControlTargetDisplacementLabel", out var target, Helpers.FieldCheck.NonZero)
+            || !Helpers.FieldCheck.ReadInt(this, DisplacementMaxStepsBox, "FemPathControlMaxStepsLabel", out var maxSteps,
+                v => v >= 1 ? null : Loc.S("FieldErrPositive")))
             return false;
-        }
+        int nodeId = (int)ControlNodeBox.SelectedValue!;
+        var dof = (DofOption)ControlDofBox.SelectedItem!;
+        var dto = new FemAnalysisPathControl
+        {
+            Mode = "DisplacementControl", ControlNodeId = nodeId, ControlDof = dof.Value, InitialIncrement = init,
+            MinIncrement = min, MaxIncrement = max, TargetDisplacement = target, MaxSteps = maxSteps,
+        };
+        if (!CheckRules(dto, new Dictionary<string, System.Windows.Controls.TextBox>
+            { ["initial"] = InitialIncrementBox, ["target"] = TargetDisplacementBox, ["maxSteps"] = DisplacementMaxStepsBox }))
+            return false;
         result = new FemDisplacementControlInput(nodeId, dof.Value, init, min, max, target, maxSteps);
         return true;
     }
@@ -146,18 +188,26 @@ public partial class FemPathControlDialog : Window
     bool TryReadArcLength(out FemArcLengthInput? result)
     {
         result = null;
-        if (!Pars.ParseAny(ArcLengthSBox.Text, out var s) || !double.IsFinite(s) ||
-            !Pars.ParseAny(ArcLengthAlphaBox.Text, out var alpha) || !double.IsFinite(alpha) ||
-            !Pars.ParseAny(ArcLengthMinSBox.Text, out var minS) || !double.IsFinite(minS) ||
-            !int.TryParse(ArcLengthMaxStepsBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var maxSteps) || maxSteps <= 0 ||
-            MonitorNodeBox.SelectedValue is not int nodeId || MonitorDofBox.SelectedItem is not DofOption dof)
-        {
-            MessageBox.Show(Loc.S("FemPathControlInvalidFields"), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+        Helpers.FieldCheck.Clear(ArcLengthSBox, ArcLengthAlphaBox, ArcLengthMinSBox, ArcLengthMaxStepsBox);
+        if (!Helpers.FieldCheck.Read(this, ArcLengthSBox, "FemPathControlArcLengthSLabel", out var s, Helpers.FieldCheck.Positive)
+            || !Helpers.FieldCheck.Read(this, ArcLengthAlphaBox, "FemPathControlArcLengthAlphaLabel", out var alpha, Helpers.FieldCheck.NonNegative)
+            || !Helpers.FieldCheck.Read(this, ArcLengthMinSBox, "FemPathControlArcLengthMinSLabel", out var minS, Helpers.FieldCheck.Positive)
+            || !Helpers.FieldCheck.ReadInt(this, ArcLengthMaxStepsBox, "FemPathControlMaxStepsLabel", out var maxSteps,
+                v => v >= 1 ? null : Loc.S("FieldErrPositive"))
+            || !Picked(MonitorNodeBox, MonitorNodeBox.SelectedValue is int, "FemPathControlNodeMissing")
+            || !Picked(MonitorDofBox, MonitorDofBox.SelectedItem is DofOption, "FemPathControlDofInvalid"))
             return false;
-        }
+        int nodeId = (int)MonitorNodeBox.SelectedValue!;
+        var dof = (DofOption)MonitorDofBox.SelectedItem!;
+        var dto = new FemAnalysisPathControl
+        {
+            Mode = "ArcLength", ArcLengthS = s, ArcLengthAlpha = alpha, ArcLengthMinS = minS, MaxSteps = maxSteps,
+            MonitorNodeId = nodeId, MonitorDof = dof.Value,
+        };
+        if (!CheckRules(dto, new Dictionary<string, System.Windows.Controls.TextBox>
+            { ["s"] = ArcLengthMinSBox, ["alpha"] = ArcLengthAlphaBox, ["maxSteps"] = ArcLengthMaxStepsBox }))
+            return false;
         result = new FemArcLengthInput(s, alpha, minS, maxSteps, nodeId, dof.Value);
         return true;
     }
-
-    void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
 }

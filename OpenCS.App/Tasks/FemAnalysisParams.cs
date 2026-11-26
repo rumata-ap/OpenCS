@@ -192,6 +192,29 @@ public sealed class FemAnalysisParams
         return changed;
     }
 
+    /// <summary>
+    /// Переносит Id узлов КонЭ пути OpenSees (управление и мониторинг стадий и их продолжений) после записи схемы, которая
+    /// выдаёт узлам новые Id. Узел без пары (удалён) остаётся со старым Id — проверка постановки назовёт его.
+    /// </summary>
+    public bool RemapNodes(IReadOnlyDictionary<int, int> newIdByOld)
+    {
+        bool changed = false;
+        int? Map(int? id)
+        {
+            if (id is not { } old || !newIdByOld.TryGetValue(old, out int next) || next == old) return id;
+            changed = true;
+            return next;
+        }
+        foreach (var stage in Stages)
+            foreach (var pc in new[] { stage.PathControl, stage.ContinueWith })
+                if (pc != null)
+                {
+                    pc.ControlNodeId = Map(pc.ControlNodeId);
+                    pc.MonitorNodeId = Map(pc.MonitorNodeId);
+                }
+        return changed;
+    }
+
     /// <summary>Id загружений, на которые постановка ссылается явно: формула, стадии, пакет (варианты и несовершенства).</summary>
     public static HashSet<int> ReferencedLoadCases(CScore.Fem.FemAnalysis analysis)
     {

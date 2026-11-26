@@ -117,7 +117,10 @@ public partial class FemAnalysisDialog : Window
     {
         _schema = schema;
         _nodes = nodes;
+        _existingId = existing?.Id ?? 0;
         InitializeComponent();
+        // Высокие виды (пакет + параметры CSfea) прокручиваются внутри окна, а не уходят за край экрана.
+        RootScroll.MaxHeight = Math.Max(400, SystemParameters.WorkArea.Height - 80);
         // Начальный выбор — в коде: SelectionChanged из разметки пришёл бы до создания панелей ниже.
         BucklingMethodCombo.SelectedIndex = 0;
         BucklingSwayCombo.SelectedIndex = 0;
@@ -517,37 +520,36 @@ public partial class FemAnalysisDialog : Window
         return FemCsfeaStiffnessSources.Fingerprint(db, c, out error);
     }
 
-    /// <summary>Параметры CSfea из панели; null и текст ошибки — если значение вне допустимого.</summary>
-    FemCsfeaParams? ReadCsfeaParams(out string? error)
+    /// <summary>
+    /// Параметры CSfea из панели; null — нераспознанное или недопустимое число (ошибка показана у поля). Поля секущего
+    /// расчёта читаются только у секущего: у линейного они скрыты, и их содержимое не должно мешать записи.
+    /// </summary>
+    FemCsfeaParams? ReadCsfeaParams(bool linear)
     {
-        error = null;
-        var culture = CultureInfo.CurrentCulture;
+        Helpers.FieldCheck.Clear(CsfeaPoissonBox, CsfeaMaxIterationsBox, CsfeaMaxBisectionsBox, CsfeaTolDisplacementBox,
+            CsfeaTolStiffnessBox, CsfeaOmega0Box);
+        var defaults = new FemCsfeaParams();
         double? poisson = null;
-        if (!string.IsNullOrWhiteSpace(CsfeaPoissonBox.Text))
+        int maxIter = defaults.MaxIterations, bisections = defaults.MaxBisections;
+        double tolU = defaults.TolDisplacement, tolK = defaults.TolStiffness, omega = defaults.Omega0;
+        if (!linear)
         {
-            if (!Pars.ParseAny(CsfeaPoissonBox.Text, out var nu) || !double.IsFinite(nu) || nu < 0 || nu >= 0.5)
-            { error = Loc.S("FemCsfeaPoissonInvalid"); return null; }
-            poisson = nu;
+            if (!Helpers.FieldCheck.ReadOptional(this, CsfeaPoissonBox, "FemCsfeaPoissonUncrackedLabel", out poisson,
+                    v => v >= 0 && v < 0.5 ? null : Loc.S("FemCsfeaPoissonInvalid"))
+                || !Helpers.FieldCheck.ReadInt(this, CsfeaMaxIterationsBox, "FemCsfeaMaxIterationsLabel", out maxIter,
+                    v => v >= 1 ? null : Loc.S("FemCsfeaMaxIterationsInvalid"))
+                || !Helpers.FieldCheck.ReadInt(this, CsfeaMaxBisectionsBox, "FemCsfeaMaxBisectionsLabel", out bisections,
+                    v => v >= 0 ? null : Loc.S("FemCsfeaMaxBisectionsInvalid"))
+                || !Helpers.FieldCheck.Read(this, CsfeaTolDisplacementBox, "FemCsfeaTolDisplacementLabel", out tolU, Helpers.FieldCheck.Positive)
+                || !Helpers.FieldCheck.Read(this, CsfeaTolStiffnessBox, "FemCsfeaTolStiffnessLabel", out tolK, Helpers.FieldCheck.Positive)
+                || !Helpers.FieldCheck.Read(this, CsfeaOmega0Box, "FemCsfeaOmega0Label", out omega,
+                    Helpers.FieldCheck.InRange(0, 1, "FemCsfeaOmega0Invalid")))
+                return null;
         }
-        if (!int.TryParse(CsfeaMaxIterationsBox.Text, NumberStyles.Integer, culture, out int maxIter) || maxIter < 1)
-        { error = Loc.S("FemCsfeaMaxIterationsInvalid"); return null; }
-        if (!int.TryParse(CsfeaMaxBisectionsBox.Text, NumberStyles.Integer, culture, out int bisections) || bisections < 0)
-        { error = Loc.S("FemCsfeaMaxBisectionsInvalid"); return null; }
-        if (!Pars.ParseAny(CsfeaTolDisplacementBox.Text, out var tolU) || !double.IsFinite(tolU) || tolU <= 0
-            || !Pars.ParseAny(CsfeaTolStiffnessBox.Text, out var tolK) || !double.IsFinite(tolK) || tolK <= 0)
-        { error = Loc.S("FemCsfeaToleranceInvalid"); return null; }
-        if (!Pars.ParseAny(CsfeaOmega0Box.Text, out var omega) || !double.IsFinite(omega) || omega <= 0 || omega > 1)
-        { error = Loc.S("FemCsfeaOmega0Invalid"); return null; }
 
         string recording = CsfeaRecordSelectedRadio.IsChecked == true ? FemCsfeaRecording.Selected
             : CsfeaRecordAllRadio.IsChecked == true ? FemCsfeaRecording.All : FemCsfeaRecording.Final;
         bool stageEnds = CsfeaRecordStageEndsCb.IsChecked == true;
-        if (recording == FemCsfeaRecording.Selected)
-        {
-            var steps = FemCsfeaParams.ParseRecordSteps(CsfeaRecordStepsBox.Text, out var stepsError);
-            if (steps == null) { error = stepsError; return null; }
-            if (steps.Count == 0 && !stageEnds) { error = Loc.S("FemCsfeaRecordStepsEmpty"); return null; }
-        }
 
         string tension = (CsfeaTensionConcreteBox.SelectedItem as ComboOption)?.Value ?? "";
         return new FemCsfeaParams
@@ -919,20 +921,23 @@ public partial class FemAnalysisDialog : Window
         string? error = null;
         if (_batch.Count == 0) error = Loc.S("FemCsfeaBatchEmpty");
         else if (_batch.Any(s => s.IsUnresolved)) error = Loc.S("FemCsfeaBatchUnresolved");
-        else if (!Pars.ParseAny(BatchStepBox.Text, out var step) || !double.IsFinite(step) || step <= 0 || step > 1
-            || !Pars.ParseAny(BatchMaxBox.Text, out var max) || !double.IsFinite(max) || max < step)
-            error = Loc.S("FemCsfeaBatchFactorsInvalid");
-        else
+        if (error != null)
         {
-            var batch = BatchDraft();
-            batch.LoadFactorStep = step;
-            batch.MaxLoadFactor = max;
-            // Флажок длительных частей типа, которого нет в пакете, не сохраняется.
-            batch.LongTermPairs.RemoveAll(t => !FemCsfeaBatchLongTerm.HasCombinations(batch.Items, t));
-            return batch;
+            MessageBox.Show(this, error, caption, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return null;
         }
-        MessageBox.Show(error, caption, MessageBoxButton.OK, MessageBoxImage.Warning);
-        return null;
+        Helpers.FieldCheck.Clear(BatchStepBox, BatchMaxBox);
+        if (!Helpers.FieldCheck.Read(this, BatchStepBox, "FemAnalysisStageLoadFactorStepColumn", out var step,
+                Helpers.FieldCheck.InRange(0, 1, "FemCsfeaBatchFactorsInvalid"))
+            || !Helpers.FieldCheck.Read(this, BatchMaxBox, "FemAnalysisStageMaxLoadFactorColumn", out var max,
+                v => v >= step ? null : Loc.S("FemCsfeaBatchFactorsInvalid")))
+            return null;
+        var batch = BatchDraft();
+        batch.LoadFactorStep = step;
+        batch.MaxLoadFactor = max;
+        // Флажок длительных частей типа, которого нет в пакете, не сохраняется.
+        batch.LongTermPairs.RemoveAll(t => !FemCsfeaBatchLongTerm.HasCombinations(batch.Items, t));
+        return batch;
     }
 
     void LinearCasesAll_Click(object sender, RoutedEventArgs e) => _linearCases.CheckAll();
@@ -991,26 +996,53 @@ public partial class FemAnalysisDialog : Window
 
     void Ok_Click(object sender, RoutedEventArgs e)
     {
-        StagesGrid.CommitEdit(DataGridEditingUnit.Cell, true);
-        StagesGrid.CommitEdit(DataGridEditingUnit.Row, true);
-
         if (IsSubmodelMode)
         {
-            if (!Pars.ParseAny(LoadFactorStepBox.Text, out var step) || !double.IsFinite(step) || step <= 0 || step > 1)
-            {
-                MessageBox.Show(Loc.S("SubmodelLoadFactorStepInvalid"), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            Helpers.FieldCheck.Clear(LoadFactorStepBox);
+            if (!Helpers.FieldCheck.Read(this, LoadFactorStepBox, "SubmodelLoadFactorStepLabel", out var step,
+                    Helpers.FieldCheck.InRange(0, 1, "SubmodelLoadFactorStepInvalid"))
+                || ReadNonlinearParams() is not { } submodelParams)
                 return;
-            }
-            var submodelParams = ReadNonlinearParams();
             submodelParams.LoadFactorStep = step;
             ResultParams = submodelParams;
             DialogResult = true;
             return;
         }
 
-        if (BuildAnalysis(Loc.S("FemAnalysisCreate")) is not { } analysis) return;
+        if (BuildAnalysis(Loc.S("FemAnalysisInvalidTitle")) is not { } analysis) return;
         Result = analysis;
         DialogResult = true;
+    }
+
+    /// <summary>Завершает правку ячейки таблицы стадий; false — в ячейке нераспознанное число (сообщение показано).</summary>
+    bool CommitStages(string caption)
+    {
+        if (StagesGrid.CommitEdit(DataGridEditingUnit.Cell, true) && StagesGrid.CommitEdit(DataGridEditingUnit.Row, true)
+            && !Validation.GetHasError(StagesGrid))
+            return true;
+        MessageBox.Show(this, Loc.S("FemAnalysisStageGridInvalid"), caption, MessageBoxButton.OK, MessageBoxImage.Warning);
+        StagesGrid.Focus();
+        return false;
+    }
+
+    /// <summary>
+    /// Общая проверка службы (имя, нагрузки, стадии, путь OpenSees, параметры); ошибки — одним сообщением, ошибка имени
+    /// отмечает поле имени. true — постановку можно записывать.
+    /// </summary>
+    bool ValidateWithService(FemAnalysis analysis, string caption)
+    {
+        var errors = Services.FemAnalysisAuthoring.Validate(_schema, analysis, _nodes.Select(n => n.Id).ToHashSet());
+        Helpers.FieldCheck.Clear(TagBox);
+        if (errors.Count == 0) return true;
+        MessageBox.Show(this, string.Join(Environment.NewLine, errors.Select(err => err.Message).Distinct()), caption,
+            MessageBoxButton.OK, MessageBoxImage.Warning);
+        if (errors.Any(err => err.Path == "tag"))
+        {
+            TagBox.BorderBrush = System.Windows.Media.Brushes.Red;
+            TagBox.Focus();
+            TagBox.SelectAll();
+        }
+        return false;
     }
 
     /// <summary>
@@ -1042,17 +1074,22 @@ public partial class FemAnalysisDialog : Window
     FemAnalysis? BuildBucklingAnalysis(string caption)
     {
         string? error = null;
-        static bool Num(TextBox box, out double v) =>
-            double.TryParse(box.Text.Trim(), NumberStyles.Float, CultureInfo.CurrentCulture, out v) && double.IsFinite(v);
         if (_batch.Count == 0) error = Loc.S("FemBucklingCombinationsEmpty");
         else if (_batch.Any(s => s.IsUnresolved)) error = Loc.S("FemCsfeaBatchUnresolved");
-        else if (!int.TryParse(BucklingModesBox.Text.Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out int modes)
-            || modes is < 1 or > 200)
-            error = Loc.S("FemBucklingModesInvalid");
-        else if (!Num(BucklingGFixedBox, out double gFixed) || gFixed < 0 || !Num(BucklingGPinnedBox, out double gPinned)
-                 || gPinned <= 0 || !Num(BucklingSwayStiffnessBox, out double swayStiffness) || swayStiffness <= 0)
-            error = Loc.S("FemBucklingNomogramInvalid");
-        else
+        if (error != null)
+        {
+            MessageBox.Show(this, error, caption, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return null;
+        }
+        Helpers.FieldCheck.Clear(BucklingModesBox, BucklingGFixedBox, BucklingGPinnedBox, BucklingSwayStiffnessBox);
+        // Номограммные поля скрыты у метода «по формам» — их значения берутся как есть, но тоже должны быть числами.
+        if (!Helpers.FieldCheck.ReadInt(this, BucklingModesBox, "FemBucklingModesLabel", out int modes,
+                v => v is >= 1 and <= 200 ? null : Loc.S("FemBucklingModesInvalid"))
+            || !Helpers.FieldCheck.Read(this, BucklingGFixedBox, "FemBucklingGFixedLabel", out double gFixed, Helpers.FieldCheck.NonNegative)
+            || !Helpers.FieldCheck.Read(this, BucklingGPinnedBox, "FemBucklingGPinnedLabel", out double gPinned, Helpers.FieldCheck.Positive)
+            || !Helpers.FieldCheck.Read(this, BucklingSwayStiffnessBox, "FemBucklingSwayThresholdLabel", out double swayStiffness,
+                Helpers.FieldCheck.Positive))
+            return null;
         {
             var pars = new FemAnalysisParams
             {
@@ -1068,16 +1105,29 @@ public partial class FemAnalysisDialog : Window
                     Tag = s.Tag, LoadExpressionJson = s.ExpressionJson, LoadFactorStep = 1.0, MaxLoadFactor = 1.0,
                 }).ToList(),
             };
-            string tag = TagBox.Text.Trim();
-            if (string.IsNullOrWhiteSpace(tag)) tag = Loc.S("FemAnalysisKindCsfeaBuckling");
-            return new FemAnalysis
+            return Finish(new FemAnalysis
             {
-                SchemaId = _schema.Id, Tag = tag, Kind = FemBucklingRunner.AnalysisKind,
+                SchemaId = _schema.Id, Tag = TagOrDefault(Loc.S("FemAnalysisKindCsfeaBuckling")), Kind = FemBucklingRunner.AnalysisKind,
                 LoadExpressionJson = pars.Stages[0].LoadExpressionJson, ParamsJson = pars.ToJson(),
-            };
+            }, caption);
         }
-        MessageBox.Show(error, caption, MessageBoxButton.OK, MessageBoxImage.Warning);
-        return null;
+    }
+
+    /// <summary>Имя из поля; пустое — свободное имя по <paramref name="baseTag"/> (без повтора в схеме).</summary>
+    string TagOrDefault(string baseTag)
+    {
+        string tag = TagBox.Text.Trim();
+        return tag.Length > 0 ? tag : Services.FemAnalysisAuthoring.FreeTag(_schema, baseTag, _existingId);
+    }
+
+    /// <summary>Id правимой постановки (для проверки повтора имени); 0 — новая.</summary>
+    readonly int _existingId;
+
+    /// <summary>Постановка получает Id правимой и проходит проверку службы; null — есть ошибки (показаны).</summary>
+    FemAnalysis? Finish(FemAnalysis analysis, string caption)
+    {
+        analysis.Id = _existingId;
+        return ValidateWithService(analysis, caption) ? analysis : null;
     }
 
     /// <summary>
@@ -1092,6 +1142,7 @@ public partial class FemAnalysisDialog : Window
         bool staged = isNonlinear || isCsfea;
         bool isBatch = IsBatchMode;
 
+        if (!CommitStages(caption)) return null;
         if (SelectedKind == FemBucklingRunner.AnalysisKind) return BuildBucklingAnalysis(caption);
         if (isCsfeaLinear && _linearCases.CheckedCount == 0)
         {
@@ -1117,17 +1168,13 @@ public partial class FemAnalysisDialog : Window
         }
 
         var pars = new FemAnalysisParams();
-        string tag = TagBox.Text.Trim();
+        string tag;
         string loadExpressionJson;
         if (staged)
         {
             if (isCsfea)
             {
-                if (ReadCsfeaParams(out var error) is not { } csfea)
-                {
-                    MessageBox.Show(error, caption, MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return null;
-                }
+                if (ReadCsfeaParams(isCsfeaLinear) is not { } csfea) return null;
                 pars.CalcType = CsfeaCalcTypeBox.SelectedItem as CalcType? ?? CalcType.N;
                 if (isCsfeaLinear)
                 {
@@ -1141,51 +1188,48 @@ public partial class FemAnalysisDialog : Window
                 }
                 pars.Csfea = csfea;
             }
+            else if (ReadNonlinearParams() is { } nonlinear)
+                pars = nonlinear;
             else
-                pars = ReadNonlinearParams();
+                return null;
             if (isBatch)
             {
                 if (ReadBatch(caption) is not { } batch) return null;
                 pars.Batch = batch;
-                if (string.IsNullOrWhiteSpace(tag)) tag = string.Format(Loc.S("FemCsfeaBatchDefaultTag"), batch.Items.Count);
-                return new FemAnalysis
+                return Finish(new FemAnalysis
                 {
-                    SchemaId = _schema.Id, Tag = tag, Kind = SelectedKind,
-                    LoadExpressionJson = batch.Items[0].LoadExpressionJson, ParamsJson = pars.ToJson()
-                };
+                    SchemaId = _schema.Id, Tag = TagOrDefault(string.Format(Loc.S("FemCsfeaBatchDefaultTag"), batch.Items.Count)),
+                    Kind = SelectedKind, LoadExpressionJson = batch.Items[0].LoadExpressionJson, ParamsJson = pars.ToJson()
+                }, caption);
             }
-            // Линейный CSfea: отмеченные загружения целиком, без шагов и множителя.
-            pars.Stages = isCsfeaLinear ? _linearCases.BuildStages() : _stages.Select(r =>
+            // Линейный CSfea: отмеченные загружения целиком, без шагов и множителя. Шаг и предел стадий — как введены:
+            // недопустимое называет служба, а не подменяет окно.
+            pars.Stages = isCsfeaLinear ? _linearCases.BuildStages() : _stages.Select(r => new FemAnalysisStage
             {
-                double step = r.LoadFactorStep > 0 ? r.LoadFactorStep : 0.1;
-                double max = r.MaxLoadFactor >= step ? r.MaxLoadFactor : isCsfea ? step : Math.Max(10.0, step);
-                return new FemAnalysisStage
-                {
-                    Tag = r.Tag, LoadExpressionJson = r.Source!.ExpressionJson,
-                    LoadFactorStep = step, MaxLoadFactor = max,
-                    PathControl = isCsfea ? null : BuildPathControlDto(r.PathControlMode, r.DisplacementControl, r.ArcLength),
-                    ContinueWith = isCsfea || r.ContinueWithMode == null ? null
-                        : BuildPathControlDto(r.ContinueWithMode, r.ContinueWithDisplacementControl, r.ContinueWithArcLength)
-                };
+                Tag = r.Tag, LoadExpressionJson = r.Source!.ExpressionJson,
+                LoadFactorStep = r.LoadFactorStep, MaxLoadFactor = r.MaxLoadFactor,
+                PathControl = isCsfea ? null : BuildPathControlDto(r.PathControlMode, r.DisplacementControl, r.ArcLength),
+                ContinueWith = isCsfea || r.ContinueWithMode == null ? null
+                    : BuildPathControlDto(r.ContinueWithMode, r.ContinueWithDisplacementControl, r.ContinueWithArcLength)
             }).ToList();
             loadExpressionJson = pars.Stages[0].LoadExpressionJson;
-            if (string.IsNullOrWhiteSpace(tag)) tag = pars.Stages[0].Tag;
+            tag = TagOrDefault(isCsfeaLinear ? Loc.S("FemAnalysisKindCsfeaLinear") : pars.Stages[0].Tag);
         }
         else
         {
             var src = _single.Source!;
             loadExpressionJson = src.ExpressionJson;
-            if (string.IsNullOrWhiteSpace(tag)) tag = src.Tag;
+            tag = TagOrDefault(src.Tag);
         }
 
-        return new FemAnalysis
+        return Finish(new FemAnalysis
         {
             SchemaId = _schema.Id,
             Tag = tag,
             Kind = isCsfea ? SelectedKind : isNonlinear ? "nonlinear" : "linear",
             LoadExpressionJson = loadExpressionJson,
             ParamsJson = pars.ToJson()
-        };
+        }, caption);
     }
 
     /// <summary>
@@ -1195,8 +1239,6 @@ public partial class FemAnalysisDialog : Window
     async void CsfeaCheckInput_Click(object sender, RoutedEventArgs e)
     {
         if (_csfeaContext is not { } ctx) return;
-        StagesGrid.CommitEdit(DataGridEditingUnit.Cell, true);
-        StagesGrid.CommitEdit(DataGridEditingUnit.Row, true);
         string caption = Loc.S("FemCsfeaCheckInputTitle");
         if (BuildAnalysis(caption) is not { } analysis) return;
 
@@ -1224,22 +1266,28 @@ public partial class FemAnalysisDialog : Window
             .ShowDialog();
     }
 
-    /// <summary>Параметры нелинейной панели (тип расчёта, формулировка элемента, материалы) без стадий.</summary>
-    FemAnalysisParams ReadNonlinearParams() => new()
+    /// <summary>
+    /// Параметры нелинейной панели (тип расчёта, формулировка элемента, материалы) без стадий; null — модуль
+    /// упрочнения не число или отрицателен (ошибка у поля). Пустой модуль — 0, как было.
+    /// </summary>
+    FemAnalysisParams? ReadNonlinearParams()
     {
-        CalcType = CalcTypeBox.SelectedItem as CalcType? ?? CalcType.C,
-        ConsiderPhysicalNonlinearity = ConsiderPhysicalNonlinearityCb.IsChecked == true,
-        ConsiderConcreteTension = ConsiderConcreteTensionCb.IsChecked == true,
-        MaterialSource = (MaterialSourceBox.SelectedItem as ComboOption)?.Value ?? "Translated",
-        MainMaterialModel = (MainMaterialModelBox.SelectedItem as ComboOption)?.Value ?? "Concrete04",
-        SteelModel = (SteelModelBox.SelectedItem as ComboOption)?.Value ?? "Steel02",
-        SteelHardeningModulusMpa =
-            Pars.ParseAny(SteelHardeningModulusBox.Text, out var hardening) &&
-            double.IsFinite(hardening) && hardening >= 0
-                ? hardening
-                : 0,
-        ElementFormulation = (ElementFormulationBox.SelectedItem as ComboOption)?.Value ?? "forceBeamColumn"
-    };
-
-    void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
+        Helpers.FieldCheck.Clear(SteelHardeningModulusBox);
+        double hardening = 0;
+        if (!string.IsNullOrWhiteSpace(SteelHardeningModulusBox.Text)
+            && !Helpers.FieldCheck.Read(this, SteelHardeningModulusBox, "FemAnalysisSteelHardeningModulusLabel", out hardening,
+                Helpers.FieldCheck.NonNegative))
+            return null;
+        return new()
+        {
+            CalcType = CalcTypeBox.SelectedItem as CalcType? ?? CalcType.C,
+            ConsiderPhysicalNonlinearity = ConsiderPhysicalNonlinearityCb.IsChecked == true,
+            ConsiderConcreteTension = ConsiderConcreteTensionCb.IsChecked == true,
+            MaterialSource = (MaterialSourceBox.SelectedItem as ComboOption)?.Value ?? "Translated",
+            MainMaterialModel = (MainMaterialModelBox.SelectedItem as ComboOption)?.Value ?? "Concrete04",
+            SteelModel = (SteelModelBox.SelectedItem as ComboOption)?.Value ?? "Steel02",
+            SteelHardeningModulusMpa = hardening,
+            ElementFormulation = (ElementFormulationBox.SelectedItem as ComboOption)?.Value ?? "forceBeamColumn"
+        };
+    }
 }
