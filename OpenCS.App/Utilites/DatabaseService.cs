@@ -8445,7 +8445,7 @@ namespace OpenCS.Utilites
             tx.Commit();
          }
          catch { tx.Rollback(); throw; }
-         RouteFemCheckToGroup(check);
+         RouteFemCheckToGroup(check, refreshTree);
          if (!inserted && refreshTree && FemChecks.IndexOf(check) is int at and >= 0)
          {
             // Без INotifyPropertyChanged у FemCheck: перевставка перестраивает узлы дерева (цель, имя, вид).
@@ -8454,15 +8454,24 @@ namespace OpenCS.Utilites
          }
       }
 
-      /// <summary>Проверка группы — в коллекции <see cref="CScore.Fem.FemMemberGroup.Checks"/> своей группы и только в ней.</summary>
-      void RouteFemCheckToGroup(CScore.Fem.FemCheck check)
+      /// <summary>
+      /// Проверка группы — в коллекции <see cref="CScore.Fem.FemMemberGroup.Checks"/> своей группы и только в ней (узел
+      /// группы в дереве); <paramref name="refresh"/> — перевставить на то же место (подпись после переименования).
+      /// </summary>
+      void RouteFemCheckToGroup(CScore.Fem.FemCheck check, bool refresh = false)
       {
          foreach (var s in FemSchemas)
             foreach (var g in s.MemberGroups)
             {
                bool own = !check.TargetsElement && s.Id == check.SchemaId && g.Id == check.MemberId;
-               if (own && !g.Checks.Contains(check)) g.Checks.Add(check);
-               else if (!own) g.Checks.Remove(check);
+               int at = g.Checks.IndexOf(check);
+               if (own && at < 0) g.Checks.Add(check);
+               else if (own && refresh)
+               {
+                  g.Checks.RemoveAt(at);
+                  g.Checks.Insert(at, check);
+               }
+               else if (!own && at >= 0) g.Checks.RemoveAt(at);
             }
       }
 
