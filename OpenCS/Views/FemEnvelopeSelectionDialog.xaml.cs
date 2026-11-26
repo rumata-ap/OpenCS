@@ -52,15 +52,14 @@ public partial class FemEnvelopeSelectionDialog : Window
             MessageBox.Show(this, Loc.S("FemEnvelopeSelectionNoGroups"), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
+        // Ошибка — у поля (рамка, подпись поля в сообщении, фокус); пустой лимит — без ограничения.
+        Helpers.FieldCheck.Clear(toleranceBox, maxBox);
         int max = 0;
-        bool maxOk = string.IsNullOrWhiteSpace(maxBox.Text)
-            || int.TryParse(maxBox.Text.Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out max) && max >= 0;
-        if (!Pars.ParseAny(toleranceBox.Text, out var tolerance) || !double.IsFinite(tolerance) || tolerance < 0
-            || tolerance > 100 || !maxOk)
-        {
-            MessageBox.Show(this, Loc.S("FemEnvelopeSelectionInvalid"), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+        if (!Helpers.FieldCheck.Read(this, toleranceBox, "FemEnvelopeSelectionTolerance", out var tolerance,
+                v => v >= 0 && v <= 100 ? null : string.Format(Loc.S("FieldErrRangeCC"), 0, 100))
+            || !string.IsNullOrWhiteSpace(maxBox.Text)
+               && !Helpers.FieldCheck.ReadInt(this, maxBox, "FemEnvelopeSelectionMax", out max, Helpers.FieldCheck.IntMin(0)))
             return;
-        }
         Options = new FemEnvelopeSelectionOptions(tolerance / 100, max) { Groups = groups, ValueKind = SelectedValueKind };
         DialogResult = true;
     }

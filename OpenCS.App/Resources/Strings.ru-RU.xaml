@@ -7757,4 +7757,5 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FieldErrIntMin">нужно целое число не меньше {0}</system:String>
    <system:String x:Key="FieldErrIntRange">нужно целое число от {0} до {1}</system:String>
    <system:String x:Key="FieldErrNotLessStep">не может быть меньше шага λ</system:String>
+   <system:String x:Key="FieldErrRangeCC">нужно число от {0} до {1}</system:String>
 </ResourceDictionary>

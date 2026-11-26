@@ -7757,4 +7757,5 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FieldErrIntMin">an integer not less than {0} is required</system:String>
    <system:String x:Key="FieldErrIntRange">an integer from {0} to {1} is required</system:String>
    <system:String x:Key="FieldErrNotLessStep">must not be less than the λ step</system:String>
+   <system:String x:Key="FieldErrRangeCC">a number from {0} to {1} is required</system:String>
 </ResourceDictionary>
