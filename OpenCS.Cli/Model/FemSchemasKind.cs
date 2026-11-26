@@ -20,12 +20,12 @@ namespace OpenCS.Cli.Model;
 /// не описываются: изменённая схема получает устаревшую сетку, она перестраивается перед расчётом или командой
 /// <c>opencs run mesh</c>; изменившаяся сетка сбрасывает результаты постановок.
 /// </summary>
-sealed class FemSchemasKind : IModelKind
+sealed partial class FemSchemasKind : IModelKind
 {
     public string Name => "femSchemas";
     public string SchemaResource => "OpenCS.Cli.Model.Schemas.femSchemas.schema.json";
 
-    static readonly string[] TopKeys = ["tag", "mesh", "nodes", "members", "groups", "lineSupports"];
+    static readonly string[] TopKeys = ["tag", "mesh", "nodes", "members", "groups", "lineSupports", "loadCases", "combinations"];
     static readonly string[] MeshKeys = ["barStepM", "plateStepM", "autoRigidJunctions", "rigidJunctionAngleDeg"];
     static readonly string[] NodeKeys = ["tag", "x", "y", "z", "fix", "springs"];
     static readonly string[] BeamKeys = ["tag", "type", "nodes", "section", "rotationDeg", "meshStepM", "torsion", "rigidJunction"];
@@ -164,10 +164,12 @@ sealed class FemSchemasKind : IModelKind
             o["members"] = new JsonArray(g.Tags.Select(t => (JsonNode)t).ToArray());
             groups.Add(o);
         }
+        var (loadCases, combinations) = LoadsJson(db, schema, warn);
         return new JsonObject
         {
             ["tag"] = schema.Tag.Trim(), ["mesh"] = mesh, ["nodes"] = nodes, ["members"] = members, ["groups"] = groups,
             ["lineSupports"] = LineSupportsJson(db, schema, schemaMembers, regions.Values, warn),
+            ["loadCases"] = loadCases, ["combinations"] = combinations,
         };
     }
 
@@ -251,7 +253,7 @@ sealed class FemSchemasKind : IModelKind
         RigidDoc? Rigid = null);
     sealed record GroupDoc(string Path, string Tag, string? MemberType, List<string> Members);
     sealed record SchemaDoc(string Path, string Tag, JsonObject? Mesh, List<NodeDoc>? Nodes, List<MemberDoc>? Members,
-        List<GroupDoc>? Groups, List<LineDoc>? Lines);
+        List<GroupDoc>? Groups, List<LineDoc>? Lines, List<LoadCaseDoc>? LoadCases = null, List<CombinationDoc>? Combinations = null);
 
     /// <summary>Направления массивом (<c>["x","uz"]</c>); <c>rx ry rz</c> документов 6а — как <c>ux uy uz</c>.</summary>
     static int Mask(JsonNode? node, string path, ModelErrors errors)
@@ -464,7 +466,9 @@ sealed class FemSchemasKind : IModelKind
 
         // Документ возвращается и при ошибках разбора — план проверит ещё и ссылки, чтобы показать все ошибки сразу.
         var lines = ParseLines(o["lineSupports"], path, errors);
-        return tag == null ? null : new SchemaDoc(path, tag, mesh, nodes, members, groups, lines);
+        var loadCases = ParseLoadCases(o["loadCases"], path, errors);
+        var combinations = ParseCombinations(o["combinations"], path, errors);
+        return tag == null ? null : new SchemaDoc(path, tag, mesh, nodes, members, groups, lines, loadCases, combinations);
     }
 
     static MemberDoc? ParseMember(JsonObject o, string p, ModelErrors errors)
@@ -771,7 +775,7 @@ sealed class FemSchemasKind : IModelKind
 
     /// <summary>Итог сборки: сессия, новые и изменённые области (ключ — тег КонЭ), что удалено.</summary>
     sealed record Built(FemSchemaEditSession Session, Dictionary<string, PlanarRegion> Regions, int NodesRemoved,
-        int MembersRemoved, int GroupsRemoved, int LinesRemoved);
+        int MembersRemoved, int GroupsRemoved, int LinesRemoved, int CasesRemoved = 0, int CombinationsRemoved = 0);
 
     /// <summary>
     /// Состав схемы по документу поверх текущего (или новой схемы): указанные массивы заменяют вид, совпавшие по тегу
@@ -793,6 +797,8 @@ sealed class FemSchemasKind : IModelKind
         var regions = new Dictionary<string, PlanarRegion>();
         var existingRegions = target != null ? db.GetPlanarRegions(target.Id).ToDictionary(r => r.Id) : [];
         int nodesRemoved = 0, membersRemoved = 0, groupsRemoved = 0;
+        // Новые КонЭ — временные отрицательные Id до записи: на них ссылаются нагрузки документа.
+        int nextMemberId = Math.Min(-1, session.Members.Select(m => m.Id).DefaultIfEmpty(0).Min() - 1);
 
         // КонЭ — раньше узлов: удаление узла уносит КонЭ на нём.
         if (d.Members != null)
@@ -864,7 +870,11 @@ sealed class FemSchemasKind : IModelKind
                     member.RigidJunctionKind = m.Rigid?.Coupled == true ? FemMember.RigidJunctionCoupled : null;
                     member.RigidJunctionMask = m.Rigid is { } rj && rj.Mask != FemBoundaryDofs.All ? rj.Mask : null;
                 }
-                if (added) session.Execute(new AddMemberCommand(member));
+                if (added)
+                {
+                    member.Id = nextMemberId--;
+                    session.Execute(new AddMemberCommand(member));
+                }
             }
         }
 
@@ -925,7 +935,12 @@ sealed class FemSchemasKind : IModelKind
                         errors.Add($"{g.Path}.members[{k}]", string.Format(Loc.S("CliFemErrUnknownMember"), g.Members[k]));
                 var group = session.MemberGroups.FirstOrDefault(x => x.Kind == FemMemberGroup.KindMembers && x.Tag == g.Tag);
                 if (group == null)
-                    session.MemberGroups.Add(FemGroupComposition.NewMembersGroup(schema.Id, g.Members, g.Tag, g.MemberType));
+                {
+                    // Временный отрицательный Id до записи: на новую группу ссылаются нагрузки документа.
+                    var added = FemGroupComposition.NewMembersGroup(schema.Id, g.Members, g.Tag, g.MemberType);
+                    added.Id = Math.Min(-1, session.MemberGroups.Select(x => x.Id).DefaultIfEmpty(0).Min() - 1);
+                    session.MemberGroups.Add(added);
+                }
                 else
                 {
                     group.SetTags(g.Members);
@@ -935,6 +950,7 @@ sealed class FemSchemasKind : IModelKind
         }
 
         int linesRemoved = d.Lines != null ? BuildLineSupports(d, session, schema, regions, existingRegions, errors) : 0;
+        var (casesRemoved, combinationsRemoved) = BuildLoads(ctx, d, session, schema, errors);
 
         // Проверка состава — та же, что у «Сохранить» редактора; ошибки — к объекту документа по тегу.
         var nodePaths = (d.Nodes ?? []).ToDictionary(n => n.Tag.ToString(System.Globalization.CultureInfo.InvariantCulture), n => n.Path);
@@ -945,7 +961,7 @@ sealed class FemSchemasKind : IModelKind
             string? p = diag.SourceKeys?.Select(k => memberPaths.GetValueOrDefault(k) ?? nodePaths.GetValueOrDefault(k)).FirstOrDefault(x => x != null);
             errors.Add(p ?? d.Path, diag.Message);
         }
-        return new Built(session, regions, nodesRemoved, membersRemoved, groupsRemoved, linesRemoved);
+        return new Built(session, regions, nodesRemoved, membersRemoved, groupsRemoved, linesRemoved, casesRemoved, combinationsRemoved);
     }
 
     /// <summary>
@@ -1057,6 +1073,9 @@ sealed class FemSchemasKind : IModelKind
             ctx.LogService.Warning(string.Format(Loc.S("CliFemRemoved"), d.Tag, built.NodesRemoved, built.MembersRemoved, built.GroupsRemoved));
         if (built.LinesRemoved > 0)
             ctx.LogService.Warning(string.Format(Loc.S("CliFemLineSupportsRemoved"), d.Tag, built.LinesRemoved));
+        int imperfectionsRemoved = CommitImperfections(ctx, d, built.Session, schema);
+        if (built.CasesRemoved + built.CombinationsRemoved + imperfectionsRemoved > 0)
+            ctx.LogService.Warning(string.Format(Loc.S("CliFemLoadsRemoved"), d.Tag, built.CasesRemoved, built.CombinationsRemoved, imperfectionsRemoved));
         if (hadMesh)
             ctx.LogService.Warning(string.Format(Loc.S("CliFemMeshStale"), d.Tag));
     }

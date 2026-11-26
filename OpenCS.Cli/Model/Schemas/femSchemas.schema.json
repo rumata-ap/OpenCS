@@ -121,6 +121,78 @@
           "springs": { "$ref": "#/$defs/springs", "description": "Погонные пружины: kx ky kz — кН/м², kux kuy kuz — кН·м/рад/м" }
         }
       }
+    },
+    "loadCases": {
+      "type": "array",
+      "description": "Загружения (указан — заменяет набор загружений схемы; загружение, заданное в постановке, удалить нельзя, входящее в комбинации — только вместе с combinations). Нагрузки: силы — кН, моменты — кН·м, погонные — кН/м, площадные — кПа, отступы — м, перемещения — мм, повороты — мрад",
+      "items": {
+        "type": "object",
+        "required": ["tag"],
+        "additionalProperties": false,
+        "properties": {
+          "tag": { "type": "string", "minLength": 1 },
+          "type": { "enum": ["permanent", "long_term", "short_term", "accidental", "imperfection"], "default": "short_term", "description": "Вид нагрузки по СП 20; imperfection — загружение-несовершенство (только imperfections)" },
+          "group": { "type": "string", "description": "Группа взаимоисключающих загружений" },
+          "gammaF": { "type": "number", "exclusiveMinimum": 0, "description": "γf; нет — по умолчанию из настроек расчёта" },
+          "gammaFReduced": { "type": "number", "exclusiveMinimum": 0, "description": "Пониженный γf (п. 7.3), только permanent" },
+          "longTermShare": { "type": "number", "minimum": 0, "maximum": 1, "description": "Доля длительной части, только short_term" },
+          "selfWeight": { "type": "number", "description": "Коэффициент к собственному весу всей схемы" },
+          "loads": {
+            "type": "array",
+            "description": "Нагрузки загружения (указан — заменяет нагрузки на узлы и стержни КонЭ, заданные перемещения и равномерные нагрузки на пластины; нагрузки сеточного уровня не трогаются)",
+            "items": {
+              "oneOf": [
+                { "type": "object", "required": ["node"], "additionalProperties": false, "description": "Сила и момент в узле КонЭ (общие оси)",
+                  "properties": { "node": { "$ref": "#/$defs/tag" }, "f": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3, "description": "Fx Fy Fz, кН" }, "m": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3, "description": "Mx My Mz, кН·м" } } },
+                { "type": "object", "required": ["node", "displacement"], "additionalProperties": false, "description": "Заданные перемещения узла КонЭ",
+                  "properties": { "node": { "$ref": "#/$defs/tag" }, "displacement": { "type": "object", "description": "x y z — мм, ux uy uz — мрад", "additionalProperties": false,
+                    "properties": { "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" }, "ux": { "type": "number" }, "uy": { "type": "number" }, "uz": { "type": "number" } } } } },
+                { "type": "object", "required": ["member"], "additionalProperties": false, "description": "Нагрузка на стержень КонЭ: q (равномерная; с q2 — трапеция на участке) или point (сосредоточенная в точке a)",
+                  "properties": { "member": { "$ref": "#/$defs/tag" }, "axes": { "enum": ["local", "global"], "default": "local" },
+                    "q": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3, "description": "qx qy qz в начале участка, кН/м" }, "q2": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3, "description": "qx qy qz в конце участка, кН/м" },
+                    "point": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3, "description": "Px Py Pz, кН" }, "m": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3, "description": "Mx My Mz сосредоточенной, кН·м" },
+                    "a": { "type": "number", "minimum": 0, "description": "Отступ от начала стержня, м" }, "b": { "type": "number", "minimum": 0, "description": "Отступ от конца стержня, м (не у point)" } } },
+                { "type": "object", "required": ["p"], "additionalProperties": false, "description": "Равномерное давление на пластины: plates (теги КонЭ) или group",
+                  "properties": { "plates": { "type": "array", "items": { "$ref": "#/$defs/tag" }, "minItems": 1 }, "group": { "$ref": "#/$defs/tag" },
+                    "p": { "type": "number", "description": "кПа, знак — вдоль направления" }, "direction": { "enum": ["x", "y", "z", "normal"], "default": "z", "description": "Общая ось или нормаль пластины" } } }
+              ]
+            }
+          },
+          "imperfections": {
+            "type": "array",
+            "description": "Элементы несовершенства (указан — заменяет элементы загружения). params — поля окна в camelCase, единица — в имени поля (heightM, e0Mm…); у modes постановка — analysis (имя)",
+            "items": {
+              "type": "object",
+              "required": ["tag", "kind"],
+              "additionalProperties": false,
+              "properties": {
+                "tag": { "type": "string", "minLength": 1 },
+                "kind": { "enum": ["sway", "bow", "wall_bow", "modes"] },
+                "comment": { "type": "string" },
+                "params": { "type": "object" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "combinations": {
+      "type": "array",
+      "description": "Комбинации (указан — заменяет набор комбинаций схемы). Слагаемое: role без k — «авто» по СП 20; k с role — заданное число с ролью; только k — число",
+      "items": {
+        "type": "object",
+        "required": ["tag"],
+        "additionalProperties": false,
+        "properties": {
+          "tag": { "type": "string", "minLength": 1 },
+          "type": { "type": "string", "description": "C, CL, N, NL, A или свой" },
+          "comment": { "type": "string" },
+          "all": { "type": "boolean", "description": "Все загружения с коэффициентом 1 (без terms)" },
+          "terms": { "type": "array", "items": { "type": "object", "required": ["loadCase"], "additionalProperties": false,
+            "properties": { "loadCase": { "$ref": "#/$defs/tag" }, "k": { "type": "number" },
+              "role": { "enum": ["permanent", "permanent_reduced", "leading", "second", "other", "accidental"] } } } }
+        }
+      }
     }
   }
 }
