@@ -17,15 +17,15 @@
                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                     <TextBlock Text="{DynamicResource FemCheckEtaLength}" VerticalAlignment="Center" Margin="0,0,4,0"
                                ToolTip="{DynamicResource FemCheckEtaLengthHint}"/>
-                    <TextBox Width="60" Text="{Binding EtaLength, UpdateSourceTrigger=PropertyChanged}"
+                    <TextBox x:Name="EtaLengthBox" Width="60" Text="{Binding EtaLength, UpdateSourceTrigger=PropertyChanged}"
                              ToolTip="{DynamicResource FemCheckEtaLengthHint}"/>
                     <TextBlock Text="{DynamicResource EtaMuxLabel}" VerticalAlignment="Center" Margin="12,0,4,0"
                                ToolTip="{DynamicResource EtaMuTableHint}"/>
-                    <TextBox Width="50" Text="{Binding EtaMuX, UpdateSourceTrigger=PropertyChanged}"
+                    <TextBox x:Name="EtaMuXBox" Width="50" Text="{Binding EtaMuX, UpdateSourceTrigger=PropertyChanged}"
                              ToolTip="{DynamicResource EtaMuTableHint}"/>
                     <TextBlock Text="{DynamicResource EtaMuyLabel}" VerticalAlignment="Center" Margin="12,0,4,0"
                                ToolTip="{DynamicResource EtaMuTableHint}" Visibility="{Binding EtaYVisibility}"/>
-                    <TextBox Width="50" Text="{Binding EtaMuY, UpdateSourceTrigger=PropertyChanged}"
+                    <TextBox x:Name="EtaMuYBox" Width="50" Text="{Binding EtaMuY, UpdateSourceTrigger=PropertyChanged}"
                              ToolTip="{DynamicResource EtaMuTableHint}" Visibility="{Binding EtaYVisibility}"/>
                 </StackPanel>
                 <CheckBox Content="{DynamicResource FemCheckEtaPsiAuto}" Margin="0,4,0,0"
@@ -34,11 +34,11 @@
                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                     <TextBlock Text="{DynamicResource EtaPsixLabel}" VerticalAlignment="Center" Margin="0,0,4,0"
                                ToolTip="{DynamicResource EtaPsiHint}"/>
-                    <TextBox Width="50" Text="{Binding EtaPsiX, UpdateSourceTrigger=PropertyChanged}"
+                    <TextBox x:Name="EtaPsiXBox" Width="50" Text="{Binding EtaPsiX, UpdateSourceTrigger=PropertyChanged}"
                              ToolTip="{DynamicResource EtaPsiHint}"/>
                     <TextBlock Text="{DynamicResource EtaPsiyLabel}" VerticalAlignment="Center" Margin="12,0,4,0"
                                ToolTip="{DynamicResource EtaPsiHint}" Visibility="{Binding EtaYVisibility}"/>
-                    <TextBox Width="50" Text="{Binding EtaPsiY, UpdateSourceTrigger=PropertyChanged}"
+                    <TextBox x:Name="EtaPsiYBox" Width="50" Text="{Binding EtaPsiY, UpdateSourceTrigger=PropertyChanged}"
                              ToolTip="{DynamicResource EtaPsiHint}" Visibility="{Binding EtaYVisibility}"/>
                 </StackPanel>
             </StackPanel>
@@ -51,12 +51,12 @@
                       IsChecked="{Binding SteelMeshLef}"/>
             <StackPanel Orientation="Horizontal" IsEnabled="{Binding SteelMeshLef}" Margin="18,4,0,0">
                 <TextBlock Text="{DynamicResource EtaMuxLabel}" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                <TextBox Width="50" Text="{Binding SteelMuX, UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBox x:Name="SteelMuXBox" Width="50" Text="{Binding SteelMuX, UpdateSourceTrigger=PropertyChanged}"/>
                 <TextBlock Text="{DynamicResource EtaMuyLabel}" VerticalAlignment="Center" Margin="12,0,4,0"/>
-                <TextBox Width="50" Text="{Binding SteelMuY, UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBox x:Name="SteelMuYBox" Width="50" Text="{Binding SteelMuY, UpdateSourceTrigger=PropertyChanged}"/>
                 <TextBlock Text="{DynamicResource Sp16MeshMuBShort}" VerticalAlignment="Center" Margin="12,0,4,0"
                            ToolTip="{DynamicResource Sp16MeshMuB}"/>
-                <TextBox Width="50" Text="{Binding SteelMuB, UpdateSourceTrigger=PropertyChanged}"
+                <TextBox x:Name="SteelMuBBox" Width="50" Text="{Binding SteelMuB, UpdateSourceTrigger=PropertyChanged}"
                          ToolTip="{DynamicResource Sp16MeshMuB}"/>
             </StackPanel>
             <!-- Авто (МКЭ): μ по расчёту устойчивости схемы; где не назначен — по сетке или из параметров группы -->

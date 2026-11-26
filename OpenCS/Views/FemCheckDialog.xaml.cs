@@ -6,8 +6,10 @@ using System.Windows;
 using System.Windows.Controls;
 using CScore;
 using CScore.Fem;
+using OpenCS.Services;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
+using OpenCS.Views.Helpers;
 
 namespace OpenCS.Views;
 
@@ -27,12 +29,55 @@ public partial class FemCheckDialog : Window
         Owner = Application.Current.MainWindow;
     }
 
+    /// <summary>
+    /// Числа полей — у поля (<see cref="FieldCheck"/>), затем проверка службы (имя без повтора в схеме, цель, наборы,
+    /// параметры). Окно возвращает черновик; запись и сброс результата — <see cref="FemCheckAuthoring.Save"/>.
+    /// </summary>
     void Ok_Click(object sender, RoutedEventArgs e)
     {
         var vm = (FemCheckDialogVM)DataContext;
-        if (vm.SelectedMember == null) { MessageBox.Show("Выберите конструктивный элемент."); return; }
-        ResultCheck = vm.BuildCheck();
+        if (vm.SelectedMember == null || vm.SelectedSchema == null)
+        {
+            MessageBox.Show(this, Loc.S("FemCheckTargetMissing"), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        FieldCheck.Clear(AcrcBox, Phi1Box);
+        if (AcrcBox.IsVisible && !FieldCheck.Read(this, AcrcBox, "FemCheckDlgAcrcLim", out _, FieldCheck.Positive)) return;
+        if (Phi1Box.IsVisible && !FieldCheck.Read(this, Phi1Box, "FemCheckPhi1Label", out _, FieldCheck.Positive)) return;
+        if (!BucklingEditor.CheckFields(this)) return;
+        var draft = vm.BuildCheck();
+        if (!FemCheckDialogErrors.Show(this, FemCheckAuthoring.Validate(FemCheckRefs.Of(_app.db, vm.SelectedSchema), draft),
+                TagBox, TagErrorText))
+            return;
+        ResultCheck = draft;
         DialogResult = true;
+    }
+
+    void TagBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (TagErrorText != null) TagErrorText.Visibility = Visibility.Collapsed;
+    }
+}
+
+/// <summary>Ошибки службы в окне проверки: сообщение; ошибка имени — ещё и текстом под полем (рамку поля в фокусе
+/// перекрашивает шаблон TextBox).</summary>
+static class FemCheckDialogErrors
+{
+    /// <summary>true — ошибок нет.</summary>
+    public static bool Show(Window owner, IReadOnlyList<FieldError> errors, TextBox tagBox, TextBlock tagError)
+    {
+        tagError.Visibility = Visibility.Collapsed;
+        if (errors.Count == 0) return true;
+        MessageBox.Show(owner, string.Join(Environment.NewLine, errors.Select(err => err.Message).Distinct()), owner.Title,
+            MessageBoxButton.OK, MessageBoxImage.Warning);
+        if (errors.FirstOrDefault(err => err.Path == "tag") is { } tagErr)
+        {
+            tagError.Text = tagErr.Message;
+            tagError.Visibility = Visibility.Visible;
+            tagBox.Focus();
+            tagBox.SelectAll();
+        }
+        return false;
     }
 }
 
@@ -134,6 +179,7 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
             OnPropertyChanged(nameof(AcrcRowVisibility));
             OnPropertyChanged(nameof(StripModelVisibility));
             OnPropertyChanged(nameof(CapriCheckModeVisibility));
+            AutoFillTag();
         }
     }
 
@@ -178,10 +224,10 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
     public List<CalcTypeOption> CalcTypeOptions { get; } =
     [
         new(null,  Loc.S("FemCheckDlgCalcTypeAuto")),
-        new("C",   "C — расчётные"),
-        new("CL",  "CL — расчётные длительные"),
-        new("N",   "N — нормативные"),
-        new("NL",  "NL — нормативные длительные"),
+        new("C",   Loc.S("FemCheckCalcTypeC")),
+        new("CL",  Loc.S("FemCheckCalcTypeCL")),
+        new("N",   Loc.S("FemCheckCalcTypeN")),
+        new("NL",  Loc.S("FemCheckCalcTypeNL")),
     ];
 
     CalcTypeOption? _selectedCalcTypeOption;
@@ -206,9 +252,19 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
         _selectedPlateKind      = PlateKinds[0];
         _selectedPhi1Mode       = Phi1Modes[0]; // auto
 
-        if (existing != null) LoadFromExisting(existing);
+        if (existing != null)
+        {
+            // Загрузка правки: выбор цели и вида не подставляет автоимя — имя проверки сохраняется.
+            _loading = true;
+            LoadFromExisting(existing);
+            _loading = false;
+        }
         else if (Schemas.Count > 0) SelectedSchema = Schemas[0];
     }
+
+    bool _loading;
+    /// <summary>Последнее подставленное автоимя: пока имя равно ему (или пусто), смена цели или вида его обновляет.</summary>
+    string? _lastAutoTag;
 
     /// <summary>Выбрать целью группу или конструктивный элемент (схема — его схема).</summary>
     public void SelectTarget(IFemCheckable target)
@@ -270,13 +326,27 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
         SelectedMember = Members.FirstOrDefault();
     }
 
+    /// <summary>Имя цели без пометки «[Группа]»/«[Элемент]».</summary>
+    string TargetTag => _selectedMember?.Group?.Tag ?? _selectedMember?.Element?.ElemTag ?? "";
+
+    /// <summary>Автоимя «цель / вид» без повтора в схеме.</summary>
+    string AutoTag() => _selectedSchema == null ? "" : FemCheckAuthoring.FreeTag(App.db.FemChecks, _selectedSchema.Id,
+        FemCheckAuthoring.AutoTag(TargetTag, _selectedNormCode?.Code ?? FemCheckAuthoring.Steel,
+            IsPlate ? _selectedPlateKind?.Kind : null), _existing?.Id ?? 0);
+
+    /// <summary>Автоимя — только пока пользователь имя не менял (пусто или равно последнему подставленному).</summary>
     void AutoFillTag()
     {
-        if (_selectedMember == null || _selectedNormCode == null) return;
-        Tag = $"{_selectedMember.Tag} / {_selectedNormCode.Code}";
+        if (_loading || _selectedMember == null || _selectedNormCode == null) return;
+        if (Tag.Trim().Length > 0 && Tag != _lastAutoTag) return;
+        Tag = _lastAutoTag = AutoTag();
     }
 
-    public FemCheck BuildCheck() => FillCheck(_existing ?? new FemCheck());
+    /// <summary>Черновик проверки по полям окна (Id и результат правимой); правимая проверка не меняется.</summary>
+    public FemCheck BuildCheck() => FillCheck(new FemCheck { Id = _existing?.Id ?? 0, ResultId = _existing?.ResultId });
+
+    /// <summary>Число поля; нераспознанное — −1 (отклонит проверка службы; поля окна до этого проверяет FieldCheck).</summary>
+    static double Num(string text) => NumberInput.TryParse(text, out double v) && double.IsFinite(v) ? v : -1;
 
     /// <summary>Записывает состояние диалога в проверку.</summary>
     FemCheck FillCheck(FemCheck check)
@@ -289,29 +359,28 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
         }
 
         string? paramsJson = null;
+        // Поля, которых нет в окне (шаг Капра–Мори, σs,crc, γ), берутся из правимой проверки того же вида.
+        bool sameKind = _existing?.NormCode == _selectedNormCode?.Code;
         if (IsPlate && _selectedPlateKind != null)
         {
-            var inv = System.Globalization.CultureInfo.InvariantCulture;
-            double acrc = double.TryParse(AcrcLimMm.Replace(',', '.'),
-                System.Globalization.NumberStyles.Float, inv, out var va) ? va : 0.3;
-            double phi1 = double.TryParse(Phi1.Replace(',', '.'),
-                System.Globalization.NumberStyles.Float, inv, out var vp) ? vp : 1.0;
-
-            paramsJson = new PlateCheckParams
+            bool sls = AcrcRowVisibility == Visibility.Visible;
+            var basis = sameKind ? PlateCheckParams.Parse(_existing!.ParamsJson) : new PlateCheckParams();
+            paramsJson = (basis with
             {
                 Kind       = _selectedPlateKind.Kind,
-                AcrcLimMm  = acrc,
+                AcrcLimMm  = sls ? Num(AcrcLimMm) : basis.AcrcLimMm,
                 Phi1Mode   = _selectedPhi1Mode?.Mode ?? "auto",
-                Phi1       = phi1,
+                Phi1       = sls && _selectedPhi1Mode?.Mode == "manual" ? Num(Phi1) : basis.Phi1,
                 CheckGroup = "uls",
                 StripModel = SelectedStripModel,
                 CapriCheckMode = SelectedCapriCheckMode,
                 RebarSources = SelectedRebarSources(),
                 Eta = Buckling.BuildEta(),
-            }.ToJson();
+            }).ToJson();
         }
         else if (IsBarRcCheck)
-            paramsJson = new BarCheckParams { RebarSources = SelectedRebarSources(), Eta = Buckling.BuildEta() }.ToJson();
+            paramsJson = ((sameKind ? BarCheckParams.Parse(_existing!.ParamsJson) : new BarCheckParams())
+                with { RebarSources = SelectedRebarSources(), Eta = Buckling.BuildEta() }).ToJson();
         else if (_selectedNormCode?.Code == "steel_check")
             paramsJson = Buckling.BuildSteel().ToJson();
 
@@ -319,7 +388,7 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
         check.MemberId         = _selectedMember!.Kind == "group"   ? _selectedMember.Id : 0;
         check.ElementId        = _selectedMember!.Kind == "element" ? _selectedMember.Id : null;
         check.NormCode         = _selectedNormCode?.Code ?? "steel_check";
-        check.Tag              = string.IsNullOrWhiteSpace(Tag) ? $"{_selectedMember.Tag}/{check.NormCode}" : Tag;
+        check.Tag              = string.IsNullOrWhiteSpace(Tag) ? AutoTag() : Tag.Trim();
         check.ForceSetIdsJson  = forceSetIdsJson;
         check.CalcTypeOverride = _selectedCalcTypeOption?.Code;
         check.ParamsJson       = paramsJson;

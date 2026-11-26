@@ -8381,8 +8381,16 @@ namespace OpenCS.Utilites
           return result;
        }
 
-      public void SaveFemCheck(CScore.Fem.FemCheck check)
+      /// <summary>
+      /// Записывает проверку: новую — INSERT, существующую — полный UPDATE, в том числе схема и цель (группа или
+      /// конструктивный элемент). <paramref name="resetResult"/> — вход проверки изменился: её результаты удаляются (как
+      /// при удалении проверки). Проверка переносится в коллекции групп; <paramref name="refreshTree"/> — правка цели,
+      /// имени или вида: проверка перевставляется в <see cref="FemChecks"/>, узлы дерева перестраиваются (запись
+      /// результата расчёта дерево не трогает).
+      /// </summary>
+      public void SaveFemCheck(CScore.Fem.FemCheck check, bool resetResult = false, bool refreshTree = false)
       {
+         bool inserted = check.Id == 0;
          using var tx = _connection.BeginTransaction();
          try
          {
@@ -8409,10 +8417,22 @@ namespace OpenCS.Utilites
             }
             else
             {
+               if (resetResult)
+               {
+                  using var del = _connection.CreateCommand();
+                  del.CommandText = "DELETE FROM calc_results WHERE fem_check_id=@id OR id=@rid";
+                  del.Parameters.AddWithValue("@id", check.Id);
+                  del.Parameters.AddWithValue("@rid", (object?)check.ResultId ?? DBNull.Value);
+                  del.ExecuteNonQuery();
+                  check.ResultId = null;
+               }
                cmd.CommandText = """
-                  UPDATE fem_checks SET norm_code=@nc, params_json=@pj, result_id=@rid,
-                  tag=@tag, force_set_ids_json=@fsids, calc_type_override=@cto WHERE id=@id
+                  UPDATE fem_checks SET schema_id=@sid, member_id=@mid, element_id=@eid, norm_code=@nc, params_json=@pj,
+                  result_id=@rid, tag=@tag, force_set_ids_json=@fsids, calc_type_override=@cto WHERE id=@id
                """;
+               cmd.Parameters.AddWithValue("@sid",  check.SchemaId);
+               cmd.Parameters.AddWithValue("@mid",  check.MemberId);
+               cmd.Parameters.AddWithValue("@eid",  (object?)check.ElementId ?? DBNull.Value);
                cmd.Parameters.AddWithValue("@nc",   check.NormCode);
                cmd.Parameters.AddWithValue("@pj",   (object?)check.ParamsJson ?? DBNull.Value);
                cmd.Parameters.AddWithValue("@rid",  (object?)check.ResultId   ?? DBNull.Value);
@@ -8425,6 +8445,25 @@ namespace OpenCS.Utilites
             tx.Commit();
          }
          catch { tx.Rollback(); throw; }
+         RouteFemCheckToGroup(check);
+         if (!inserted && refreshTree && FemChecks.IndexOf(check) is int at and >= 0)
+         {
+            // Без INotifyPropertyChanged у FemCheck: перевставка перестраивает узлы дерева (цель, имя, вид).
+            FemChecks.RemoveAt(at);
+            FemChecks.Insert(at, check);
+         }
+      }
+
+      /// <summary>Проверка группы — в коллекции <see cref="CScore.Fem.FemMemberGroup.Checks"/> своей группы и только в ней.</summary>
+      void RouteFemCheckToGroup(CScore.Fem.FemCheck check)
+      {
+         foreach (var s in FemSchemas)
+            foreach (var g in s.MemberGroups)
+            {
+               bool own = !check.TargetsElement && s.Id == check.SchemaId && g.Id == check.MemberId;
+               if (own && !g.Checks.Contains(check)) g.Checks.Add(check);
+               else if (!own) g.Checks.Remove(check);
+            }
       }
 
       /// <summary>Удаляет проверку и все её calc_results (см. DeleteFemAnalysis — тот же паттерн).
@@ -8448,6 +8487,9 @@ namespace OpenCS.Utilites
          }
          catch { tx.Rollback(); throw; }
          FemChecks.Remove(check);
+         foreach (var s in FemSchemas)
+            foreach (var g in s.MemberGroups)
+               g.Checks.Remove(check);
       }
 
       /// <summary>Удаляет все проверки схемы(схем) вместе с их calc_results.</summary>

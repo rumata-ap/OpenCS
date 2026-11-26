@@ -69,6 +69,10 @@ public static class FieldCheck
     public static Func<double, string?> InRangeCO(double min, double max) =>
         v => v >= min && v < max ? null : string.Format(Loc.S("FieldErrRangeCO"), Num(min), Num(max));
 
+    /// <summary>Правило: число в [<paramref name="min"/>; <paramref name="max"/>].</summary>
+    public static Func<double, string?> InRangeCC(double min, double max) =>
+        v => v >= min && v <= max ? null : string.Format(Loc.S("FieldErrRangeCC"), Num(min), Num(max));
+
     /// <summary>Правило для целых: не меньше <paramref name="min"/>.</summary>
     public static Func<int, string?> IntMin(int min) =>
         v => v >= min ? null : string.Format(Loc.S("FieldErrIntMin"), min);

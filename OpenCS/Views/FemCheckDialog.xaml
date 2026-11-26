@@ -87,7 +87,7 @@
                 <TextBlock Grid.Column="1" Text="{DynamicResource FemCheckDlgAcrcLim}"
                            VerticalAlignment="Center" Margin="8,0,4,0"
                            Visibility="{Binding AcrcRowVisibility}"/>
-                <TextBox Grid.Column="2"
+                <TextBox Grid.Column="2" x:Name="AcrcBox"
                          Text="{Binding AcrcLimMm, UpdateSourceTrigger=PropertyChanged}"
                          Visibility="{Binding AcrcRowVisibility}"/>
             </Grid>
@@ -124,10 +124,10 @@
                       ItemsSource="{Binding Phi1Modes}"
                       SelectedItem="{Binding SelectedPhi1Mode}"
                       DisplayMemberPath="Label"/>
-            <TextBlock Grid.Column="1" Text="φ1 ="
+            <TextBlock Grid.Column="1" Text="{DynamicResource FemCheckPhi1Eq}"
                        VerticalAlignment="Center" Margin="8,0,4,0"
                        Visibility="{Binding Phi1ManualVisibility}"/>
-            <TextBox Grid.Column="2"
+            <TextBox Grid.Column="2" x:Name="Phi1Box"
                      Text="{Binding Phi1, UpdateSourceTrigger=PropertyChanged}"
                      Visibility="{Binding Phi1ManualVisibility}"/>
         </Grid>
@@ -144,9 +144,12 @@
         <!-- 8. Имя -->
         <TextBlock Grid.Row="8" Grid.Column="0" Text="{DynamicResource FemCheckDlgTag}"
                    VerticalAlignment="Center" Margin="0,0,8,8"/>
-        <TextBox Grid.Row="8" Grid.Column="1"
-                 Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}"
-                 Margin="0,0,0,8"/>
+        <StackPanel Grid.Row="8" Grid.Column="1" Margin="0,0,0,8">
+            <TextBox x:Name="TagBox" Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}"
+                     TextChanged="TagBox_TextChanged"/>
+            <TextBlock x:Name="TagErrorText" Foreground="#C0392B" TextWrapping="Wrap" Margin="0,2,0,0"
+                       Visibility="Collapsed"/>
+        </StackPanel>
 
         <!-- Источники армирования КЭ (пластины и железобетонные стержни) -->
         <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource FemCheckDlgRebarSources}"
@@ -175,7 +178,7 @@
         <TextBlock Grid.Row="10" Grid.Column="0" Text="{Binding Buckling.Header}"
                    VerticalAlignment="Top" Margin="0,0,8,8"
                    Visibility="{Binding Buckling.Visibility}"/>
-        <local:FemCheckBucklingEditor Grid.Row="10" Grid.Column="1" Margin="0,0,0,8"
+        <local:FemCheckBucklingEditor x:Name="BucklingEditor" Grid.Row="10" Grid.Column="1" Margin="0,0,0,8"
                                       DataContext="{Binding Buckling}"/>
 
         <!-- Готовность цели к проверке -->

@@ -6550,8 +6550,7 @@ namespace OpenCS
       {
          var dlg = new Views.FemCheckDialog(this, target: member);
          if (dlg.ShowDialog() != true || dlg.ResultCheck == null) return;
-         var check = dlg.ResultCheck;
-         db.SaveFemCheck(check);
+         Services.FemCheckAuthoring.Save(db, null, dlg.ResultCheck);
       }
 
       /// <summary>
@@ -6701,7 +6700,7 @@ namespace OpenCS
             return;
          }
          if (dlg.ShowDialog() != true || dlg.ResultCheck == null) return;
-         db.SaveFemCheck(dlg.ResultCheck);
+         Services.FemCheckAuthoring.Save(db, null, dlg.ResultCheck);
       }
 
       /// <summary>Открывает окно эпюр вдоль стержней цели: импортированные усилия и подобранная арматура.</summary>
@@ -6734,20 +6733,38 @@ namespace OpenCS
              return;
          }
 
-         bool isSls = check.NormCode == "rc_plate_check"
-                      && CScore.Fem.PlateCheckParams.Parse(check.ParamsJson).CheckGroup == "sls";
-
-         if (isSls)
+         // Окно возвращает черновик; служба переносит его в проверку и при смене входа удаляет её результат.
+         CScore.Fem.FemCheck? draft;
+         if (Services.FemCheckAuthoring.IsSls(check))
          {
              var dlg = new Views.FemSlsCheckDialog(this, check);
              if (dlg.ShowDialog() != true) return;
+             draft = dlg.ResultCheck;
          }
          else
          {
              var dlg = new Views.FemCheckDialog(this, check);
              if (dlg.ShowDialog() != true) return;
+             draft = dlg.ResultCheck;
          }
-         db.SaveFemCheck(check);
+         if (draft == null) return;
+         ApplyFemCheckEdit(check, draft);
+      }
+
+      /// <summary>
+      /// Записывает правку проверки через службу; сброшенный результат — запись в журнале и (<paramref name="refreshPage"/>)
+      /// страница «не рассчитана» вместо результата прежних параметров, если открыта эта проверка.
+      /// </summary>
+      public void ApplyFemCheckEdit(CScore.Fem.FemCheck check, CScore.Fem.FemCheck draft, bool refreshPage = true)
+      {
+         var (changed, reset) = Services.FemCheckAuthoring.Save(db, check, draft);
+         if (!changed) return;
+         if (reset)
+         {
+            LogService.Info(string.Format(Loc.S("FemCheckResultReset"), check.DisplayTag));
+            if (refreshPage && currentFemCheck == check) CurrentPage = new Views.FemCheckPendingView(check, this);
+         }
+         CommandManager.InvalidateRequerySuggested();
       }
 
       /// <summary>Возвращает конструктивные элементы схемы синхронно (для диалогов выбора цели проверки).</summary>
@@ -7494,7 +7511,8 @@ namespace OpenCS
       {
          check ??= currentFemCheck;
          if (check == null) return;
-         db.DeleteFemCheck(check);
+         // Вопрос с именем и результатом: удаление уносит и результат (расчёт по РСУ может идти долго).
+         if (!Services.FemCheckAuthoring.Delete(db, check, Notifier)) return;
          if (currentFemCheck == check)
          {
             currentFemCheck = null;

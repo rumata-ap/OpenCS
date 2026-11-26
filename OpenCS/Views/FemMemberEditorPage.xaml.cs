@@ -23,7 +23,10 @@ public partial class FemMemberEditorPage : UserControl
         _app    = app;
         InitializeComponent();
         if (_editorWidth is double w) colEditor.Width = new GridLength(w);
-        var vm = new FemMemberEditorVM(member, app);
+        var vm = new FemMemberEditorVM(member, app)
+        {
+            CheckBucklingFields = () => BucklingEditor.CheckFields(Window.GetWindow(this)),
+        };
         DataContext = vm;
         Set3D(new Fem3DVM(member, app.db));
         // Подписки на коллекции приложения и мозаику — пока страница на экране.
@@ -250,11 +253,29 @@ public class FemMemberEditorVM : ViewModelBase
     /// <summary>Отписаться от коллекции проверок приложения (страница скрыта).</summary>
     public void Detach() => _app.FemChecks.CollectionChanged -= FemChecks_CollectionChanged;
 
-    void SaveCheckParams()
+    /// <summary>Проверка полей блока продольного изгиба у поля (страница задаёт; см. <see cref="FemCheckBucklingEditor.CheckFields"/>).</summary>
+    public Func<bool>? CheckBucklingFields { get; set; }
+
+    /// <summary>
+    /// Черновик выбранной проверки с параметрами блока и его проверка службой; null — проверки нет. false — ошибки
+    /// показаны (поле или сообщение), ничего не записывается.
+    /// </summary>
+    bool BuildCheckDraft(out FemCheck? draft)
     {
-        if (_selectedCheck == null) return;
-        Buckling.Apply(_selectedCheck);
-        _db.SaveFemCheck(_selectedCheck);
+        draft = null;
+        if (_selectedCheck == null) return true;
+        if (CheckBucklingFields?.Invoke() == false) return false;
+        var built = Services.FemCheckAuthoring.Copy(_selectedCheck);
+        Buckling.Apply(built);
+        draft = built;
+        if (_app.FemSchemas.FirstOrDefault(s => s.Id == built.SchemaId) is not { } schema) return true;
+        // Только поля блока: прочие ошибки старой проверки (повтор имени и т. п.) правятся в её окне.
+        var errors = Services.FemCheckAuthoring.Validate(Services.FemCheckRefs.Of(_db, schema), built)
+            .Where(e => e.Path.StartsWith("eta", StringComparison.Ordinal) || e.Path.StartsWith("steel", StringComparison.Ordinal))
+            .Select(e => e.Message).Distinct().ToList();
+        if (errors.Count == 0) return true;
+        MessageBox.Show(string.Join(Environment.NewLine, errors), Loc.S("Warning"), MessageBoxButton.OK, MessageBoxImage.Warning);
+        return false;
     }
 
     public FemMemberEditorVM(FemMemberGroup member, AppViewModel app)
@@ -293,9 +314,13 @@ public class FemMemberEditorVM : ViewModelBase
         RefreshChecks();
     }
 
-    /// <summary>Сохраняет группу и параметры выбранной проверки; false — параметры СП 16 с ошибкой.</summary>
+    /// <summary>
+    /// Сохраняет группу и параметры выбранной проверки (через службу: изменённые параметры удаляют её результат); false —
+    /// ошибка в параметрах СП 16 или блока продольного изгиба, ничего не записано.
+    /// </summary>
     bool Save()
     {
+        if (!BuildCheckDraft(out var checkDraft)) return false;
         // Параметры СП 16 проверяются только когда они видны (стальной стержень); иначе сохраняются как были.
         CScore.Sp16.SteelDesignParams? steel = null;
         if (ShowSteelParams)
@@ -317,7 +342,13 @@ public class FemMemberEditorVM : ViewModelBase
         if (!IsPlateType)
             _db.SetFemMemberGroupCrossSection(_member, _selectedBarSection?.Id);
 
-        SaveCheckParams();
+        if (checkDraft != null)
+        {
+            // Запись перевставляет проверку в коллекцию приложения (узлы дерева) — выбор в блоке вернуть на неё.
+            var check = _selectedCheck!;
+            _app.ApplyFemCheckEdit(check, checkDraft, refreshPage: false);
+            if (check != _selectedCheck && Checks.Contains(check)) SelectedCheck = check;
+        }
         return true;
     }
 }

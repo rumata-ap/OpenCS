@@ -97,4 +97,51 @@ public sealed class FemCheckBucklingVMTests
         Assert.False(vm.Applies);
         Assert.Equal(System.Windows.Visibility.Collapsed, vm.Visibility);
     }
+
+    /// <summary>7б: нераспознанное число не становится умолчанием (1,0) — значение заведомо неверное, его отклоняет служба.</summary>
+    [Fact]
+    public void BadNumbers_NotSilentDefaults_RejectedByService()
+    {
+        var vm = new FemCheckBucklingVM { NormCode = "rc_check" };
+        vm.EtaEnabled = true;
+        vm.EtaMuX = "abc";
+        vm.EtaPsiY = "x";
+        vm.EtaLength = "";
+        var eta = vm.BuildEta()!;
+        Assert.Equal((-1.0, -1.0, (double?)null), (eta.MuX, eta.PsiY, eta.LengthM));
+
+        vm.NormCode = "steel_check";
+        vm.SteelMeshLef = true;
+        vm.SteelMuB = "?";
+        vm.SteelAutoLef = true;                                         // постановки нет — Id 0, не «выключено»
+        var steel = vm.BuildSteel();
+        Assert.Equal((-1.0, 0), (steel.MeshLef!.MuB, steel.AutoLef!.AnalysisId));
+
+        var s = new FemSchema { Id = 1 };
+        s.MemberGroups.Add(new FemMemberGroup { Id = 2, SchemaId = 1 });
+        var refs = new OpenCS.Services.FemCheckRefs(s, [], [], [], []);
+        var check = new FemCheck { SchemaId = 1, MemberId = 2, Tag = "А", NormCode = "steel_check", ParamsJson = steel.ToJson() };
+        Assert.Equal(["steel.analysis", "steel.muB"],
+            OpenCS.Services.FemCheckAuthoring.Validate(refs, check).Select(e => e.Path).Order());
+    }
+
+    /// <summary>У стен в блоке нет μy, ψy и предельной гибкости — правка блока их не сбрасывает.</summary>
+    [Fact]
+    public void PlateEta_KeepsHiddenFields()
+    {
+        var check = new FemCheck
+        {
+            NormCode = "rc_plate_check",
+            ParamsJson = new PlateCheckParams
+            {
+                Eta = new FemEtaParams { Enabled = true, MuY = 2, PsiY = 0.3, SlendernessThreshold = 20 },
+            }.ToJson(),
+        };
+        var vm = new FemCheckBucklingVM();
+        vm.Load(check);
+        vm.EtaMuX = "0,8";
+        vm.Apply(check);
+        var e = PlateCheckParams.Parse(check.ParamsJson).Eta!;
+        Assert.Equal((0.8, 2.0, 0.3, (double?)20), (e.MuX, e.MuY, e.PsiY, e.SlendernessThreshold));
+    }
 }

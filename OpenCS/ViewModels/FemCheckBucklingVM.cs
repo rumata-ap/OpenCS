@@ -108,8 +108,15 @@ public sealed class FemCheckBucklingVM : ViewModelBase
 
     static string F(double v) => v.ToString("G", Inv);
 
-    static double? Num(string text) =>
-        double.TryParse(text.Replace(',', '.'), NumberStyles.Float, Inv, out var v) && double.IsFinite(v) ? v : null;
+    /// <summary>
+    /// Число поля. Нераспознанное — −1: заведомо неверное значение, его отклоняет проверка
+    /// (<see cref="Services.FemCheckAuthoring.Validate"/>); молча подставлять умолчание нельзя. Поля окна и страницы
+    /// группы сначала проверяет <see cref="Views.FemCheckBucklingEditor.CheckFields"/>.
+    /// </summary>
+    static double Num(string text) => NumberInput.TryParse(text, out double v) && double.IsFinite(v) ? v : -1;
+
+    /// <summary>Длина l: пусто — по сетке схемы (null), иначе число поля.</summary>
+    static double? Length(string text) => string.IsNullOrWhiteSpace(text) ? null : Num(text);
 
     /// <summary>Заполняет блок из параметров проверки (вид — <see cref="FemCheck.NormCode"/>).</summary>
     public void Load(FemCheck check)
@@ -128,9 +135,16 @@ public sealed class FemCheckBucklingVM : ViewModelBase
         SteelAutoAnalysis = Analyses.FirstOrDefault(a => a.Id == _pendingAnalysisId) ?? Analyses.FirstOrDefault();
     }
 
+    // Поля, которых нет в блоке: μy, ψy у стен и предельная гибкость (задаётся в документе CLI) — сохраняются как были.
+    double _plateMuY = 1.0, _platePsiY = 1.0;
+    double? _slendernessThreshold;
+
     void LoadEta(FemEtaParams? eta)
     {
         var e = eta ?? new FemEtaParams();
+        _plateMuY = e.MuY;
+        _platePsiY = e.PsiY;
+        _slendernessThreshold = e.SlendernessThreshold;
         EtaEnabled   = e.Enabled;
         EtaIterative = e.Iterative;
         EtaLength    = e.HasManualLength ? F(e.LengthM!.Value) : "";
@@ -150,29 +164,25 @@ public sealed class FemCheckBucklingVM : ViewModelBase
         SteelMuB = F(m.MuB);
     }
 
-    /// <summary>Параметры η из полей; null — η не учитывается.</summary>
+    /// <summary>Параметры η из полей; null — η не учитывается. У стен μy, ψy не показываются — прежние значения.</summary>
     public FemEtaParams? BuildEta() => !EtaEnabled ? null : new FemEtaParams
     {
         Enabled   = true,
         Iterative = EtaIterative,
-        LengthM   = Num(EtaLength) is > 0 and double l ? l : null,
-        MuX       = Num(EtaMuX) is > 0 and double mx ? mx : 1.0,
-        MuY       = Num(EtaMuY) is > 0 and double my ? my : 1.0,
+        LengthM   = Length(EtaLength),
+        MuX       = Num(EtaMuX),
+        MuY       = _isPlate ? _plateMuY : Num(EtaMuY),
         PsiMode   = EtaPsiAuto ? FemEtaParams.PsiAuto : FemEtaParams.PsiManual,
-        PsiX      = Num(EtaPsiX) is >= 0 and double px ? px : 1.0,
-        PsiY      = Num(EtaPsiY) is >= 0 and double py ? py : 1.0,
+        PsiX      = Num(EtaPsiX),
+        PsiY      = _isPlate ? _platePsiY : Num(EtaPsiY),
+        SlendernessThreshold = _slendernessThreshold,
     };
 
-    /// <summary>Параметры стальной проверки из полей.</summary>
+    /// <summary>Параметры стальной проверки из полей; «Авто» без постановки — Id 0 (ошибка проверки, не молчаливое «выкл.»).</summary>
     public SteelFemCheckParams BuildSteel() => new()
     {
-        MeshLef = !SteelMeshLef ? null : new SteelMeshLef
-        {
-            MuX = Num(SteelMuX) is > 0 and double mx ? mx : 1.0,
-            MuY = Num(SteelMuY) is > 0 and double my ? my : 1.0,
-            MuB = Num(SteelMuB) is >= 0 and double mb ? mb : 0.0,
-        },
-        AutoLef = SteelAutoLef && SteelAutoAnalysis is { } a ? new SteelAutoLef { AnalysisId = a.Id } : null,
+        MeshLef = !SteelMeshLef ? null : new SteelMeshLef { MuX = Num(SteelMuX), MuY = Num(SteelMuY), MuB = Num(SteelMuB) },
+        AutoLef = SteelAutoLef ? new SteelAutoLef { AnalysisId = SteelAutoAnalysis?.Id ?? 0 } : null,
     };
 
     /// <summary>Записывает блок в параметры проверки, сохраняя прочие её параметры.</summary>

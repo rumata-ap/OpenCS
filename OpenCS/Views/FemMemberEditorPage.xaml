@@ -98,7 +98,7 @@
                         </DockPanel>
                         <TextBlock Text="{Binding Buckling.Header}" FontWeight="SemiBold" Margin="0,0,0,4"
                                    Visibility="{Binding Buckling.Visibility}"/>
-                        <local:FemCheckBucklingEditor DataContext="{Binding Buckling}"/>
+                        <local:FemCheckBucklingEditor x:Name="BucklingEditor" DataContext="{Binding Buckling}"/>
                         <Button Content="{DynamicResource FemGroupCheckSaveRun}" Command="{Binding SaveRunCheckCommand}"
                                 HorizontalAlignment="Right" Padding="8,2" Margin="0,8,0,0"/>
                     </StackPanel>
