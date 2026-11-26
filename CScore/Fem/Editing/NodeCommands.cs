@@ -105,6 +105,7 @@ public sealed class DeleteNodesCommand : IFemEditCommand
     List<FemMemberLoad> _removedMemberLoads = [];
     List<(FemMemberGroup group, string oldJson)> _groupEdits = [];
     List<(int Index, FemLineSupport Support)> _lineSupports = [];
+    List<(int Index, FemSpring Spring)> _springs = [];
 
     public DeleteNodesCommand(IEnumerable<FemNode> nodes)
         => _candidates = nodes.Distinct().ToList();
@@ -138,10 +139,17 @@ public sealed class DeleteNodesCommand : IFemEditCommand
             .ToHashSet(StringComparer.Ordinal);
         _groupEdits = FemGroupComposition.RemoveMemberTags(session.MemberGroups, removedMemberTags);
         _lineSupports = LineSupportCascade.RemoveForMembers(session, removedMemberTags);
+
+        // Пружины удалённых узлов уходят с ними (иначе новый узел с тем же тегом «наследовал» бы их до записи).
+        var removedNodeTags = _removedNodes.Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal);
+        _springs = session.NodeSprings.Select((s, i) => (Index: i, Spring: s))
+            .Where(x => removedNodeTags.Contains(x.Spring.NodeTag)).ToList();
+        for (int i = _springs.Count - 1; i >= 0; i--) session.NodeSprings.RemoveAt(_springs[i].Index);
     }
 
     public void Undo(FemSchemaEditSession session)
     {
+        foreach (var (index, spring) in _springs) session.NodeSprings.Insert(Math.Min(index, session.NodeSprings.Count), spring);
         LineSupportCascade.Restore(session, _lineSupports);
         foreach (var node in _removedNodes) session.Nodes.Add(node);
         foreach (var member in _removedMembers) session.Members.Add(member);

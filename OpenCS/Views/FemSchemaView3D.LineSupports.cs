@@ -120,20 +120,23 @@ public partial class FemSchemaView3D
         return true;
     }
 
-    /// <summary>Диалог «Линейная связь» для выбранных граней; начальные значения — связь первой грани (если есть).</summary>
+    /// <summary>
+    /// Диалог «Линейная связь» для выбранных граней: общие значения граней, разные — «разные» поля (нетронутые остаются
+    /// у каждой грани своими). Одной отменой.
+    /// </summary>
     public void EditSelectedEdgesLineSupport()
     {
         if (VM is not { } vm || Editor is not { } editor) return;
         var byKey = vm.PlateEdges.Values.SelectMany(x => x).ToDictionary(x => x.Key);
         var edges = editor.Selection.SelectedPlateEdges.Where(byKey.ContainsKey).Select(k => byKey[k]).ToList();
         if (edges.Count == 0) return;
-        var current = edges.Select(x => editor.LineSupportAt(x.Key)).FirstOrDefault(s => s != null);
+        var current = edges.Select(x => editor.LineSupportAt(x.Key)).ToList();
         var dialog = new FemLineSupportDialog(Loc.S("FemLineSupportTitle"), DescribeEdges(edges), current)
         {
             Owner = Window.GetWindow(this),
         };
         if (dialog.ShowDialog() != true) return;
-        editor.SetLineSupports(edges, dialog.Result);
+        editor.SetLineSupports(edges.Select((edge, i) => (edge, dialog.Build(current[i]))).ToList());
     }
 
     /// <summary>«Граней: 3, общая длина 12 м — 12, сторона 1; 12, сторона 2; …».</summary>

@@ -2816,26 +2816,25 @@ public partial class FemSchemaView3D : UserControl
         var nodes = editor.Session.Nodes.Where(n => tags.Contains(n.NodeTag)).ToList();
         if (nodes.Count == 0) return;
 
-        double[] Stiffness(CScore.Fem.FemNode node)
-        {
-            var k = new double[6];
-            foreach (var spring in editor.Session.NodeSprings.Where(s => s.NodeTag == node.NodeTag))
-                for (int i = 0; i < 6; i++) k[i] += spring.Stiffnesses[i];
-            return k;
-        }
-        var masks = nodes.Select(n => n.DofMask & CScore.Fem.FemBoundaryDofs.All).Distinct().ToList();
-        var stiffnesses = nodes.Select(Stiffness).ToList();
-        bool sameK = stiffnesses.All(k => k.SequenceEqual(stiffnesses[0]));
+        // Разные у узлов значения — «разные» поля окна: нетронутые остаются у каждого узла своими.
+        var current = nodes.ToDictionary(n => n, n => (Mask: n.DofMask & CScore.Fem.FemBoundaryDofs.All,
+            K: OpenCS.Services.FemBoundaryAuthoring.NodeStiffnesses(editor.Session, n.NodeTag)));
+        var (fix, k) = OpenCS.Services.FemBoundaryAuthoring.Common(
+            current.Values.Select(v => (v.Mask, (IReadOnlyList<double>)v.K)).ToList());
         var node0 = nodes[0];
         string header = nodes.Count == 1
             ? string.Format(System.Globalization.CultureInfo.CurrentCulture, Loc.S("FemMeshNodeBoundaryHeader"),
                 node0.NodeTag, node0.X, node0.Y, node0.Z)
             : string.Format(Loc.S("FemNodeBoundaryNodesHeader"), FemBoundaryObjectList.FormatTags(nodes.Select(n => n.NodeTag)));
-        var dialog = new FemMeshNodeBoundaryDialog(header, null, imported: false, masks.Count == 1 ? masks[0] : 0,
-            sameK ? stiffnesses[0] : new double[6], allowSprings: true)
-        { Owner = Window.GetWindow(this) };
+        var dialog = new FemMeshNodeBoundaryDialog(header, null, imported: false, fix, k) { Owner = Window.GetWindow(this) };
         if (dialog.ShowDialog() != true) return;
-        editor.Session.Execute(new CScore.Fem.Editing.SetNodeBoundaryCommand(nodes, dialog.Mask, dialog.Stiffnesses));
+        var commands = nodes
+            .Select(n => (Node: n, Result: dialog.Apply(current[n].Mask, current[n].K)))
+            .GroupBy(x => (x.Result.Mask, Key: string.Join(";", x.Result.K)))
+            .Select(g => (CScore.Fem.Editing.IFemEditCommand)new CScore.Fem.Editing.SetNodeBoundaryCommand(
+                g.Select(x => x.Node).ToList(), g.Key.Mask, g.First().Result.K))
+            .ToList();
+        editor.Session.Execute(commands.Count == 1 ? commands[0] : new CScore.Fem.Editing.CompositeFemCommand(commands));
         editor.RefreshCollections();
     }
 

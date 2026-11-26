@@ -1,0 +1,52 @@
+<UserControl x:Class="OpenCS.Views.FemBoundaryDofEditor"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Закрепления и пружины по шести направлениям общих осей: столбец — направление, строки — «закрепить» и
+         «пружина» с единицами. Закреплённое направление пружины не принимает (поле недоступно). -->
+    <StackPanel>
+        <Grid x:Name="grid">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" MinWidth="120"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Grid.Column="1" Text="X" HorizontalAlignment="Center" FontWeight="SemiBold"/>
+            <TextBlock Grid.Row="0" Grid.Column="2" Text="Y" HorizontalAlignment="Center" FontWeight="SemiBold"/>
+            <TextBlock Grid.Row="0" Grid.Column="3" Text="Z" HorizontalAlignment="Center" FontWeight="SemiBold"/>
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource FemBoundaryFixRow}" VerticalAlignment="Center"/>
+            <CheckBox x:Name="fix0" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Center" Margin="0,3"/>
+            <CheckBox x:Name="fix1" Grid.Row="1" Grid.Column="2" HorizontalAlignment="Center" Margin="0,3"/>
+            <CheckBox x:Name="fix2" Grid.Row="1" Grid.Column="3" HorizontalAlignment="Center" Margin="0,3"/>
+            <TextBlock x:Name="translationalLabel" Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBox x:Name="k0" Grid.Row="2" Grid.Column="1" Margin="2"/>
+            <TextBox x:Name="k1" Grid.Row="2" Grid.Column="2" Margin="2"/>
+            <TextBox x:Name="k2" Grid.Row="2" Grid.Column="3" Margin="2"/>
+
+            <TextBlock Grid.Row="3" Grid.Column="1" Text="UX" HorizontalAlignment="Center" FontWeight="SemiBold" Margin="0,8,0,0"/>
+            <TextBlock Grid.Row="3" Grid.Column="2" Text="UY" HorizontalAlignment="Center" FontWeight="SemiBold" Margin="0,8,0,0"/>
+            <TextBlock Grid.Row="3" Grid.Column="3" Text="UZ" HorizontalAlignment="Center" FontWeight="SemiBold" Margin="0,8,0,0"/>
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource FemBoundaryFixRow}" VerticalAlignment="Center"/>
+            <CheckBox x:Name="fix3" Grid.Row="4" Grid.Column="1" HorizontalAlignment="Center" Margin="0,3"/>
+            <CheckBox x:Name="fix4" Grid.Row="4" Grid.Column="2" HorizontalAlignment="Center" Margin="0,3"/>
+            <CheckBox x:Name="fix5" Grid.Row="4" Grid.Column="3" HorizontalAlignment="Center" Margin="0,3"/>
+            <TextBlock x:Name="rotationalLabel" Grid.Row="5" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBox x:Name="k3" Grid.Row="5" Grid.Column="1" Margin="2"/>
+            <TextBox x:Name="k4" Grid.Row="5" Grid.Column="2" Margin="2"/>
+            <TextBox x:Name="k5" Grid.Row="5" Grid.Column="3" Margin="2"/>
+        </Grid>
+        <TextBlock Text="{DynamicResource FemBoundaryEmptyHint}" Foreground="Gray" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+        <TextBlock x:Name="mixedHint" Text="{DynamicResource FemBoundaryMixedHint}" Foreground="Gray" FontSize="11"
+                   TextWrapping="Wrap" Margin="0,2,0,0" Visibility="Collapsed"/>
+        <TextBlock x:Name="errorText" Foreground="Crimson" TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed"/>
+    </StackPanel>
+</UserControl>

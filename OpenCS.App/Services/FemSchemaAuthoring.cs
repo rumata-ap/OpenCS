@@ -22,7 +22,8 @@ public sealed record FemSchemaDeleteImpact(int Analyses, int Results, int Checks
 /// <summary>
 /// Имя, проверка, запись, копия и удаление МКЭ-схем — одно для дерева, страницы схемы и вида <c>femSchemas</c>
 /// документа <c>opencs-model</c>. Проверка состава — топология, канон нагрузок и определения комбинаций
-/// (<see cref="FemTopologyValidator"/>, <see cref="FemCanonicalValidator"/>, <see cref="FemLoadDefinitionValidator"/>).
+/// (<see cref="FemTopologyValidator"/>, <see cref="FemCanonicalValidator"/>, <see cref="FemLoadDefinitionValidator"/>)
+/// и граничные условия (<see cref="FemBoundaryAuthoring"/>).
 /// </summary>
 public static class FemSchemaAuthoring
 {
@@ -244,6 +245,7 @@ public static class FemSchemaAuthoring
             .Concat(FemCanonicalValidator.Validate(schema, session.LoadCases, session.Nodes,
                 session.NodeLoads, session.Members, session.MemberLoads, session.KinematicLoads))
             .Concat(FemLoadDefinitionValidator.Validate(schema, session.LoadDefinitions, session.LoadCases))
+            .Concat(FemBoundaryAuthoring.Validate(session))
             .ToList();
     }
 

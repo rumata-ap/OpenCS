@@ -4525,7 +4525,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemNodePropsTitle">Свойства узла</system:String>
     <system:String x:Key="FemNodePropsTag">Узел</system:String>
     <system:String x:Key="FemNodePropsMembers">Входит в элементы</system:String>
-    <system:String x:Key="FemNodePropsDof">Закрепления (Tx Ty Tz Rx Ry Rz)</system:String>
+   <system:String x:Key="FemNodePropsDof">Закрепления (общие оси):</system:String>
     <system:String x:Key="FemNodePropsSprings">Пружины: {0}</system:String>
     <system:String x:Key="FemNodePropsNoSprings">Пружин нет</system:String>
     <system:String x:Key="FemNodePropsBoundary">Закрепления и пружины…</system:String>
@@ -7587,4 +7587,32 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliMeshFailed">Сетка схемы «{0}» не построена.</system:String>
    <system:String x:Key="FemSchemaConfirmSaveBeforeCopy" xml:space="preserve">Схема «{0}» изменена, правки не сохранены. Копия берётся из сохранённой схемы. Сохранить схему?&#x0a;&#x0a;Да — сохранить и скопировать, Нет — скопировать сохранённую версию, Отмена — не копировать.</system:String>
    <system:String x:Key="FemNoLoadCasesHint">В схеме нет загружений — нагрузку задать некуда. Создайте загружение: дерево схемы → «Загружения» → «Создать загружение…».</system:String>
+   <system:String x:Key="FemBoundaryFixRow">Закрепить</system:String>
+   <system:String x:Key="FemBoundarySpringRow">Пружина</system:String>
+   <system:String x:Key="FemBoundaryLineSpringRow">Погонная пружина</system:String>
+   <system:String x:Key="FemBoundaryEmptyHint">Пустое поле — пружины нет. У закреплённого направления пружина не задаётся (поле недоступно).</system:String>
+   <system:String x:Key="FemBoundaryMixedHint">Серый флажок или пустое поле с подсказкой «разные» — у выбранных объектов значения разные; нетронутые останутся у каждого своими.</system:String>
+   <system:String x:Key="FemBoundaryMixedValue">Значения у выбранных разные — оставьте пустым, чтобы не менять</system:String>
+   <system:String x:Key="FemBoundaryGlobalAxes">Общие оси: X Y Z — перемещения, UX UY UZ — повороты вокруг осей.</system:String>
+   <system:String x:Key="FemBoundaryErrField">Пружина {0}, {1}: {2}</system:String>
+   <system:String x:Key="FemBoundaryErrSpringFixed">пружина по закреплённому направлению — снимите закрепление или обнулите жёсткость</system:String>
+   <system:String x:Key="FemBoundaryErrNode">Узел {0}, направление {1}: {2}</system:String>
+   <system:String x:Key="FemBoundaryErrLine">Линейная связь ({0}), направление {1}: {2}</system:String>
+   <system:String x:Key="FemNodePropsSpringBlocksFix">Закрепить {0} нельзя: по этому направлению задана пружина. Обнулите её в «Закрепления и пружины…».</system:String>
+   <system:String x:Key="FemLineSupportSoilHint">Полоса на грунте шириной b: погонная пружина Z = C1·b.</system:String>
+   <system:String x:Key="Unit_kNperM">кН/м</system:String>
+   <system:String x:Key="Unit_kNperM2">кН/м²</system:String>
+   <system:String x:Key="Unit_kNmPerRad">кН·м/рад</system:String>
+   <system:String x:Key="Unit_kNmPerRadM">кН·м/рад/м</system:String>
+   <system:String x:Key="CliFemErrOrdinal">нужно целое число от 1</system:String>
+   <system:String x:Key="CliFemErrSides">нужен непустой массив номеров сторон (с 1)</system:String>
+   <system:String x:Key="CliFemErrLineEmpty">связь ничего не задаёт — укажите fix, fixEdgeRotation или springs</system:String>
+   <system:String x:Key="CliFemErrRigidBeamOnly">АЖТ примыкания задаётся только у стержня type: beam</system:String>
+   <system:String x:Key="CliFemErrNoDofs">нужно хотя бы одно направление</system:String>
+   <system:String x:Key="CliFemErrLineMember">«{0}» — не пластина схемы с областью</system:String>
+   <system:String x:Key="CliFemErrNoHole">у пластины «{1}» нет отверстия {0}</system:String>
+   <system:String x:Key="CliFemErrNoSide">нет стороны {0} — у контура сторон {1}</system:String>
+   <system:String x:Key="CliFemErrLineDuplicate">грань уже задана в {0}</system:String>
+   <system:String x:Key="CliFemLineSupportLost">схема «{0}»: линейная связь {1} потеряла грань — не выгружена</system:String>
+   <system:String x:Key="CliFemLineSupportsRemoved">схема «{0}»: снято линейных связей — {1}</system:String>
 </ResourceDictionary>

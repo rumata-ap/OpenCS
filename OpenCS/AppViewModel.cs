@@ -601,8 +601,7 @@ namespace OpenCS
          bool structural = targets.NodeTags.Count > 0;
          var dialog = new Views.FemMeshNodeBoundaryDialog(
             string.Format(Loc.S("FemBoundaryGroupHeader"), group.Label, group.Count), group.OriginText,
-            imported: group.OriginText != Loc.S("FemBoundaryOriginManual"), group.Mask, group.Stiffnesses,
-            allowSprings: true)
+            imported: group.OriginText != Loc.S("FemBoundaryOriginManual"), group.Mask, group.Stiffnesses)
          { Owner = System.Windows.Application.Current.MainWindow };
          if (dialog.ShowDialog() != true) return;
 

@@ -18,18 +18,19 @@
 
         <TextBlock Text="{DynamicResource FemNodePropsDof}" Margin="0,8,0,2"/>
         <StackPanel Orientation="Horizontal">
-            <CheckBox x:Name="txCheck" Content="Tx" Margin="0,0,8,0" Checked="Dof_Changed" Unchecked="Dof_Changed"/>
-            <CheckBox x:Name="tyCheck" Content="Ty" Margin="0,0,8,0" Checked="Dof_Changed" Unchecked="Dof_Changed"/>
-            <CheckBox x:Name="tzCheck" Content="Tz" Margin="0,0,8,0" Checked="Dof_Changed" Unchecked="Dof_Changed"/>
-            <CheckBox x:Name="rxCheck" Content="Rx" Margin="0,0,8,0" Checked="Dof_Changed" Unchecked="Dof_Changed"/>
-            <CheckBox x:Name="ryCheck" Content="Ry" Margin="0,0,8,0" Checked="Dof_Changed" Unchecked="Dof_Changed"/>
-            <CheckBox x:Name="rzCheck" Content="Rz" Checked="Dof_Changed" Unchecked="Dof_Changed"/>
+            <CheckBox x:Name="txCheck" Content="X" Margin="0,0,8,0" Checked="Dof_Changed" Unchecked="Dof_Changed"/>
+            <CheckBox x:Name="tyCheck" Content="Y" Margin="0,0,8,0" Checked="Dof_Changed" Unchecked="Dof_Changed"/>
+            <CheckBox x:Name="tzCheck" Content="Z" Margin="0,0,8,0" Checked="Dof_Changed" Unchecked="Dof_Changed"/>
+            <CheckBox x:Name="rxCheck" Content="UX" Margin="0,0,8,0" Checked="Dof_Changed" Unchecked="Dof_Changed"/>
+            <CheckBox x:Name="ryCheck" Content="UY" Margin="0,0,8,0" Checked="Dof_Changed" Unchecked="Dof_Changed"/>
+            <CheckBox x:Name="rzCheck" Content="UZ" Checked="Dof_Changed" Unchecked="Dof_Changed"/>
         </StackPanel>
         <DockPanel Margin="0,4,0,0">
             <Button DockPanel.Dock="Right" Content="{DynamicResource FemNodePropsBoundary}" Padding="8,1"
                     Click="Boundary_Click"/>
             <TextBlock x:Name="springsText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,8,0"/>
         </DockPanel>
+        <TextBlock x:Name="dofErrorText" Foreground="Crimson" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="Collapsed"/>
 
         <Separator Margin="0,8"/>
         <TextBlock Text="{DynamicResource FemNodePropsLoadCase}" Margin="0,2"/>

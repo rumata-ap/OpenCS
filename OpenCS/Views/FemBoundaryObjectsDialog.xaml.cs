@@ -31,7 +31,8 @@ public partial class FemBoundaryObjectsDialog : Window
         fieldsPanel.Children.Add(new TextBlock { Text = label, Margin = new Thickness(0, 10, 0, 2) });
         var box = new TextBox
         {
-            Text = text, TextWrapping = TextWrapping.Wrap, AcceptsReturn = true, MinHeight = 44, MaxHeight = 160,
+            // Без AcceptsReturn: номера пишутся через пробел или запятую, Enter — «OK».
+            Text = text, TextWrapping = TextWrapping.Wrap, MinHeight = 44, MaxHeight = 160,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
         };
         fieldsPanel.Children.Add(box);

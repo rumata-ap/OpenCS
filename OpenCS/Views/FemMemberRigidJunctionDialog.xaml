@@ -34,6 +34,7 @@
             <TextBlock x:Name="traceText" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,8,0"/>
         </DockPanel>
         <TextBlock Text="{DynamicResource FemMemberRigidJunctionHint}" Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,8"/>
+        <TextBlock x:Name="errorText" Foreground="Crimson" TextWrapping="Wrap" Margin="0,0,0,8" Visibility="Collapsed"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="{DynamicResource OK}" Width="72" IsDefault="True" Click="Apply_Click" Margin="0,0,6,0"/>
             <Button Content="{DynamicResource Cancel}" Width="72" IsCancel="True"/>

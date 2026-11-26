@@ -66,23 +66,18 @@ public partial class FemNodePropertiesDialog : Window
     }
 
     /// <summary>Жёсткости пружин узла в сессии, Н/м и Н·м/рад (сумма записей узла).</summary>
-    double[] Stiffnesses()
-    {
-        var k = new double[6];
-        foreach (var spring in _editorVm.Session.NodeSprings.Where(s => s.NodeTag == _node.NodeTag))
-            for (int i = 0; i < 6; i++) k[i] += spring.Stiffnesses[i];
-        return k;
-    }
+    double[] Stiffnesses() => Services.FemBoundaryAuthoring.NodeStiffnesses(_editorVm.Session, _node.NodeTag);
 
     void Boundary_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new FemMeshNodeBoundaryDialog(
             string.Format(CultureInfo.CurrentCulture, Loc.S("FemMeshNodeBoundaryHeader"), _node.NodeTag, _node.X, _node.Y, _node.Z),
-            null, imported: false, _node.DofMask & FemBoundaryDofs.All, Stiffnesses(), allowSprings: true)
+            null, imported: false, _node.DofMask & FemBoundaryDofs.All, Stiffnesses())
         { Owner = this };
         if (dialog.ShowDialog() != true) return;
         _editorVm.Session.Execute(new SetNodeBoundaryCommand([_node], dialog.Mask, dialog.Stiffnesses));
         _editorVm.RefreshCollections();
+        dofErrorText.Visibility = Visibility.Collapsed;
         ShowBoundary();
     }
 
@@ -115,6 +110,19 @@ public partial class FemNodePropertiesDialog : Window
         if (rxCheck.IsChecked == true) mask |= 8;
         if (ryCheck.IsChecked == true) mask |= 16;
         if (rzCheck.IsChecked == true) mask |= 32;
+        // Закрепить направление с пружиной нельзя (то же правило, что в окне ГУ и при сохранении схемы): флажок
+        // возвращается, причина — текстом под флажками.
+        var k = Stiffnesses();
+        var blocked = Enumerable.Range(0, 6).Where(i => (mask & (1 << i)) != 0 && k[i] != 0).ToList();
+        if (blocked.Count > 0)
+        {
+            dofErrorText.Text = string.Format(Loc.S("FemNodePropsSpringBlocksFix"),
+                string.Join(" ", blocked.Select(i => Services.FemBoundaryAuthoring.DofNames[i])));
+            dofErrorText.Visibility = Visibility.Visible;
+            ShowBoundary();
+            return;
+        }
+        dofErrorText.Visibility = Visibility.Collapsed;
         _editorVm.Session.Execute(new SetDofMaskCommand(_node, mask));
         _editorVm.RefreshCollections();
     }

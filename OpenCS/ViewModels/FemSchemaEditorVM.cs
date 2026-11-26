@@ -706,6 +706,18 @@ public sealed class FemSchemaEditorVM : ViewModelBase, IUnsavedChanges
         RefreshCollections();
     }
 
+    /// <summary>Своя связь каждой грани (грани с одинаковыми параметрами — одной командой), всё — одной отменой.</summary>
+    public void SetLineSupports(IReadOnlyList<(FemPlateEdge Edge, FemLineSupport Support)> items)
+    {
+        var commands = items
+            .GroupBy(x => (x.Support.Mask, x.Support.FixEdgeRotation, K: string.Join(";", x.Support.Stiffnesses)))
+            .Select(g => (IFemEditCommand)new SetLineSupportsCommand(g.Select(x => x.Edge).ToList(), g.First().Support))
+            .ToList();
+        if (commands.Count == 0) return;
+        Session.Execute(commands.Count == 1 ? commands[0] : new CompositeFemCommand(commands));
+        RefreshCollections();
+    }
+
     /// <summary>Снимает линейные связи граней одной отменой.</summary>
     public void RemoveLineSupports(IReadOnlyCollection<FemPlateEdgeKey> edges)
     {

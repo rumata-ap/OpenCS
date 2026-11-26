@@ -41,7 +41,11 @@ public partial class FemMemberRigidJunctionDialog : Window
             // Третье состояние — только там, где значения разные: снять его можно, вернуть — нет.
             _dofBoxes[i].IsThreeState = summary.Dofs[i] is null;
             _dofBoxes[i].IsChecked = summary.Dofs[i];
-            _dofBoxes[i].Click += (s, _) => ((CheckBox)s).IsThreeState = false;
+            _dofBoxes[i].Click += (s, _) =>
+            {
+                ((CheckBox)s).IsThreeState = false;
+                errorText.Visibility = Visibility.Collapsed;
+            };
         }
         UpdateTraceText();
     }
@@ -67,7 +71,8 @@ public partial class FemMemberRigidJunctionDialog : Window
         var dofs = _dofBoxes.Select(b => b.IsChecked).ToArray();
         if (dofs.All(d => d == false))
         {
-            MessageBox.Show(this, Loc.S("FemMemberRigidJunctionNoDofs"), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            errorText.Text = Loc.S("FemMemberRigidJunctionNoDofs");
+            errorText.Visibility = Visibility.Visible;
             return;
         }
         Off = offRadio.IsChecked == true ? true : autoRadio.IsChecked == true ? false : null;

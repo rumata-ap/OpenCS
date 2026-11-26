@@ -4525,7 +4525,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemNodePropsTitle">Node properties</system:String>
     <system:String x:Key="FemNodePropsTag">Node</system:String>
     <system:String x:Key="FemNodePropsMembers">Belongs to members</system:String>
-    <system:String x:Key="FemNodePropsDof">Fixities (Tx Ty Tz Rx Ry Rz)</system:String>
+   <system:String x:Key="FemNodePropsDof">Supports (global axes):</system:String>
     <system:String x:Key="FemNodePropsSprings">Springs: {0}</system:String>
     <system:String x:Key="FemNodePropsNoSprings">No springs</system:String>
     <system:String x:Key="FemNodePropsBoundary">Fixities and springs…</system:String>
@@ -7587,4 +7587,32 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliMeshFailed">Mesh of schema «{0}» was not built.</system:String>
    <system:String x:Key="FemSchemaConfirmSaveBeforeCopy" xml:space="preserve">Schema «{0}» has unsaved changes. The copy is made from the saved schema. Save the schema?&#x0a;&#x0a;Yes — save and copy, No — copy the saved version, Cancel — do not copy.</system:String>
    <system:String x:Key="FemNoLoadCasesHint">The schema has no load cases — there is nowhere to put the load. Create a load case: schema tree → «Load cases» → «New load case…».</system:String>
+   <system:String x:Key="FemBoundaryFixRow">Fixed</system:String>
+   <system:String x:Key="FemBoundarySpringRow">Spring</system:String>
+   <system:String x:Key="FemBoundaryLineSpringRow">Spring per metre</system:String>
+   <system:String x:Key="FemBoundaryEmptyHint">Empty field — no spring. A fixed direction takes no spring (the field is disabled).</system:String>
+   <system:String x:Key="FemBoundaryMixedHint">A grey check box or an empty field marked “different” — the selected objects differ; untouched values stay as they are for each.</system:String>
+   <system:String x:Key="FemBoundaryMixedValue">The selected objects differ — leave empty to keep them</system:String>
+   <system:String x:Key="FemBoundaryGlobalAxes">Global axes: X Y Z — translations, UX UY UZ — rotations about the axes.</system:String>
+   <system:String x:Key="FemBoundaryErrField">Spring {0}, {1}: {2}</system:String>
+   <system:String x:Key="FemBoundaryErrSpringFixed">spring along a fixed direction — remove the fixity or set the stiffness to zero</system:String>
+   <system:String x:Key="FemBoundaryErrNode">Node {0}, direction {1}: {2}</system:String>
+   <system:String x:Key="FemBoundaryErrLine">Line support ({0}), direction {1}: {2}</system:String>
+   <system:String x:Key="FemNodePropsSpringBlocksFix">Cannot fix {0}: a spring is set along it. Set it to zero in “Supports and springs…”.</system:String>
+   <system:String x:Key="FemLineSupportSoilHint">Strip on soil of width b: spring Z per metre = C1·b.</system:String>
+   <system:String x:Key="Unit_kNperM">kN/m</system:String>
+   <system:String x:Key="Unit_kNperM2">kN/m²</system:String>
+   <system:String x:Key="Unit_kNmPerRad">kN·m/rad</system:String>
+   <system:String x:Key="Unit_kNmPerRadM">kN·m/rad/m</system:String>
+   <system:String x:Key="CliFemErrOrdinal">an integer from 1 is required</system:String>
+   <system:String x:Key="CliFemErrSides">a non-empty array of side numbers (from 1) is required</system:String>
+   <system:String x:Key="CliFemErrLineEmpty">the support sets nothing — give fix, fixEdgeRotation or springs</system:String>
+   <system:String x:Key="CliFemErrRigidBeamOnly">a rigid junction is set only for type: beam</system:String>
+   <system:String x:Key="CliFemErrNoDofs">at least one direction is required</system:String>
+   <system:String x:Key="CliFemErrLineMember">«{0}» is not a shell member of the schema with a region</system:String>
+   <system:String x:Key="CliFemErrNoHole">shell «{1}» has no hole {0}</system:String>
+   <system:String x:Key="CliFemErrNoSide">no side {0} — the loop has {1} sides</system:String>
+   <system:String x:Key="CliFemErrLineDuplicate">the edge is already given in {0}</system:String>
+   <system:String x:Key="CliFemLineSupportLost">schema «{0}»: line support {1} lost its edge — not exported</system:String>
+   <system:String x:Key="CliFemLineSupportsRemoved">schema «{0}»: line supports removed — {1}</system:String>
 </ResourceDictionary>
