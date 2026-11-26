@@ -31,14 +31,31 @@ public sealed class FemMeshNodeRow
     public string SupportText => SupportMask == 0 ? "" : FemBoundaryDofs.Describe(SupportMask);
 
     /// <summary>Пружины в кН/м и кН·м/рад: «Z 1 250; UZ 40».</summary>
-    public string SpringText
+    public string SpringText => DescribeSprings(Stiffnesses);
+
+    /// <summary>Жёсткости (Н/м, Н·м/рад) в кН: «Z 1 250; UZ 40»; нет — пустая строка.</summary>
+    public static string DescribeSprings(IReadOnlyList<double> k)
     {
-        get
-        {
-            string[] names = ["X", "Y", "Z", "UX", "UY", "UZ"];
-            return string.Join("; ", Enumerable.Range(0, 6).Where(i => Stiffnesses[i] != 0)
-                .Select(i => $"{names[i]} {(Stiffnesses[i] / 1e3).ToString("#,0.###", CultureInfo.CurrentCulture)}"));
-        }
+        string[] names = ["X", "Y", "Z", "UX", "UY", "UZ"];
+        return string.Join("; ", Enumerable.Range(0, 6).Where(i => k[i] != 0)
+            .Select(i => $"{names[i]} {(k[i] / 1e3).ToString("#,0.###", CultureInfo.CurrentCulture)}"));
+    }
+
+    /// <summary>
+    /// ГУ, которые узел получает при расчёте от конструктивного уровня: закрепления и пружины узла КонЭ, линейные связи
+    /// граней («X Y Z — узел КонЭ 1»; «Z; пружины Z 5 — П1, сторона 2»). Правка ГУ узла сетки их не меняет.
+    /// </summary>
+    public string InheritedText { get; private set; } = "";
+
+    /// <summary>Добавляет к <see cref="InheritedText"/> ГУ одного источника.</summary>
+    public void AddInherited(int mask, IReadOnlyList<double> k, string source)
+    {
+        var parts = new List<string>();
+        if ((mask & FemBoundaryDofs.All) != 0) parts.Add(FemBoundaryDofs.Describe(mask & FemBoundaryDofs.All));
+        if (DescribeSprings(k) is { Length: > 0 } springs) parts.Add(string.Format(Loc.S("FemMeshNodeInheritedSprings"), springs));
+        if (parts.Count == 0) return;
+        string text = $"{string.Join("; ", parts)} — {source}";
+        InheritedText = InheritedText.Length == 0 ? text : $"{InheritedText}  |  {text}";
     }
 
     /// <summary>Источники жёсткостей поверх записей узла: «поле «Rz свай»», «вручную» (правка величины).</summary>

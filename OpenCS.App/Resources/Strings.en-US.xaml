@@ -3021,7 +3021,7 @@
     <system:String x:Key="FemBoundaryNodalSupports">Nodal supports</system:String>
     <system:String x:Key="FemBoundaryVariableSprings">{0} — variable stiffness</system:String>
     <system:String x:Key="FemBoundaryLineSupports">Line supports</system:String>
-    <system:String x:Key="FemBoundaryLineCount" xml:space="preserve"> — {0} edges, {1:0.##} m</system:String>
+   <system:String x:Key="FemBoundaryLineCount" xml:space="preserve"> — edges: {0}, {1:0.##} m</system:String>
     <system:String x:Key="FemBoundaryLineLost">Lost their edge (contour changed or member deleted)</system:String>
     <system:String x:Key="FemBoundaryLineEdgeRotation">edge rotation</system:String>
     <system:String x:Key="FemBoundaryUnitKLine">kN/m²</system:String>
@@ -7615,4 +7615,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliFemErrLineDuplicate">the edge is already given in {0}</system:String>
    <system:String x:Key="CliFemLineSupportLost">schema «{0}»: line support {1} lost its edge — not exported</system:String>
    <system:String x:Key="CliFemLineSupportsRemoved">schema «{0}»: line supports removed — {1}</system:String>
+   <system:String x:Key="FemMeshNodeInheritedColumn">From members (at analysis)</system:String>
+   <system:String x:Key="FemMeshNodeInheritedNode">member node {0}</system:String>
+   <system:String x:Key="FemMeshNodeInheritedSprings">springs {0}</system:String>
 </ResourceDictionary>

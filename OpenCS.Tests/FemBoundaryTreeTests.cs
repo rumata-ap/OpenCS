@@ -41,7 +41,7 @@ public sealed class FemBoundaryTreeTests
         // Жёсткие связи (заделки, шарниры, прочие маски), затем упругие; узел 20 — закрепление и пружина одной связью.
         string kz = $"Kz = 5000 {Loc.S("FemBoundaryUnitK")}";
         Assert.Equal(
-            [FemBoundaryTree.SupportLabel(63), FemBoundaryTree.SupportLabel(7), "Tz", kz, "Tx Ty; " + kz],
+            [FemBoundaryTree.SupportLabel(63), FemBoundaryTree.SupportLabel(7), "Z", kz, "X Y; " + kz],
             groups.Select(g => g.Label));
         Assert.Equal([3, 2, 1, 2, 1], groups.Select(g => g.Count));
         Assert.Equal(Loc.S("FemBoundaryOriginManual"), groups[0].OriginText);

@@ -355,13 +355,44 @@ class FemSchemaTreeVM : System.ComponentModel.INotifyPropertyChanged
             var springs = (effective?.Springs ?? _db.GetFemSprings(Schema.Id)).Where(s => s.TargetKind == FemSpringTargetKinds.MeshNode)
                 .ToLookup(s => s.NodeTag, StringComparer.Ordinal);
             var sources = effective == null ? null : FieldSourceLabels(effective.Sources);
-            return _db.GetFemMeshNodes(Schema.Id).Select(n =>
+            var meshNodes = _db.GetFemMeshNodes(Schema.Id);
+            var rows = meshNodes.Select(n =>
             {
                 var row = new FemMeshNodeRow(n);
                 if (supports.Contains(n.NodeTag) || springs.Contains(n.NodeTag))
                     row.Apply(supports[n.NodeTag], springs[n.NodeTag], sources?[n.NodeTag]);
                 return row;
             }).ToList();
+
+            // ГУ конструктивного уровня, которые узлы получат при расчёте: узлы КонЭ и линейные связи граней.
+            var nodes = _db.GetFemNodes(Schema.Id).GroupBy(n => n.NodeTag).ToDictionary(g => g.Key, g => g.First().DofMask);
+            var nodeSprings = new Dictionary<string, double[]>(StringComparer.Ordinal);
+            foreach (var s in _db.GetFemSprings(Schema.Id).Where(s => s.TargetKind == FemSpringTargetKinds.Node))
+            {
+                if (!nodeSprings.TryGetValue(s.NodeTag, out var sum)) nodeSprings[s.NodeTag] = sum = new double[6];
+                for (int i = 0; i < 6; i++) sum[i] += s.Stiffnesses[i];
+            }
+            var rowByTag = rows.GroupBy(r => r.NodeTag).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+            foreach (var row in rows)
+                if (row.SourceNodeTag is { } tag && nodes.TryGetValue(tag, out int mask))
+                    row.AddInherited(mask, nodeSprings.GetValueOrDefault(tag) ?? new double[6],
+                        string.Format(Loc.S("FemMeshNodeInheritedNode"), tag));
+            var lineSupports = _db.GetFemLineSupports(Schema.Id);
+            if (lineSupports.Count > 0)
+            {
+                var edges = FemLineSupportGeometry.EdgesByMember(_db.GetFemMembers(Schema.Id), _db.GetPlanarRegions(Schema.Id));
+                var nodal = FemLineSupportResolver.ToNodal(lineSupports, edges, meshNodes, _db.GetFemMeshElements(Schema.Id));
+                foreach (var chain in nodal.Chains)
+                {
+                    int mask = chain.Support.Mask & FemBoundaryDofs.All;
+                    if (chain.Support.FixEdgeRotation && FemLineSupportGeometry.EdgeRotationBit(chain.Edge) is { } bit) mask |= bit;
+                    foreach (var node in chain.Nodes)
+                        if (rowByTag.TryGetValue(node.NodeTag, out var row))
+                            row.AddInherited(mask, chain.Support.Stiffnesses.Select(k => k * node.Tributary).ToArray(),
+                                chain.Edge.Key.ToString());
+                }
+            }
+            return rows;
         });
 
     /// <summary>Подписи источников жёсткостей узлов сетки: «поле «…»» или «вручную» (правка величины).</summary>
@@ -619,7 +650,7 @@ public class FemNodeTreeItem
         Owner = owner;
     }
 
-    static readonly string[] DofNames = ["Tx", "Ty", "Tz", "Rx", "Ry", "Rz"];
+    static readonly string[] DofNames = ["X", "Y", "Z", "UX", "UY", "UZ"];
 
     public static string SupportsText(int mask) => mask switch
     {

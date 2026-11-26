@@ -686,6 +686,9 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         RemeshKeptMembers(selected.Contains(tag) ? selected.ToList() : [tag]);
     }
 
+    /// <summary>«Закрепления и пружины…» узла из дерева — как в 3D (выделенным узлам, если узел среди них).</summary>
+    public void EditNodeBoundary(string nodeTag) => view3D.EditNodeBoundary(nodeTag);
+
     /// <summary>«АЖТ примыкания…»: параметры щёлкнутого стержня; если он выделен — всех выделенных стержней.</summary>
     public void OpenMemberRigidJunction(string tag)
     {

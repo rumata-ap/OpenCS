@@ -149,6 +149,7 @@ internal static class FemMemberTreeMenus
     {
         var node = item.Node;
         items.Add(Item("FemNodeTreeProperties", () => app.OpenFemNodeInEditor(item.Schema, node.NodeTag)));
+        items.Add(Item("FemNodeBoundaryCtx", () => app.InFemSchemaEditorDeferred(item.Schema, page => page.EditNodeBoundary(node.NodeTag))));
         items.Add(Item("FemBoundarySelect", () => app.InFemSchemaEditor(item.Schema, page => page.SelectInSchema([node.NodeTag], []))));
         items.Add(Item("FemNodeMoveCtx", () => app.TransformFemFragmentInEditor(item.Schema, [node.NodeTag], [], copy: false)));
         items.Add(Item("FemNodeCopyCtx", () => app.TransformFemFragmentInEditor(item.Schema, [node.NodeTag], [], copy: true)));

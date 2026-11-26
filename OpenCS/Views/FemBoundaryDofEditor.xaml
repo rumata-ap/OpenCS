@@ -3,6 +3,17 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!-- Закрепления и пружины по шести направлениям общих осей: столбец — направление, строки — «закрепить» и
          «пружина» с единицами. Закреплённое направление пружины не принимает (поле недоступно). -->
+    <UserControl.Resources>
+        <!-- Поле пружины закреплённого направления недоступно — и выглядит недоступным (шаблон TextBox оставляет белый фон). -->
+        <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#FFE8E8E8"/>
+                    <Setter Property="Foreground" Value="Gray"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
     <StackPanel>
         <Grid x:Name="grid">
             <Grid.ColumnDefinitions>

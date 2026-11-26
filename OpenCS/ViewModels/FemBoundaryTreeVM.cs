@@ -331,7 +331,7 @@ public static class FemBoundaryTree
         return result;
     }
 
-    /// <summary>«Шарнирное опирание», «Tz; поворот кромки», «Kz′ = 50000 кН/м²».</summary>
+    /// <summary>«Шарнирное опирание», «Z; поворот кромки», «Kz = 50000 кН/м²» (погонные — по единицам).</summary>
     public static string LineLabel(FemLineSupport s)
     {
         int mask = s.Mask & FemBoundaryDofs.All;
@@ -341,11 +341,11 @@ public static class FemBoundaryTree
                 .Where(x => x.Length > 0));
         var k = s.Stiffnesses;
         string springs = string.Join("; ", Enumerable.Range(0, 6).Where(i => k[i] != 0)
-            .Select(i => $"{SpringNames[i]}′ = {Number(k[i] / 1000)} {Loc.S(i < 3 ? "FemBoundaryUnitKLine" : "FemBoundaryUnitKrLine")}"));
+            .Select(i => $"{SpringNames[i]} = {Number(k[i] / 1000)} {Loc.S(i < 3 ? "FemBoundaryUnitKLine" : "FemBoundaryUnitKrLine")}"));
         return string.Join("; ", new[] { support, springs }.Where(x => x.Length > 0));
     }
 
-    /// <summary>«Заделка», «Tz; Kx = 100 кН/м», «Kz = 5000 кН/м».</summary>
+    /// <summary>«Заделка», «Z; Kx = 100 кН/м», «Kz = 5000 кН/м».</summary>
     public static string NodalLabel(int mask, IReadOnlyList<double> k)
     {
         string springs = SpringLabel(k);
@@ -418,7 +418,7 @@ public static class FemBoundaryTree
             list.SelectMany(t => t.PlateEdges).Distinct().ToList());
     }
 
-    /// <summary>«Заделка», «Шарнир» или перечень DOF (Tz, Tx Ty Tz Rz).</summary>
+    /// <summary>«Заделка», «Шарнир» или перечень направлений (Z, X Y Z UZ).</summary>
     public static string SupportLabel(int mask)
     {
         string text = FemNodeTreeItem.SupportsText(mask);

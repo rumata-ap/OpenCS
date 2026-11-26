@@ -25,6 +25,7 @@
          <DataGridTextColumn Header="{DynamicResource FemMeshNodeSupportColumn}" Binding="{Binding SupportText}" Width="110"/>
          <DataGridTextColumn Header="{DynamicResource FemMeshNodeSpringColumn}" Binding="{Binding SpringText}" Width="160"/>
          <DataGridTextColumn Header="{DynamicResource FemMeshNodeOriginColumn}" Binding="{Binding OriginText}" Width="100"/>
+         <DataGridTextColumn Header="{DynamicResource FemMeshNodeInheritedColumn}" Binding="{Binding InheritedText}" Width="260"/>
       </DataGrid.Columns>
    </DataGrid>
 </UserControl>

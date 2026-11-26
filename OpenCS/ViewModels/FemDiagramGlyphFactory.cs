@@ -8,12 +8,12 @@ public static class FemDiagramGlyphFactory
 {
     static readonly (int Mask, Vector3D Axis, string Component, FemDiagramGlyphKind Kind)[] Supports =
     [
-        (1, new(1, 0, 0), "Tx", FemDiagramGlyphKind.TranslationSupport),
-        (2, new(0, 1, 0), "Ty", FemDiagramGlyphKind.TranslationSupport),
-        (4, new(0, 0, 1), "Tz", FemDiagramGlyphKind.TranslationSupport),
-        (8, new(1, 0, 0), "Rx", FemDiagramGlyphKind.RotationSupport),
-        (16, new(0, 1, 0), "Ry", FemDiagramGlyphKind.RotationSupport),
-        (32, new(0, 0, 1), "Rz", FemDiagramGlyphKind.RotationSupport)
+        (1, new(1, 0, 0), "X", FemDiagramGlyphKind.TranslationSupport),
+        (2, new(0, 1, 0), "Y", FemDiagramGlyphKind.TranslationSupport),
+        (4, new(0, 0, 1), "Z", FemDiagramGlyphKind.TranslationSupport),
+        (8, new(1, 0, 0), "UX", FemDiagramGlyphKind.RotationSupport),
+        (16, new(0, 1, 0), "UY", FemDiagramGlyphKind.RotationSupport),
+        (32, new(0, 0, 1), "UZ", FemDiagramGlyphKind.RotationSupport)
     ];
 
     static readonly (int Dof, Vector3D Axis, string Component, bool IsRotation)[] KinematicDofs =

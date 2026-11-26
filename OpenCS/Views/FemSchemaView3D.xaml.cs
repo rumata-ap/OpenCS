@@ -2810,7 +2810,16 @@ public partial class FemSchemaView3D : UserControl
     /// </summary>
     void NodeBoundaryCtx_Click(object sender, RoutedEventArgs e)
     {
-        if (Editor is not { } editor || _contextMenuTargetTag is not { } tag) return;
+        if (_contextMenuTargetTag is { } tag) EditNodeBoundary(tag);
+    }
+
+    /// <summary>
+    /// «Закрепления и пружины…» узла <paramref name="tag"/> (из 3D или дерева): если узел среди выделенных — всем
+    /// выделенным узлам, иначе ему одному; разные у узлов значения остаются своими, одной отменой.
+    /// </summary>
+    public void EditNodeBoundary(string tag)
+    {
+        if (Editor is not { } editor) return;
         var selected = editor.Selection.SelectedNodeTags.ToHashSet(StringComparer.Ordinal);
         var tags = selected.Contains(tag) ? selected : [tag];
         var nodes = editor.Session.Nodes.Where(n => tags.Contains(n.NodeTag)).ToList();
