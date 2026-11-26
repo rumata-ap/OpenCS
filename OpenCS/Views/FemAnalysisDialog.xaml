@@ -52,15 +52,27 @@
         </DataTemplate>
        </ResourceDictionary>
     </Window.Resources>
+    <DockPanel>
+    <DockPanel DockPanel.Dock="Bottom" Margin="12,8,12,12" LastChildFill="False">
+        <Button x:Name="CsfeaCheckInputButton" DockPanel.Dock="Left" Content="{DynamicResource FemCsfeaCheckInput}"
+                ToolTip="{DynamicResource FemCsfeaCheckInputTip}" Click="CsfeaCheckInput_Click"
+                Padding="12,4" Visibility="Collapsed"/>
+        <Button DockPanel.Dock="Right" Content="{DynamicResource Cancel}" IsCancel="True" Padding="16,4" MinWidth="80" Margin="8,0,0,0"/>
+        <Button DockPanel.Dock="Right" Content="{DynamicResource OK}" IsDefault="True" Click="Ok_Click" Padding="16,4" MinWidth="80"/>
+    </DockPanel>
     <ScrollViewer x:Name="RootScroll" VerticalScrollBarVisibility="Auto">
-    <StackPanel Margin="12">
+    <StackPanel Margin="12,12,12,0">
         <Grid x:Name="TagRow" Margin="0,0,0,4">
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="190"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisTagLabel}" VerticalAlignment="Center"/>
-            <TextBox Grid.Column="1" x:Name="TagBox" Text="" Height="22" VerticalContentAlignment="Center"/>
+            <TextBox Grid.Column="1" x:Name="TagBox" Text="" Height="22" VerticalContentAlignment="Center"
+                     TextChanged="TagBox_TextChanged"/>
+            <TextBlock Grid.Row="1" Grid.Column="1" x:Name="TagErrorText" Foreground="#C0392B" TextWrapping="Wrap"
+                       Margin="0,2,0,0" Visibility="Collapsed"/>
         </Grid>
 
         <Grid x:Name="KindRow" Margin="0,4">
@@ -172,7 +184,7 @@
                 </StackPanel>
                 <TextBlock x:Name="StagesHintText" Text="{DynamicResource FemAnalysisStagesHint}" TextWrapping="Wrap" Margin="0,0,0,6" FontSize="11" Opacity="0.8"/>
                 <StackPanel x:Name="StagedPanel">
-                <DataGrid x:Name="StagesGrid" AutoGenerateColumns="False" CanUserAddRows="False"
+                <DataGrid x:Name="StagesGrid" AutoGenerateColumns="False" CanUserAddRows="False" CellEditEnding="StagesGrid_CellEditEnding"
                           Height="140" Margin="0,0,0,6" PreviewKeyDown="StagesGrid_PreviewKeyDown">
                     <DataGrid.Columns>
                         <DataGridTextColumn x:Name="StagesTagColumn" Header="{DynamicResource FemAnalysisStageTagColumn}" Binding="{Binding Tag}" Width="120"/>
@@ -627,13 +639,7 @@
                        FontStyle="Italic" Opacity="0.7" FontSize="11"/>
         </StackPanel>
 
-        <DockPanel Margin="0,12,0,0" LastChildFill="False">
-            <Button x:Name="CsfeaCheckInputButton" DockPanel.Dock="Left" Content="{DynamicResource FemCsfeaCheckInput}"
-                    ToolTip="{DynamicResource FemCsfeaCheckInputTip}" Click="CsfeaCheckInput_Click"
-                    Padding="12,4" Visibility="Collapsed"/>
-            <Button DockPanel.Dock="Right" Content="{DynamicResource Cancel}" IsCancel="True" Padding="16,4" MinWidth="80" Margin="8,0,0,0"/>
-            <Button DockPanel.Dock="Right" Content="{DynamicResource OK}" IsDefault="True" Click="Ok_Click" Padding="16,4" MinWidth="80"/>
-        </DockPanel>
     </StackPanel>
     </ScrollViewer>
+    </DockPanel>
 </Window>

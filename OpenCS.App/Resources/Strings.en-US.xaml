@@ -654,7 +654,7 @@
     <system:String x:Key="DiagramDeleted">Diagram '{0}' deleted</system:String>
     <system:String x:Key="AllDiagramsDeleted">All diagrams deleted</system:String>
     <system:String x:Key="Confirmation">Confirmation</system:String>
-    <system:String x:Key="Warning">WARNING</system:String>
+    <system:String x:Key="Warning">Warning</system:String>
     <system:String x:Key="ProjectCreated">New project created</system:String>
     <system:String x:Key="ProjectCreatedError">Error creating new project: {0}</system:String>
     <system:String x:Key="OpenProject">Open Project</system:String>
@@ -7752,4 +7752,9 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliFemAnalysisLinearNotCases">schema "{0}": linear analysis "{1}" has stages that are not single load cases; not exported.</system:String>
    <system:String x:Key="CliFemAnalysisSchemaAmbiguous">several schemas are named "{0}" — their analyses are not exported (rename the schemas).</system:String>
    <system:String x:Key="CliFemAnalysisSkippedKind">schema "{0}": analysis "{1}" of internal kind "{2}" is not exported.</system:String>
+   <system:String x:Key="FieldErrRangeOC">a number greater than {0} and not greater than {1} is required</system:String>
+   <system:String x:Key="FieldErrRangeCO">a number not less than {0} and less than {1} is required</system:String>
+   <system:String x:Key="FieldErrIntMin">an integer not less than {0} is required</system:String>
+   <system:String x:Key="FieldErrIntRange">an integer from {0} to {1} is required</system:String>
+   <system:String x:Key="FieldErrNotLessStep">must not be less than the λ step</system:String>
 </ResourceDictionary>

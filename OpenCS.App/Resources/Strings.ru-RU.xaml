@@ -654,7 +654,7 @@
     <system:String x:Key="DiagramDeleted">Диаграмма '{0}' удалена</system:String>
     <system:String x:Key="AllDiagramsDeleted">Все диаграммы удалены</system:String>
     <system:String x:Key="Confirmation">Подтверждение</system:String>
-    <system:String x:Key="Warning">WARNING</system:String>
+    <system:String x:Key="Warning">Предупреждение</system:String>
     <system:String x:Key="ProjectCreated">Новый проект создан</system:String>
     <system:String x:Key="ProjectCreatedError">Ошибка при создании нового проекта: {0}</system:String>
     <system:String x:Key="OpenProject">Открыть проект</system:String>
@@ -7752,4 +7752,9 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliFemAnalysisLinearNotCases">схема «{0}»: у линейной постановки «{1}» стадии — не отдельные загружения; не выгружена.</system:String>
    <system:String x:Key="CliFemAnalysisSchemaAmbiguous">схем с именем «{0}» несколько — их постановки не выгружены (переименуйте схемы).</system:String>
    <system:String x:Key="CliFemAnalysisSkippedKind">схема «{0}»: постановка «{1}» служебного вида «{2}» не выгружается.</system:String>
+   <system:String x:Key="FieldErrRangeOC">нужно число больше {0} и не больше {1}</system:String>
+   <system:String x:Key="FieldErrRangeCO">нужно число не меньше {0} и меньше {1}</system:String>
+   <system:String x:Key="FieldErrIntMin">нужно целое число не меньше {0}</system:String>
+   <system:String x:Key="FieldErrIntRange">нужно целое число от {0} до {1}</system:String>
+   <system:String x:Key="FieldErrNotLessStep">не может быть меньше шага λ</system:String>
 </ResourceDictionary>

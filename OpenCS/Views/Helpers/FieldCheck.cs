@@ -61,9 +61,23 @@ public static class FieldCheck
         return true;
     }
 
-    /// <summary>Правило: значение в промежутке (<paramref name="min"/>; <paramref name="max"/>], текст — <paramref name="errorKey"/>.</summary>
-    public static Func<double, string?> InRange(double min, double max, string errorKey, bool minInclusive = false) =>
-        v => (minInclusive ? v >= min : v > min) && v <= max ? null : Loc.S(errorKey);
+    /// <summary>Правило: число в (<paramref name="min"/>; <paramref name="max"/>].</summary>
+    public static Func<double, string?> InRange(double min, double max) =>
+        v => v > min && v <= max ? null : string.Format(Loc.S("FieldErrRangeOC"), Num(min), Num(max));
+
+    /// <summary>Правило: число в [<paramref name="min"/>; <paramref name="max"/>).</summary>
+    public static Func<double, string?> InRangeCO(double min, double max) =>
+        v => v >= min && v < max ? null : string.Format(Loc.S("FieldErrRangeCO"), Num(min), Num(max));
+
+    /// <summary>Правило для целых: не меньше <paramref name="min"/>.</summary>
+    public static Func<int, string?> IntMin(int min) =>
+        v => v >= min ? null : string.Format(Loc.S("FieldErrIntMin"), min);
+
+    /// <summary>Правило для целых: от <paramref name="min"/> до <paramref name="max"/>.</summary>
+    public static Func<int, string?> IntRange(int min, int max) =>
+        v => v >= min && v <= max ? null : string.Format(Loc.S("FieldErrIntRange"), min, max);
+
+    static string Num(double v) => v.ToString("G", System.Globalization.CultureInfo.CurrentCulture);
 
     /// <summary>Пустое поле — <c>null</c> (например, «общий шаг»), иначе число по правилу.</summary>
     public static bool ReadOptional(Window owner, TextBox box, string labelKey, out double? value, Func<double, string?>? rule = null)

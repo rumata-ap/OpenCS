@@ -119,8 +119,9 @@ public partial class FemAnalysisDialog : Window
         _nodes = nodes;
         _existingId = existing?.Id ?? 0;
         InitializeComponent();
-        // Высокие виды (пакет + параметры CSfea) прокручиваются внутри окна, а не уходят за край экрана.
-        RootScroll.MaxHeight = Math.Max(400, SystemParameters.WorkArea.Height - 80);
+        // Высокие виды (пакет + параметры CSfea) прокручиваются внутри окна, а не уходят за край экрана; кнопки OK и
+        // «Отмена» — под прокруткой, всегда видны.
+        MaxHeight = Math.Max(400, SystemParameters.WorkArea.Height - 40);
         // Начальный выбор — в коде: SelectionChanged из разметки пришёл бы до создания панелей ниже.
         BucklingMethodCombo.SelectedIndex = 0;
         BucklingSwayCombo.SelectedIndex = 0;
@@ -535,15 +536,15 @@ public partial class FemAnalysisDialog : Window
         if (!linear)
         {
             if (!Helpers.FieldCheck.ReadOptional(this, CsfeaPoissonBox, "FemCsfeaPoissonUncrackedLabel", out poisson,
-                    v => v >= 0 && v < 0.5 ? null : Loc.S("FemCsfeaPoissonInvalid"))
+                    Helpers.FieldCheck.InRangeCO(0, 0.5))
                 || !Helpers.FieldCheck.ReadInt(this, CsfeaMaxIterationsBox, "FemCsfeaMaxIterationsLabel", out maxIter,
-                    v => v >= 1 ? null : Loc.S("FemCsfeaMaxIterationsInvalid"))
+                    Helpers.FieldCheck.IntMin(1))
                 || !Helpers.FieldCheck.ReadInt(this, CsfeaMaxBisectionsBox, "FemCsfeaMaxBisectionsLabel", out bisections,
-                    v => v >= 0 ? null : Loc.S("FemCsfeaMaxBisectionsInvalid"))
+                    Helpers.FieldCheck.IntMin(0))
                 || !Helpers.FieldCheck.Read(this, CsfeaTolDisplacementBox, "FemCsfeaTolDisplacementLabel", out tolU, Helpers.FieldCheck.Positive)
                 || !Helpers.FieldCheck.Read(this, CsfeaTolStiffnessBox, "FemCsfeaTolStiffnessLabel", out tolK, Helpers.FieldCheck.Positive)
                 || !Helpers.FieldCheck.Read(this, CsfeaOmega0Box, "FemCsfeaOmega0Label", out omega,
-                    Helpers.FieldCheck.InRange(0, 1, "FemCsfeaOmega0Invalid")))
+                    Helpers.FieldCheck.InRange(0, 1)))
                 return null;
         }
 
@@ -678,6 +679,8 @@ public partial class FemAnalysisDialog : Window
         if ((sender as FrameworkElement)?.Tag is not StageRow row) return;
         var dlg = new FemPathControlDialog(row, _nodes) { Owner = this };
         dlg.ShowDialog();
+        // Строка таблицы перерисовывается заново: после модального окна погашенные ячейки шага и предела λ оставались пустыми.
+        StagesGrid.Items.Refresh();
     }
 
     /// <summary>Источник сохранённой стадии: из схемы или, если его там нет, выражение как было (не подменяется).</summary>
@@ -928,9 +931,9 @@ public partial class FemAnalysisDialog : Window
         }
         Helpers.FieldCheck.Clear(BatchStepBox, BatchMaxBox);
         if (!Helpers.FieldCheck.Read(this, BatchStepBox, "FemAnalysisStageLoadFactorStepColumn", out var step,
-                Helpers.FieldCheck.InRange(0, 1, "FemCsfeaBatchFactorsInvalid"))
+                Helpers.FieldCheck.InRange(0, 1))
             || !Helpers.FieldCheck.Read(this, BatchMaxBox, "FemAnalysisStageMaxLoadFactorColumn", out var max,
-                v => v >= step ? null : Loc.S("FemCsfeaBatchFactorsInvalid")))
+                v => v >= step ? null : Loc.S("FieldErrNotLessStep")))
             return null;
         var batch = BatchDraft();
         batch.LoadFactorStep = step;
@@ -1000,7 +1003,7 @@ public partial class FemAnalysisDialog : Window
         {
             Helpers.FieldCheck.Clear(LoadFactorStepBox);
             if (!Helpers.FieldCheck.Read(this, LoadFactorStepBox, "SubmodelLoadFactorStepLabel", out var step,
-                    Helpers.FieldCheck.InRange(0, 1, "SubmodelLoadFactorStepInvalid"))
+                    Helpers.FieldCheck.InRange(0, 1))
                 || ReadNonlinearParams() is not { } submodelParams)
                 return;
             submodelParams.LoadFactorStep = step;
@@ -1032,17 +1035,39 @@ public partial class FemAnalysisDialog : Window
     bool ValidateWithService(FemAnalysis analysis, string caption)
     {
         var errors = Services.FemAnalysisAuthoring.Validate(_schema, analysis, _nodes.Select(n => n.Id).ToHashSet());
-        Helpers.FieldCheck.Clear(TagBox);
+        TagErrorText.Visibility = Visibility.Collapsed;
         if (errors.Count == 0) return true;
         MessageBox.Show(this, string.Join(Environment.NewLine, errors.Select(err => err.Message).Distinct()), caption,
             MessageBoxButton.OK, MessageBoxImage.Warning);
-        if (errors.Any(err => err.Path == "tag"))
+        // Ошибка имени — текстом под полем: рамку поля в фокусе перекрашивает шаблон TextBox.
+        if (errors.FirstOrDefault(err => err.Path == "tag") is { } tagError)
         {
-            TagBox.BorderBrush = System.Windows.Media.Brushes.Red;
+            TagErrorText.Text = tagError.Message;
+            TagErrorText.Visibility = Visibility.Visible;
             TagBox.Focus();
             TagBox.SelectAll();
         }
         return false;
+    }
+
+    void TagBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (TagErrorText != null) TagErrorText.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>
+    /// Нераспознанное число в ячейке шага или предела λ не выпускает ячейку из правки (красная рамка остаётся): иначе
+    /// таблица молча вернула бы прежнее значение, а OK записал бы не то, что видно.
+    /// </summary>
+    void StagesGrid_CellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
+    {
+        if (e.EditAction != DataGridEditAction.Commit || e.EditingElement is not TextBox box) return;
+        if ((e.Column == StagesLoadFactorStepColumn || e.Column == StagesMaxLoadFactorColumn) && !NumberInput.TryParse(box.Text, out _))
+        {
+            e.Cancel = true;
+            box.BorderBrush = System.Windows.Media.Brushes.Red;
+            box.ToolTip = Loc.S("FieldErrNumber");
+        }
     }
 
     /// <summary>
@@ -1084,7 +1109,7 @@ public partial class FemAnalysisDialog : Window
         Helpers.FieldCheck.Clear(BucklingModesBox, BucklingGFixedBox, BucklingGPinnedBox, BucklingSwayStiffnessBox);
         // Номограммные поля скрыты у метода «по формам» — их значения берутся как есть, но тоже должны быть числами.
         if (!Helpers.FieldCheck.ReadInt(this, BucklingModesBox, "FemBucklingModesLabel", out int modes,
-                v => v is >= 1 and <= 200 ? null : Loc.S("FemBucklingModesInvalid"))
+                Helpers.FieldCheck.IntRange(1, 200))
             || !Helpers.FieldCheck.Read(this, BucklingGFixedBox, "FemBucklingGFixedLabel", out double gFixed, Helpers.FieldCheck.NonNegative)
             || !Helpers.FieldCheck.Read(this, BucklingGPinnedBox, "FemBucklingGPinnedLabel", out double gPinned, Helpers.FieldCheck.Positive)
             || !Helpers.FieldCheck.Read(this, BucklingSwayStiffnessBox, "FemBucklingSwayThresholdLabel", out double swayStiffness,
