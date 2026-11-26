@@ -279,6 +279,27 @@ public sealed class CliFemChecksTests : IDisposable
         Assert.Empty(db.FemSchemas);   // при ошибках не записано ничего
     }
 
+    /// <summary>Ручная проверка 7б, H: проверка, переведённая с одного КонЭ на другой, уходит из узла прежнего в дереве.</summary>
+    [Fact]
+    public async Task Retarget_MovesCheckBetweenMemberTreeNodes()
+    {
+        string project = PathOf("t.db");
+        Assert.Equal(CliExitCode.Ok, (await Run("new", project)).Code);
+        Assert.Equal(CliExitCode.Ok, (await Run("apply", project, Doc("seed.json", Full()))).Code);
+        using var db = Open(project);
+        var schema = db.FemSchemas.Single();
+        var tree = new OpenCS.ViewModels.FemSchemaTreeVM(schema, db, []);
+        var bars = tree.ElementsSubNode.Bars.Members;
+        var check = db.FemChecks.Single(c => c.Tag == "Ригель / ЖБ");
+        Assert.Equal([check], bars.Single(i => i.Member.ElemTag == "Р1").Checks);
+
+        var draft = FemCheckAuthoring.Copy(check);
+        draft.ElementId = bars.Single(i => i.Member.ElemTag == "К1").Member.Id;
+        FemCheckAuthoring.Save(db, check, draft);
+        Assert.Empty(bars.Single(i => i.Member.ElemTag == "Р1").Checks);
+        Assert.Equal([check], bars.Single(i => i.Member.ElemTag == "К1").Checks);
+    }
+
     // ── Служба ─────────────────────────────────────────────────────────────────────────────
 
     static FemCheckRefs TestRefs(params FemCheck[] checks)

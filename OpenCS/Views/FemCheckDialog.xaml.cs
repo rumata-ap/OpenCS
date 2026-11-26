@@ -245,6 +245,7 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
     {
         _existing = existing;
         Schemas   = app.FemSchemas;
+        if (existing != null) KeptForceSetIds = existing.GetForceSetIds().ToHashSet();
 
         _selectedNormCode       = NormCodes[0];
         Buckling.NormCode       = _selectedNormCode.Code;

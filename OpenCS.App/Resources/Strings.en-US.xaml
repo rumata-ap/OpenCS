@@ -7795,4 +7795,5 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliFemCheckErrSetsEmpty">the set list is empty — specify "all" or set names.</system:String>
    <system:String x:Key="CliFemCheckErrPhi1">"auto" or a number is expected.</system:String>
    <system:String x:Key="FemCheckPhi1Eq">φ1 =</system:String>
+   <system:String x:Key="FemCheckDlgSetKept">{0} — chosen in the check (not bound to the schema)</system:String>
 </ResourceDictionary>

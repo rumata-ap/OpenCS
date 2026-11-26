@@ -194,6 +194,9 @@ public class FemSlsCheckDialogVM : FemCheckDialogVmBase
     {
         _existing = existing;
         Schemas   = app.FemSchemas;
+        if (existing != null)
+            KeptForceSetIds = existing.GetForceSetIds().Append(PlateCheckParams.Parse(existing.ParamsJson).NlForceSetId)
+                .Where(id => id > 0).ToHashSet();
 
         _selectedSlsKind        = SlsKinds[0];
         _selectedPhi1Mode       = Phi1Modes[0]; // auto

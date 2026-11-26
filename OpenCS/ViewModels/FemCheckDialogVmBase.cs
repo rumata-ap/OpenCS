@@ -41,6 +41,13 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
     /// <summary>Наборы усилий, доступные цели.</summary>
     public ObservableCollection<FemCheckForceSetItem> FilteredForceSets { get; } = [];
 
+    /// <summary>
+    /// Наборы правимой проверки (выбранные и NL). Попадают в список, даже если к цели не привязаны (наборы из консоли или
+    /// ручного ввода без схемы): иначе окно не показало бы их и при любой правке записало бы «все наборы» — молча
+    /// заменив выбор и сбросив результат.
+    /// </summary>
+    protected IReadOnlySet<int> KeptForceSetIds { get; set; } = new HashSet<int>();
+
     int _stripModelIndex;
     /// <summary>Модель полосы упрощённых видов: 0 — НДМ (новая проверка), 1 — формулы СП 63.</summary>
     public int StripModelIndex
@@ -288,6 +295,9 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
             foreach (var (fs, rows) in FemCheckContext.TargetForceSets(App.ForceSets, target, data.SchemaId, _scope, IsPlateCheck))
                 if (AcceptsForceSet(fs))
                     FilteredForceSets.Add(new FemCheckForceSetItem(fs, string.Format(Loc.S("FemCheckDlgSetRows"), fs.Tag, rows)));
+            foreach (var fs in App.ForceSets.Where(f => KeptForceSetIds.Contains(f.Id) && (f.Kind == "shell") == IsPlateCheck
+                         && AcceptsForceSet(f) && FilteredForceSets.All(i => i.ForceSet != f)))
+                FilteredForceSets.Add(new FemCheckForceSetItem(fs, string.Format(Loc.S("FemCheckDlgSetKept"), fs.Tag)));
 
             // Подсказки флажков «Заданное»/«Подобранное» называют программу и файл источника.
             // У стержней ТЗА разбираются только простые брусовые (ряды у нижней и верхней грани).

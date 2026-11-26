@@ -243,9 +243,10 @@ class FemSchemaTreeVM : System.ComponentModel.INotifyPropertyChanged
             foreach (var item in _memberItems.Values) item.Checks.Clear();
             return;
         }
+        // Из всех КонЭ, не по ElementId: при правке цели объект уже указывает на новый элемент, а лежит под прежним.
         if (e.OldItems != null)
             foreach (FemCheck c in e.OldItems)
-                if (c.ElementId is int id && _memberItems.TryGetValue(id, out var item)) item.Checks.Remove(c);
+                foreach (var item in _memberItems.Values) item.Checks.Remove(c);
         if (e.NewItems != null)
             foreach (FemCheck c in e.NewItems) RouteCheck(c);
     }
