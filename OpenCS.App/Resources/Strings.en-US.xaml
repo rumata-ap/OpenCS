@@ -7809,7 +7809,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemColCapHc">hc, mm</system:String>
    <system:String x:Key="PunchingFemColSwD">d, mm</system:String>
    <system:String x:Key="PunchingFemColSwStep">sw, mm</system:String>
-   <system:String x:Key="PunchingFemSourceMissing">(the check source is not found: the analysis was deleted or the snapshot is not attached — choose another)</system:String>
+   <system:String x:Key="PunchingFemSourceMissing">(source not found — choose another)</system:String>
    <system:String x:Key="CliFemCheckSourceSkipped">Schema «{0}», check «{1}»: the punching source analysis is not found or its name is not unique — the check is not exported.</system:String>
    <system:String x:Key="CliFemCheckMaterialMissing">Schema «{0}», check «{1}»: material Id {2} is not found — exported as null.</system:String>
    <system:String x:Key="CliFemCheckErrPunchingSource">Exactly one is required: analysis (a CSfea analysis of the schema) or snapshot (lira, scad).</system:String>

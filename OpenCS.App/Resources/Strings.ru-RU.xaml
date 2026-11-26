@@ -7809,7 +7809,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="PunchingFemColCapHc">hc, мм</system:String>
    <system:String x:Key="PunchingFemColSwD">d, мм</system:String>
    <system:String x:Key="PunchingFemColSwStep">sw, мм</system:String>
-   <system:String x:Key="PunchingFemSourceMissing">(источник проверки не найден: постановка удалена или снимок не приложен — выберите другой)</system:String>
+   <system:String x:Key="PunchingFemSourceMissing">(источник не найден — выберите другой)</system:String>
    <system:String x:Key="CliFemCheckSourceSkipped">Схема «{0}», проверка «{1}»: постановка-источник продавливания не найдена или её имя не единственное — проверка не выгружена.</system:String>
    <system:String x:Key="CliFemCheckMaterialMissing">Схема «{0}», проверка «{1}»: материал Id {2} не найден — выгружен как null.</system:String>
    <system:String x:Key="CliFemCheckErrPunchingSource">Нужно ровно одно: analysis (постановка CSfea схемы) или snapshot (lira, scad).</system:String>
