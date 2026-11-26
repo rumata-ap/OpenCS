@@ -85,6 +85,18 @@ public sealed class FemLoadExpression
 
     public string ToJson() => JsonSerializer.Serialize(this);
 
+    /// <summary>
+    /// Та же формула с другими Id загружений (перезапись схемы, копия): режим, тип, коэффициенты, роли и режимы
+    /// «авто»/«задано» слагаемых сохраняются.
+    /// </summary>
+    public FemLoadExpression RemapLoadCases(Func<int, int> map) => new()
+    {
+        Mode = Mode,
+        LoadCaseIds = LoadCaseIds.Select(map).ToList(),
+        Terms = Terms.Select(t => new FemLoadTerm { LoadCaseId = map(t.LoadCaseId), Coefficient = t.Coefficient, Role = t.Role, Mode = t.Mode }).ToList(),
+        CombinationType = CombinationType,
+    };
+
     public static FemLoadExpression Parse(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))

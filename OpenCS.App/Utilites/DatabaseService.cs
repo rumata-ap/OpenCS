@@ -5870,7 +5870,13 @@ namespace OpenCS.Utilites
                }
             }
 
+            // Новые группы (Id ≤ 0, у консоли — временные отрицательные) получают Id при записи — нагрузки на группу
+            // переводятся следом.
+            var groupIdsBefore = memberGroups.Select(g => g.Id).ToList();
             removedGroupIds = SyncFemMemberGroupsCore(schemaId, memberGroups);
+            var newGroupIdByOld = new Dictionary<int, int>();
+            for (int gi = 0; gi < memberGroups.Count; gi++)
+               if (groupIdsBefore[gi] != 0 && groupIdsBefore[gi] != memberGroups[gi].Id) newGroupIdByOld[groupIdsBefore[gi]] = memberGroups[gi].Id;
 
             // Удалённый элемент с импортированной сеткой: его КЭ остаются в сетке, но больше ему не принадлежат.
             using (var unlink = _connection.CreateCommand())
@@ -6011,7 +6017,8 @@ namespace OpenCS.Utilites
             {
                DeleteFemMeshLevelLoadsCore(schemaId);
                InsertFemMeshLevelLoadsCore(schemaId, elementLoads, meshNodeLoads!,
-                  id => newLoadCaseIdByOld.TryGetValue(id, out var mapped) ? mapped : id, group => group);
+                  id => newLoadCaseIdByOld.TryGetValue(id, out var mapped) ? mapped : id,
+                  group => group is int g && newGroupIdByOld.TryGetValue(g, out int mappedGroup) ? mappedGroup : group);
             }
             else RemapFemMeshLevelLoadsCore(schemaId, newLoadCaseIdByOld);
 
@@ -6031,17 +6038,7 @@ namespace OpenCS.Utilites
                foreach (var definition in savedDefinitions)
                {
                   var expression = definition.GetExpression();
-                  var rewritten = new CScore.Fem.FemLoadExpression
-                  {
-                     Mode = expression.Mode,
-                     LoadCaseIds = expression.LoadCaseIds.Select(id => newLoadCaseIdByOld.TryGetValue(id, out var mapped) ? mapped : id).ToList(),
-                     Terms = expression.Terms.Select(term => new CScore.Fem.FemLoadTerm
-                     {
-                        LoadCaseId = newLoadCaseIdByOld.TryGetValue(term.LoadCaseId, out var mapped) ? mapped : term.LoadCaseId,
-                        Coefficient = term.Coefficient
-                     }).ToList(),
-                     CombinationType = expression.CombinationType
-                  };
+                  var rewritten = expression.RemapLoadCases(id => newLoadCaseIdByOld.TryGetValue(id, out var mapped) ? mapped : id);
                   definition.SetExpression(rewritten);
                   definitionCmd.Parameters.Clear();
                   AddFemLoadDefinitionParameters(definitionCmd, definition);
@@ -6068,45 +6065,14 @@ namespace OpenCS.Utilites
                   var expression = System.Text.Json.JsonSerializer.Deserialize<CScore.Fem.FemLoadExpression>(a.Json);
                   if (expression != null)
                   {
-                     var rewritten = new CScore.Fem.FemLoadExpression
-                     {
-                        Mode = expression.Mode,
-                        LoadCaseIds = expression.LoadCaseIds.Select(id => newLoadCaseIdByOld.TryGetValue(id, out var mapped) ? mapped : id).ToList(),
-                        Terms = expression.Terms.Select(term => new CScore.Fem.FemLoadTerm
-                        {
-                           LoadCaseId = newLoadCaseIdByOld.TryGetValue(term.LoadCaseId, out var mapped) ? mapped : term.LoadCaseId,
-                           Coefficient = term.Coefficient
-                        }).ToList(),
-                        CombinationType = expression.CombinationType
-                     };
+                     var rewritten = expression.RemapLoadCases(id => newLoadCaseIdByOld.TryGetValue(id, out var mapped) ? mapped : id);
                      
                      var newJson = System.Text.Json.JsonSerializer.Serialize(rewritten);
                      string newParamsJson = a.ParamsJson;
                      bool paramsChanged = false;
                      var parameters = OpenCS.Tasks.FemAnalysisParams.Parse(a.ParamsJson);
-                     foreach (var stage in parameters.Stages)
-                     {
-                        var stageExpression = System.Text.Json.JsonSerializer.Deserialize<CScore.Fem.FemLoadExpression>(stage.LoadExpressionJson);
-                        if (stageExpression == null) continue;
-
-                        var rewrittenStage = new CScore.Fem.FemLoadExpression
-                        {
-                           Mode = stageExpression.Mode,
-                           LoadCaseIds = stageExpression.LoadCaseIds.Select(id => newLoadCaseIdByOld.TryGetValue(id, out var mapped) ? mapped : id).ToList(),
-                           Terms = stageExpression.Terms.Select(term => new CScore.Fem.FemLoadTerm
-                           {
-                              LoadCaseId = newLoadCaseIdByOld.TryGetValue(term.LoadCaseId, out var mapped) ? mapped : term.LoadCaseId,
-                              Coefficient = term.Coefficient
-                           }).ToList(),
-                           CombinationType = stageExpression.CombinationType
-                        };
-                        var newStageJson = System.Text.Json.JsonSerializer.Serialize(rewrittenStage);
-                        if (newStageJson != stage.LoadExpressionJson)
-                        {
-                           stage.LoadExpressionJson = newStageJson;
-                           paramsChanged = true;
-                        }
-                     }
+                     // Стадии и пакет CSfea (варианты, несовершенства) — те же Id загружений.
+                     paramsChanged = parameters.RemapLoadCases(id => newLoadCaseIdByOld.TryGetValue(id, out var mapped) ? mapped : id);
                      if (paramsChanged) newParamsJson = parameters.ToJson();
 
                      if (newJson != a.Json || paramsChanged)
@@ -7187,12 +7153,7 @@ namespace OpenCS.Utilites
             }
 
             var expression = plan.LinearAnalysis.GetLoadExpression();
-            var remapped = new CScore.Fem.FemLoadExpression
-            {
-               Mode = expression.Mode, CombinationType = expression.CombinationType,
-               LoadCaseIds = expression.LoadCaseIds.Select(LoadCase).ToList(),
-               Terms = expression.Terms.Select(t => new CScore.Fem.FemLoadTerm { LoadCaseId = LoadCase(t.LoadCaseId), Coefficient = t.Coefficient }).ToList()
-            };
+            var remapped = expression.RemapLoadCases(LoadCase);
             string created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
             using (var command = _connection.CreateCommand())
             {

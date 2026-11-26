@@ -167,6 +167,53 @@ public sealed class FemAnalysisParams
     public string ToJson() => JsonSerializer.Serialize(this);
 
     /// <summary>
+    /// Переводит Id загружений в стадиях и пакете CSfea (варианты и несовершенства) — перезапись схемы даёт загружениям
+    /// новые Id. Роли и режимы слагаемых сохраняются. Возвращает, изменилось ли что-нибудь.
+    /// </summary>
+    public bool RemapLoadCases(Func<int, int> map)
+    {
+        bool changed = false;
+        string Remap(string json)
+        {
+            var next = CScore.Fem.FemLoadExpression.Parse(json).RemapLoadCases(map).ToJson();
+            if (next != CScore.Fem.FemLoadExpression.Parse(json).ToJson()) changed = true;
+            return next;
+        }
+        foreach (var stage in Stages) stage.LoadExpressionJson = Remap(stage.LoadExpressionJson);
+        if (Batch is { } batch)
+        {
+            foreach (var item in batch.Items) item.LoadExpressionJson = Remap(item.LoadExpressionJson);
+            foreach (var imp in batch.Imperfections)
+            {
+                int id = map(imp.LoadCaseId);
+                if (id != imp.LoadCaseId) { imp.LoadCaseId = id; changed = true; }
+            }
+        }
+        return changed;
+    }
+
+    /// <summary>Id загружений, на которые постановка ссылается явно: формула, стадии, пакет (варианты и несовершенства).</summary>
+    public static HashSet<int> ReferencedLoadCases(CScore.Fem.FemAnalysis analysis)
+    {
+        var ids = new HashSet<int>();
+        void Add(string? json)
+        {
+            var e = CScore.Fem.FemLoadExpression.Parse(json);
+            ids.UnionWith(e.LoadCaseIds);
+            ids.UnionWith(e.Terms.Select(t => t.LoadCaseId));
+        }
+        Add(analysis.LoadExpressionJson);
+        var p = Parse(analysis.ParamsJson);
+        foreach (var stage in p.Stages) Add(stage.LoadExpressionJson);
+        if (p.Batch is { } batch)
+        {
+            foreach (var item in batch.Items) Add(item.LoadExpressionJson);
+            ids.UnionWith(batch.Imperfections.Select(i => i.LoadCaseId));
+        }
+        return ids;
+    }
+
+    /// <summary>
     /// Пакет в обеих постановках и отличается только списком вариантов — результат не сбрасывается: посчитанные
     /// варианты остаются, новые досчитываются, убранные удаляются при следующем запуске.
     /// </summary>
