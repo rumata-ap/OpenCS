@@ -2035,11 +2035,12 @@ public class Fem3DVM : ViewModelBase
     }
 
     /// <summary>Знаки направления: стержни — по узлам КонЭ (I → J), пластины с областью — нормаль области из центра
-    /// внешнего контура; длина — по размеру КонЭ, не больше <see cref="LineGlyphSize"/>·1,5.</summary>
+    /// внешнего контура; размер — по размеру КонЭ (стержень — 15 % длины, нормаль — 30 % стороны области), в пределах
+    /// 0,15…1,5 м, чтобы знак был виден и на раме в десятки метров.</summary>
     List<FemDirectionGlyph> BuildDirectionGlyphs(List<FemMember> elements, Dictionary<string, Point3D> nodeMap)
     {
         var result = new List<FemDirectionGlyph>();
-        const double max = LineGlyphSize * 1.5;
+        static double Clamp(double v) => Math.Clamp(v, 0.15, 1.5);
         foreach (var e in elements.Where(e => e.ElemType is "beam" or "truss"))
         {
             if (GetBarPoints(nodeMap, e) is not { } pair) continue;
@@ -2047,7 +2048,7 @@ public class Fem3DVM : ViewModelBase
             double length = d.Length;
             if (length < 1e-9) continue;
             d /= length;
-            result.Add(new FemDirectionGlyph(pair.p1 + (pair.p2 - pair.p1) * 0.5, d, Math.Min(max, 0.2 * length), false));
+            result.Add(new FemDirectionGlyph(pair.p1 + (pair.p2 - pair.p1) * 0.5, d, Clamp(0.15 * length), false));
         }
         var shells = elements.Where(e => e.ElemType == "shell" && e.PlanarRegionId != null).ToList();
         if (shells.Count == 0) return result;
@@ -2063,7 +2064,7 @@ public class Fem3DVM : ViewModelBase
             var c = f.Origin + f.LocalX * u + f.LocalY * v;
             var n = f.LocalZ;
             result.Add(new FemDirectionGlyph(new Point3D(c.X, c.Y, c.Z), new Vector3D(n.X, n.Y, n.Z),
-                Math.Min(max, 0.25 * size), true));
+                Clamp(0.3 * size), true));
         }
         return result;
     }

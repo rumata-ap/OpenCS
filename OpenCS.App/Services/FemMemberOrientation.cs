@@ -122,7 +122,8 @@ public static class FemMemberOrientation
         // Расчётная геометрия изменилась — результаты постановок схемы сбрасываются (как при новой сетке).
         new FemSchemaMeshService(db, gmsh ?? new GmshSettings()).ReportMeshChanged(schema, log);
         var outcome = new FemMemberOrientationOutcome { Done = true, Flip = flip, MeshKept = kept };
-        Describe(outcome, flip, meshElements.Count > 0);
+        // Если сетку не удалось проверить или пересобрать, предупреждение уже говорит, что она перестроится, — без повтора.
+        Describe(outcome, flip, meshElements.Count > 0 && (kept || warnings.Count == 0));
         outcome.Warnings.AddRange(warnings);
         return outcome;
     }

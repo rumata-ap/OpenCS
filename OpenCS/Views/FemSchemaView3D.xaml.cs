@@ -1447,8 +1447,8 @@ public partial class FemSchemaView3D : UserControl
             target.Add(tip); target.Add(tip - d * head + side * head * 0.5);
             target.Add(tip); target.Add(tip - d * head - side * head * 0.5);
         }
-        AddGlyphLine(Colors.DarkOrange, 2.0, bars);
-        AddGlyphLine(Colors.MediumVioletRed, 2.0, normals);
+        AddGlyphLine(Colors.DarkOrange, 3.0, bars);
+        AddGlyphLine(Colors.MediumVioletRed, 3.0, normals);
     }
 
     /// <summary>Порог, после которого вместо сфер (по одной на узел) используется PointsVisual3D.
