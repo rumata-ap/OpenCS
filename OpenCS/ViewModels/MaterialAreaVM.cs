@@ -196,6 +196,14 @@ namespace OpenCS.ViewModels
       public ICommand TranslateCommand { get; }
       public ICommand ShowPropertiesCommand { get; }
 
+      /// <summary>Сетка волокон области изменена (окно «Настройка сетки» со страницы области или сечения):
+      /// счётчик «Фибр:» и рисунок.</summary>
+      public void MeshChanged()
+      {
+         OnPropertyChanged(nameof(FibersCount));
+         RefreshPlot();
+      }
+
       public void RefreshPlot()
       {
          var elements = new List<PlotElement>();
@@ -333,11 +341,7 @@ namespace OpenCS.ViewModels
          {
             Owner = System.Windows.Application.Current.MainWindow
          };
-         if (dlg.ShowDialog() == true)
-         {
-            OnPropertyChanged(nameof(FibersCount));
-            RefreshPlot();
-         }
+         if (dlg.ShowDialog() == true) MeshChanged();
       }
 
       void ClearMesh()

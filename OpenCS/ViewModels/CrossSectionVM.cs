@@ -136,7 +136,7 @@ namespace OpenCS.ViewModels
          };
          if (dlg.ShowDialog() == true)
          {
-            avm.RefreshPlot();
+            avm.MeshChanged();
             RefreshPlot();
          }
       }

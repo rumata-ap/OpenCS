@@ -338,7 +338,7 @@ public sealed class StagedSectionVM : ViewModelBase, IUnsavedChanges
         var dlg = new MeshDialog(avm.Model, App) { Owner = System.Windows.Application.Current.MainWindow };
         if (dlg.ShowDialog() == true)
         {
-            avm.RefreshPlot();
+            avm.MeshChanged();
             RefreshPlot();
         }
     }

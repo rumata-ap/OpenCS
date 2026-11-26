@@ -104,6 +104,21 @@ public class CrossSectionPagesVMTests
     });
 
     [Fact]
+    public void AreaPage_MeshChanged_UpdatesFibersCount() => WithApp(app =>
+    {
+        var (_, _, concrete, _, _) = Seed(app);
+        var vm = new MaterialAreaVM(concrete, app);
+        var changed = new List<string?>();
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        concrete.SliceXY(4, 4);                        // как «Разбить» в окне сетки, открытом со страницы сечения
+
+        vm.MeshChanged();
+
+        Assert.Contains(nameof(MaterialAreaVM.FibersCount), changed);
+        Assert.True(vm.FibersCount > 0);
+    });
+
+    [Fact]
     public void AreaPage_TranslateKeepsPoolContour_SavesOnlyOnSave() => WithApp(app =>
     {
         var (_, _, concrete, _, _) = Seed(app);
