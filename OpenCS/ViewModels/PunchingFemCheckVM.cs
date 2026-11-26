@@ -341,15 +341,12 @@ public sealed class PunchingFemCheckVM : ViewModelBase
     PunchingFemAnalysisItem? _analysis;
     PunchingFemJointPickVM? _selectedJoint;
     bool _loading;
+    /// <summary>Имя, подставленное новой проверке; пока пользователь его не менял, смена схемы подбирает свободное заново.</summary>
+    string? _autoTag;
 
-    /// <summary>Имя новой проверки: «Продавливание», если свободно, иначе «Продавливание 2», «Продавливание 3»…</summary>
-    public static string UniqueTag(string baseTag, IEnumerable<string?> taken)
-    {
-        var used = taken.Where(t => !string.IsNullOrEmpty(t)).ToHashSet(StringComparer.CurrentCultureIgnoreCase);
-        if (!used.Contains(baseTag)) return baseTag;
-        for (int i = 2; ; i++)
-            if (!used.Contains($"{baseTag} {i}")) return $"{baseTag} {i}";
-    }
+    /// <summary>Свободное имя новой проверки в схеме: «Продавливание», иначе «Продавливание (2)»… (как у прочих проверок).</summary>
+    string FreeTag(FemSchema? schema) =>
+        FemCheckAuthoring.FreeTag(_db.FemChecks, schema?.Id ?? 0, Loc.S("PunchingFemDefaultTag", "Продавливание"));
 
     public PunchingFemCheckVM(DatabaseService db, FemCheck? existing, FemSchema? schema = null)
     {
@@ -370,21 +367,25 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         foreach (var o in p.Overrides) _overrides[o.Node] = o;
 
         _loading = true;
-        Tag = existing?.Tag is { Length: > 0 } t ? t : UniqueTag(Loc.S("PunchingFemDefaultTag", "Продавливание"), db.FemChecks.Select(c => c.Tag));
         _schema = existing != null ? Schemas.FirstOrDefault(s => s.Id == existing.SchemaId) : schema ?? Schemas.FirstOrDefault();
+        // Имя правимой проверки — как сохранено (пустое — ошибка при записи), у новой — свободное в схеме.
+        _autoTag = isNew ? FreeTag(_schema) : null;
+        Tag = existing?.Tag ?? _autoTag!;
         _keepKind = existing != null ? p.SourceKind : null;
         RefreshAnalyses(p.SourceRef);
+        if (existing != null) KeepMissingSource(p);
         Method = p.Method;
         MomentsAreMloc = p.MomentsAreMloc;
         ConcreteFromSchema = p.ConcreteFromSchema;
-        Concrete = Concretes.FirstOrDefault(m => m.Id == p.ConcreteMaterialId) ?? Concretes.FirstOrDefault();
+        // Сохранённый материал не найден — поле пустое (служба скажет, если он нужен), а не молча первый в списке.
+        Concrete = Concretes.FirstOrDefault(m => m.Id == p.ConcreteMaterialId) ?? (isNew ? Concretes.FirstOrDefault() : null);
         RbtManual = p.RbtOverride is not null;
         RbtManualValue = (p.RbtOverride ?? 1050) / 1000;
         DefaultAx = p.DefaultAx * 1000;
         DefaultAy = p.DefaultAy * 1000;
         var r = p.Reinforcement;
         SwEnabled = r.Enabled;
-        Rebar = Rebars.FirstOrDefault(m => m.Id == r.MaterialId) ?? Rebars.FirstOrDefault();
+        Rebar = Rebars.FirstOrDefault(m => m.Id == r.MaterialId) ?? (isNew ? Rebars.FirstOrDefault() : null);
         Diameter = r.Diameter * 1000;
         Count = r.Count;
         Step = r.Step * 1000;
@@ -436,7 +437,7 @@ public sealed class PunchingFemCheckVM : ViewModelBase
                 _liraBusy = false;
                 CommandManager.InvalidateRequerySuggested();
             }
-        }, _ => _schema != null && CreateLiraForceSets != null && !_liraBusy && !IsFinding && !_isFragment && _analysis?.Kind == FragmentMaskSet.SourceLira
+        }, _ => _schema != null && CreateLiraForceSets != null && !_liraBusy && !IsFinding && !_isFragment && _analysis is { Id: < 0, Kind: FragmentMaskSet.SourceLira }
                && LiraSetJoints().Count > 0);
         if (_schema != null) FindJoints();
     }
@@ -488,6 +489,7 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         set
         {
             if (!SetField(ref _schema, value)) return;
+            if (_autoTag != null && Tag == _autoTag) Tag = _autoTag = FreeTag(value);
             RefreshAnalyses(null);
             Joints.Clear();
             if (value != null) FindJoints();
@@ -495,7 +497,7 @@ public sealed class PunchingFemCheckVM : ViewModelBase
     }
 
     public PunchingFemAnalysisItem? Analysis { get => _analysis; set => SetField(ref _analysis, value); }
-    public bool HasNoAnalyses => Analyses.Count == 0;
+    public bool HasNoAnalyses => !Analyses.Any(a => a.Id != 0);
 
     public string Method { get => _method; set => SetField(ref _method, value); }
     public bool MomentsAreMloc { get => _mloc; set => SetField(ref _mloc, value); }
@@ -696,6 +698,22 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         OnPropertyChanged(nameof(HasNoAnalyses));
     }
 
+    /// <summary>
+    /// Источник правимой проверки не найден (постановку удалили, снимок не приложен): в списке — строка «не найден» и она
+    /// выбрана; иначе окно молча подставило бы другой расчёт, и любая правка сменила бы источник. Запись с ней — ошибка.
+    /// </summary>
+    void KeepMissingSource(PunchingFemCheckParams p)
+    {
+        bool found = p.IsCsfea
+            ? Analyses.Any(a => a.Id > 0 && a.Id.ToString(CultureInfo.InvariantCulture) == p.SourceRef)
+            : Analyses.Any(a => a.Id < 0 && a.Kind == p.SourceKind);
+        if (found) return;
+        var missing = new PunchingFemAnalysisItem(0, Loc.S("PunchingFemSourceMissing"), p.SourceKind);
+        Analyses.Insert(0, missing);
+        Analysis = missing;
+        OnPropertyChanged(nameof(HasNoAnalyses));
+    }
+
     void Refind()
     {
         if (!_loading && _schema != null) FindJoints();
@@ -890,31 +908,29 @@ public sealed class PunchingFemCheckVM : ViewModelBase
         };
     }
 
-    /// <summary>Проверка формы: коды ошибок для сохранения; пусто — можно сохранять.</summary>
-    public List<string> Validate()
-    {
-        var e = new List<string>();
-        if (_schema == null) e.Add(Loc.S("PunchingFemErrNoSchema", "Не выбрана схема."));
-        if (_analysis == null) e.Add(Loc.S("PunchingFemErrNoAnalysis", "Не выбран источник усилий: расчёт CSfea схемы или снимок результатов ЛИРА-САПР/SCAD."));
-        if (!RbtManual && Concrete == null && !ConcreteFromSchema) e.Add(Loc.S("PunchingErr_concrete_missing", "Не выбран бетон."));
-        if (SwEnabled)
-            foreach (var code in new PunchingTaskParams { Reinforcement = Common() }.Validate().Where(c => c.StartsWith("sw_", StringComparison.Ordinal)).Distinct())
-                e.Add(Loc.S("PunchingErr_" + code, "Неверные параметры поперечной арматуры."));
-        if (!(DefaultAx >= 0 && DefaultAy >= 0)) e.Add(Loc.S("PunchingErr_h0_nonpositive", "Неверные привязки."));
-        if (!(PileSize > 0)) e.Add(Loc.S("PunchingFemErrPileSize", "Размер сечения свай-точек должен быть больше нуля."));
-        return e;
-    }
+    /// <summary>
+    /// Проверка черновика службой (<see cref="FemCheckAuthoring.Validate"/>) с путями полей документа; без схемы —
+    /// одна ошибка <c>schema</c>.
+    /// </summary>
+    public List<FieldError> Validate(FemCheck draft) => _schema == null
+        ? [new FieldError("schema", Loc.S("PunchingFemErrNoSchema", "Не выбрана схема."))]
+        : FemCheckAuthoring.Validate(FemCheckRefs.Of(_db, _schema), draft);
 
-    /// <summary>Записывает форму в проверку.</summary>
-    public void ApplyTo(FemCheck check)
+    /// <summary>
+    /// Черновик проверки по форме: копия правимой (Id, результат) или новая. Сохранённую проверку окно не меняет —
+    /// запись и сброс результата делает <see cref="FemCheckAuthoring.Save"/>.
+    /// </summary>
+    public FemCheck BuildDraft()
     {
-        check.SchemaId = _schema?.Id ?? check.SchemaId;
-        check.MemberId = 0;
-        check.ElementId = null;
-        check.NormCode = PunchingFemCheckParams.NormCode;
-        check.Tag = Tag;
-        check.ParamsJson = ToParams().ToJson();
-        check.ForceSetIdsJson = "[]";
+        var d = Existing != null ? FemCheckAuthoring.Copy(Existing) : new FemCheck();
+        d.SchemaId = _schema?.Id ?? d.SchemaId;
+        d.MemberId = 0;
+        d.ElementId = null;
+        d.NormCode = PunchingFemCheckParams.NormCode;
+        d.Tag = Tag.Trim();
+        d.ParamsJson = ToParams().ToJson();
+        d.ForceSetIdsJson = "[]";
+        return d;
     }
 
     /// <summary>Живой рисунок выбранного узла: контуры по геометрии узла с параметрами формы, без усилий.</summary>

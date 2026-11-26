@@ -399,13 +399,26 @@ public sealed class PunchingFemServiceTests : IDisposable
         return list;
     }
 
-    /// <summary>Новая проверка получает свободное имя: «Продавливание», затем «Продавливание 2», «… 3».</summary>
+    /// <summary>
+    /// Новая проверка получает свободное в своей схеме имя, как прочие проверки по КЭ: «Продавливание», затем
+    /// «Продавливание (2)»; занятое в другой схеме не мешает.
+    /// </summary>
     [Fact]
-    public void NewCheck_UniqueDefaultTag()
+    public async Task NewCheck_FreeDefaultTagInSchema()
     {
-        Assert.Equal("Продавливание", OpenCS.ViewModels.PunchingFemCheckVM.UniqueTag("Продавливание", ["Сталь", null]));
-        Assert.Equal("Продавливание 2", OpenCS.ViewModels.PunchingFemCheckVM.UniqueTag("Продавливание", ["продавливание"]));
-        Assert.Equal("Продавливание 3", OpenCS.ViewModels.PunchingFemCheckVM.UniqueTag("Продавливание", ["Продавливание", "Продавливание 2"]));
+        var s = Create();
+        using var db = s.Db;
+        var first = new OpenCS.ViewModels.PunchingFemCheckVM(db, null, s.Schema);
+        await first.Finding;
+        Assert.Equal("Продавливание", first.Tag);
+        db.SaveFemCheck(first.BuildDraft());
+        var second = new OpenCS.ViewModels.PunchingFemCheckVM(db, null, s.Schema);
+        await second.Finding;
+        Assert.Equal("Продавливание (2)", second.Tag);
+        db.FemChecks[0].SchemaId = s.Schema.Id + 1000;
+        var other = new OpenCS.ViewModels.PunchingFemCheckVM(db, null, s.Schema);
+        await other.Finding;
+        Assert.Equal("Продавливание", other.Tag);
     }
 
     [Fact]
@@ -1249,7 +1262,7 @@ public sealed class PunchingFemServiceTests : IDisposable
         Assert.NotNull(vm.Scene);
         Assert.False(vm.HasErrors, vm.ErrorText);
         Assert.Equal(s.Analysis.Id, vm.Analysis!.Id);
-        Assert.Empty(vm.Validate());
+        Assert.Empty(vm.Validate(vm.BuildDraft()));
 
         pick.Ax = 50;
         pick.Include = false;
@@ -1258,14 +1271,45 @@ public sealed class PunchingFemServiceTests : IDisposable
         Assert.True(o.Excluded);
         Assert.Equal(0.05, o.Ax!.Value, 12);
 
-        var check = new FemCheck();
-        vm.ApplyTo(check);
+        var check = vm.BuildDraft();
         Assert.Equal(PunchingFemCheckParams.NormCode, check.NormCode);
         Assert.Equal(s.Schema.Id, check.SchemaId);
         var back = new OpenCS.ViewModels.PunchingFemCheckVM(db, check);
         await back.Finding;
         Assert.False(Assert.Single(back.Joints).Include);
         Assert.Equal(50, back.Joints[0].Ax);
+    }
+
+    /// <summary>
+    /// 7в: окно возвращает черновик, сохранённую проверку не трогает. Повторное открытие и «Сохранить» без правок — не
+    /// изменение (числа мм↔м и узлы переживают круг), переименование — не смена входа, правка узла — смена входа.
+    /// </summary>
+    [Fact]
+    public async Task CheckVM_Reopen_SaveUnchanged_RenameKeepsResult()
+    {
+        var s = Create();
+        using var db = s.Db;
+        var vm = new OpenCS.ViewModels.PunchingFemCheckVM(db, null, s.Schema);
+        await vm.Finding;
+        vm.SwEnabled = vm.Rebar != null;
+        vm.DefaultAx = 35;
+        vm.Joints[0].Ax = 50;
+        var saved = vm.BuildDraft();
+        Assert.Empty(vm.Validate(saved));
+        Assert.Equal((true, false), FemCheckAuthoring.Save(db, null, saved));
+
+        var again = new OpenCS.ViewModels.PunchingFemCheckVM(db, saved);
+        await again.Finding;
+        var draft = again.BuildDraft();
+        Assert.Equal(saved.Id, draft.Id);
+        Assert.NotSame(saved, draft);
+        Assert.Equal((false, false), FemCheckAuthoring.ApplyEdit(FemCheckAuthoring.Copy(saved), draft));
+
+        again.Tag = "Продавливание узлов";
+        Assert.Equal((true, false), FemCheckAuthoring.ApplyEdit(FemCheckAuthoring.Copy(saved), again.BuildDraft()));
+        again.Joints[0].Ax = 60;
+        Assert.Equal((true, true), FemCheckAuthoring.ApplyEdit(FemCheckAuthoring.Copy(saved), again.BuildDraft()));
+        Assert.Equal("Продавливание", saved.Tag);                  // окно сохранённую проверку не меняет
     }
 
     /// <summary>

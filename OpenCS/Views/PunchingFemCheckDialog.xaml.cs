@@ -3,8 +3,10 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using CScore.Fem;
+using OpenCS.Services;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
+using OpenCS.Views.Helpers;
 
 namespace OpenCS.Views;
 
@@ -23,7 +25,6 @@ public partial class PunchingFemCheckDialog : Window
         try { _vm = new PunchingFemCheckVM(db, existing, schema); }
         finally { Cursor = null; }
         DataContext = _vm;
-        ResultCheck = existing;
         // Выбор узла поиском по номеру или после «Найти узлы» — строка в видимой части таблицы.
         _vm.PropertyChanged += (_, e) =>
         {
@@ -45,7 +46,10 @@ public partial class PunchingFemCheckDialog : Window
         init => _vm.CreateLiraForceSets = value;
     }
 
-    /// <summary>Проверка после «Сохранить» (новая — созданная здесь, без Id).</summary>
+    /// <summary>
+    /// Черновик проверки после «Сохранить» (новая — без Id, правка — копия с Id правимой). Сохранённую проверку окно не
+    /// меняет: запись и сброс результата — <see cref="FemCheckAuthoring.Save"/>.
+    /// </summary>
     public FemCheck? ResultCheck { get; private set; }
     /// <summary>Пользователь выбрал «Сохранить и рассчитать».</summary>
     public bool RunRequested { get; private set; }
@@ -63,25 +67,118 @@ public partial class PunchingFemCheckDialog : Window
         DialogResult = true;
     }
 
+    /// <summary>Поля окна по путям ошибок службы (<see cref="FemCheckAuthoring.Validate"/>).</summary>
+    Control? FieldOf(string path) => path switch
+    {
+        "source" => AnalysisBox,
+        "punching.concrete" => ConcreteBox,
+        "punching.rbtMpa" => RbtBox,
+        "punching.defaultAxMm" => DefaultAxBox,
+        "punching.defaultAyMm" => DefaultAyBox,
+        "punching.sw" => DiameterBox,
+        "punching.sw.material" => RebarBox,
+        "punching.options.holeInfluence" => HoleInfluenceBox,
+        "punching.angleDeg" => AngleBox,
+        "punching.edgeInfluence" => EdgeInfluenceBox,
+        "punching.wallRatio" => WallRatioBox,
+        "punching.pile.sizeMm" => PileSizeBox,
+        _ => null,
+    };
+
     bool Apply()
     {
+        // Enter с кнопкой по умолчанию не уводит фокус, у полей — задержка записи: числа переносятся до проверки.
+        JointsGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+        JointsGrid.CommitEdit(DataGridEditingUnit.Row, true);
+        foreach (var box in Descendants<TextBox>(this))
+            box.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
+        foreach (var box in new[] { RbtBox, DefaultAxBox, DefaultAyBox, DiameterBox, HoleInfluenceBox, AngleBox, EdgeInfluenceBox, WallRatioBox, PileSizeBox })
+            FieldCheck.Clear(box);
+
         if (FindInvalid(this) is { } bad)
         {
-            MessageBox.Show(this, Loc.S("PunchingInvalidNumber", "Поле содержит нераспознанное число. Исправьте значение, выделенное красной рамкой."),
+            string label = FieldLabel(bad);
+            MessageBox.Show(this, string.Format(Loc.S("PunchingFemFieldInvalid"), label.Length > 0 ? label : Title),
                 Title, MessageBoxButton.OK, MessageBoxImage.Warning);
-            bad.Focus();
+            FocusField(bad);
             return false;
         }
-        var errors = _vm.Validate();
-        if (errors.Count > 0)
+        var draft = _vm.BuildDraft();
+        var errors = _vm.Validate(draft);
+        if (!FemCheckDialogErrors.Show(this, errors, TagBox, TagErrorText))
         {
-            MessageBox.Show(this, string.Join("\n", errors), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            // Имя уже в фокусе (текст под полем); иначе — первое поле с ошибкой: красная рамка, группа раскрыта.
+            if (errors.All(e => e.Path != "tag") && errors.Select(e => FieldOf(e.Path)).FirstOrDefault(c => c != null) is { } field)
+            {
+                if (field is TextBox tb) tb.BorderBrush = Brushes.Red;
+                FocusField(field);
+            }
             return false;
         }
-        var check = ResultCheck ?? new FemCheck();
-        _vm.ApplyTo(check);
-        ResultCheck = check;
+        ResultCheck = draft;
         return true;
+    }
+
+    void TagBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (TagErrorText != null) TagErrorText.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>Enter в поиске узла — только переход к узлу (поиск живой), окно не сохраняется.</summary>
+    void NodeSearch_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter) e.Handled = true;
+    }
+
+    /// <summary>Раскрывает свёрнутые группы над полем и ставит в него фокус.</summary>
+    static void FocusField(Control field)
+    {
+        for (DependencyObject? d = field; d != null; d = VisualTreeHelper.GetParent(d) ?? LogicalTreeHelper.GetParent(d))
+            if (d is Expander { IsExpanded: false } ex) ex.IsExpanded = true;
+        field.Dispatcher.BeginInvoke(() =>
+        {
+            field.Focus();
+            if (field is TextBox tb) tb.SelectAll();
+        }, System.Windows.Threading.DispatcherPriority.Input);
+    }
+
+    /// <summary>
+    /// Подпись числового поля для сообщения: заголовок столбца таблицы узлов, иначе ближайшая подпись слева в той же
+    /// панели (не единица) (обозначение «ax», «d», флажок «Rbt вручную»), иначе подпись в первом столбце той же строки сетки.
+    /// </summary>
+    internal static string FieldLabel(TextBox box)
+    {
+        for (DependencyObject? d = box; d != null; d = VisualTreeHelper.GetParent(d))
+            if (d is DataGridCell { Column.Header: { } header })
+                return header.ToString() ?? "";
+        if (VisualTreeHelper.GetParent(box) is not Panel panel) return "";
+        for (int i = panel.Children.IndexOf(box) - 1; i >= 0; i--)
+        {
+            switch (panel.Children[i])
+            {
+                case CheckBox { Content: string s }: return s.Trim();
+                case TextBlock t when t.Text.Length > 0 && !ReferenceEquals(t.Style, t.TryFindResource("Unit")):
+                    return t.Text.Trim().TrimEnd(':');
+                case TextBox: return "";
+            }
+        }
+        if (VisualTreeHelper.GetParent(panel) is Grid grid)
+        {
+            int row = Grid.GetRow(panel);
+            if (grid.Children.OfType<TextBlock>().FirstOrDefault(t => Grid.GetRow(t) == row && Grid.GetColumn(t) == 0) is { } lbl)
+                return lbl.Text.Trim().TrimEnd(':');
+        }
+        return "";
+    }
+
+    static IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T t) yield return t;
+            foreach (var x in Descendants<T>(child)) yield return x;
+        }
     }
 
     static TextBox? FindInvalid(DependencyObject root)

@@ -7797,4 +7797,25 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FemCheckPhi1Eq">φ1 =</system:String>
    <system:String x:Key="FemCheckDlgSetKept">{0} — chosen in the check (not bound to the schema)</system:String>
    <system:String x:Key="FemCheckSetsNoneChosen">Select force sets in the list or tick “All sets”.</system:String>
+   <system:String x:Key="PunchingFemErrSnapshotMissing">No {0} result snapshot is attached to the schema — the force source is unavailable.</system:String>
+   <system:String x:Key="PunchingFemErrNodePrefix">Node {0}: </system:String>
+   <system:String x:Key="PunchingFemErrNodeEmpty">A node override has no node number.</system:String>
+   <system:String x:Key="PunchingFemErrNodeTwice">the node is given twice.</system:String>
+   <system:String x:Key="PunchingFemFieldInvalid">{0}: a number is required (decimal separator — comma or point). Correct the value in the red frame.</system:String>
+   <system:String x:Key="PunchingFemColAx">ax, mm</system:String>
+   <system:String x:Key="PunchingFemColAy">ay, mm</system:String>
+   <system:String x:Key="PunchingFemColCapBx">bc,x, mm</system:String>
+   <system:String x:Key="PunchingFemColCapBy">bc,y, mm</system:String>
+   <system:String x:Key="PunchingFemColCapHc">hc, mm</system:String>
+   <system:String x:Key="PunchingFemColSwD">d, mm</system:String>
+   <system:String x:Key="PunchingFemColSwStep">sw, mm</system:String>
+   <system:String x:Key="PunchingFemSourceMissing">(the check source is not found: the analysis was deleted or the snapshot is not attached — choose another)</system:String>
+   <system:String x:Key="CliFemCheckSourceSkipped">Schema «{0}», check «{1}»: the punching source analysis is not found or its name is not unique — the check is not exported.</system:String>
+   <system:String x:Key="CliFemCheckMaterialMissing">Schema «{0}», check «{1}»: material Id {2} is not found — exported as null.</system:String>
+   <system:String x:Key="CliFemCheckErrPunchingSource">Exactly one is required: analysis (a CSfea analysis of the schema) or snapshot (lira, scad).</system:String>
+   <system:String x:Key="CliFemCheckErrPunchingAnalysisKind">analysis «{0}» is not a CSfea analysis (a linear or secant one is required).</system:String>
+   <system:String x:Key="CliFemCheckErrMaterialType">material «{0}» is of another type.</system:String>
+   <system:String x:Key="CliFemCheckErrUnknownNode">node «{0}» is not in the schema mesh.</system:String>
+   <system:String x:Key="CliFemCheckErrNodeCapital">node capital: "auto", "none" or an object {bxMm, byMm, hcMm}.</system:String>
+   <system:String x:Key="CliFemCheckErrKindClash">check «{0}» already exists in the schema with another kind (punching and 1st/2nd limit state checks are not converted into each other) — choose another name.</system:String>
 </ResourceDictionary>

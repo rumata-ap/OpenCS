@@ -1,5 +1,7 @@
+using System.Globalization;
 using CScore;
 using CScore.Fem;
+using CScore.Fem.Fragment.Masks;
 using CScore.Sp16;
 using OpenCS.Tasks;
 using OpenCS.Utilites;
@@ -8,20 +10,29 @@ namespace OpenCS.Services;
 
 /// <summary>
 /// Ссылки проверки по КЭ: схема, проверки проекта (повтор имени), конструктивные элементы этой схемы (цель-элемент), наборы
-/// усилий и постановки схемы (расчётные длины стали «Авто»).
+/// усилий и постановки схемы (расчётные длины стали «Авто», источник продавливания); для продавливания — материалы
+/// проекта и снимки результатов программ, приложенные к схеме (<see cref="FragmentMaskSet.SourceLira"/>,
+/// <see cref="FragmentMaskSet.SourceScad"/>). <c>null</c> — не проверять.
 /// </summary>
 public sealed record FemCheckRefs(
     FemSchema Schema, IReadOnlyCollection<FemCheck> Checks, IReadOnlyCollection<FemMember> Members,
-    IReadOnlyCollection<ForceSet> ForceSets, IReadOnlyCollection<FemAnalysis> Analyses)
+    IReadOnlyCollection<ForceSet> ForceSets, IReadOnlyCollection<FemAnalysis> Analyses,
+    IReadOnlyCollection<Material>? Materials = null, IReadOnlyCollection<string>? Snapshots = null)
 {
-    /// <summary>Ссылки по проекту: проверки, конструктивные элементы, наборы и постановки схемы.</summary>
+    /// <summary>Ссылки по проекту: проверки, конструктивные элементы, наборы, постановки схемы, материалы и снимки.</summary>
     public static FemCheckRefs Of(DatabaseService db, FemSchema schema) => new(
         schema, db.FemChecks, db.GetFemMembers(schema.Id), db.ForceSets,
-        schema.Analyses.Count > 0 ? schema.Analyses : db.GetFemAnalyses(schema.Id));
+        schema.Analyses.Count > 0 ? schema.Analyses : db.GetFemAnalyses(schema.Id),
+        db.Materials, SnapshotsOf(db, schema.Id));
+
+    /// <summary>Снимки результатов программ, приложенные к схеме (источник продавливания импортной схемы).</summary>
+    public static List<string> SnapshotsOf(DatabaseService db, int schemaId) =>
+        new[] { FragmentMaskSet.SourceLira, FragmentMaskSet.SourceScad }
+            .Where(k => db.GetFemSchemaSourceFile(schemaId, StoreyFragmentMaskService.SnapshotFileKind(k)) != null).ToList();
 }
 
 /// <summary>
-/// Нормативные проверки по КЭ 1-й и 2-й ГПС (сталь, ЖБ стержни, ЖБ пластины): проверка с путями полей документа
+/// Нормативные проверки по КЭ 1-й и 2-й ГПС (сталь, ЖБ стержни, ЖБ пластины) и продавливание: проверка с путями полей документа
 /// (<c>tag</c>, <c>target</c>, <c>forceSets[2]</c>, <c>eta.muX</c>, <c>plate.acrcLimMm</c>), имя по умолчанию без повтора в
 /// схеме, запись с целью и сбросом результата при смене входа, вопрос удаления — одно для окон, страницы группы и CLI.
 /// </summary>
@@ -94,13 +105,17 @@ public static class FemCheckAuthoring
 
     // ── Проверка ────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>Проверка проверки 1-й/2-й ГПС (продавливание — только имя и цель-схема, его поля проверяет своё окно).</summary>
+    /// <summary>Проверка проверки по КЭ: 1-й/2-й ГПС и продавливание (<see cref="PunchingParams"/>).</summary>
     public static List<FieldError> Validate(FemCheckRefs refs, FemCheck c)
     {
         var e = new List<FieldError>();
         if (TagError(refs.Checks, refs.Schema.Id, c.Tag, c.Id) is { } tagError) e.Add(new("tag", tagError));
         if (c.SchemaId != refs.Schema.Id) e.Add(new("schema", Loc.S("FemCheckTargetMissing")));
-        if (c.NormCode == PunchingFemCheckParams.NormCode) return e;
+        if (c.NormCode == PunchingFemCheckParams.NormCode)
+        {
+            PunchingParams(PunchingFemCheckParams.Parse(c.ParamsJson), refs, e);
+            return e;
+        }
         if (c.NormCode is not (Steel or RcBar or RcPlate))
         {
             e.Add(new("kind", string.Format(Loc.S("FemCheckKindUnknown"), c.NormCode)));
@@ -217,6 +232,121 @@ public static class FemCheckAuthoring
             e.Add(new("plate.ltFraction", $"{Label("FemSlsDlgLtFraction")}: {string.Format(Loc.S("FieldErrRangeCC"), 0, 1)}"));
     }
 
+    // ── Продавливание ───────────────────────────────────────────────────────────────────────
+
+    static readonly string[] PunchingMethods = ["auto", "column", "contour"];
+    static readonly string[] EccentricityModes = ["loading", "unloading", "auto", "ignore"];
+    static readonly string[] WbModes = ["minimum", "stress_side"];
+    static readonly string[] PylonModes = ["auto", "off"];
+    static readonly string[] WallFigures = ["amd1", "amd2"];
+    static readonly string[] PileShapes = ["square", "circle"];
+
+    static void OneOf(List<FieldError> e, string path, string? value, string[] allowed)
+    {
+        if (!allowed.Contains(value)) e.Add(new(path, string.Format(Loc.S("CliModelErrOneOf"), string.Join(", ", allowed))));
+    }
+
+    /// <summary>Число с подписью-обозначением (ax, d, sw…), а не ключом словаря.</summary>
+    static void NumAs(List<FieldError> e, string path, string label, double v, Func<double, bool> ok, string ruleKey, string prefix = "")
+    {
+        if (!double.IsFinite(v) || !ok(v)) e.Add(new(path, $"{prefix}{label}: {Loc.S(ruleKey)}"));
+    }
+
+    /// <summary>
+    /// Параметры продавливания по МКЭ (окно и CLI): источник усилий — расчёт CSfea этой схемы (линейный или секущий) или
+    /// приложенный к ней снимок ЛИРЫ/SCAD; способ; бетон или Rbt; привязки; поперечная арматура (те же коды, что у
+    /// одиночной задачи); режимы ядра; поиск узлов; переопределения узлов. Пути — как в документе CLI
+    /// (<c>source</c>, <c>punching.defaultAxMm</c>, <c>punching.sw</c>, <c>punching.nodes[2].capital</c>).
+    /// </summary>
+    static void PunchingParams(PunchingFemCheckParams p, FemCheckRefs refs, List<FieldError> e)
+    {
+        if (p.IsCsfea)
+        {
+            string kind = p.SourceKind == FragmentMaskSet.SourceCsfeaSecant ? FemCsfeaRunner.AnalysisKind : FemCsfeaRunner.LinearAnalysisKind;
+            bool found = int.TryParse(p.SourceRef, NumberStyles.Integer, CultureInfo.InvariantCulture, out int id)
+                && refs.Analyses.Any(a => a.Id == id && a.Kind == kind);
+            if (!found) e.Add(new("source", Loc.S("PunchingFemErrNoAnalysis")));
+        }
+        else if (p.SourceKind is FragmentMaskSet.SourceLira or FragmentMaskSet.SourceScad)
+        {
+            if (refs.Snapshots != null && !refs.Snapshots.Contains(p.SourceKind))
+                e.Add(new("source", string.Format(Loc.S("PunchingFemErrSnapshotMissing"),
+                    p.SourceKind == FragmentMaskSet.SourceLira ? "ЛИРА-САПР" : "SCAD")));
+        }
+        else e.Add(new("source", Loc.S("PunchingFemErrNoAnalysis")));
+
+        OneOf(e, "punching.method", p.Method, PunchingMethods);
+
+        bool IsConcrete(int id) => refs.Materials == null || refs.Materials.Any(m => m.Id == id && m.Type == MatType.Concrete);
+        if (p.RbtOverride is { } rbt) NumAs(e, "punching.rbtMpa", "Rbt", rbt, v => v > 0, "FieldErrPositive");
+        else if (!IsConcrete(p.ConcreteMaterialId) && (!p.ConcreteFromSchema || p.ConcreteMaterialId != 0))
+            e.Add(new("punching.concrete", Loc.S("PunchingErr_concrete_missing")));
+
+        NumAs(e, "punching.defaultAxMm", Label("PunchingFemDefaultCover") + " ax", p.DefaultAx, v => v >= 0, "FieldErrNonNegative");
+        NumAs(e, "punching.defaultAyMm", Label("PunchingFemDefaultCover") + " ay", p.DefaultAy, v => v >= 0, "FieldErrNonNegative");
+
+        if (p.Reinforcement.Enabled) Reinforcement(p.Reinforcement, refs, "punching.sw", "", e);
+
+        var o = p.Options;
+        OneOf(e, "punching.options.eccentricityX", o.EccentricityX, EccentricityModes);
+        OneOf(e, "punching.options.eccentricityY", o.EccentricityY, EccentricityModes);
+        OneOf(e, "punching.options.wb", o.Wb, WbModes);
+        OneOf(e, "punching.options.pylon", o.Pylon, PylonModes);
+        OneOf(e, "punching.options.wallFigure", o.WallFigure, WallFigures);
+        Num(e, "punching.options.holeInfluence", "PunchingHoleInfluence", o.HoleInfluence, v => v >= 0, "FieldErrNonNegative");
+
+        if (!(p.AngleDeg >= 0 && p.AngleDeg < 90))
+            e.Add(new("punching.angleDeg", $"{Label("PunchingFemAngle")}: {string.Format(Loc.S("FieldErrRangeCO"), 0, 90)}"));
+        Num(e, "punching.edgeInfluence", "PunchingFemEdgeInfluence", p.EdgeInfluence, v => v >= 0, "FieldErrNonNegative");
+        Num(e, "punching.wallRatio", "PunchingFemWallRatio", p.WallRatio, v => v > 0, "FieldErrPositive");
+        OneOf(e, "punching.pile.shape", p.PileShape, PileShapes);
+        if (!(p.PileSize > 0 && double.IsFinite(p.PileSize))) e.Add(new("punching.pile.sizeMm", Loc.S("PunchingFemErrPileSize")));
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < p.Overrides.Count; i++)
+        {
+            var n = p.Overrides[i];
+            string path = $"punching.nodes[{i}]";
+            // Пробел после двоеточия — в коде: XAML-словарь обрезает концевые пробелы строки.
+            string prefix = string.Format(Loc.S("PunchingFemErrNodePrefix"), n.Node).TrimEnd() + " ";
+            if (string.IsNullOrWhiteSpace(n.Node)) { e.Add(new($"{path}.node", Loc.S("PunchingFemErrNodeEmpty"))); continue; }
+            if (!seen.Add(n.Node)) e.Add(new($"{path}.node", prefix + Loc.S("PunchingFemErrNodeTwice")));
+            if (n.Ax is { } ax) NumAs(e, $"{path}.axMm", "ax", ax, v => v > 0, "FieldErrPositive", prefix);
+            if (n.Ay is { } ay) NumAs(e, $"{path}.ayMm", "ay", ay, v => v > 0, "FieldErrPositive", prefix);
+            if (n.Capital is not (null or "none" or "manual"))
+                e.Add(new($"{path}.capital", prefix + string.Format(Loc.S("CliModelErrOneOf"), "auto, none, manual")));
+            else if (n.Capital == "manual")
+            {
+                if (n.CapitalManual is not { } cm)
+                    e.Add(new($"{path}.capital", prefix + Loc.S("PunchingErr_capital_values")));
+                else
+                {
+                    NumAs(e, $"{path}.capital.bxMm", "bc,x", cm.Bx, v => v > 0, "FieldErrPositive", prefix);
+                    NumAs(e, $"{path}.capital.byMm", "bc,y", cm.By, v => v > 0, "FieldErrPositive", prefix);
+                    NumAs(e, $"{path}.capital.hcMm", "hc", cm.Hc, v => v > 0, "FieldErrPositive", prefix);
+                }
+            }
+            if (n.Contour is not (null or "opencs" or "lira"))
+                e.Add(new($"{path}.contour", prefix + string.Format(Loc.S("CliModelErrOneOf"), "check, opencs, lira")));
+            if (n.PileShape is not null && !PileShapes.Contains(n.PileShape))
+                e.Add(new($"{path}.pile.shape", prefix + string.Format(Loc.S("CliModelErrOneOf"), "check, square, circle")));
+            if (n.PileSize is { } ps && !(ps > 0 && double.IsFinite(ps)))
+                e.Add(new($"{path}.pile.sizeMm", prefix + Loc.S("PunchingFemErrPileSize")));
+            if (n.Reinforcement is { Enabled: true } r) Reinforcement(r, refs, $"{path}.sw", prefix, e);
+        }
+    }
+
+    /// <summary>Поперечная арматура: коды одиночной задачи (<c>sw_values</c>, <c>sw_rows</c>…) и материал.</summary>
+    static void Reinforcement(PunchingReinforcementParams r, FemCheckRefs refs, string path, string prefix, List<FieldError> e)
+    {
+        foreach (var code in new PunchingTaskParams { Reinforcement = r }.Validate()
+                     .Where(c => c.StartsWith("sw_", StringComparison.Ordinal) || c == "rsw_nonpositive").Distinct())
+            e.Add(new(path, prefix + Loc.S("PunchingErr_" + code)));
+        if (r.RswOverride == null && refs.Materials != null
+            && !refs.Materials.Any(m => m.Id == r.MaterialId && m.Type is MatType.ReSteelF or MatType.ReSteelU))
+            e.Add(new($"{path}.material", prefix + Loc.S("PunchingErr_rebar_missing")));
+    }
+
     // ── Запись ──────────────────────────────────────────────────────────────────────────────
 
     /// <summary>Копия проверки (для черновика правки).</summary>
@@ -239,6 +369,7 @@ public static class FemCheckAuthoring
             RcPlate => PlateCheckParams.Parse(json).ToJson(),
             RcBar => BarCheckParams.Parse(json).ToJson(),
             Steel => SteelFemCheckParams.TryParse(json)?.ToJson() ?? json,
+            PunchingFemCheckParams.NormCode => PunchingFemCheckParams.Parse(json).ToJson(),
             _ => json,
         };
     }

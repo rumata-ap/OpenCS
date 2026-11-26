@@ -6683,7 +6683,7 @@ namespace OpenCS
          }
          var dlg = new Views.PunchingFemCheckDialog(db, null, schema ?? currentFemSchema) { AttachLiraAsp = LoadLiraAsp, CreateBarSections = CreateImportedBarSections, CreateLiraForceSets = CreatePunchingLiraForceSets };
          if (dlg.ShowDialog() != true || dlg.ResultCheck == null) return;
-         db.SaveFemCheck(dlg.ResultCheck);
+         Services.FemCheckAuthoring.Save(db, null, dlg.ResultCheck);
          CurrentFemCheck = dlg.ResultCheck;
          if (dlg.RunRequested) _ = RunFemCheck(dlg.ResultCheck);
       }
@@ -6727,8 +6727,9 @@ namespace OpenCS
          if (check.NormCode == Tasks.PunchingFemCheckParams.NormCode)
          {
              var punching = new Views.PunchingFemCheckDialog(db, check) { AttachLiraAsp = LoadLiraAsp, CreateBarSections = CreateImportedBarSections, CreateLiraForceSets = CreatePunchingLiraForceSets };
-             if (punching.ShowDialog() != true) return;
-             db.SaveFemCheck(check);
+             if (punching.ShowDialog() != true || punching.ResultCheck == null) return;
+             // Черновик — через службу: смена входа удаляет прежний результат, переименование — нет.
+             ApplyFemCheckEdit(check, punching.ResultCheck);
              if (punching.RunRequested) _ = RunFemCheck(check);
              return;
          }

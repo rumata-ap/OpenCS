@@ -93,8 +93,10 @@
                <StackPanel>
                   <DockPanel LastChildFill="True">
                      <TextBlock Text="{DynamicResource PunchingFemName}" Style="{StaticResource Lbl}" Width="90" DockPanel.Dock="Left"/>
-                     <TextBox Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                     <TextBox x:Name="TagBox" Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}" Margin="0,2" TextChanged="TagBox_TextChanged"/>
                   </DockPanel>
+                  <!-- Ошибка имени (пусто, повтор в схеме) — под полем. -->
+                  <TextBlock x:Name="TagErrorText" Foreground="#B00020" TextWrapping="Wrap" Margin="90,0,0,2" Visibility="Collapsed"/>
                   <DockPanel LastChildFill="True">
                      <TextBlock Text="{DynamicResource PunchingFemSchema}" Style="{StaticResource Lbl}" Width="90" DockPanel.Dock="Left"/>
                      <ComboBox ItemsSource="{Binding Schemas}" DisplayMemberPath="Tag" SelectedItem="{Binding Schema}"
@@ -102,7 +104,7 @@
                   </DockPanel>
                   <DockPanel LastChildFill="True">
                      <TextBlock Text="{DynamicResource PunchingFemAnalysis}" Style="{StaticResource Lbl}" Width="90" DockPanel.Dock="Left"/>
-                     <ComboBox ItemsSource="{Binding Analyses}" DisplayMemberPath="Label" SelectedItem="{Binding Analysis}"/>
+                     <ComboBox x:Name="AnalysisBox" ItemsSource="{Binding Analyses}" DisplayMemberPath="Label" SelectedItem="{Binding Analysis}"/>
                   </DockPanel>
                   <TextBlock Text="{DynamicResource PunchingFemNoAnalysesHint}" Style="{StaticResource Hint}" Foreground="#8B0000"
                              Visibility="{Binding HasNoAnalyses, Converter={StaticResource BoolToVisibility}}"/>
@@ -120,23 +122,23 @@
                   <CheckBox Content="{DynamicResource PunchingFemConcreteFromSchema}" IsChecked="{Binding ConcreteFromSchema}"/>
                   <StackPanel Orientation="Horizontal">
                      <TextBlock Text="{DynamicResource PunchingConcrete}" Style="{StaticResource Lbl}"/>
-                     <ComboBox Width="200" ItemsSource="{Binding Concretes}" DisplayMemberPath="Tag" SelectedItem="{Binding Concrete}"
+                     <ComboBox x:Name="ConcreteBox" Width="200" ItemsSource="{Binding Concretes}" DisplayMemberPath="Tag" SelectedItem="{Binding Concrete}"
                                IsEnabled="{Binding RbtManual, Converter={StaticResource InverseBool}}"/>
                   </StackPanel>
                   <TextBlock Text="{DynamicResource PunchingFemConcreteHint}" Style="{StaticResource Hint}"/>
                   <StackPanel Orientation="Horizontal">
                      <CheckBox Content="{DynamicResource PunchingRbtManual}" IsChecked="{Binding RbtManual}" Margin="0,4,8,2"/>
-                     <TextBox Style="{StaticResource Num}" IsEnabled="{Binding RbtManual}"
+                     <TextBox x:Name="RbtBox" Style="{StaticResource Num}" IsEnabled="{Binding RbtManual}"
                               Text="{Binding RbtManualValue, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                     <TextBlock Text="МПа" Style="{StaticResource Unit}"/>
+                     <TextBlock Text="{DynamicResource Unit_MPa}" Style="{StaticResource Unit}"/>
                   </StackPanel>
                   <WrapPanel>
                      <TextBlock Text="{DynamicResource PunchingFemDefaultCover}" Style="{StaticResource Lbl}"/>
                      <TextBlock Text="ax" Style="{StaticResource Lbl}"/>
-                     <TextBox Style="{StaticResource Num}" Width="50" Text="{Binding DefaultAx, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=600}"/>
+                     <TextBox x:Name="DefaultAxBox" Style="{StaticResource Num}" Width="50" Text="{Binding DefaultAx, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=600}"/>
                      <TextBlock Text="ay" Style="{StaticResource Lbl}"/>
-                     <TextBox Style="{StaticResource Num}" Width="50" Text="{Binding DefaultAy, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=600}"/>
-                     <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                     <TextBox x:Name="DefaultAyBox" Style="{StaticResource Num}" Width="50" Text="{Binding DefaultAy, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=600}"/>
+                     <TextBlock Text="{DynamicResource UnitMm}" Style="{StaticResource Unit}"/>
                   </WrapPanel>
                   <TextBlock Text="{DynamicResource PunchingFemCoverHint}" Style="{StaticResource Hint}"/>
                </StackPanel>
@@ -148,7 +150,7 @@
                   <StackPanel IsEnabled="{Binding SwEnabled}">
                      <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{DynamicResource PunchingRebar}" Style="{StaticResource Lbl}"/>
-                        <ComboBox Width="200" ItemsSource="{Binding Rebars}" DisplayMemberPath="Tag" SelectedItem="{Binding Rebar}"
+                        <ComboBox x:Name="RebarBox" Width="200" ItemsSource="{Binding Rebars}" DisplayMemberPath="Tag" SelectedItem="{Binding Rebar}"
                                   IsEnabled="{Binding RswManual, Converter={StaticResource InverseBool}}"/>
                      </StackPanel>
                      <StackPanel Orientation="Horizontal">
@@ -157,8 +159,8 @@
                      </StackPanel>
                      <WrapPanel>
                         <TextBlock Text="d" Style="{StaticResource Lbl}"/>
-                        <TextBox Style="{StaticResource Num}" Width="50" Text="{Binding Diameter, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        <TextBox x:Name="DiameterBox" Style="{StaticResource Num}" Width="50" Text="{Binding Diameter, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
+                        <TextBlock Text="{DynamicResource UnitMm}" Style="{StaticResource Unit}"/>
                         <StackPanel Orientation="Horizontal" Visibility="{Binding SwLegacy, Converter={StaticResource BoolToVisibility}}">
                            <TextBlock Text="n" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingSwCountHint}"/>
                            <TextBox Style="{StaticResource Num}" Width="40" ToolTip="{DynamicResource PunchingSwCountHint}"
@@ -167,7 +169,7 @@
                         <StackPanel Orientation="Horizontal" Visibility="{Binding IsSwUniform, Converter={StaticResource BoolToVisibility}}">
                            <TextBlock Text="sw" Style="{StaticResource Lbl}" Margin="6,2,8,2" ToolTip="{DynamicResource PunchingSwStepHint}"/>
                            <TextBox Style="{StaticResource Num}" Width="50" Text="{Binding Step, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                           <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                           <TextBlock Text="{DynamicResource UnitMm}" Style="{StaticResource Unit}"/>
                         </StackPanel>
                      </WrapPanel>
                      <CheckBox Content="{DynamicResource PunchingSwByRows}" IsChecked="{Binding SwByRows}" Margin="0,4,0,2"
@@ -176,11 +178,11 @@
                         <TextBlock Text="s1" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingSwFirstRowHint}"/>
                         <TextBox Style="{StaticResource Num}" Width="50" ToolTip="{DynamicResource PunchingSwFirstRowHint}"
                                  Text="{Binding FirstRow, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="{DynamicResource UnitMm}" Style="{StaticResource Unit}"/>
                         <TextBlock Text="sd" Style="{StaticResource Lbl}" ToolTip="{DynamicResource PunchingSwRowStepHint}"/>
                         <TextBox Style="{StaticResource Num}" Width="50" ToolTip="{DynamicResource PunchingSwRowStepHint}"
                                  Text="{Binding RowStep, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="{DynamicResource UnitMm}" Style="{StaticResource Unit}"/>
                         <TextBlock Text="{DynamicResource PunchingSwRowCount}" Style="{StaticResource Lbl}"/>
                         <TextBox Style="{StaticResource Num}" Width="40" Text="{Binding RowCount, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
                      </WrapPanel>
@@ -192,7 +194,7 @@
                            <TextBox Style="{StaticResource Num}" Width="36" Text="{Binding CrossXLines, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
                            <TextBlock Text="sw" Style="{StaticResource Lbl}" Margin="6,2,8,2"/>
                            <TextBox Style="{StaticResource Num}" Width="46" Text="{Binding CrossXStep, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                           <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                           <TextBlock Text="{DynamicResource UnitMm}" Style="{StaticResource Unit}"/>
                            <CheckBox Content="+X" IsChecked="{Binding CrossXPos}" Margin="4,4,4,2"/>
                            <CheckBox Content="−X" IsChecked="{Binding CrossXNeg}" Margin="4,4,8,2"/>
                            <TextBlock Text="{Binding CrossXWidthText}" Style="{StaticResource Hint}" VerticalAlignment="Center"/>
@@ -203,7 +205,7 @@
                            <TextBox Style="{StaticResource Num}" Width="36" Text="{Binding CrossYLines, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
                            <TextBlock Text="sw" Style="{StaticResource Lbl}" Margin="6,2,8,2"/>
                            <TextBox Style="{StaticResource Num}" Width="46" Text="{Binding CrossYStep, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                           <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                           <TextBlock Text="{DynamicResource UnitMm}" Style="{StaticResource Unit}"/>
                            <CheckBox Content="+Y" IsChecked="{Binding CrossYPos}" Margin="4,4,4,2"/>
                            <CheckBox Content="−Y" IsChecked="{Binding CrossYNeg}" Margin="4,4,8,2"/>
                            <TextBlock Text="{Binding CrossYWidthText}" Style="{StaticResource Hint}" VerticalAlignment="Center"/>
@@ -214,13 +216,13 @@
                                   ToolTip="{DynamicResource PunchingSwZoneHint}"/>
                         <TextBox Style="{StaticResource Num}" IsEnabled="{Binding ZoneEnabled}"
                                  Text="{Binding Zone, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                        <TextBlock Text="мм" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="{DynamicResource UnitMm}" Style="{StaticResource Unit}"/>
                      </StackPanel>
                      <StackPanel Orientation="Horizontal">
                         <CheckBox Content="{DynamicResource PunchingRswManual}" IsChecked="{Binding RswManual}" Margin="0,4,8,2"/>
-                        <TextBox Style="{StaticResource Num}" IsEnabled="{Binding RswManual}"
+                        <TextBox x:Name="RswBox" Style="{StaticResource Num}" IsEnabled="{Binding RswManual}"
                                  Text="{Binding RswManualValue, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=400}"/>
-                        <TextBlock Text="МПа" Style="{StaticResource Unit}"/>
+                        <TextBlock Text="{DynamicResource Unit_MPa}" Style="{StaticResource Unit}"/>
                      </StackPanel>
                   </StackPanel>
                   <TextBlock Text="{DynamicResource PunchingFemSwHint}" Style="{StaticResource Hint}"/>
@@ -246,7 +248,7 @@
                   <ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{Binding PylonModes}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding Pylon}"/>
                   <TextBlock Grid.Row="4" Text="{DynamicResource PunchingHoleInfluence}" Style="{StaticResource Lbl}"/>
                   <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal">
-                     <TextBox Style="{StaticResource Num}" Width="50" Text="{Binding HoleInfluence, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=600}"/>
+                     <TextBox x:Name="HoleInfluenceBox" Style="{StaticResource Num}" Width="50" Text="{Binding HoleInfluence, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=600}"/>
                      <TextBlock Text="h" Style="{StaticResource Unit}"/>
                   </StackPanel>
                   <CheckBox Grid.Row="5" Grid.ColumnSpan="2" Content="{DynamicResource PunchingPylonReduced}" IsChecked="{Binding PylonReduced}"/>
@@ -260,23 +262,23 @@
                <StackPanel>
                   <WrapPanel>
                      <TextBlock Text="{DynamicResource PunchingFemAngle}" Style="{StaticResource Lbl}"/>
-                     <TextBox Style="{StaticResource Num}" Width="44" Text="{Binding AngleDeg, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=600}"/>
+                     <TextBox x:Name="AngleBox" Style="{StaticResource Num}" Width="44" Text="{Binding AngleDeg, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=600}"/>
                      <TextBlock Text="°" Style="{StaticResource Unit}"/>
                   </WrapPanel>
                   <WrapPanel>
                      <TextBlock Text="{DynamicResource PunchingFemEdgeInfluence}" Style="{StaticResource Lbl}"/>
-                     <TextBox Style="{StaticResource Num}" Width="44" Text="{Binding EdgeInfluence, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=600}"/>
+                     <TextBox x:Name="EdgeInfluenceBox" Style="{StaticResource Num}" Width="44" Text="{Binding EdgeInfluence, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=600}"/>
                      <TextBlock Text="h0" Style="{StaticResource Unit}"/>
                   </WrapPanel>
                   <WrapPanel>
                      <TextBlock Text="{DynamicResource PunchingFemWallRatio}" Style="{StaticResource Lbl}"/>
-                     <TextBox Style="{StaticResource Num}" Width="44" Text="{Binding WallRatio, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=600}"/>
+                     <TextBox x:Name="WallRatioBox" Style="{StaticResource Num}" Width="44" Text="{Binding WallRatio, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=600}"/>
                   </WrapPanel>
                   <WrapPanel ToolTip="{DynamicResource PunchingFemPileHint}">
                      <TextBlock Text="{DynamicResource PunchingFemPileSection}" Style="{StaticResource Lbl}"/>
                      <ComboBox ItemsSource="{Binding PileShapes}" DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding PileShape}"
                                MinWidth="80" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                     <TextBox Style="{StaticResource Num}" Width="44" Text="{Binding PileSize, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=600}"/>
+                     <TextBox x:Name="PileSizeBox" Style="{StaticResource Num}" Width="44" Text="{Binding PileSize, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=600}"/>
                      <TextBlock Text="{DynamicResource UnitMm}" Style="{StaticResource Unit}"/>
                   </WrapPanel>
                   <TextBlock Text="{DynamicResource PunchingFemPileHint}" Style="{StaticResource Hint}"/>
@@ -346,7 +348,9 @@
                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4,0,0"
                            ToolTip="{DynamicResource PunchingFemNodeSearchHint}">
                   <TextBlock Text="{DynamicResource PunchingFemNodeSearch}" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                  <TextBox Width="80" Text="{Binding NodeSearch, UpdateSourceTrigger=PropertyChanged}" VerticalContentAlignment="Center"/>
+                  <!-- Enter здесь только переходит к узлу: «Сохранить» — кнопка по умолчанию, окно не закрывается. -->
+                  <TextBox Width="80" Text="{Binding NodeSearch, UpdateSourceTrigger=PropertyChanged}" VerticalContentAlignment="Center"
+                           KeyDown="NodeSearch_KeyDown"/>
                   <TextBlock Text="{DynamicResource PunchingFemNodeSearchMissing}" Foreground="#B00020" VerticalAlignment="Center" Margin="6,0,0,0"
                              Visibility="{Binding NodeSearchMissing, Converter={StaticResource BoolToVisibility}}"/>
                </StackPanel>
@@ -371,12 +375,12 @@
                <DataGridTextColumn Header="{DynamicResource PunchingFemColSection}" Binding="{Binding Section}" IsReadOnly="True" Width="Auto"/>
                <DataGridTextColumn Header="{DynamicResource PunchingFemColSlab}" Binding="{Binding Slab}" IsReadOnly="True" Width="Auto"/>
                <DataGridTextColumn Header="{DynamicResource PunchingFemColPosition}" Binding="{Binding Position}" IsReadOnly="True" Width="Auto"/>
-               <DataGridTextColumn Header="ax, мм" Binding="{Binding Ax, Converter={StaticResource AnyDoubleConv}, TargetNullValue=''}" Width="Auto">
+               <DataGridTextColumn Header="{DynamicResource PunchingFemColAx}" Binding="{Binding Ax, Converter={StaticResource AnyDoubleConv}, TargetNullValue=''}" Width="Auto">
                   <DataGridTextColumn.HeaderStyle>
                      <Style TargetType="DataGridColumnHeader"><Setter Property="ToolTip" Value="{DynamicResource PunchingFemOverrideCoverHint}"/></Style>
                   </DataGridTextColumn.HeaderStyle>
                </DataGridTextColumn>
-               <DataGridTextColumn Header="ay, мм" Binding="{Binding Ay, Converter={StaticResource AnyDoubleConv}, TargetNullValue=''}" Width="Auto"/>
+               <DataGridTextColumn Header="{DynamicResource PunchingFemColAy}" Binding="{Binding Ay, Converter={StaticResource AnyDoubleConv}, TargetNullValue=''}" Width="Auto"/>
                <DataGridTemplateColumn Header="{DynamicResource PunchingFemColCapital}" Width="Auto" SortMemberPath="CapitalMode">
                   <DataGridTemplateColumn.HeaderStyle>
                      <Style TargetType="DataGridColumnHeader"><Setter Property="ToolTip" Value="{DynamicResource PunchingFemCapitalHint}"/></Style>
@@ -390,9 +394,9 @@
                      </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                </DataGridTemplateColumn>
-               <DataGridTextColumn Header="bc,x, мм" Binding="{Binding CapBx, Converter={StaticResource AnyDoubleConv}, TargetNullValue=''}" Width="Auto"/>
-               <DataGridTextColumn Header="bc,y, мм" Binding="{Binding CapBy, Converter={StaticResource AnyDoubleConv}, TargetNullValue=''}" Width="Auto"/>
-               <DataGridTextColumn Header="hc, мм" Binding="{Binding CapHc, Converter={StaticResource AnyDoubleConv}, TargetNullValue=''}" Width="Auto"/>
+               <DataGridTextColumn Header="{DynamicResource PunchingFemColCapBx}" Binding="{Binding CapBx, Converter={StaticResource AnyDoubleConv}, TargetNullValue=''}" Width="Auto"/>
+               <DataGridTextColumn Header="{DynamicResource PunchingFemColCapBy}" Binding="{Binding CapBy, Converter={StaticResource AnyDoubleConv}, TargetNullValue=''}" Width="Auto"/>
+               <DataGridTextColumn Header="{DynamicResource PunchingFemColCapHc}" Binding="{Binding CapHc, Converter={StaticResource AnyDoubleConv}, TargetNullValue=''}" Width="Auto"/>
                <DataGridTemplateColumn Header="{DynamicResource PunchingFemColPile}" Width="Auto" SortMemberPath="PileShape">
                   <DataGridTemplateColumn.HeaderStyle>
                      <Style TargetType="DataGridColumnHeader"><Setter Property="ToolTip" Value="{DynamicResource PunchingFemPileRowHint}"/></Style>
@@ -424,9 +428,9 @@
                      </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                </DataGridTemplateColumn>
-               <DataGridTextColumn Header="d, мм" Binding="{Binding SwDiameter, Converter={StaticResource AnyDoubleConv}}" Width="Auto"/>
+               <DataGridTextColumn Header="{DynamicResource PunchingFemColSwD}" Binding="{Binding SwDiameter, Converter={StaticResource AnyDoubleConv}}" Width="Auto"/>
                <DataGridTextColumn Header="n" Binding="{Binding SwCount}" Width="Auto"/>
-               <DataGridTextColumn Header="sw, мм" Binding="{Binding SwStep, Converter={StaticResource AnyDoubleConv}}" Width="Auto"/>
+               <DataGridTextColumn Header="{DynamicResource PunchingFemColSwStep}" Binding="{Binding SwStep, Converter={StaticResource AnyDoubleConv}}" Width="Auto"/>
                <DataGridTextColumn Header="{DynamicResource PunchingFemColRows}" Binding="{Binding SwRows}" Width="Auto"/>
                <DataGridTemplateColumn Header="{DynamicResource PunchingFemColLira}" Width="Auto" IsReadOnly="True" SortMemberPath="LiraText">
                   <DataGridTemplateColumn.CellTemplate>
@@ -473,7 +477,7 @@
       <!-- ── Кнопки ────────────────────────────────────────────── -->
       <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
          <Button Content="{DynamicResource PunchingSaveAndRun}" Click="SaveAndRun_Click" Padding="14,4" Margin="0,0,8,0"/>
-         <Button Content="{DynamicResource Save}" Click="Save_Click" Padding="14,4" Margin="0,0,8,0"/>
+         <Button Content="{DynamicResource Save}" Click="Save_Click" IsDefault="True" Padding="14,4" Margin="0,0,8,0"/>
          <Button Content="{DynamicResource Cancel}" IsCancel="True" Padding="14,4"/>
       </StackPanel>
    </Grid>

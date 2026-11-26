@@ -7797,4 +7797,25 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FemCheckPhi1Eq">φ1 =</system:String>
    <system:String x:Key="FemCheckDlgSetKept">{0} — выбран в проверке (к схеме не привязан)</system:String>
    <system:String x:Key="FemCheckSetsNoneChosen">Выберите наборы усилий в списке или отметьте «Все наборы».</system:String>
+   <system:String x:Key="PunchingFemErrSnapshotMissing">К схеме не приложен снимок результатов {0} — источник усилий недоступен.</system:String>
+   <system:String x:Key="PunchingFemErrNodePrefix">Узел {0}: </system:String>
+   <system:String x:Key="PunchingFemErrNodeEmpty">У переопределения узла не указан номер узла.</system:String>
+   <system:String x:Key="PunchingFemErrNodeTwice">узел задан дважды.</system:String>
+   <system:String x:Key="PunchingFemFieldInvalid">{0}: нужно число (десятичный разделитель — запятая или точка). Исправьте значение в красной рамке.</system:String>
+   <system:String x:Key="PunchingFemColAx">ax, мм</system:String>
+   <system:String x:Key="PunchingFemColAy">ay, мм</system:String>
+   <system:String x:Key="PunchingFemColCapBx">bc,x, мм</system:String>
+   <system:String x:Key="PunchingFemColCapBy">bc,y, мм</system:String>
+   <system:String x:Key="PunchingFemColCapHc">hc, мм</system:String>
+   <system:String x:Key="PunchingFemColSwD">d, мм</system:String>
+   <system:String x:Key="PunchingFemColSwStep">sw, мм</system:String>
+   <system:String x:Key="PunchingFemSourceMissing">(источник проверки не найден: постановка удалена или снимок не приложен — выберите другой)</system:String>
+   <system:String x:Key="CliFemCheckSourceSkipped">Схема «{0}», проверка «{1}»: постановка-источник продавливания не найдена или её имя не единственное — проверка не выгружена.</system:String>
+   <system:String x:Key="CliFemCheckMaterialMissing">Схема «{0}», проверка «{1}»: материал Id {2} не найден — выгружен как null.</system:String>
+   <system:String x:Key="CliFemCheckErrPunchingSource">Нужно ровно одно: analysis (постановка CSfea схемы) или snapshot (lira, scad).</system:String>
+   <system:String x:Key="CliFemCheckErrPunchingAnalysisKind">постановка «{0}» — не расчёт CSfea (нужна линейная или секущая).</system:String>
+   <system:String x:Key="CliFemCheckErrMaterialType">материал «{0}» другого типа.</system:String>
+   <system:String x:Key="CliFemCheckErrUnknownNode">узла «{0}» нет в сетке схемы.</system:String>
+   <system:String x:Key="CliFemCheckErrNodeCapital">капитель узла: "auto", "none" или объект {bxMm, byMm, hcMm}.</system:String>
+   <system:String x:Key="CliFemCheckErrKindClash">проверка «{0}» уже есть в схеме другого вида (продавливание и проверки 1-й/2-й ГПС не превращаются друг в друга) — выберите другое имя.</system:String>
 </ResourceDictionary>
