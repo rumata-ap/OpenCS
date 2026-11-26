@@ -12,11 +12,13 @@ static class ModelDocument
     public const int Version = 1;
 
     /// <summary>Виды в порядке записи: диаграммы — раньше материалов custom, контуры пула — раньше сечений, материалы —
-    /// раньше сечений пластин, сечения — раньше огневых, сечения, огневые и наборы — раньше задач, сечения и задачи кручения — раньше схем МКЭ.</summary>
+    /// раньше сечений пластин, сечения — раньше огневых, сечения, огневые и наборы — раньше задач, сечения и задачи кручения — раньше схем МКЭ,
+    /// схемы (загружения, комбинации, узлы) — раньше постановок.</summary>
     public static IReadOnlyList<IModelKind> Kinds { get; } =
         [
             new DiagramsKind(), new MaterialsKind(), new ContoursKind(), new CirclesKind(), new SectionsKind(),
-            new PlateSectionsKind(), new FireSectionsKind(), new ForceSetsKind(), new TasksKind(), new FemSchemasKind()
+            new PlateSectionsKind(), new FireSectionsKind(), new ForceSetsKind(), new TasksKind(), new FemSchemasKind(),
+            new FemAnalysesKind()
         ];
 
     public static IModelKind? Find(string name) => Kinds.FirstOrDefault(k => k.Name == name);

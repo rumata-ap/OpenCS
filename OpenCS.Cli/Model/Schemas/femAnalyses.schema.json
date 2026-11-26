@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "opencs-model: femAnalyses[]",
+  "description": "Постановка расчёта МКЭ-схемы. Ключ — имя (tag) в пределах схемы (schema — имя схемы проекта или схемы, описанной тем же документом). Найдено — обновить, нет — создать; удаления нет. Вложенные массивы (stages, batch.items, loadCases, combinations) заменяют состав; неуказанные поля существующей постановки не меняются, у новой — умолчания окна. Неизменённая постановка не перезаписывается; смена вида, нагрузки или параметров сбрасывает результат, имя — нет. Нагрузка load: {combination} — копия формулы комбинации схемы на момент apply; {loadCase} — одно загружение; {all: true}; {terms: [{loadCase, k}]} — своя формула. Шаги λ безразмерные, перемещения пути OpenSees — м или рад, модуль упрочнения — МПа.",
+  "type": "object",
+  "required": ["schema", "tag", "kind"],
+  "properties": {
+    "schema": { "type": "string" },
+    "tag": { "type": "string" },
+    "kind": { "enum": ["csfea", "csfeaLinear", "csfeaBuckling", "openseesLinear", "openseesNonlinear"] },
+    "calcType": { "enum": ["C", "CL", "N", "NL"] },
+    "load": { "$ref": "#/$defs/load" },
+    "stages": { "type": "array", "items": { "$ref": "#/$defs/stage" } },
+    "loadCases": { "oneOf": [ { "const": "all" }, { "type": "array", "items": { "type": "string" } } ] },
+    "combinations": { "type": "array", "items": { "$ref": "#/$defs/load" } },
+    "batch": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "items": { "type": "array", "items": { "$ref": "#/$defs/load" } },
+        "step": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "max": { "type": "number" },
+        "stopAtLimit": { "type": "boolean" },
+        "recording": { "enum": ["fields", "envelopes"] },
+        "longTerm": { "type": "array", "items": { "enum": ["N", "C"] } },
+        "longTermDeflection": { "type": "boolean" },
+        "imperfections": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["loadCase"],
+          "properties": { "loadCase": { "type": "string" }, "bothSigns": { "type": "boolean" } } } }
+      }
+    },
+    "csfea": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "plateRebar": { "enum": ["section", "assigned", "selected", "layout"] },
+        "concreteTension": { "type": ["boolean", "null"], "description": "null — как в сечении" },
+        "psi": { "type": "boolean" },
+        "crackRule": { "enum": ["layer", "section"] },
+        "beamShear": { "type": "boolean" },
+        "importedFactors": { "type": "boolean" },
+        "poisson": { "type": ["number", "null"], "minimum": 0, "exclusiveMaximum": 0.5 },
+        "physical": { "type": "boolean" },
+        "geom": { "type": "boolean" },
+        "shellInPlanePDelta": { "type": "boolean" },
+        "largeDisplacements": { "type": "boolean" },
+        "localPDeltaOnly": { "type": "boolean" },
+        "fragmentSecondOrder": { "type": "boolean" },
+        "sourcePDelta": { "type": "boolean" },
+        "iterations": { "type": "object", "additionalProperties": false, "properties": {
+          "max": { "type": "integer", "minimum": 1 }, "bisections": { "type": "integer", "minimum": 0 },
+          "tolU": { "type": "number", "exclusiveMinimum": 0 }, "tolK": { "type": "number", "exclusiveMinimum": 0 },
+          "omega0": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 } } },
+        "recording": { "type": "object", "additionalProperties": false, "properties": {
+          "mode": { "enum": ["final", "selected", "all"] }, "steps": { "type": "string" },
+          "stageEnds": { "type": "boolean" }, "strains": { "type": "boolean" } } },
+        "controlNode": { "type": ["string", "integer"] },
+        "controlDof": { "enum": ["ux", "uy", "uz", "rx", "ry", "rz"] }
+      }
+    },
+    "stiffness": {
+      "type": ["object", "null"], "additionalProperties": false, "required": ["analysis"],
+      "description": "Источник жёсткостей линейного: секущая постановка схемы (конечное состояние, вариант пакета batchIndex, длительная часть longTerm). Новый источник берёт отпечаток текущего результата — он должен быть рассчитан.",
+      "properties": { "analysis": { "type": "string" }, "batchIndex": { "type": "integer" }, "longTerm": { "type": "string" } }
+    },
+    "buckling": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "modes": { "type": "integer", "minimum": 1, "maximum": 200 },
+        "forces": { "enum": ["envelope", "governing"] },
+        "method": { "type": "string" }, "sway": { "type": "string" },
+        "swayX": { "type": "boolean" }, "swayY": { "type": "boolean" },
+        "swayStiffness": { "type": "number", "exclusiveMinimum": 0 },
+        "gFixed": { "type": "number", "minimum": 0 }, "gPinned": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "opensees": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "physical": { "type": "boolean" }, "concreteTension": { "type": "boolean" },
+        "materials": { "enum": ["translated", "native"] },
+        "mainModel": { "enum": ["Concrete0102", "Concrete04", "Steel01", "Steel02"] },
+        "steelModel": { "enum": ["Steel01", "Steel02"] },
+        "hardeningMpa": { "type": ["number", "null"], "minimum": 0 },
+        "element": { "enum": ["forceBeamColumn", "dispBeamColumn"] }
+      }
+    }
+  },
+  "$defs": {
+    "load": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "combination": { "type": "string" }, "loadCase": { "type": "string" }, "all": { "type": "boolean" },
+        "type": { "type": "string" },
+        "terms": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["loadCase", "k"],
+          "properties": { "loadCase": { "type": "string" }, "k": { "type": "number" }, "role": { "type": "string" }, "mode": { "type": "string" } } } }
+      }
+    },
+    "stage": {
+      "type": "object", "additionalProperties": false, "required": ["load"],
+      "properties": {
+        "tag": { "type": "string" }, "load": { "$ref": "#/$defs/load" },
+        "step": { "type": "number", "exclusiveMinimum": 0 }, "max": { "type": "number" },
+        "pathControl": { "$ref": "#/$defs/path" }, "continueWith": { "$ref": "#/$defs/path" }
+      }
+    },
+    "path": {
+      "type": ["object", "null"], "additionalProperties": false, "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["load", "displacement", "arcLength"] },
+        "node": { "type": ["string", "integer"] }, "dof": { "enum": ["ux", "uy", "uz", "rx", "ry", "rz"] },
+        "initial": { "type": "number", "exclusiveMinimum": 0 }, "min": { "type": "number", "exclusiveMinimum": 0 },
+        "max": { "type": "number", "exclusiveMinimum": 0 }, "target": { "type": "number" },
+        "s": { "type": "number", "exclusiveMinimum": 0 }, "alpha": { "type": "number", "minimum": 0 },
+        "minS": { "type": "number", "exclusiveMinimum": 0 }, "maxSteps": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}
