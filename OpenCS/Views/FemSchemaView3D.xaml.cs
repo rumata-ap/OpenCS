@@ -2786,6 +2786,20 @@ public partial class FemSchemaView3D : UserControl
         new FemNodeLoadDialog(nodes, editor) { Owner = Window.GetWindow(this) }.ShowDialog();
     }
 
+    /// <summary>Окно нагрузки из дерева: щёлкнутый узел или стержень; если он среди выделенных — всем выделенным.</summary>
+    public void OpenLoadDialogFromTree(FemTreeLoadKind kind, string tag)
+    {
+        if (Editor is not { } editor) return;
+        var selected = kind == FemTreeLoadKind.Member ? editor.Selection.SelectedElemTags : editor.Selection.SelectedNodeTags;
+        IEnumerable<string> tags = selected.Contains(tag) ? selected.ToList() : [tag];
+        switch (kind)
+        {
+            case FemTreeLoadKind.Node: OpenNodeLoadDialog(tags, tag); break;
+            case FemTreeLoadKind.Kinematic: OpenKinematicLoadDialog(tags, tag); break;
+            default: OpenMemberLoadDialog(tags, tag); break;
+        }
+    }
+
     void OpenKinematicLoadDialog(IEnumerable<string>? selectedTags, string? contextTag)
     {
         if (Editor is not { } editor) return;

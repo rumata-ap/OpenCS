@@ -8,6 +8,9 @@ using OpenCS.Views.Helpers;
 
 namespace OpenCS.Views;
 
+/// <summary>Окно нагрузки, открываемое из меню дерева схемы.</summary>
+public enum FemTreeLoadKind { Node, Kinematic, Member }
+
 /// <summary>
 /// Контекстные меню конструктивных элементов в дереве схемы: у одного КонЭ — проверки, эпюры, импорт
 /// усилий, группы, свойства; у узлов «Конструктивные элементы», «Стержни», «Пластины» — действия над
@@ -27,6 +30,8 @@ internal static class FemMemberTreeMenus
             string tag = member.ElemTag;
             items.Add(Item("FemMemberPropertiesCtx", () => app.InFemSchemaEditorDeferred(schema, page => page.OpenMemberProperties(tag))));
             items.Add(Item("FemMemberRotationCtx", () => app.InFemSchemaEditorDeferred(schema, page => page.OpenMemberRotation(tag))));
+            if (member.ElemType == "beam")
+                items.Add(Item("FemMemberLoadCtx", () => app.InFemSchemaEditorDeferred(schema, page => page.OpenLoadDialog(FemTreeLoadKind.Member, tag))));
             if (FemOrientationFlip.IsBar(member))
                 items.Add(Item("FemOrientFlipAxisCtx", () => app.InFemSchemaEditorDeferred(schema, page => _ = page.FlipMembersAsync([tag]))));
             if (!member.IsMeshLocked)
@@ -167,6 +172,8 @@ internal static class FemMemberTreeMenus
         var node = item.Node;
         items.Add(Item("FemNodeTreeProperties", () => app.OpenFemNodeInEditor(item.Schema, node.NodeTag)));
         items.Add(Item("FemNodeBoundaryCtx", () => app.InFemSchemaEditorDeferred(item.Schema, page => page.EditNodeBoundary(node.NodeTag))));
+        items.Add(Item("FemNodeLoadCtx", () => app.InFemSchemaEditorDeferred(item.Schema, page => page.OpenLoadDialog(FemTreeLoadKind.Node, node.NodeTag))));
+        items.Add(Item("FemKinematicLoadCtx", () => app.InFemSchemaEditorDeferred(item.Schema, page => page.OpenLoadDialog(FemTreeLoadKind.Kinematic, node.NodeTag))));
         items.Add(Item("FemBoundarySelect", () => app.InFemSchemaEditor(item.Schema, page => page.SelectInSchema([node.NodeTag], []))));
         items.Add(Item("FemNodeMoveCtx", () => app.TransformFemFragmentInEditor(item.Schema, [node.NodeTag], [], copy: false)));
         items.Add(Item("FemNodeCopyCtx", () => app.TransformFemFragmentInEditor(item.Schema, [node.NodeTag], [], copy: true)));

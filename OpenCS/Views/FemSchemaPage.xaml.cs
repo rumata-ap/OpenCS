@@ -732,6 +732,9 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
     /// <summary>«Закрепления и пружины…» узла из дерева — как в 3D (выделенным узлам, если узел среди них).</summary>
     public void EditNodeBoundary(string nodeTag) => view3D.EditNodeBoundary(nodeTag);
 
+    /// <summary>Окно нагрузки узла или стержня из дерева — как в 3D (выделенным, если щёлкнутый среди них).</summary>
+    public void OpenLoadDialog(FemTreeLoadKind kind, string tag) => view3D.OpenLoadDialogFromTree(kind, tag);
+
     /// <summary>«АЖТ примыкания…»: параметры щёлкнутого стержня; если он выделен — всех выделенных стержней.</summary>
     public void OpenMemberRigidJunction(string tag)
     {
