@@ -36,6 +36,29 @@ public class FemMemberForceSetPreviewVMTests
         Assert.Equal(4, result.Rows.Count);
     }
 
+    [Fact]
+    public void FreeTag_SkipsTakenNames()
+    {
+        ForceSet[] existing = [new() { Tag = "OpenSees M1, step 1" }, new() { Tag = " OpenSees M1, step 1 (2) " }];
+
+        Assert.Equal("OpenSees M1, step 1 (3)", ForceSetAuthoring.FreeTag(existing, "OpenSees M1, step 1"));
+        Assert.Equal("Другое", ForceSetAuthoring.FreeTag(existing, " Другое "));
+    }
+
+    [Fact]
+    public void TagWarning_ShownOnlyForTakenName()
+    {
+        ForceSet[] existing = [new() { Tag = "Набор" }, new() { Tag = "Набор " }];
+        var vm = new FemMemberForceSetPreviewVM(PreviewWithTwoInternalCandidates(), "Набор (2)", null, existing);
+        Assert.False(vm.HasTagWarning);
+
+        vm.Tag = " Набор";
+
+        Assert.True(vm.HasTagWarning);
+        Assert.Equal(2, vm.SameTagCount);
+        Assert.True(vm.CanSave);
+    }
+
     internal static FemMemberForceSetPreview PreviewWithTwoInternalCandidates() =>
         new(3, "Схема", 11, "M1", 1, "step 1", [
             Row("10", 0, null, Candidate(101, 1000), FemForceSourceSide.Only),

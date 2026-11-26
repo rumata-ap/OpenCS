@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using CScore;
 using OpenCS.Services;
 using OpenCS.Utilites;
 
@@ -78,12 +79,17 @@ public sealed class FemMemberForceSetPreviewRowVM : ViewModelBase
 /// <summary>ViewModel окна preview набора усилий.</summary>
 public sealed class FemMemberForceSetPreviewVM : ViewModelBase
 {
+    readonly IReadOnlyCollection<ForceSet> _existing;
+
     /// <summary>Создаёт VM из результата builder-а.</summary>
+    /// <param name="existing">Наборы проекта — для предупреждения о занятом имени (повтор не запрещён).</param>
     public FemMemberForceSetPreviewVM(
         FemMemberForceSetPreview preview,
         string tag,
-        string? description)
+        string? description,
+        IReadOnlyCollection<ForceSet>? existing = null)
     {
+        _existing = existing ?? [];
         Preview = preview;
         Tag = tag;
         Description = description;
@@ -105,8 +111,19 @@ public sealed class FemMemberForceSetPreviewVM : ViewModelBase
             _tag = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(CanSave));
+            OnPropertyChanged(nameof(HasTagWarning));
+            OnPropertyChanged(nameof(TagWarning));
         }
     }
+
+    /// <summary>Наборов проекта с тем же именем; 0 — имя свободно.</summary>
+    public int SameTagCount => ForceSetAuthoring.CountWithTag(_existing, Tag);
+
+    /// <summary>Имя уже занято — под полем предупреждение (имя — ключ сочетаний СП 20 и консоли).</summary>
+    public bool HasTagWarning => SameTagCount > 0;
+
+    /// <summary>Текст предупреждения о занятом имени; пусто — имя свободно.</summary>
+    public string TagWarning => HasTagWarning ? string.Format(Loc.S("FemForceSetTagTaken"), SameTagCount) : "";
 
     string? _description;
     /// <summary>Описание создаваемого набора.</summary>

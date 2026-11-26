@@ -186,6 +186,26 @@ public static class ForceSetAuthoring
     public static int OthersWithTag(DatabaseService db, ForceSet fs) =>
         db.ForceSets.Count(s => !ReferenceEquals(s, fs) && (fs.Id == 0 || s.Id != fs.Id) && s.Tag.Trim() == fs.Tag.Trim());
 
+    /// <summary>Наборов из <paramref name="sets"/> с именем <paramref name="tag"/> (сравнение без пробелов по краям).</summary>
+    public static int CountWithTag(IEnumerable<ForceSet> sets, string? tag)
+    {
+        string t = (tag ?? "").Trim();
+        return t.Length == 0 ? 0 : sets.Count(s => (s.Tag ?? "").Trim() == t);
+    }
+
+    /// <summary>Свободное имя на основе <paramref name="baseTag"/>: само имя, иначе «имя (2)», «имя (3)»…</summary>
+    public static string FreeTag(IEnumerable<ForceSet> sets, string baseTag)
+    {
+        var list = sets as IReadOnlyCollection<ForceSet> ?? sets.ToList();
+        string b = baseTag.Trim();
+        if (CountWithTag(list, b) == 0) return b;
+        for (int i = 2; ; i++)
+        {
+            string t = string.Create(CultureInfo.InvariantCulture, $"{b} ({i})");
+            if (CountWithTag(list, t) == 0) return t;
+        }
+    }
+
     /// <summary>
     /// Копия набора со всеми полями (второй порядок, несовершенства, источник, номера КЭ строк), без ссылок на схему,
     /// с суффиксом имени; записывается и добавляется в пул.

@@ -7818,4 +7818,6 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliFemCheckErrUnknownNode">node «{0}» is not in the schema mesh.</system:String>
    <system:String x:Key="CliFemCheckErrNodeCapital">node capital: "auto", "none" or an object {bxMm, byMm, hcMm}.</system:String>
    <system:String x:Key="CliFemCheckErrKindClash">check «{0}» already exists in the schema with another kind (punching and 1st/2nd limit state checks are not converted into each other) — choose another name.</system:String>
+   <system:String x:Key="FemForceSetTagTaken">The project already has {0} sets with this name. The name is the key of SP 20 combinations and the console; better make it unique</system:String>
+   <system:String x:Key="FemForceSetSaveError">The set is not saved: {0}</system:String>
 </ResourceDictionary>

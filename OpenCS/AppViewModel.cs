@@ -7241,7 +7241,7 @@ namespace OpenCS
             return;
          }
 
-         var dialog = new Views.FemMemberForceSetPreviewDialog(build.Preview!)
+         var dialog = new Views.FemMemberForceSetPreviewDialog(build.Preview!, ForceSets)
          {
             Owner = System.Windows.Application.Current?.MainWindow
          };
@@ -7250,8 +7250,15 @@ namespace OpenCS
 
          var forceSet = ViewModels.FemMemberForceSetFactory.Create(
             schema, member, build.Preview!, selection, ForceSets);
-         db.SaveForceSet(forceSet);
-         ForceSets.Add(forceSet);
+         var errors = Services.ForceSetAuthoring.Save(db, forceSet);
+         if (errors.Count > 0)
+         {
+            System.Windows.MessageBox.Show(
+               string.Format(Loc.S("FemForceSetSaveError"), errors[0].Message), Loc.S("Warning"),
+               System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            return;
+         }
+         LogService.Info(string.Format(Loc.S("ForceSetSavedNewLog"), forceSet.Tag));
       }
 
       /// <summary>Показывает локализованную ошибку построения preview набора.</summary>

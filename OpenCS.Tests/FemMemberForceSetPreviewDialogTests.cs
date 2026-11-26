@@ -17,7 +17,7 @@ public class FemMemberForceSetPreviewDialogTests
             try
             {
                 var dialog = new FemMemberForceSetPreviewDialog(
-                    FemMemberForceSetPreviewVMTests.PreviewWithTwoInternalCandidates());
+                    FemMemberForceSetPreviewVMTests.PreviewWithTwoInternalCandidates(), []);
 
                 Assert.Null(dialog.Result);
                 Assert.NotNull(dialog.FindName("RowsGrid"));

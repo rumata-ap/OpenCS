@@ -13,14 +13,15 @@ public partial class FemMemberForceSetPreviewDialog : Window
     /// <summary>Подтверждённый выбор; null до нажатия кнопки сохранения.</summary>
     public FemMemberForceSetSelection? Result { get; private set; }
 
-    /// <summary>Создаёт окно preview.</summary>
-    public FemMemberForceSetPreviewDialog(FemMemberForceSetPreview preview)
+    /// <summary>Создаёт окно preview; имя по умолчанию — свободное среди <paramref name="existing"/> («(2)», «(3)»…).</summary>
+    public FemMemberForceSetPreviewDialog(FemMemberForceSetPreview preview, IReadOnlyCollection<CScore.ForceSet> existing)
     {
         InitializeComponent();
         _vm = new FemMemberForceSetPreviewVM(
             preview,
-            string.Format(Loc.S("FemForceSetDefaultTag"), preview.MemberTag, preview.StepLabel),
-            string.Format(Loc.S("FemForceSetDefaultDescription"), preview.SchemaTag, preview.MemberTag, preview.StepLabel));
+            ForceSetAuthoring.FreeTag(existing, string.Format(Loc.S("FemForceSetDefaultTag"), preview.MemberTag, preview.StepLabel)),
+            string.Format(Loc.S("FemForceSetDefaultDescription"), preview.SchemaTag, preview.MemberTag, preview.StepLabel),
+            existing);
         DataContext = _vm;
     }
 

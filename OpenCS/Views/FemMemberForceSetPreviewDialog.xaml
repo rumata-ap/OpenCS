@@ -8,6 +8,7 @@
         Title="{DynamicResource FemForceSetPreviewTitle}">
     <Window.Resources>
         <u:FemForceSourceSideLabelConverter x:Key="ForceSourceSideLabelConv"/>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
     </Window.Resources>
     <Grid Margin="12">
         <Grid.RowDefinitions>
@@ -31,6 +32,10 @@
         </Grid>
 
         <Grid Grid.Row="1" Margin="0,0,0,8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="240"/>
@@ -41,6 +46,9 @@
             <TextBlock Grid.Column="1" Text="{Binding StepLabel}" Margin="0,0,16,0"/>
             <TextBlock Grid.Column="2" Text="{DynamicResource FemForceSetPreviewTag}" Margin="0,0,6,0"/>
             <TextBox Grid.Column="3" Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}"/>
+            <!-- Имя занято: повтор не запрещён, но имя — ключ сочетаний СП 20 и консоли -->
+            <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding TagWarning}" TextWrapping="Wrap" Foreground="#806000" Margin="0,3,0,0"
+                       Visibility="{Binding HasTagWarning, Converter={StaticResource BoolToVis}}"/>
         </Grid>
 
         <Grid Grid.Row="2">

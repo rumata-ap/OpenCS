@@ -7818,4 +7818,6 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliFemCheckErrUnknownNode">узла «{0}» нет в сетке схемы.</system:String>
    <system:String x:Key="CliFemCheckErrNodeCapital">капитель узла: "auto", "none" или объект {bxMm, byMm, hcMm}.</system:String>
    <system:String x:Key="CliFemCheckErrKindClash">проверка «{0}» уже есть в схеме другого вида (продавливание и проверки 1-й/2-й ГПС не превращаются друг в друга) — выберите другое имя.</system:String>
+   <system:String x:Key="FemForceSetTagTaken">В проекте уже есть наборы с этим именем: {0}. Имя — ключ сочетаний СП 20 и консоли, лучше сделать его уникальным</system:String>
+   <system:String x:Key="FemForceSetSaveError">Набор не записан: {0}</system:String>
 </ResourceDictionary>
