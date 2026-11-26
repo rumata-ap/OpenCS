@@ -186,6 +186,12 @@ public sealed class FemMemberLoadRow(FemLoadsTabVM owner, FemMemberLoad load, st
     {
         var values = SetMemberLoadCommand.Copy(Load);
         apply(values);
+        // Отступы — сразу по длине стержня, а не при «Сохранить».
+        if (Services.FemLoadAuthoring.MemberLoadOffsetError(owner.Editor.Session, values) is { } error)
+        {
+            owner.Reject(error, this);
+            return;
+        }
         owner.Execute(new EditMemberLoadCommand(Load, values));
     }
 }

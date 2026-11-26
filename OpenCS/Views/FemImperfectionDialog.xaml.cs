@@ -12,6 +12,9 @@ public partial class FemImperfectionDialog : Window
     /// <summary>Элемент по полям диалога (после OK).</summary>
     public FemImperfection? Result { get; private set; }
 
+    /// <summary>Запись элемента: текст ошибки (окно остаётся открытым) или null.</summary>
+    public Func<FemImperfection, string?>? Save { get; init; }
+
     public FemImperfectionDialog(FemImperfectionDialogVM vm)
     {
         InitializeComponent();
@@ -25,6 +28,12 @@ public partial class FemImperfectionDialog : Window
         if (_vm.TryBuild(out var error) is not { } result)
         {
             errorText.Text = error;
+            errorText.Visibility = Visibility.Visible;
+            return;
+        }
+        if (Save?.Invoke(result) is { } saveError)
+        {
+            errorText.Text = saveError;
             errorText.Visibility = Visibility.Visible;
             return;
         }

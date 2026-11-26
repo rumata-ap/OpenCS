@@ -8,10 +8,14 @@ namespace OpenCS.Views;
 /// <summary>Новая равномерная нагрузка на пластины: цель (выделенное, группа, список КЭ), давление и направление.</summary>
 public partial class FemAreaLoadDialog : Window
 {
-    public FemAreaLoadDialog(IEnumerable<FemMemberGroup> groups)
+    /// <param name="loadCaseTag">Активное загружение — в него идёт нагрузка; null — загружения нет.</param>
+    public FemAreaLoadDialog(IEnumerable<FemMemberGroup> groups, string? loadCaseTag)
     {
         InitializeComponent();
         groupCombo.ItemsSource = groups.ToList();
+        if (loadCaseTag != null) caseText.Text = string.Format(Loc.S("FemAreaLoadCase"), loadCaseTag);
+        else { caseText.Visibility = Visibility.Collapsed; noCaseText.Visibility = Visibility.Visible; }
+        Loaded += (_, _) => { valueBox.Focus(); valueBox.SelectAll(); };
     }
 
     /// <summary>Добавляет нагрузку; текст ошибки оставляет диалог открытым.</summary>
@@ -32,11 +36,9 @@ public partial class FemAreaLoadDialog : Window
 
     void Ok_Click(object sender, RoutedEventArgs e)
     {
-        if (!Pars.ParseAny(valueBox.Text, out var kpa) || kpa == 0)
-        {
-            ShowError(Loc.S("FemAreaLoadZero"));
-            return;
-        }
+        // Нераспознанное — «нужно число», ноль — «ненулевое давление»: ошибка у поля.
+        Helpers.FieldCheck.Clear(valueBox);
+        if (!Helpers.FieldCheck.Read(this, valueBox, "FemAreaLoadValue", out var kpa, Helpers.FieldCheck.NonZero)) return;
         PressurePa = kpa * 1e3;
         if (Validate?.Invoke(this) is { } error) { ShowError(error); return; }
         DialogResult = true;

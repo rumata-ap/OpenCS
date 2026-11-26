@@ -695,8 +695,7 @@ namespace OpenCS
       /// <summary>«Удалить» у элемента несовершенства — с подтверждением.</summary>
       public void DeleteFemImperfection(ViewModels.FemImperfectionTreeItem item)
       {
-         if (MessageBox.Show(string.Format(Loc.S("FemImperfectionConfirmDelete"), item.Label), Loc.S("Confirmation"),
-               MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+         if (!Notifier.Confirm(string.Format(Loc.S("FemImperfectionConfirmDelete"), item.Label), Loc.S("Confirmation"))) return;
          db.DeleteFemImperfection(item.Item);
          femSchemasGroup?.ReloadImperfections(item.Schema.Id);
          LogService.Info(string.Format(Loc.S("FemImperfectionDeleted"), item.Label, item.Owner.LoadCase.Tag));
@@ -745,10 +744,14 @@ namespace OpenCS
          }
          var vm = new ViewModels.FemImperfectionDialogVM(imperfection, SpanZ, FemImperfectionMHint(schema, imperfection),
             page != null ? page.ImperfectionSelection : null, sources, WallPreview, ModesPreview);
-         var dialog = new Views.FemImperfectionDialog(vm) { Owner = Application.Current.MainWindow };
+         bool isNew = imperfection.Id == 0;
+         // Запись — службой (имя в загружении, параметры); ошибка оставляет окно открытым.
+         var dialog = new Views.FemImperfectionDialog(vm)
+         {
+            Owner = Application.Current.MainWindow,
+            Save = item => Services.FemLoadAuthoring.SaveImperfection(db, item),
+         };
          if (dialog.ShowDialog() != true || dialog.Result is not { } result) return;
-         bool isNew = result.Id == 0;
-         db.SaveFemImperfection(result);
          femSchemasGroup?.ReloadImperfections(schema.Id);
          LogService.Info(string.Format(Loc.S(isNew ? "FemImperfectionAdded" : "FemImperfectionSaved"), result.Label));
       }

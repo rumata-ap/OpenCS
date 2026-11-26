@@ -4,6 +4,9 @@
         Title="{DynamicResource FemAreaLoadDialogTitle}" SizeToContent="WidthAndHeight" MinWidth="340"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False">
     <StackPanel Margin="12">
+        <TextBlock x:Name="caseText" FontWeight="Bold" Margin="0,0,0,6"/>
+        <TextBlock x:Name="noCaseText" Text="{DynamicResource FemNoLoadCasesHint}" Foreground="DarkOrange"
+                   TextWrapping="Wrap" MaxWidth="320" Margin="0,0,0,6" Visibility="Collapsed"/>
         <TextBlock Text="{DynamicResource FemAreaLoadTarget}"/>
         <ComboBox x:Name="targetCombo" SelectedValuePath="Tag" SelectedIndex="0" Margin="0,2,0,4" SelectionChanged="TargetChanged">
             <ComboBoxItem Tag="selection" Content="{DynamicResource FemAreaLoadTargetSelection}"/>

@@ -246,6 +246,7 @@ public static class FemSchemaAuthoring
                 session.NodeLoads, session.Members, session.MemberLoads, session.KinematicLoads))
             .Concat(FemLoadDefinitionValidator.Validate(schema, session.LoadDefinitions, session.LoadCases))
             .Concat(FemBoundaryAuthoring.Validate(session))
+            .Concat(FemLoadAuthoring.Validate(session))
             .ToList();
     }
 

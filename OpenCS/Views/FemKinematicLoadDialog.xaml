@@ -18,22 +18,22 @@
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="80"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
             <CheckBox x:Name="uxCheck" Grid.Row="0" VerticalAlignment="Center"/>
-            <TextBlock Text="{DynamicResource FemKinematicLoadUx}" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center"/>
+            <TextBlock Text="{DynamicResource FemKinematicLoadUxMilli}" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center"/>
             <TextBox x:Name="uxBox" Grid.Row="0" Grid.Column="2" Margin="2"/>
             <CheckBox x:Name="uyCheck" Grid.Row="1" VerticalAlignment="Center"/>
-            <TextBlock Text="{DynamicResource FemKinematicLoadUy}" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center"/>
+            <TextBlock Text="{DynamicResource FemKinematicLoadUyMilli}" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center"/>
             <TextBox x:Name="uyBox" Grid.Row="1" Grid.Column="2" Margin="2"/>
             <CheckBox x:Name="uzCheck" Grid.Row="2" VerticalAlignment="Center"/>
-            <TextBlock Text="{DynamicResource FemKinematicLoadUz}" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center"/>
+            <TextBlock Text="{DynamicResource FemKinematicLoadUzMilli}" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center"/>
             <TextBox x:Name="uzBox" Grid.Row="2" Grid.Column="2" Margin="2"/>
             <CheckBox x:Name="rxCheck" Grid.Row="3" VerticalAlignment="Center"/>
-            <TextBlock Text="{DynamicResource FemKinematicLoadRx}" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center"/>
+            <TextBlock Text="{DynamicResource FemKinematicLoadRxMilli}" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center"/>
             <TextBox x:Name="rxBox" Grid.Row="3" Grid.Column="2" Margin="2"/>
             <CheckBox x:Name="ryCheck" Grid.Row="4" VerticalAlignment="Center"/>
-            <TextBlock Text="{DynamicResource FemKinematicLoadRy}" Grid.Row="4" Grid.Column="1" VerticalAlignment="Center"/>
+            <TextBlock Text="{DynamicResource FemKinematicLoadRyMilli}" Grid.Row="4" Grid.Column="1" VerticalAlignment="Center"/>
             <TextBox x:Name="ryBox" Grid.Row="4" Grid.Column="2" Margin="2"/>
             <CheckBox x:Name="rzCheck" Grid.Row="5" VerticalAlignment="Center"/>
-            <TextBlock Text="{DynamicResource FemKinematicLoadRz}" Grid.Row="5" Grid.Column="1" VerticalAlignment="Center"/>
+            <TextBlock Text="{DynamicResource FemKinematicLoadRzMilli}" Grid.Row="5" Grid.Column="1" VerticalAlignment="Center"/>
             <TextBox x:Name="rzBox" Grid.Row="5" Grid.Column="2" Margin="2"/>
         </Grid>
         <TextBlock Text="{DynamicResource FemKinematicLoadUnitsHint}" Foreground="Gray"

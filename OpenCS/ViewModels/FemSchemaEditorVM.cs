@@ -910,28 +910,26 @@ public sealed class FemSchemaEditorVM : ViewModelBase, IUnsavedChanges
         return null;
     }
 
-    /// <summary>Удаляет загружение с его нагрузками и слагаемыми комбинаций — одной отменой.</summary>
-    public void DeleteLoadCase(FemLoadCase loadCase)
+    /// <summary>
+    /// Удаляет загружение с его нагрузками, вычёркивает из комбинаций (опустевшие удаляются) — одной отменой
+    /// (<see cref="Services.FemLoadAuthoring"/>). Задано в постановках — отказ с их именами; есть что терять — вопрос.
+    /// Возвращает, удалено ли.
+    /// </summary>
+    public bool DeleteLoadCase(FemLoadCase loadCase)
     {
-        var commands = new List<IFemEditCommand>();
-        foreach (var definition in Session.LoadDefinitions)
+        var impact = Services.FemLoadAuthoring.DeleteImpact(_db, Session, loadCase);
+        if (impact.Blocked)
         {
-            var expression = definition.GetExpression();
-            if (!expression.LoadCaseIds.Contains(loadCase.Id) && expression.Terms.All(t => t.LoadCaseId != loadCase.Id)) continue;
-            var terms = expression.Terms.Where(t => t.LoadCaseId != loadCase.Id).ToList();
-            commands.Add(new EditLoadDefinitionCommand(definition, DefinitionValues(definition, definition.Tag,
-                definition.CombinationType, new FemLoadExpression
-                {
-                    Mode = expression.Mode,
-                    LoadCaseIds = expression.LoadCaseIds.Where(id => id != loadCase.Id).ToList(),
-                    Terms = terms,
-                    CombinationType = expression.CombinationType,
-                })));
+            _app.Notifier.Warning(Services.FemLoadAuthoring.BlockedText(loadCase, impact), Loc.S("Confirmation"));
+            return false;
         }
-        commands.Add(new DeleteLoadCaseCommand(loadCase));
-        Session.Execute(commands.Count == 1 ? commands[0] : new CompositeFemCommand(commands));
+        if (Services.FemLoadAuthoring.NeedsQuestion(impact)
+            && !_app.Notifier.Confirm(Services.FemLoadAuthoring.DeleteQuestion(loadCase, impact), Loc.S("Confirmation")))
+            return false;
+        Session.Execute(Services.FemLoadAuthoring.DeleteCommand(Session, loadCase));
         if (ReferenceEquals(SelectedLoadCase, loadCase)) SelectedLoadCase = null;
         RefreshCollections();
+        return true;
     }
 
     /// <summary>Новая пустая комбинация (из дерева схемы).</summary>

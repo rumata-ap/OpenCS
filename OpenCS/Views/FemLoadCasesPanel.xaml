@@ -253,7 +253,11 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="{DynamicResource FemLoadsColKind}" Binding="{Binding Kind}" IsReadOnly="True" Width="115"
                                                 ElementStyle="{StaticResource LeftText}"/>
-                            <DataGridTextColumn Header="{DynamicResource FemLoadsColAreaValue}" Binding="{Binding Value}" Width="100"/>
+                            <DataGridTextColumn Binding="{Binding Value}" Width="100">
+                                <DataGridTextColumn.Header>
+                                    <TextBlock Text="{DynamicResource FemLoadsColAreaValue}" ToolTip="{DynamicResource FemLoadsColAreaValueTip}"/>
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
                             <DataGridComboBoxColumn Header="{DynamicResource FemLoadsColDirection}" Width="100"
                                                     ItemsSource="{x:Static vm:FemLoadsTabVM.AreaDirections}" SelectedValuePath="Key"
                                                     DisplayMemberPath="Label" SelectedValueBinding="{Binding Direction, UpdateSourceTrigger=PropertyChanged}"/>

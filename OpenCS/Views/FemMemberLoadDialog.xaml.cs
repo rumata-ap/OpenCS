@@ -54,6 +54,10 @@ public partial class FemMemberLoadDialog : Window
         qyEndBox.Visibility = nonPointVisibility;
         qzEndBox.Visibility = nonPointVisibility;
         momentGrid.Visibility = pointVisibility;
+        // Сосредоточенная — сила P, кН; распределённая — интенсивность q, кН/м.
+        qxLabel.SetResourceReference(TextBlock.TextProperty, IsPoint ? "FemMemberLoadPx" : "FemMemberLoadQx");
+        qyLabel.SetResourceReference(TextBlock.TextProperty, IsPoint ? "FemMemberLoadPy" : "FemMemberLoadQy");
+        qzLabel.SetResourceReference(TextBlock.TextProperty, IsPoint ? "FemMemberLoadPz" : "FemMemberLoadQz");
         unitsHintUniform.Visibility = nonPointVisibility;
         unitsHintPoint.Visibility = pointVisibility;
     }
@@ -117,6 +121,18 @@ public partial class FemMemberLoadDialog : Window
         double my = FemUnitConverter.KiloNewtonMetersToNewtonMeters(myK);
         double mz = FemUnitConverter.KiloNewtonMetersToNewtonMeters(mzK);
         int applied = 0;
+
+        // Участок — в пределах каждого выбранного стержня (иначе ошибка всплывала бы только при «Сохранить»).
+        foreach (var member in _members.Where(member => member.Id != 0))
+        {
+            var probe = new FemMemberLoad { MemberId = member.Id, DistributionType = distribution, StartOffsetM = startOffset, EndOffsetM = endOffset };
+            if (Services.FemLoadAuthoring.MemberLoadOffsetError(_editor.Session, probe) is { } offsetError)
+            {
+                Helpers.FieldCheck.Fail(this, startOffsetBox, "FemMemberLoadStartOffset",
+                    _members.Count > 1 ? $"{member.ElemTag}: {offsetError}" : offsetError);
+                return;
+            }
+        }
 
         foreach (var member in _members.Where(member => member.Id != 0))
         {

@@ -50,13 +50,13 @@
                 <Grid.ColumnDefinitions><ColumnDefinition Width="70"/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="1" Text="{DynamicResource FemMemberLoadStart}" HorizontalAlignment="Center"/>
                 <TextBlock x:Name="endHeaderText" Grid.Column="2" Text="{DynamicResource FemMemberLoadEnd}" HorizontalAlignment="Center"/>
-                <TextBlock Grid.Row="1" Text="{DynamicResource FemMemberLoadQx}" VerticalAlignment="Center"/>
+                <TextBlock x:Name="qxLabel" Grid.Row="1" Text="{DynamicResource FemMemberLoadQx}" VerticalAlignment="Center"/>
                 <TextBox x:Name="qxStartBox" Grid.Row="1" Grid.Column="1" Margin="2"/>
                 <TextBox x:Name="qxEndBox" Grid.Row="1" Grid.Column="2" Margin="2"/>
-                <TextBlock Grid.Row="2" Text="{DynamicResource FemMemberLoadQy}" VerticalAlignment="Center"/>
+                <TextBlock x:Name="qyLabel" Grid.Row="2" Text="{DynamicResource FemMemberLoadQy}" VerticalAlignment="Center"/>
                 <TextBox x:Name="qyStartBox" Grid.Row="2" Grid.Column="1" Margin="2"/>
                 <TextBox x:Name="qyEndBox" Grid.Row="2" Grid.Column="2" Margin="2"/>
-                <TextBlock Grid.Row="3" Text="{DynamicResource FemMemberLoadQz}" VerticalAlignment="Center"/>
+                <TextBlock x:Name="qzLabel" Grid.Row="3" Text="{DynamicResource FemMemberLoadQz}" VerticalAlignment="Center"/>
                 <TextBox x:Name="qzStartBox" Grid.Row="3" Grid.Column="1" Margin="2"/>
                 <TextBox x:Name="qzEndBox" Grid.Row="3" Grid.Column="2" Margin="2"/>
             </Grid>

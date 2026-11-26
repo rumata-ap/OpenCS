@@ -44,7 +44,8 @@ public partial class FemKinematicLoadDialog : Window
                     item.LoadCaseId == loadCase.Id && item.NodeId == node.Id && item.Dof == dof))
                 .FirstOrDefault(item => item != null);
             fields[i].Check.IsChecked = load != null;
-            fields[i].Box.Text = load?.Value.ToString("G15", CultureInfo.CurrentCulture) ?? "0";
+            // В окне, как в таблице загружения, — мм и мрад (в базе — м и рад).
+            fields[i].Box.Text = ((load?.Value ?? 0) * 1e3).ToString("0.######", CultureInfo.CurrentCulture);
         }
     }
 
@@ -55,17 +56,18 @@ public partial class FemKinematicLoadDialog : Window
             MessageBox.Show(this, Loc.S("FemNoLoadCasesHint"), Title, MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
+        // Нераспознанное значение отмеченного направления — ошибка у поля; раньше оно молча удаляло заданное
+        // перемещение (направления нет в values → удаление).
         var values = new Dictionary<int, double>();
-        foreach (var (dof, field) in Fields().Select((field, index) => (index + 1, field)))
+        string[] keys = ["FemKinematicLoadUxMilli", "FemKinematicLoadUyMilli", "FemKinematicLoadUzMilli",
+            "FemKinematicLoadRxMilli", "FemKinematicLoadRyMilli", "FemKinematicLoadRzMilli"];
+        var fields = Fields();
+        Helpers.FieldCheck.Clear(fields.Select(f => f.Box).ToArray());
+        for (int i = 0; i < fields.Length; i++)
         {
-            if (field.Check.IsChecked != true) continue;
-            // Pars.ParseAny принимает и точку, и запятую как десятичный разделитель — обычный
-            // double.TryParse(..., CultureInfo.CurrentCulture) ловит только ОДИН вариант (для
-            // ru-RU — запятую), и при вводе с другим разделителем молча проваливает парсинг:
-            // значение просто не попадает в values, а ApplyKinematicLoads в этом случае либо
-            // ничего не делает, либо удаляет уже существующее значение DOF — без единой ошибки.
-            if (Pars.ParseAny(field.Box.Text, out var value) && double.IsFinite(value))
-                values[dof] = value;
+            if (fields[i].Check.IsChecked != true) continue;
+            if (!Helpers.FieldCheck.Read(this, fields[i].Box, keys[i], out double milli)) return;
+            values[i + 1] = milli / 1e3;
         }
 
         int applied = _editor.ApplyKinematicLoads(loadCase, _nodes, values);

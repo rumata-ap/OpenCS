@@ -54,7 +54,7 @@ public partial class FemLoadCasesPanel : UserControl
     void AddAreaLoad_Click(object sender, RoutedEventArgs e)
     {
         if (_vm == null) return;
-        var dialog = new FemAreaLoadDialog(_vm.Editor.MemberGroups) { Owner = Window.GetWindow(this) };
+        var dialog = new FemAreaLoadDialog(_vm.Editor.MemberGroups, _vm.Editor.SelectedLoadCase?.Tag) { Owner = Window.GetWindow(this) };
         dialog.Validate = d =>
         {
             _vm.AddAreaLoad(d.TargetMode, d.Group, d.TagsText, d.PressurePa, d.Direction);
