@@ -49,6 +49,12 @@ public partial class FemSlsCheckDialog : Window
         if (!FieldCheck.Read(this, AcrcBox, "FemCheckDlgAcrcLim", out _, FieldCheck.Positive)) return;
         if (!FieldCheck.Read(this, Phi2Box, "FemSlsDlgPhi2Label", out _, FieldCheck.Positive)) return;
         var draft = vm.BuildCheck();
+        if (vm.NoSetsChosen)
+        {
+            MessageBox.Show(this, Loc.S("FemCheckSetsNoneChosen"), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            ForceSetsBox.Focus();
+            return;
+        }
         if (!FemCheckDialogErrors.Show(this, FemCheckAuthoring.Validate(FemCheckRefs.Of(_app.db, vm.SelectedSchema), draft),
                 TagBox, TagErrorText))
             return;
@@ -277,11 +283,13 @@ public class FemSlsCheckDialogVM : FemCheckDialogVmBase
     /// <summary>NL-набор выбирается из тех же наборов цели.</summary>
     protected override void OnForceSetsRefreshed()
     {
+        int keep = _selectedNlForceSet?.Id ?? 0;
         NlForceSets.Clear();
         NlForceSets.Add(new ForceSet { Id = 0, Tag = Loc.S("FemSlsDlgNlNone") });
         foreach (var item in FilteredForceSets)
             NlForceSets.Add(item.ForceSet);
-        SelectedNlForceSet = NlForceSets[0];
+        // Выбранный набор NL переживает пересборку списка (смена цели), если он в новом списке.
+        SelectedNlForceSet = NlForceSets.FirstOrDefault(f => f.Id == keep && keep > 0) ?? NlForceSets[0];
     }
 
     /// <summary>Автоимя «цель / метод (ПС2)» без повтора в схеме.</summary>

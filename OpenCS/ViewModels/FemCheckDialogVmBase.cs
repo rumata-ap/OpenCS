@@ -258,6 +258,9 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
         RefreshTarget();
     }
 
+    /// <summary>«Все наборы» снят, а в списке ничего не выбрано — записывать нельзя (пустой список означал бы «все»).</summary>
+    public bool NoSetsChosen => !AllSets && SetsBox.SelectedItems.Count == 0;
+
     /// <summary>Выбранные в списке наборы усилий.</summary>
     protected IEnumerable<ForceSet> SelectedForceSets() =>
         AllSets ? FilteredForceSets.Select(i => i.ForceSet)
@@ -287,6 +290,8 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
     protected void RefreshTarget()
     {
         _suspendReadiness = true;
+        // Выбор наборов переживает пересборку списка (смена цели или вида): пустой выбор окно записало бы как «все».
+        List<int> chosen = AllSets ? [] : SetsBox.SelectedItems.OfType<FemCheckForceSetItem>().Select(i => i.ForceSet.Id).ToList();
         FilteredForceSets.Clear();
         _scope = null;
         if (Target is { } target && _schemaData is { } data)
@@ -347,6 +352,7 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
 
         OnForceSetsRefreshed();
         if (AllSets) SetsBox.SelectAll();
+        else if (chosen.Count > 0) SelectForceSets(chosen);
         _suspendReadiness = false;
         RefreshReadiness();
     }

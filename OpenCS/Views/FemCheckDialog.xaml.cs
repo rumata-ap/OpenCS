@@ -46,6 +46,12 @@ public partial class FemCheckDialog : Window
         if (Phi1Box.IsVisible && !FieldCheck.Read(this, Phi1Box, "FemCheckPhi1Label", out _, FieldCheck.Positive)) return;
         if (!BucklingEditor.CheckFields(this)) return;
         var draft = vm.BuildCheck();
+        if (vm.NoSetsChosen)
+        {
+            MessageBox.Show(this, Loc.S("FemCheckSetsNoneChosen"), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            ForceSetsBox.Focus();
+            return;
+        }
         if (!FemCheckDialogErrors.Show(this, FemCheckAuthoring.Validate(FemCheckRefs.Of(_app.db, vm.SelectedSchema), draft),
                 TagBox, TagErrorText))
             return;

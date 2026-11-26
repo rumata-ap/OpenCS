@@ -7796,4 +7796,5 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliFemCheckErrPhi1">ожидается "auto" или число.</system:String>
    <system:String x:Key="FemCheckPhi1Eq">φ1 =</system:String>
    <system:String x:Key="FemCheckDlgSetKept">{0} — выбран в проверке (к схеме не привязан)</system:String>
+   <system:String x:Key="FemCheckSetsNoneChosen">Выберите наборы усилий в списке или отметьте «Все наборы».</system:String>
 </ResourceDictionary>
