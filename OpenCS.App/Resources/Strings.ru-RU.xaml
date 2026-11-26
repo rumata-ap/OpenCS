@@ -7618,4 +7618,5 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FemMeshNodeInheritedColumn">Из КонЭ (при расчёте)</system:String>
    <system:String x:Key="FemMeshNodeInheritedNode">узел КонЭ {0}</system:String>
    <system:String x:Key="FemMeshNodeInheritedSprings">пружины {0}</system:String>
+   <system:String x:Key="FemMeshNodeBoundaryInherited">При расчёте узел получит также ГУ конструктивного уровня (здесь их не изменить — они задаются на узлах КонЭ и гранях пластин): {0}</system:String>
 </ResourceDictionary>

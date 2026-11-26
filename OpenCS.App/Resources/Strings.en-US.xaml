@@ -7618,4 +7618,5 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FemMeshNodeInheritedColumn">From members (at analysis)</system:String>
    <system:String x:Key="FemMeshNodeInheritedNode">member node {0}</system:String>
    <system:String x:Key="FemMeshNodeInheritedSprings">springs {0}</system:String>
+   <system:String x:Key="FemMeshNodeBoundaryInherited">At analysis the node also receives member-level boundary conditions (edit them on member nodes and plate edges, not here): {0}</system:String>
 </ResourceDictionary>

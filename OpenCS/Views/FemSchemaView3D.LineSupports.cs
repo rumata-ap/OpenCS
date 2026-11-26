@@ -135,7 +135,10 @@ public partial class FemSchemaView3D
         {
             Owner = Window.GetWindow(this),
         };
-        if (dialog.ShowDialog() != true) return;
+        bool ok = dialog.ShowDialog() == true;
+        // Фокус — снова 3D-виду: Esc после окна выходит из выбора граней (иначе клавиши уходят главному окну).
+        viewport.Focus();
+        if (!ok) return;
         editor.SetLineSupports(edges.Select((edge, i) => (edge, dialog.Build(current[i]))).ToList());
     }
 

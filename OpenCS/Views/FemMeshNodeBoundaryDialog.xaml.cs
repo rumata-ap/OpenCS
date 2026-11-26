@@ -28,6 +28,12 @@ public partial class FemMeshNodeBoundaryDialog : Window
             row.Origins.Count > 0 ? row.OriginText : null, row.Origins.Any(o => o != FemLoadOrigin.Manual),
             row.SupportMask, row.Stiffnesses)
     {
+        // ГУ, которые узел получит при расчёте от узла КонЭ и линейных связей: поля окна их не показывают и не меняют.
+        if (row.InheritedText.Length > 0)
+        {
+            inheritedText.Text = string.Format(Loc.S("FemMeshNodeBoundaryInherited"), row.InheritedText);
+            inheritedText.Visibility = Visibility.Visible;
+        }
     }
 
     /// <summary>Одни значения у узла или типа узловой связи.</summary>
