@@ -370,4 +370,60 @@ public sealed class CliFemSchemaTests : IDisposable
         var again = JsonNode.Parse((await Run("list", "schemas", project, "--json")).Out)!.AsArray().Single()!;
         Assert.Equal("current", (string?)again["mesh"]);
     }
+
+    /// <summary>6д: <c>region.normal</c> вниз — пластина «вверх ногами» (оси X, −Y, −Z), кругооборот тот же; «Сменить
+    /// нормаль» и «Развернуть ось» службой — выгрузка без <c>normal</c>, стержень с обратным порядком узлов и β → −β.</summary>
+    [Fact]
+    public async Task Apply_PlateNormalDown_RoundTripSame_FlipBackExportsDefault()
+    {
+        const string holes = "\"holes\": [ [[2, 1, 3], [3, 1, 3], [3, 2, 3], [2, 2, 3]] ] }";
+        string doc = Seed.Replace(holes, holes[..^2] + """, "normal": [0, 0, -2] }""");
+        Assert.NotEqual(Seed, doc);
+        string first = await NewProject("n.db");
+        var r = await Run("apply", first, Doc("down.json", doc));
+        Assert.True(r.Code == CliExitCode.Ok, r.Err);
+        var region = Assert.Single(Load(first).Regions);
+        Assert.Equal(-1, region.Frame.LocalZ.Z, 9);
+        Assert.Equal(1, region.Frame.LocalX.X, 9);
+        Assert.Equal(-1, region.Frame.LocalY.Y, 9);
+
+        string e1 = PathOf("n1.json");
+        Assert.True((await Run("export", "model", first, "--to", e1)).Code == CliExitCode.Ok);
+        var shell = JsonNode.Parse(File.ReadAllText(e1))!["femSchemas"]![0]!["members"]!.AsArray().Single(m => (string?)m!["tag"] == "П1")!;
+        Assert.Equal("[0,0,-1]", shell["region"]!["normal"]!.ToJsonString());
+        string second = await NewProject("n2.db");
+        Assert.True((await Run("apply", second, e1)).Code == CliExitCode.Ok);
+        string e2 = PathOf("n2.json");
+        Assert.True((await Run("export", "model", second, "--to", e2)).Code == CliExitCode.Ok);
+        Assert.Equal(JsonNode.Parse(File.ReadAllText(e1))!["femSchemas"]!.ToJsonString(),
+            JsonNode.Parse(File.ReadAllText(e2))!["femSchemas"]!.ToJsonString());
+
+        // Нормаль в плоскости пластины — ошибка с путём.
+        var bad = await Run("apply", await NewProject("bad.db"), Doc("bad.json", Seed.Replace(holes, holes[..^2] + """, "normal": [1, 0, 0] }""")));
+        Assert.Equal(CliExitCode.Usage, bad.Code);
+        Assert.Contains("femSchemas[0].members[3].region.normal", bad.Err);
+
+        using (var db = new DatabaseService(first))
+        {
+            db.LoadAll();
+            var schema = db.FemSchemas.Single(x => x.Tag == "Рама");
+            var outcome = await FemMemberOrientation.ApplyAsync(db, schema, ["П1", "К1"], null, new NullLog());
+            Assert.True(outcome.Done, outcome.Error);
+        }
+        string e3 = PathOf("n3.json");
+        Assert.True((await Run("export", "model", first, "--to", e3)).Code == CliExitCode.Ok);
+        var members = JsonNode.Parse(File.ReadAllText(e3))!["femSchemas"]![0]!["members"]!.AsArray();
+        Assert.Null(members.Single(m => (string?)m!["tag"] == "П1")!["region"]!["normal"]);
+        var column = members.Single(m => (string?)m!["tag"] == "К1")!;
+        Assert.Equal("[2,1]", column["nodes"]!.ToJsonString());
+        Assert.Equal(-90, (double)column["rotationDeg"]!);
+    }
+
+    sealed class NullLog : ILogService
+    {
+        public void Info(string message) { }
+        public void Warning(string message) { }
+        public void Error(string message) { }
+        public System.Collections.ObjectModel.ObservableCollection<LogEntry> LogEntries { get; } = [];
+    }
 }

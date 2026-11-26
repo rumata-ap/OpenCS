@@ -15,7 +15,8 @@ namespace OpenCS.Cli.Model;
 /// состав схемы по этому виду (совпавшие по тегу объекты обновляются на месте, остальные удаляются с
 /// предупреждением), неуказанный — не трогается. Узел — целый тег, координаты в м, закрепления <c>fix</c>. КонЭ —
 /// стержень (<c>nodes</c>, сечение <c>section</c> из <c>sections</c>) или пластина (<c>region</c> — контур и
-/// отверстия в общих координатах, м; <c>xAxis</c> — местная ось X; сечение <c>plateSection</c>). Сетка и результаты
+/// отверстия в общих координатах, м; <c>xAxis</c> — местная ось X; <c>normal</c> — верх пластины, если он не по умолчанию;
+/// сечение <c>plateSection</c>). Начало и конец стержня — порядок его <c>nodes</c>. Сетка и результаты
 /// не описываются: изменённая схема получает устаревшую сетку, она перестраивается перед расчётом или командой
 /// <c>opencs run mesh</c>; изменившаяся сетка сбрасывает результаты постановок.
 /// </summary>
@@ -31,7 +32,7 @@ sealed class FemSchemasKind : IModelKind
     static readonly string[] RigidKeys = ["mode", "kind", "dofs"];
     static readonly string[] LineKeys = ["member", "hole", "sides", "fix", "fixEdgeRotation", "springs"];
     static readonly string[] ShellKeys = ["tag", "type", "kind", "plateSection", "meshStepM", "region"];
-    static readonly string[] RegionKeys = ["outline", "holes", "xAxis"];
+    static readonly string[] RegionKeys = ["outline", "holes", "xAxis", "normal"];
     static readonly string[] TorsionKeys = ["strategy", "gj", "task"];
     static readonly string[] GroupKeys = ["tag", "memberType", "members"];
     /// <summary>Направления общих осей (биты 0–5), как в окнах: X Y Z UX UY UZ.</summary>
@@ -220,6 +221,11 @@ sealed class FemSchemasKind : IModelKind
         if (holes.Count > 0) o["holes"] = new JsonArray(holes.Select(h => (JsonNode)Loop(h)).ToArray());
         var x = region.Frame.LocalX;
         o["xAxis"] = new JsonArray(R(x.X), R(x.Y), R(x.Z));
+        // Нормаль — только не по умолчанию (по тому же правилу, что при чтении: контур и ось X документа).
+        var z = region.Frame.LocalZ;
+        var pts = Global(region.Frame, hull);
+        if (pts.Count >= 3 && FrameFor(pts, x).LocalZ.Dot(z) < 0)
+            o["normal"] = new JsonArray(R(z.X), R(z.Y), R(z.Z));
         return o;
     }
 
@@ -238,7 +244,8 @@ sealed class FemSchemasKind : IModelKind
     sealed record NodeDoc(string Path, int Tag, double X, double Y, double Z, int Mask, double[] K);
     sealed record RigidDoc(bool Off, bool Coupled, int Mask);
     sealed record LineDoc(string Path, string Member, int Hole, List<(int Side, string Path)> Sides, int Mask, bool Rotation, double[] K);
-    sealed record RegionDoc(string Path, List<PlanarVector3> Outline, List<List<PlanarVector3>> Holes, PlanarVector3? XAxis);
+    sealed record RegionDoc(string Path, List<PlanarVector3> Outline, List<List<PlanarVector3>> Holes, PlanarVector3? XAxis,
+        PlanarVector3? Normal = null);
     sealed record MemberDoc(string Path, string Tag, string Type, int[] Nodes, string? Section, double Rotation,
         double? MeshStep, string Gj, double? GjKnm2, string? TorsionTask, string? Kind, string? PlateSection, RegionDoc? Region,
         RigidDoc? Rigid = null);
@@ -484,7 +491,8 @@ sealed class FemSchemasKind : IModelKind
                         if (Loop(ha[k], $"{rp}.holes[{k}]", errors) is { } h) holes.Add(h);
                 else if (ro["holes"] is not null) errors.Add($"{rp}.holes", Loc.S("CliModelErrNotArray"));
                 PlanarVector3? xAxis = ro["xAxis"] is null ? null : Point(ro["xAxis"], $"{rp}.xAxis", errors);
-                if (outline != null) region = new RegionDoc(rp, outline, holes, xAxis);
+                PlanarVector3? normal = ro["normal"] is null ? null : Point(ro["normal"], $"{rp}.normal", errors);
+                if (outline != null) region = new RegionDoc(rp, outline, holes, xAxis, normal);
             }
             else errors.Add($"{p}.region", o["region"] is null ? Loc.S("CliModelErrRequired") : Loc.S("CliModelErrNotObject"));
             return errors.Count > before ? null
@@ -605,6 +613,24 @@ sealed class FemSchemasKind : IModelKind
             errors.Add($"{r.Path}.outline", e.Message);
             return null;
         }
+        // Нормаль документа против нормали по умолчанию — пластина «вверх ногами»: с осью X документа оси (X, −Y, −Z), без
+        // неё — как «Сменить нормаль» в редакторе (у стены вертикальная Y остаётся вверх).
+        bool flip = false;
+        if (r.Normal is { } normal)
+        {
+            double cos = normal.Length > 1e-12 ? normal.Dot(frame.LocalZ) / normal.Length : 0;
+            if (Math.Abs(cos) < 1e-6)
+            {
+                errors.Add($"{r.Path}.normal", Loc.S("CliFemErrNormal"));
+                return null;
+            }
+            flip = cos < 0;
+            if (flip && r.XAxis != null)
+            {
+                frame = new Frame3D(frame.Origin, frame.LocalX, frame.LocalY * -1, frame.LocalZ * -1);
+                flip = false;
+            }
+        }
         var hull = Local(frame, r.Outline, tag, ContourType.Hull, $"{r.Path}.outline", errors);
         var holes = new List<Contour>();
         for (int k = 0; k < r.Holes.Count; k++)
@@ -612,7 +638,29 @@ sealed class FemSchemasKind : IModelKind
         if (hull == null || holes.Count != r.Holes.Count) return null;
         var (region, diagnostics) = PlanarRegionCreation.TryCreate(hull, holes, frame, tag);
         foreach (var d in diagnostics.Where(d => d.IsError)) errors.Add(r.Path, d.Message);
-        return region;
+        return flip && region != null ? FemOrientationFlip.MirrorRegion(region).Region : region;
+    }
+
+    /// <summary>Зоны армирования области <paramref name="old"/> в осях <paramref name="frame"/>: полигоны — те же точки в
+    /// пространстве, угол раскладки — то же направление стержней (грань зоны — относительно новой нормали).</summary>
+    static List<CScore.PlateRebar.RebarZone> TransferZones(PlanarRegion old, Frame3D frame)
+    {
+        var f0 = old.Frame;
+        if ((f0.LocalX - frame.LocalX).Length < 1e-12 && (f0.LocalY - frame.LocalY).Length < 1e-12 && (f0.Origin - frame.Origin).Length < 1e-12)
+            return old.RebarZones;
+        return old.RebarZones.Select(z =>
+        {
+            var copy = z.Clone();
+            foreach (var p in copy.Polygon)
+            {
+                var g = f0.Origin + f0.LocalX * p.U + f0.LocalY * p.V - frame.Origin;
+                (p.U, p.V) = (g.Dot(frame.LocalX), g.Dot(frame.LocalY));
+            }
+            double a = z.Layout.Angle * Math.PI / 180;
+            var d = f0.LocalX * Math.Cos(a) + f0.LocalY * Math.Sin(a);
+            copy.Layout.Angle = Math.Round(Math.Atan2(d.Dot(frame.LocalY), d.Dot(frame.LocalX)) * 180 / Math.PI, 9) + 0.0;
+            return copy;
+        }).ToList();
     }
 
     /// <summary>Та же геометрия в общих координатах и та же ось X — существующая область не перезаписывается.</summary>
@@ -788,7 +836,9 @@ sealed class FemSchemasKind : IModelKind
                             if (old != null)
                             {
                                 region.Id = old.Id;
-                                region.RebarZones = old.RebarZones;
+                                // Зоны армирования — в осях области: при новых осях (сменилась нормаль или ось X) — те же
+                                // места и направления стержней в пространстве.
+                                region.RebarZones = TransferZones(old, region.Frame);
                                 region.RebarSectionGridStep = old.RebarSectionGridStep;
                                 region.MeshMaxElementSizeM = old.MeshMaxElementSizeM;
                             }
