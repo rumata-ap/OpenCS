@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "opencs-model: femChecks[]",
+  "description": "Нормативная проверка по КЭ 1-й и 2-й ГПС: сталь (steel), ЖБ стержни (rcBar), ЖБ пластины по прочности (rcPlate) и по трещинам (rcPlateSls). Ключ — имя (tag) в пределах схемы (schema). Найдено — обновить, нет — создать; удаления нет. Неуказанные поля существующей проверки не меняются, у новой — умолчания окна. Неизменённая проверка не перезаписывается; смена цели, вида, наборов или параметров удаляет её результат, имя — нет. Ссылки — по тегам: цель {group} или {member}, наборы усилий, набор NL, постановка расчётных длин стали. acrcLimMm — мм, lengthM — м, остальные числа безразмерные.",
+  "type": "object",
+  "required": ["schema", "tag", "kind"],
+  "properties": {
+    "schema": { "type": "string" },
+    "tag": { "type": "string", "minLength": 1 },
+    "kind": { "enum": ["steel", "rcBar", "rcPlate", "rcPlateSls"] },
+    "target": {
+      "type": "object", "additionalProperties": false,
+      "description": "Цель: группа схемы или один конструктивный элемент (ровно одно). Обязательна у новой проверки.",
+      "properties": { "group": { "type": "string" }, "member": { "type": "string" } }
+    },
+    "forceSets": {
+      "description": "\"all\" — все наборы, доступные цели; иначе имена наборов усилий проекта.",
+      "oneOf": [ { "const": "all" }, { "type": "array", "minItems": 1, "items": { "type": "string" } } ]
+    },
+    "calcType": { "enum": ["C", "CL", "N", "NL", null], "description": "null — по набору усилий; у rcPlateSls — N или NL." },
+    "rebar": {
+      "type": "array", "items": { "enum": ["section", "assigned", "selected", "layout"] },
+      "description": "Источники армирования КЭ в порядке расчёта (layout — только у пластин). По умолчанию [\"section\"]."
+    },
+    "steel": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "mesh": {
+          "type": ["object", "null"], "additionalProperties": false,
+          "description": "Расчётные длины lef = μ·l по сетке схемы; null — lef из параметров СП 16 цели.",
+          "properties": {
+            "muX": { "type": "number", "exclusiveMinimum": 0 }, "muY": { "type": "number", "exclusiveMinimum": 0 },
+            "muB": { "type": "number", "minimum": 0, "description": "μb для φb; 0 — lef балки из параметров СП 16" }
+          }
+        },
+        "auto": {
+          "type": ["object", "null"], "additionalProperties": false, "required": ["analysis"],
+          "description": "«Авто (МКЭ)»: μ по расчёту устойчивости схемы, сочетания — стадии постановки analysis.",
+          "properties": { "analysis": { "type": "string" } }
+        }
+      }
+    },
+    "eta": {
+      "type": ["object", "null"], "additionalProperties": false,
+      "description": "Продольный изгиб (η, п. 8.1.15 СП 63); null — не учитывается. У rcPlate — стены из плоскости, без muY/psiY.",
+      "properties": {
+        "iterative": { "type": "boolean" },
+        "lengthM": { "type": ["number", "null"], "exclusiveMinimum": 0, "description": "null — l по сетке схемы для каждого КЭ" },
+        "muX": { "type": "number", "exclusiveMinimum": 0 }, "muY": { "type": "number", "exclusiveMinimum": 0 },
+        "psi": { "enum": ["auto", "manual"] },
+        "psiX": { "type": "number", "minimum": 0 }, "psiY": { "type": "number", "minimum": 0 },
+        "slendernessThreshold": { "type": ["number", "null"], "exclusiveMinimum": 0, "description": "null — 14 (п. 8.1.2)" }
+      }
+    },
+    "plate": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "method": { "enum": ["woodArmer", "capri", "layered"] },
+        "strip": { "enum": ["ndm", "formulas"], "description": "Модель полосы упрощённых методов" },
+        "capriMode": { "enum": ["direct", "constraints"] },
+        "acrcLimMm": { "type": "number", "exclusiveMinimum": 0 },
+        "phi1": { "oneOf": [ { "const": "auto" }, { "type": "number", "exclusiveMinimum": 0 } ] },
+        "phi2": { "type": "number", "exclusiveMinimum": 0 },
+        "nlForceSet": { "type": ["string", "null"], "description": "Набор NL у layered; null — доля длительной ltFraction" },
+        "ltFraction": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}
