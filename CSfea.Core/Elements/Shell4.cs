@@ -112,8 +112,11 @@ public static class Shell4
                 bsPhys[1, c + 2] = ny;   // γ_yz = w,y - θx
                 bsPhys[1, c + 3] = -ni;
             }
-            // в естественную: γ_nat = J^T · γ_phys
-            return Dense.MatTMul(js, bsPhys); // (2,20)
+            // в естественную (ковариантные): γ_ξz = x,ξ·γ_xz + y,ξ·γ_yz. js[a,b] = ∂x_b/∂ξ_a — уже транспонированный
+            // якобиан (см. Jacobian), поэтому γ_nat = js · γ_phys. До 26.11.2026 здесь было js^T: на искажённых Q4
+            // жёсткость зависела от нумерации узлов (сдвиг узлов на один менял K на ~8 %), на прямоугольниках js
+            // диагональна и ошибки не видно.
+            return Dense.MatMul(js, bsPhys); // (2,20)
         }
 
         var bsA = GammaNatural(0.0, -1.0);  // γ_ξz (строка 0)
@@ -127,8 +130,8 @@ public static class Shell4
             bsNat[0, k] = 0.5 * (1.0 - eta) * bsA[0, k] + 0.5 * (1.0 + eta) * bsC[0, k];
             bsNat[1, k] = 0.5 * (1.0 - xi) * bsD[1, k] + 0.5 * (1.0 + xi) * bsB[1, k];
         }
-        // в физические: γ_phys = J^{-T} · γ_nat
-        return Dense.MatTMul(invJ, bsNat);
+        // в физические: γ_phys = js⁻¹ · γ_nat (invJ — обратная к js).
+        return Dense.MatMul(invJ, bsNat);
     }
 
     /// <summary>G (2,20): [w,x; w,y] = G · u_loc.</summary>
