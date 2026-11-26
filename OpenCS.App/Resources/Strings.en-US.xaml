@@ -7619,4 +7619,25 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FemMeshNodeInheritedNode">member node {0}</system:String>
    <system:String x:Key="FemMeshNodeInheritedSprings">springs {0}</system:String>
    <system:String x:Key="FemMeshNodeBoundaryInherited">At analysis the node also receives member-level boundary conditions (edit them on member nodes and plate edges, not here): {0}</system:String>
+   <system:String x:Key="FemOrientFlipAxisCtx">Reverse axis</system:String>
+   <system:String x:Key="FemOrientFlipNormalCtx">Flip normal</system:String>
+   <system:String x:Key="FemOrientSaveFirst">Schema «{0}» has unsaved changes. Save it and reorient the members?</system:String>
+   <system:String x:Key="FemOrientBusy">Reorienting members…</system:String>
+   <system:String x:Key="FemOrientNothing">No bars or plates among the selected members — nothing to reorient.</system:String>
+   <system:String x:Key="FemOrientMeshCheckFailed">Schema mesh was not checked ({0}); it will be rebuilt before analysis.</system:String>
+   <system:String x:Key="FemOrientMeshBoundaryMoved">Mesh nodes with manual boundary conditions on the reversed bars got new tags: {0} — check their boundary conditions.</system:String>
+   <system:String x:Key="FemOrientDoneBars">Axis reversed for bars ({0}): {1}. Start and end swapped; repeat to undo.</system:String>
+   <system:String x:Key="FemOrientDoneShells">Normal flipped for plates ({0}): {1}. Top and bottom swapped; repeat to undo.</system:String>
+   <system:String x:Key="FemOrientLoads">Updated: member loads {0}, element loads {1}, line supports {2}.</system:String>
+   <system:String x:Key="FemOrientMeshKept">Schema mesh kept: elements reoriented in place.</system:String>
+   <system:String x:Key="FemOrientMeshStale">Schema mesh will be rebuilt before analysis.</system:String>
+   <system:String x:Key="FemOrientSectionMirrored">The bar section is now seen from the other end: local Z is reversed, a section not symmetric about Y is mirrored.</system:String>
+   <system:String x:Key="FemOrientSkippedPartialTarget">Element loads left unchanged (target wider than the reoriented members): {0}.</system:String>
+   <system:String x:Key="FemOrientSkippedPerElementValues">Element loads left unchanged: after reorientation their values differ between target elements (assign them by element list): {0}.</system:String>
+   <system:String x:Key="FemOrientSkippedInPlaneAxis">Element loads left unchanged: the local in-plane direction does not match an axis of the reoriented element: {0}.</system:String>
+   <system:String x:Key="FemOrientLineLost">Line supports lost their edge after reorientation: {0}.</system:String>
+   <system:String x:Key="FemOrientMore"> … and {0} more</system:String>
+   <system:String x:Key="FemOrientFailed">Reorientation failed: {0}</system:String>
+   <system:String x:Key="Fem3DShowDirections">Member directions (bar start, plate normal)</system:String>
+   <system:String x:Key="CliFemErrNormal">normal must be a non-zero vector not lying in the plate plane</system:String>
 </ResourceDictionary>

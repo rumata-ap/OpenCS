@@ -142,7 +142,8 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
 
     async Task<FemSchemaMeshBuildResult> RunAsync(int schemaId, IReadOnlyList<FemNode> nodes, IReadOnlyList<FemMember> members,
         double? defaultTargetLengthM, Action<string>? info, bool checkOnly, CancellationToken cancellationToken,
-        FemKeptMeshUnlockPlan? unlock = null, int ladderStep = 0, IReadOnlyList<FemValidationDiagnostic>? unlockDiagnostics = null)
+        FemKeptMeshUnlockPlan? unlock = null, int ladderStep = 0, IReadOnlyList<FemValidationDiagnostic>? unlockDiagnostics = null,
+        IReadOnlyDictionary<int, PlanarMeshSnapshot>? reoriented = null)
     {
         var diagnostics = new List<FemValidationDiagnostic>(unlockDiagnostics ?? []);
         if (unlock != null)
@@ -224,6 +225,17 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
                     };
                 }
 
+                // Развёрнутые области (смена нормали) берут отражённый снимок прежней сетки с новым отпечатком — без Gmsh.
+                var reused = reoriented == null ? [] : stale.Where(k => reoriented.ContainsKey(ordered[wave[k]].Region.Id)).ToList();
+                foreach (var k in reused)
+                {
+                    var (_, region) = ordered[wave[k]];
+                    var fingerprint = PlanarMeshFingerprint.Compute(region, settings[k], provenance, constraints[k].SourceFingerprint);
+                    var snapshot = Stamped(reoriented![region.Id], fingerprint);
+                    db.SavePlanarMeshSnapshot(snapshot);
+                    headers[k] = (snapshot.Id, fingerprint, snapshot.IsCalculable);
+                }
+                stale.RemoveAll(reused.Contains);
                 foreach (var k in stale)
                     info?.Invoke(string.Format(CultureInfo.CurrentCulture, Loc.S("FemSchemaMeshRegionBuilding"), ordered[wave[k]].Member.ElemTag,
                         constraints[k].Derived.PointLocusCount, constraints[k].Derived.CurveLocusCount, constraints[k].FreeNodeCount));
@@ -315,6 +327,24 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
             ImportedMembersAtFault = mesh.ImportedMembersAtFault, Unlock = unlock, LadderStep = ladderStep,
         };
     }
+
+    /// <summary>
+    /// Сетка схемы после смены нормали пластин (<see cref="CScore.Fem.Editing.FemOrientationFlip"/>): области <paramref name="reoriented"/>
+    /// получают отражённые снимки прежней сетки вместо Gmsh — сетка та же, КЭ с обратным обходом. Вызывать, только когда
+    /// сетка схемы до разворота была актуальной (<see cref="CheckAsync"/>): иначе отражён был бы устаревший снимок.
+    /// </summary>
+    public Task<FemSchemaMeshBuildResult> BuildReorientedAsync(int schemaId, IReadOnlyList<FemNode> nodes, IReadOnlyList<FemMember> members,
+        double? defaultTargetLengthM, IReadOnlyDictionary<int, PlanarMeshSnapshot> reoriented, CancellationToken cancellationToken) =>
+        RunAsync(schemaId, nodes, members, defaultTargetLengthM, null, checkOnly: false, cancellationToken, reoriented: reoriented);
+
+    /// <summary>Снимок с отпечатком входа <paramref name="fingerprint"/> (новая запись).</summary>
+    static PlanarMeshSnapshot Stamped(PlanarMeshSnapshot s, string fingerprint) => new()
+    {
+        RegionId = s.RegionId, InputFingerprint = fingerprint, IsCalculable = s.IsCalculable, Settings = s.Settings,
+        Provenance = s.Provenance, Diagnostics = s.Diagnostics, Nodes = s.Nodes, Elements = s.Elements,
+        BoundaryMappings = s.BoundaryMappings, MeshFormatVersion = s.MeshFormatVersion, EntityProvenance = s.EntityProvenance,
+        ConstraintMappings = s.ConstraintMappings,
+    };
 
     /// <summary>Тела схемы в БД без удаляемых снятием замка.</summary>
     List<FemRigidBody> StoredRigidBodies(int schemaId, FemKeptMeshUnlockPlan? unlock)

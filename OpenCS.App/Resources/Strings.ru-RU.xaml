@@ -7619,4 +7619,25 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FemMeshNodeInheritedNode">узел КонЭ {0}</system:String>
    <system:String x:Key="FemMeshNodeInheritedSprings">пружины {0}</system:String>
    <system:String x:Key="FemMeshNodeBoundaryInherited">При расчёте узел получит также ГУ конструктивного уровня (здесь их не изменить — они задаются на узлах КонЭ и гранях пластин): {0}</system:String>
+   <system:String x:Key="FemOrientFlipAxisCtx">Развернуть ось</system:String>
+   <system:String x:Key="FemOrientFlipNormalCtx">Сменить нормаль</system:String>
+   <system:String x:Key="FemOrientSaveFirst">Схема «{0}» изменена. Сохранить её и развернуть КонЭ?</system:String>
+   <system:String x:Key="FemOrientBusy">Разворот КонЭ…</system:String>
+   <system:String x:Key="FemOrientNothing">Среди выбранных нет стержней и пластин — разворачивать нечего.</system:String>
+   <system:String x:Key="FemOrientMeshCheckFailed">Сетка схемы не проверена ({0}) — она будет перестроена перед расчётом.</system:String>
+   <system:String x:Key="FemOrientMeshBoundaryMoved">У развёрнутых стержней сменились теги узлов сетки с ручными ГУ: {0} — проверьте ГУ этих узлов.</system:String>
+   <system:String x:Key="FemOrientDoneBars">Развёрнута ось стержней ({0}): {1}. Начало и конец поменялись местами; повтор вернёт как было.</system:String>
+   <system:String x:Key="FemOrientDoneShells">Сменена нормаль пластин ({0}): {1}. Верх и низ поменялись местами; повтор вернёт как было.</system:String>
+   <system:String x:Key="FemOrientLoads">Пересчитано: нагрузок на стержни — {0}, нагрузок на КЭ — {1}, линейных связей — {2}.</system:String>
+   <system:String x:Key="FemOrientMeshKept">Сетка схемы та же: КЭ развёрнуты на месте.</system:String>
+   <system:String x:Key="FemOrientMeshStale">Сетка схемы будет перестроена перед расчётом.</system:String>
+   <system:String x:Key="FemOrientSectionMirrored">Сечение стержня теперь видно с другого конца: местная Z смотрит в обратную сторону, несимметричное относительно Y сечение отражается.</system:String>
+   <system:String x:Key="FemOrientSkippedPartialTarget">Не изменены нагрузки на КЭ с целью шире развёрнутых КонЭ: {0}.</system:String>
+   <system:String x:Key="FemOrientSkippedPerElementValues">Не изменены нагрузки на КЭ: после разворота их значения на КЭ цели различаются (задайте их списком КЭ): {0}.</system:String>
+   <system:String x:Key="FemOrientSkippedInPlaneAxis">Не изменены нагрузки на КЭ: местное направление в плоскости не совпадает с осью развёрнутого КЭ: {0}.</system:String>
+   <system:String x:Key="FemOrientLineLost">Линейные связи не нашли свою грань после разворота: {0}.</system:String>
+   <system:String x:Key="FemOrientMore"> … и ещё {0}</system:String>
+   <system:String x:Key="FemOrientFailed">Разворот не выполнен: {0}</system:String>
+   <system:String x:Key="Fem3DShowDirections">Направления КонЭ (начало стержня, нормаль пластины)</system:String>
+   <system:String x:Key="CliFemErrNormal">нормаль — ненулевой вектор, не лежащий в плоскости пластины</system:String>
 </ResourceDictionary>
