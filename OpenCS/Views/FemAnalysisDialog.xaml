@@ -12,6 +12,35 @@
           </ResourceDictionary.MergedDictionaries>
         <util:StrictDoubleConverter x:Key="AnyDoubleConverter"/>
 
+        <!-- Шаг и предел λ стадии: поле ввода прямо в ячейке (без режима правки таблицы) — нераспознанное число остаётся
+             в поле с красной рамкой до OK, который его называет; у стадий с управлением перемещением или дугой — серые. -->
+        <Style x:Key="LambdaCellStyle" TargetType="DataGridCell">
+            <Setter Property="Padding" Value="0"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding PathControlMode.Value}" Value="DisplacementControl">
+                    <Setter Property="IsEnabled" Value="False"/>
+                    <Setter Property="Opacity" Value="0.4"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding PathControlMode.Value}" Value="ArcLength">
+                    <Setter Property="IsEnabled" Value="False"/>
+                    <Setter Property="Opacity" Value="0.4"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="LambdaBoxStyle" TargetType="TextBox">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Style.Triggers>
+                <Trigger Property="Validation.HasError" Value="True">
+                    <Setter Property="BorderThickness" Value="1"/>
+                    <Setter Property="BorderBrush" Value="#C0392B"/>
+                    <Setter Property="Background" Value="#FDECEA"/>
+                    <Setter Property="ToolTip" Value="{DynamicResource FieldErrNumber}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <!-- Нагрузка стадии/расчёта (DataContext — StageRow): бейдж типа, имя, формула серым и «…» — окно выбора.
              Двойной щелчок по ячейке и F2 в столбце стадий — тоже окно выбора. -->
         <DataTemplate x:Key="LoadSourceCell">
@@ -184,54 +213,30 @@
                 </StackPanel>
                 <TextBlock x:Name="StagesHintText" Text="{DynamicResource FemAnalysisStagesHint}" TextWrapping="Wrap" Margin="0,0,0,6" FontSize="11" Opacity="0.8"/>
                 <StackPanel x:Name="StagedPanel">
-                <DataGrid x:Name="StagesGrid" AutoGenerateColumns="False" CanUserAddRows="False" CellEditEnding="StagesGrid_CellEditEnding"
+                <DataGrid x:Name="StagesGrid" AutoGenerateColumns="False" CanUserAddRows="False"
                           Height="140" Margin="0,0,0,6" PreviewKeyDown="StagesGrid_PreviewKeyDown">
                     <DataGrid.Columns>
                         <DataGridTextColumn x:Name="StagesTagColumn" Header="{DynamicResource FemAnalysisStageTagColumn}" Binding="{Binding Tag}" Width="120"/>
                         <DataGridTemplateColumn x:Name="StagesSourceColumn" Header="{DynamicResource FemAnalysisLoadLabel}" Width="*"
                                                 IsReadOnly="True" MinWidth="200" CellTemplate="{StaticResource LoadSourceCell}"/>
-                        <DataGridTextColumn x:Name="StagesLoadFactorStepColumn" Header="{DynamicResource FemAnalysisStageLoadFactorStepColumn}" Width="70">
-                            <DataGridTextColumn.Binding>
-                                <Binding Path="LoadFactorStep" Mode="TwoWay"
-                                         Converter="{StaticResource AnyDoubleConverter}"
-                                         UpdateSourceTrigger="LostFocus"/>
-                            </DataGridTextColumn.Binding>
-                            <DataGridTextColumn.CellStyle>
-                                <Style TargetType="DataGridCell">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding PathControlMode.Value}" Value="DisplacementControl">
-                                            <Setter Property="IsEnabled" Value="False"/>
-                                            <Setter Property="Opacity" Value="0.4"/>
-                                        </DataTrigger>
-                                        <DataTrigger Binding="{Binding PathControlMode.Value}" Value="ArcLength">
-                                            <Setter Property="IsEnabled" Value="False"/>
-                                            <Setter Property="Opacity" Value="0.4"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </DataGridTextColumn.CellStyle>
-                        </DataGridTextColumn>
-                        <DataGridTextColumn x:Name="StagesMaxLoadFactorColumn" Header="{DynamicResource FemAnalysisStageMaxLoadFactorColumn}" Width="70">
-                            <DataGridTextColumn.Binding>
-                                <Binding Path="MaxLoadFactor" Mode="TwoWay"
-                                         Converter="{StaticResource AnyDoubleConverter}"
-                                         UpdateSourceTrigger="LostFocus"/>
-                            </DataGridTextColumn.Binding>
-                            <DataGridTextColumn.CellStyle>
-                                <Style TargetType="DataGridCell">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding PathControlMode.Value}" Value="DisplacementControl">
-                                            <Setter Property="IsEnabled" Value="False"/>
-                                            <Setter Property="Opacity" Value="0.4"/>
-                                        </DataTrigger>
-                                        <DataTrigger Binding="{Binding PathControlMode.Value}" Value="ArcLength">
-                                            <Setter Property="IsEnabled" Value="False"/>
-                                            <Setter Property="Opacity" Value="0.4"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </DataGridTextColumn.CellStyle>
-                        </DataGridTextColumn>
+                        <DataGridTemplateColumn x:Name="StagesLoadFactorStepColumn" Header="{DynamicResource FemAnalysisStageLoadFactorStepColumn}" Width="70"
+                                                CellStyle="{StaticResource LambdaCellStyle}">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBox Style="{StaticResource LambdaBoxStyle}"
+                                             Text="{Binding LoadFactorStep, Mode=TwoWay, Converter={StaticResource AnyDoubleConverter}, UpdateSourceTrigger=LostFocus}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn x:Name="StagesMaxLoadFactorColumn" Header="{DynamicResource FemAnalysisStageMaxLoadFactorColumn}" Width="70"
+                                                CellStyle="{StaticResource LambdaCellStyle}">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBox Style="{StaticResource LambdaBoxStyle}"
+                                             Text="{Binding MaxLoadFactor, Mode=TwoWay, Converter={StaticResource AnyDoubleConverter}, UpdateSourceTrigger=LostFocus}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                         <DataGridComboBoxColumn x:Name="StagesPathControlColumn" Header="{DynamicResource FemAnalysisStagePathControlColumn}"
                                                  DisplayMemberPath="Label" SelectedItemBinding="{Binding PathControlMode}" Width="120"/>
                         <DataGridTemplateColumn x:Name="StagesPathControlButtonColumn" Header="" Width="90">

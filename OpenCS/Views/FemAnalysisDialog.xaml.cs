@@ -1017,15 +1017,35 @@ public partial class FemAnalysisDialog : Window
         DialogResult = true;
     }
 
-    /// <summary>Завершает правку ячейки таблицы стадий; false — в ячейке нераспознанное число (сообщение показано).</summary>
+    /// <summary>
+    /// Завершает правку имени стадии и переносит в стадии числа полей шага и предела λ (Enter с кнопкой по умолчанию не
+    /// уводит фокус из поля); false — в поле нераспознанное число: сообщение, фокус на этом поле (оно в красной рамке).
+    /// </summary>
     bool CommitStages(string caption)
     {
-        if (StagesGrid.CommitEdit(DataGridEditingUnit.Cell, true) && StagesGrid.CommitEdit(DataGridEditingUnit.Row, true)
-            && !Validation.GetHasError(StagesGrid))
-            return true;
+        StagesGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+        StagesGrid.CommitEdit(DataGridEditingUnit.Row, true);
+        TextBox? bad = null;
+        foreach (var box in Descendants<TextBox>(StagesGrid))
+        {
+            box.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
+            if (bad == null && box.IsVisible && Validation.GetHasError(box)) bad = box;
+        }
+        if (bad == null) return true;
         MessageBox.Show(this, Loc.S("FemAnalysisStageGridInvalid"), caption, MessageBoxButton.OK, MessageBoxImage.Warning);
-        StagesGrid.Focus();
+        bad.Focus();
+        bad.SelectAll();
         return false;
+    }
+
+    static IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is T t) yield return t;
+            foreach (var d in Descendants<T>(child)) yield return d;
+        }
     }
 
     /// <summary>
@@ -1053,21 +1073,6 @@ public partial class FemAnalysisDialog : Window
     void TagBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (TagErrorText != null) TagErrorText.Visibility = Visibility.Collapsed;
-    }
-
-    /// <summary>
-    /// Нераспознанное число в ячейке шага или предела λ не выпускает ячейку из правки (красная рамка остаётся): иначе
-    /// таблица молча вернула бы прежнее значение, а OK записал бы не то, что видно.
-    /// </summary>
-    void StagesGrid_CellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
-    {
-        if (e.EditAction != DataGridEditAction.Commit || e.EditingElement is not TextBox box) return;
-        if ((e.Column == StagesLoadFactorStepColumn || e.Column == StagesMaxLoadFactorColumn) && !NumberInput.TryParse(box.Text, out _))
-        {
-            e.Cancel = true;
-            box.BorderBrush = System.Windows.Media.Brushes.Red;
-            box.ToolTip = Loc.S("FieldErrNumber");
-        }
     }
 
     /// <summary>
