@@ -118,7 +118,7 @@
 
             <!-- Усилия -->
             <TabItem Header="{DynamicResource FemResultTabForces}">
-                <DataGrid x:Name="elementForcesGrid" ContextMenu="{StaticResource ResultMemberContextMenu}" ContextMenuOpening="ElementForcesGrid_ContextMenuOpening" ItemsSource="{Binding ElementForces}" AutoGenerateColumns="False"
+                <DataGrid x:Name="elementForcesGrid" ContextMenu="{StaticResource ResultMemberContextMenu}" ContextMenuOpening="ElementForcesGrid_ContextMenuOpening" PreviewMouseRightButtonDown="ElementForcesGrid_PreviewMouseRightButtonDown" ItemsSource="{Binding ElementForces}" AutoGenerateColumns="False"
                           IsReadOnly="True" CanUserAddRows="False"
                           SelectedItem="{Binding SelectedForceRow, Mode=OneWay}"
                           SelectionChanged="ElementForcesGrid_SelectionChanged">

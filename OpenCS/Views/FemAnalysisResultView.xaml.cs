@@ -86,6 +86,21 @@ public partial class FemAnalysisResultView : UserControl
             item.IsEnabled = member != null && (item.Name != "createMemberForceSetMenu" || _vm.CanCreateMemberForceSet(member));
     }
 
+    /// <summary>Правый щелчок выбирает строку под курсором — меню КонЭ открывается уже для неё.</summary>
+    void ElementForcesGrid_PreviewMouseRightButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (sender is not DataGrid grid) return;
+        for (var d = e.OriginalSource as DependencyObject; d != null && d != grid;
+             d = d is System.Windows.Media.Visual ? System.Windows.Media.VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
+        {
+            if (d is DataGridRow row)
+            {
+                if (!row.IsSelected) grid.SelectedItem = row.Item;
+                return;
+            }
+        }
+    }
+
     void SectionGrid_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
         if (sender is FrameworkElement { ContextMenu: { } menu } && menu.Items.Count > 0 && menu.Items[0] is MenuItem item)
