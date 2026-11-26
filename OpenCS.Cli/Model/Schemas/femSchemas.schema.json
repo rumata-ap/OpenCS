@@ -193,6 +193,38 @@
               "role": { "enum": ["permanent", "permanent_reduced", "leading", "second", "other", "accidental"] } } } }
         }
       }
+    },
+    "fields": {
+      "type": "array",
+      "description": "Поля из таблиц точек (указан — заменяет набор полей схемы; без массива поля не трогаются). Точки — [x, y, (z), значения по столбцам] в единицах столбцов; alignment.scale переводит координаты таблицы в м. Пружины (quantity spring) — цели узлы сетки, способ match. C1 (foundation.c1) — цели пластины. Изменение полей сбрасывает результаты постановок; при готовой сетке поля пересчитываются, без сетки — при перестроении",
+      "items": {
+        "type": "object",
+        "required": ["tag", "quantity", "columns", "points"],
+        "additionalProperties": false,
+        "properties": {
+          "tag": { "type": "string", "minLength": 1, "description": "Имя поля (ключ)" },
+          "quantity": { "enum": ["foundation.c1", "spring"] },
+          "hasZ": { "type": "boolean", "description": "В точках есть координата z третьей" },
+          "columns": { "type": "array", "minItems": 1, "items": { "type": "object", "required": ["component", "unit"], "additionalProperties": false,
+            "properties": { "header": { "type": "string" }, "component": { "type": "string", "description": "c1; kx ky kz kux kuy kuz" },
+              "unit": { "type": "string", "description": "тс/м³, кН/м³, МН/м³, Н/м³; для пружин — тс/м, тс/см, кН/м, МН/м, Н/м, для поворотных — тс·м/рад, кН·м/рад, МН·м/рад, Н·м/рад" } } } },
+          "points": { "type": "array", "items": { "type": "array", "items": { "type": "number" } }, "description": "[x, y, (z), значения…]" },
+          "method": { "enum": ["interpolate", "nearest", "idw", "match"], "description": "По умолчанию interpolate (пластины) и match (пружины)" },
+          "maxDistanceM": { "type": "number", "exclusiveMinimum": 0, "description": "Предельное расстояние до точки, м (по умолчанию 1)" },
+          "planeToleranceM": { "type": "number", "exclusiveMinimum": 0, "description": "Допуск до плоскости участка, м (по умолчанию 0,5)" },
+          "matchToleranceM": { "type": "number", "exclusiveMinimum": 0, "description": "Допуск поиска узла, м (по умолчанию 0,5)" },
+          "alignment": { "type": "object", "additionalProperties": false,
+            "properties": { "scale": { "type": "number", "exclusiveMinimum": 0 }, "dxM": { "type": "number" }, "dyM": { "type": "number" },
+              "dzM": { "type": "number" }, "angleDeg": { "type": "number" }, "mirrorX": { "type": "boolean" }, "mirrorY": { "type": "boolean" } } },
+          "targets": { "type": "object", "additionalProperties": false,
+            "properties": { "groups": { "type": "array", "items": { "type": "string" }, "description": "Теги групп схемы" },
+              "members": { "type": "array", "items": { "$ref": "#/$defs/tag" }, "description": "Теги КонЭ" },
+              "elems": { "type": "array", "items": { "$ref": "#/$defs/tag" }, "description": "Теги КЭ сетки" },
+              "nodes": { "type": "array", "items": { "$ref": "#/$defs/tag" }, "description": "Теги узлов сетки (пружины)" },
+              "onlyNodesWithSprings": { "type": "boolean", "description": "Пружины: только узлы с пружиной (по умолчанию да)" } } },
+          "enabled": { "type": "boolean" }
+        }
+      }
     }
   }
 }

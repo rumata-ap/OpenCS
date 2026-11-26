@@ -25,7 +25,7 @@ sealed partial class FemSchemasKind : IModelKind
     public string Name => "femSchemas";
     public string SchemaResource => "OpenCS.Cli.Model.Schemas.femSchemas.schema.json";
 
-    static readonly string[] TopKeys = ["tag", "mesh", "nodes", "members", "groups", "lineSupports", "loadCases", "combinations"];
+    static readonly string[] TopKeys = ["tag", "mesh", "nodes", "members", "groups", "lineSupports", "loadCases", "combinations", "fields"];
     static readonly string[] MeshKeys = ["barStepM", "plateStepM", "autoRigidJunctions", "rigidJunctionAngleDeg"];
     static readonly string[] NodeKeys = ["tag", "x", "y", "z", "fix", "springs"];
     static readonly string[] BeamKeys = ["tag", "type", "nodes", "section", "rotationDeg", "meshStepM", "torsion", "rigidJunction"];
@@ -169,7 +169,7 @@ sealed partial class FemSchemasKind : IModelKind
         {
             ["tag"] = schema.Tag.Trim(), ["mesh"] = mesh, ["nodes"] = nodes, ["members"] = members, ["groups"] = groups,
             ["lineSupports"] = LineSupportsJson(db, schema, schemaMembers, regions.Values, warn),
-            ["loadCases"] = loadCases, ["combinations"] = combinations,
+            ["loadCases"] = loadCases, ["combinations"] = combinations, ["fields"] = FieldsJson(db, schema),
         };
     }
 
@@ -253,7 +253,8 @@ sealed partial class FemSchemasKind : IModelKind
         RigidDoc? Rigid = null);
     sealed record GroupDoc(string Path, string Tag, string? MemberType, List<string> Members);
     sealed record SchemaDoc(string Path, string Tag, JsonObject? Mesh, List<NodeDoc>? Nodes, List<MemberDoc>? Members,
-        List<GroupDoc>? Groups, List<LineDoc>? Lines, List<LoadCaseDoc>? LoadCases = null, List<CombinationDoc>? Combinations = null);
+        List<GroupDoc>? Groups, List<LineDoc>? Lines, List<LoadCaseDoc>? LoadCases = null, List<CombinationDoc>? Combinations = null,
+        List<FieldDoc>? Fields = null);
 
     /// <summary>Направления массивом (<c>["x","uz"]</c>); <c>rx ry rz</c> документов 6а — как <c>ux uy uz</c>.</summary>
     static int Mask(JsonNode? node, string path, ModelErrors errors)
@@ -468,7 +469,8 @@ sealed partial class FemSchemasKind : IModelKind
         var lines = ParseLines(o["lineSupports"], path, errors);
         var loadCases = ParseLoadCases(o["loadCases"], path, errors);
         var combinations = ParseCombinations(o["combinations"], path, errors);
-        return tag == null ? null : new SchemaDoc(path, tag, mesh, nodes, members, groups, lines, loadCases, combinations);
+        var fields = ParseFields(o["fields"], path, errors);
+        return tag == null ? null : new SchemaDoc(path, tag, mesh, nodes, members, groups, lines, loadCases, combinations, fields);
     }
 
     static MemberDoc? ParseMember(JsonObject o, string p, ModelErrors errors)
@@ -765,6 +767,9 @@ sealed partial class FemSchemasKind : IModelKind
             if (errors.Count > before) continue;
 
             if (errors.Count > itemStart) continue;
+            int beforeFields = errors.Count;
+            CheckFields(ctx, d, target, errors);
+            if (errors.Count > beforeFields) continue;
             // Пробная сборка без записи: те же проверки, что у «Сохранить» редактора.
             var probe = Build(ctx, d, target, errors, resolve: false);
             if (probe == null || errors.Count > before) continue;
@@ -1074,6 +1079,7 @@ sealed partial class FemSchemasKind : IModelKind
         if (built.LinesRemoved > 0)
             ctx.LogService.Warning(string.Format(Loc.S("CliFemLineSupportsRemoved"), d.Tag, built.LinesRemoved));
         int imperfectionsRemoved = CommitImperfections(ctx, d, built.Session, schema);
+        CommitFields(ctx, d, schema);
         if (built.CasesRemoved + built.CombinationsRemoved + imperfectionsRemoved > 0)
             ctx.LogService.Warning(string.Format(Loc.S("CliFemLoadsRemoved"), d.Tag, built.CasesRemoved, built.CombinationsRemoved, imperfectionsRemoved));
         if (hadMesh)
