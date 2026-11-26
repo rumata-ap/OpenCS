@@ -938,8 +938,12 @@ public class Fem3DVM : ViewModelBase
         var preferred = SelectedDiagramLoadSource == null && PreferredLoadCaseTag is { } tag
             ? DiagramLoadSources.FirstOrDefault(source => source.LoadCase?.Tag == tag)
             : null;
+        // Прежний выбор — по виду источника: у загружения Definition = null, и «null == null» уводил выбор на первое
+        // загружение после любой правки нагрузок.
         SelectedDiagramLoadSource = preferred ?? DiagramLoadSources.FirstOrDefault(source =>
-            source.LoadCase?.Id == selectedLoadCaseId || source.Definition?.Id == selectedDefinitionId);
+            selectedLoadCaseId is int lcId ? source.LoadCase?.Id == lcId
+            : selectedDefinitionId is int defId && source.Definition?.Id == defId)
+            ?? DiagramLoadSources.FirstOrDefault(source => source.LoadCase != null);
         OnPropertyChanged(nameof(DiagramLoadSources));
     }
 

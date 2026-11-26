@@ -53,9 +53,12 @@ public sealed class DeleteLoadCaseCommand(FemLoadCase loadCase) : IFemEditComman
     List<FemKinematicLoad> _removedKinematicLoads = [];
     List<FemElementLoad> _removedElementLoads = [];
     List<FemMeshNodeLoad> _removedMeshNodeLoads = [];
+    int _index;
 
     public void Do(FemSchemaEditSession session)
     {
+        // Отмена возвращает загружение на прежнее место списка (номер загружения — его позиция).
+        _index = session.LoadCases.IndexOf(loadCase);
         session.LoadCases.Remove(loadCase);
         _removedLoads = session.NodeLoads.Where(l => l.LoadCaseId == loadCase.Id).ToList();
         foreach (var l in _removedLoads) session.NodeLoads.Remove(l);
@@ -71,7 +74,7 @@ public sealed class DeleteLoadCaseCommand(FemLoadCase loadCase) : IFemEditComman
 
     public void Undo(FemSchemaEditSession session)
     {
-        session.LoadCases.Add(loadCase);
+        session.LoadCases.Insert(Math.Clamp(_index, 0, session.LoadCases.Count), loadCase);
         foreach (var l in _removedLoads) session.NodeLoads.Add(l);
         foreach (var l in _removedMemberLoads) session.MemberLoads.Add(l);
         foreach (var l in _removedKinematicLoads) session.KinematicLoads.Add(l);
@@ -90,8 +93,14 @@ public sealed class AddLoadDefinitionCommand(FemLoadDefinition definition) : IFe
 /// <summary>Удаляет определение нагрузки вместе с возможностью отмены операции.</summary>
 public sealed class DeleteLoadDefinitionCommand(FemLoadDefinition definition) : IFemEditCommand
 {
-    public void Do(FemSchemaEditSession session) => session.LoadDefinitions.Remove(definition);
-    public void Undo(FemSchemaEditSession session) => session.LoadDefinitions.Add(definition);
+    int _index;
+    public void Do(FemSchemaEditSession session)
+    {
+        _index = session.LoadDefinitions.IndexOf(definition);
+        session.LoadDefinitions.Remove(definition);
+    }
+    public void Undo(FemSchemaEditSession session) =>
+        session.LoadDefinitions.Insert(Math.Clamp(_index, 0, session.LoadDefinitions.Count), definition);
 }
 
 /// <summary>Заменяет изменяемые поля определения нагрузки, сохраняя идентификатор и схему.</summary>

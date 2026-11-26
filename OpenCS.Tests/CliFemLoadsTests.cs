@@ -369,7 +369,7 @@ public sealed class CliFemLoadsTests : IDisposable
             Assert.DoesNotContain(settle, session.LoadCases);
             Assert.Equal(2, session.LoadDefinitions.Single(d => d.Tag == "РСН1").GetExpression().Terms.Count);
             session.Undo();
-            Assert.Contains(settle, session.LoadCases);
+            Assert.Equal(1, session.LoadCases.IndexOf(settle));                                   // на прежнем месте
             Assert.Equal(3, session.LoadDefinitions.Single(d => d.Tag == "РСН1").GetExpression().Terms.Count);
             Assert.Single(session.KinematicLoads.Where(k => k.Dof == 3));
 

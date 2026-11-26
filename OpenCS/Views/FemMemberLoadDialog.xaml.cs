@@ -32,10 +32,8 @@ public partial class FemMemberLoadDialog : Window
         _initializing = false;
     }
 
-    void LoadCaseCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (!_initializing) LoadFields();
-    }
+    // Окно добавляет новую нагрузку: смена загружения поля не перечитывает (имеющиеся нагрузки — в таблице «На стержни»).
+    void LoadCaseCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) { }
 
     void DistributionCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -64,10 +62,9 @@ public partial class FemMemberLoadDialog : Window
 
     void LoadFields()
     {
-        if (loadCaseCombo.SelectedItem is not FemLoadCase loadCase) return;
-        var load = _members.Select(member => _editor.Session.MemberLoads.FirstOrDefault(item =>
-                item.LoadCaseId == loadCase.Id && item.MemberId == member.Id))
-            .FirstOrDefault(item => item != null);
+        // Пустые поля: окно добавляет нагрузку, а не правит первую имеющуюся (раньше «Применить» заменяло её — у стержня
+        // с несколькими нагрузками загружения пропадала одна из них).
+        FemMemberLoad? load = null;
         coordinateCombo.SelectedValue = load?.CoordinateSystem ?? "local";
         distributionCombo.SelectedValue = load?.DistributionType ?? "uniform";
         startOffsetBox.Text = Format(load?.StartOffsetM ?? 0);
@@ -136,11 +133,9 @@ public partial class FemMemberLoadDialog : Window
 
         foreach (var member in _members.Where(member => member.Id != 0))
         {
-            var old = _editor.Session.MemberLoads.FirstOrDefault(load =>
-                load.LoadCaseId == loadCase.Id && load.MemberId == member.Id);
             _editor.Session.Execute(new SetMemberLoadCommand(new FemMemberLoad
             {
-                Id = old?.Id ?? 0,
+                Id = 0,
                 SchemaId = _editor.Session.Schema.Id,
                 LoadCaseId = loadCase.Id,
                 MemberId = member.Id,

@@ -4710,7 +4710,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemKinematicLoadRx">Rx, rad</system:String>
     <system:String x:Key="FemKinematicLoadRy">Ry, rad</system:String>
     <system:String x:Key="FemKinematicLoadRz">Rz, rad</system:String>
-    <system:String x:Key="FemMemberLoadDialogApply">Apply load</system:String>
+   <system:String x:Key="FemMemberLoadDialogApply">Add load</system:String>
     <system:String x:Key="FemMemberLoadUnitsHint">Intensities are entered in kN/m, offsets in metres.</system:String>
     <system:String x:Key="FemNodeLoadsTab">Nodal</system:String>
     <system:String x:Key="FemMemberLoadsTab">Member</system:String>
@@ -7696,4 +7696,5 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliFemErrImperfectionParams">Imperfection parameters: {0} — {1}</system:String>
    <system:String x:Key="CliFemMeshLoadsSkipped">Schema «{0}»: mesh-level loads not exported — {1} (on numbered elements, non-uniform, imported); apply leaves them untouched.</system:String>
    <system:String x:Key="CliFemLoadsRemoved">Schema «{0}»: removed load cases — {1}, combinations — {2}, imperfection items — {3}.</system:String>
+   <system:String x:Key="FemMemberLoadAddsHint">Each «Add» creates a new load on the selected members; edit or delete existing ones in the «Members» table of the «Load cases» tab.</system:String>
 </ResourceDictionary>

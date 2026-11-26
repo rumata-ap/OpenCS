@@ -6,7 +6,8 @@
         ShowInTaskbar="False">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="14">
-            <TextBlock x:Name="selectionText" FontWeight="Bold" Margin="0,0,0,8"/>
+            <TextBlock x:Name="selectionText" FontWeight="Bold" Margin="0,0,0,2"/>
+            <TextBlock Text="{DynamicResource FemMemberLoadAddsHint}" Foreground="Gray" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
             <TextBlock Text="{DynamicResource FemNodePropsLoadCase}"/>
             <ComboBox x:Name="loadCaseCombo" DisplayMemberPath="Tag"
                       SelectionChanged="LoadCaseCombo_SelectionChanged" Margin="0,2,0,8"/>

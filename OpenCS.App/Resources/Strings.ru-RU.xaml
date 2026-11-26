@@ -4710,7 +4710,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemKinematicLoadRx">Rx, рад</system:String>
     <system:String x:Key="FemKinematicLoadRy">Ry, рад</system:String>
     <system:String x:Key="FemKinematicLoadRz">Rz, рад</system:String>
-    <system:String x:Key="FemMemberLoadDialogApply">Применить нагрузку</system:String>
+   <system:String x:Key="FemMemberLoadDialogApply">Добавить нагрузку</system:String>
     <system:String x:Key="FemMemberLoadUnitsHint">Интенсивности задаются в кН/м, отступы — в метрах.</system:String>
     <system:String x:Key="FemNodeLoadsTab">Узловая</system:String>
     <system:String x:Key="FemMemberLoadsTab">Стержневая</system:String>
@@ -7696,4 +7696,5 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliFemErrImperfectionParams">Параметры несовершенства: {0} — {1}</system:String>
    <system:String x:Key="CliFemMeshLoadsSkipped">Схема «{0}»: нагрузок сеточного уровня не выгружено — {1} (на КЭ по номерам, неравномерные, импортные); apply их не трогает.</system:String>
    <system:String x:Key="CliFemLoadsRemoved">Схема «{0}»: удалено загружений — {1}, комбинаций — {2}, элементов несовершенства — {3}.</system:String>
+   <system:String x:Key="FemMemberLoadAddsHint">Каждое «Добавить» — новая нагрузка выбранным стержням; изменить или удалить имеющиеся — в таблице «На стержни» вкладки «Загружения».</system:String>
 </ResourceDictionary>
