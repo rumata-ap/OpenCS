@@ -6334,7 +6334,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FemFieldUp">Up (earlier in overlay)</system:String>
    <system:String x:Key="FemFieldDown">Down (later in overlay)</system:String>
    <system:String x:Key="FemFieldDelete">Delete</system:String>
-   <system:String x:Key="FemFieldDeleteConfirm">Delete field "{0}"? Its values will stop applying; schema analysis results will be reset.</system:String>
+   <system:String x:Key="FemFieldDeleteConfirm">Delete field «{0}»? Points in the table: {1}. Analysis results of the schema will be reset (with results: {2}).</system:String>
    <system:String x:Key="FemFieldSourceField">field "{0}"</system:String>
 
    <!-- Несовершенства EN 1993-1-1 5.3 (срез 3: UI) -->
@@ -7697,4 +7697,15 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliFemMeshLoadsSkipped">Schema «{0}»: mesh-level loads not exported — {1} (on numbered elements, non-uniform, imported); apply leaves them untouched.</system:String>
    <system:String x:Key="CliFemLoadsRemoved">Schema «{0}»: removed load cases — {1}, combinations — {2}, imperfection items — {3}.</system:String>
    <system:String x:Key="FemMemberLoadAddsHint">Each «Add» creates a new load on the selected members; edit or delete existing ones in the «Members» table of the «Load cases» tab.</system:String>
+   <system:String x:Key="FemFieldNameEmpty">Enter a field name.</system:String>
+   <system:String x:Key="FemFieldBadQuantity">Unknown field quantity.</system:String>
+   <system:String x:Key="FemFieldBadComponent">Component «{0}» does not belong to the field quantity.</system:String>
+   <system:String x:Key="FemFieldPointBad">Point {0}: coordinates and values must be numbers, one value per column.</system:String>
+   <system:String x:Key="FemFieldBadScale">The length scale must be a positive number.</system:String>
+   <system:String x:Key="FemFieldTargetsMissing">Not in the schema: {0}.</system:String>
+   <system:String x:Key="CliFemFieldsRemoved">Schema «{0}»: fields removed: {1}.</system:String>
+   <system:String x:Key="CliFemFieldErrUnknownGroup">group «{0}» is not described in the schema.</system:String>
+   <system:String x:Key="CliFemFieldErrUnknownMember">member «{0}» is not described in the schema.</system:String>
+   <system:String x:Key="CliFemFieldErrColumnUnit">unit «{0}» does not fit component «{1}».</system:String>
+   <system:String x:Key="CliFemFieldWarnTargets">field «{0}»: {1}</system:String>
 </ResourceDictionary>

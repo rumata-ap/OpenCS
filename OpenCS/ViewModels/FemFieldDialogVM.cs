@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using CScore.Fem;
 using CScore.Fem.Fields;
+using OpenCS.Services;
 using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
@@ -168,6 +169,7 @@ public sealed class FemFieldDialogVM : ViewModelBase
         }
         RebuildValueColumns();
         SetQuantity(Quantity);
+        ApplyTableDefaults();
     }
 
     /// <summary>Столбцы значений — все числовые, кроме выбранных X, Y, Z (после ручной правки выбора координат).</summary>
@@ -218,12 +220,16 @@ public sealed class FemFieldDialogVM : ViewModelBase
         Quantity = code;
         SetRows(Columns.Select(r => (r.ColumnIndex, r.Header)).ToList());
         if (IsNodes) Method = FieldMethod.Match;
-        else
-        {
-            var defaults = FieldDefaults.For(TargetSet().Shells);
-            (MaxDistance, PlaneTolerance) = (defaults.MaxDistance, defaults.PlaneTolerance);
-            if (Method == FieldMethod.Match) Method = FieldMethod.Interpolate;
-        }
+        else if (Method == FieldMethod.Match) Method = FieldMethod.Interpolate;
+        OnPropertyChanged(string.Empty);
+    }
+
+    /// <summary>Допуски и наибольшее расстояние по размеру КЭ целей — только для новой таблицы; введённое не сбрасывается.</summary>
+    void ApplyTableDefaults()
+    {
+        if (IsNodes) return;
+        var defaults = FieldDefaults.For(TargetSet().Shells);
+        (MaxDistance, PlaneTolerance) = (defaults.MaxDistance, defaults.PlaneTolerance);
         OnPropertyChanged(string.Empty);
     }
 
@@ -331,16 +337,9 @@ public sealed class FemFieldDialogVM : ViewModelBase
     /// </summary>
     public string? Validate()
     {
-        var used = UsedColumns.ToList();
-        if (used.Count == 0) return Loc.S("FemFieldNoValueColumns");
-        if (used.GroupBy(c => c.Component).FirstOrDefault(g => g.Count() > 1) is { } dup)
-            return string.Format(Loc.S("FemFieldDuplicateComponent"), dup.Key);
-        if (!(MaxDistance > 0) || !(PlaneTolerance > 0) || !(MatchTolerance > 0)) return Loc.S("FemFieldBadTolerance");
-        var set = TargetSet();
-        if (IsNodes ? set.Nodes.Count == 0 : set.Shells.Count == 0)
-            return Loc.S(IsNodes ? "FemFieldNoNodeTargets" : "FemFieldNoShellTargets");
-        if (RawPoints().Points.Count == 0) return Loc.S("FemFieldNoPoints");
-        return null;
+        var field = BuildField(_existingId);
+        var issues = FemFieldAuthoring.Validate(field).Concat(FemFieldAuthoring.ValidateTargets(field, _ctx)).ToList();
+        return issues.FirstOrDefault()?.Message;
     }
 
     /// <summary>Поле по текущим настройкам диалога (у открытого на правку — тот же Id).</summary>

@@ -212,6 +212,9 @@ public class FemFieldDialogVMTests
         var c1 = new FemFieldDialogVM(Plate(), new FemFieldTargets { NodeTags = ["1", "2"] }, 9.80665);
         c1.LoadText("X;Y;C1\n0;0;1\n1;0;2", null);
         Assert.Equal(FemFieldQuantities.FoundationC1, c1.Quantity);
+        // Таблица не из файла — имени нет: пустое имя не сохраняется (6г).
+        Assert.Equal("FemFieldNameEmpty", c1.Validate());
+        c1.Name = "C1";
         Assert.Equal("FemFieldNoShellTargets", c1.Validate());
     }
 }

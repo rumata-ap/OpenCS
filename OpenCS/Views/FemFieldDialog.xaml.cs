@@ -7,6 +7,7 @@ using CScore.Fem.Fields;
 using Microsoft.Win32;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
+using OpenCS.Views.Helpers;
 
 namespace OpenCS.Views;
 
@@ -146,9 +147,40 @@ public partial class FemFieldDialog : Window
         if (!_syncing && methodBox.SelectedItem is ComboBoxItem { Tag: FieldMethod m }) _vm.Method = m;
     }
 
-    async void FitExtents_Click(object sender, RoutedEventArgs e) => await RunBusy(() => { _vm.FitByExtents(); _vm.Preview(); });
-    async void FitPoints_Click(object sender, RoutedEventArgs e) => await RunBusy(() => { _vm.FitByPoints(); _vm.Preview(); });
-    async void Preview_Click(object sender, RoutedEventArgs e) => await RunBusy(_vm.Preview);
+    async void FitExtents_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ReadNumbers()) return;
+        await RunBusy(() => { _vm.FitByExtents(); _vm.Preview(); });
+    }
+
+    async void FitPoints_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ReadNumbers()) return;
+        await RunBusy(() => { _vm.FitByPoints(); _vm.Preview(); });
+    }
+
+    async void Preview_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ReadNumbers()) return;
+        await RunBusy(_vm.Preview);
+    }
+
+    /// <summary>
+    /// Числа допусков и совмещения: нераспознанный или недопустимый текст — красная рамка с подписью поля, действие не
+    /// выполняется. Иначе привязка тихо оставила бы прежнее значение, а расчёт пошёл бы не с тем, что видно в окне.
+    /// </summary>
+    bool ReadNumbers()
+    {
+        CommitEdits();
+        FieldCheck.Clear(maxDistanceBox, planeToleranceBox, matchToleranceBox, dxBox, dyBox, dzBox, angleBox);
+        return FieldCheck.Read(this, maxDistanceBox, "FemFieldMaxDistance", out _, FieldCheck.Positive)
+            && FieldCheck.Read(this, planeToleranceBox, "FemFieldPlaneTolerance", out _, FieldCheck.Positive)
+            && FieldCheck.Read(this, matchToleranceBox, "FemFieldMatchTolerance", out _, FieldCheck.Positive)
+            && FieldCheck.Read(this, dxBox, "FemFieldDx", out _)
+            && FieldCheck.Read(this, dyBox, "FemFieldDy", out _)
+            && FieldCheck.Read(this, dzBox, "FemFieldDz", out _)
+            && FieldCheck.Read(this, angleBox, "FemFieldAngle", out _);
+    }
 
     /// <summary>
     /// Подбор и перенос на цели — в фоне: на схеме в 25 тыс. КЭ это секунды, окно не должно «не отвечать». На время
@@ -180,7 +212,7 @@ public partial class FemFieldDialog : Window
 
     void Ok_Click(object sender, RoutedEventArgs e)
     {
-        CommitEdits();
+        if (!ReadNumbers()) return;
         if (_vm.Validate() is { } error)
         {
             ShowError(error);

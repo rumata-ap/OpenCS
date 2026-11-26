@@ -6334,7 +6334,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FemFieldUp">Выше (раньше в наложении)</system:String>
    <system:String x:Key="FemFieldDown">Ниже (позже в наложении)</system:String>
    <system:String x:Key="FemFieldDelete">Удалить</system:String>
-   <system:String x:Key="FemFieldDeleteConfirm">Удалить поле «{0}»? Значения из него перестанут действовать, результаты постановок схемы будут сброшены.</system:String>
+   <system:String x:Key="FemFieldDeleteConfirm">Удалить поле «{0}»? Точек в таблице: {1}. Результаты постановок схемы будут сброшены (с результатом: {2}).</system:String>
    <system:String x:Key="FemFieldSourceField">поле «{0}»</system:String>
 
    <!-- Несовершенства EN 1993-1-1 5.3 (срез 3: UI) -->
@@ -7697,4 +7697,15 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliFemMeshLoadsSkipped">Схема «{0}»: нагрузок сеточного уровня не выгружено — {1} (на КЭ по номерам, неравномерные, импортные); apply их не трогает.</system:String>
    <system:String x:Key="CliFemLoadsRemoved">Схема «{0}»: удалено загружений — {1}, комбинаций — {2}, элементов несовершенства — {3}.</system:String>
    <system:String x:Key="FemMemberLoadAddsHint">Каждое «Добавить» — новая нагрузка выбранным стержням; изменить или удалить имеющиеся — в таблице «На стержни» вкладки «Загружения».</system:String>
+   <system:String x:Key="FemFieldNameEmpty">Укажите имя поля.</system:String>
+   <system:String x:Key="FemFieldBadQuantity">Неизвестная величина поля.</system:String>
+   <system:String x:Key="FemFieldBadComponent">Компонента «{0}» не относится к величине поля.</system:String>
+   <system:String x:Key="FemFieldPointBad">Точка {0}: координаты и значения — числа, по одному значению на каждый столбец.</system:String>
+   <system:String x:Key="FemFieldBadScale">Масштаб единиц длины — положительное число.</system:String>
+   <system:String x:Key="FemFieldTargetsMissing">Нет в схеме: {0}.</system:String>
+   <system:String x:Key="CliFemFieldsRemoved">Схема «{0}»: удалено полей: {1}.</system:String>
+   <system:String x:Key="CliFemFieldErrUnknownGroup">группа «{0}» не описана в схеме.</system:String>
+   <system:String x:Key="CliFemFieldErrUnknownMember">КонЭ «{0}» не описан в схеме.</system:String>
+   <system:String x:Key="CliFemFieldErrColumnUnit">единица «{0}» не подходит к компоненте «{1}».</system:String>
+   <system:String x:Key="CliFemFieldWarnTargets">поле «{0}»: {1}</system:String>
 </ResourceDictionary>

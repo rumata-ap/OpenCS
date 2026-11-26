@@ -44,10 +44,17 @@ namespace OpenCS
          if (dialog.ShowDialog() != true) return;
          var field = vm.BuildField(schema.Id);
          if (existing != null) (field.Enabled, field.SortOrder) = (existing.Enabled, existing.SortOrder);
-         db.SaveFemField(field);
-         var computed = FemFieldService.Recompute(db, field, ctx);
-         foreach (var d in computed.Evaluation.Diagnostics)
-            LogService.Warning(d.Tags.Count > 0 ? $"{d.Message}: {d.Tags.Count}" : d.Message);
+         try
+         {
+            var computed = FemFieldAuthoring.Save(db, field);
+            foreach (var d in computed.Evaluation.Diagnostics)
+               LogService.Warning(d.Tags.Count > 0 ? $"{d.Message}: {d.Tags.Count}" : d.Message);
+         }
+         catch (Exception ex) when (field.Id != 0)
+         {
+            // Поле записано, перенос на сетку не удался: значения пересчитаются при следующем чтении (кэш пуст).
+            LogService.Error($"{field.Name}: {ex.Message}");
+         }
          AfterFemFieldsChanged(schema);
          ShowFemBoundaryMosaic(schema, FemFieldQuantities.Get(field.Quantity).Target == FemFieldTargetKind.MeshNode
             ? PlateRebarMosaicSourceKind.Springs : PlateRebarMosaicSourceKind.Foundation);
@@ -76,8 +83,7 @@ namespace OpenCS
 
       public void DeleteFemField(FemFieldItem item)
       {
-         if (MessageBox.Show(string.Format(Loc.S("FemFieldDeleteConfirm"), item.Field.Name), Loc.S("Confirmation"),
-                MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+         if (!Notifier.Confirm(FemFieldAuthoring.DeleteQuestion(item.Field, item.Schema), Loc.S("Confirmation"))) return;
          db.DeleteFemField(item.Field.Id);
          AfterFemFieldsChanged(item.Schema);
       }
