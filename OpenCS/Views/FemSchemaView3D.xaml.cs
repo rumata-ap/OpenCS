@@ -375,9 +375,17 @@ public partial class FemSchemaView3D : UserControl
 
     void ExpandMosaicBar_Click(object sender, RoutedEventArgs e) { s_mosaicBarCollapsed = false; UpdateEditBar(); }
 
+    /// <summary>
+    /// Мозаику выключили («Нет») при видимой строке мозаик — строка остаётся, пока открыт этот вид: выбор делали в ней, и
+    /// исчезновение строки из-под мыши выглядит как сбой (вернуть её можно было только кнопкой или «Показать на схеме»).
+    /// </summary>
+    bool _keepMosaicBar;
+
     void OnMosaicPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(PlateRebarMosaicVM.IsActive)) UpdateEditBar();
+        if (e.PropertyName != nameof(PlateRebarMosaicVM.IsActive)) return;
+        if (VM?.Mosaic.IsActive != true && mosaicBar.Visibility == Visibility.Visible) _keepMosaicBar = true;
+        UpdateEditBar();
     }
 
     /// <summary>Видимость строк редактирования и мозаик (кнопка развернуть строку редактирования — в строке мозаик,
@@ -386,7 +394,7 @@ public partial class FemSchemaView3D : UserControl
     {
         bool collapsed = s_editBarCollapsed ?? VM?.IsResultShown == true;
         bool mosaicCollapsed = !collapsed
-            && (s_mosaicBarCollapsed ?? (VM?.IsResultShown != true && VM?.Mosaic.IsActive != true));
+            && (s_mosaicBarCollapsed ?? (VM?.IsResultShown != true && VM?.Mosaic.IsActive != true && !_keepMosaicBar));
         mosaicBar.Visibility = mosaicCollapsed ? Visibility.Collapsed : Visibility.Visible;
         expandMosaicBarButton.Visibility = mosaicCollapsed ? Visibility.Visible : Visibility.Collapsed;
         collapseMosaicBarButton.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
