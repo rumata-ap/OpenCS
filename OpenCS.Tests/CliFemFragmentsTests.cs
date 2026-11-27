@@ -300,6 +300,34 @@ public sealed class CliFemFragmentsTests : IDisposable
     }
 
     [Fact]
+    public async Task FragmentRebuild_SameId_KeepsAnalysis_NotFragmentUsage()
+    {
+        string project = await Project("a.db");
+        Assert.Equal(CliExitCode.Ok, (await Run("apply", project, Doc("doc.json", """
+            "femFragments": [ { "tag": "Этаж", "parent": "Каркас", "storey": { "z1": 1.5, "z2": 4.5 } } ],
+            "femAnalyses": [ { "schema": "Этаж", "tag": "Лин", "kind": "csfeaLinear", "loadCases": "all" } ]
+            """))).Code);
+        int id = Assert.Single(Fragments(project)).Id;
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
+        var notFragment = await Run("fragment", "rebuild", project, "Каркас");
+        Assert.Equal(CliExitCode.Usage, notFragment.Code);
+        Assert.Contains(string.Format(Loc.S("CliFragMasksNotFragment"), "Каркас"), notFragment.Err);
+
+        var r = await Run("fragment", "rebuild", project, "Этаж", "--json");
+        Assert.True(r.Code == CliExitCode.Ok, r.Err + r.Out);
+        var json = System.Text.Json.Nodes.JsonNode.Parse(r.Out)!;
+        Assert.False((bool)json["isError"]!);
+        Assert.Equal(1, (int)json["transferred"]!["analyses"]!);
+
+        var after = Assert.Single(Fragments(project));
+        Assert.Equal((id, "Этаж"), (after.Id, after.Tag));
+        using var db = new DatabaseService(project);
+        db.LoadAll();
+        Assert.Contains(db.GetFemAnalyses(id), a => a.Tag == "Лин");
+    }
+
+    [Fact]
     public async Task Export_SkipsMaskSupplyAnalyses_KeepsFragmentAnalyses()
     {
         string project = await Project("a.db");

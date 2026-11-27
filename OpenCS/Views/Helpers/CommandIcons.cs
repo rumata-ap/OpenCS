@@ -24,6 +24,7 @@ public static class CommandIcons
         ["StoreyFragmentMenu"] = "CmdIcon_Split",
         ["StoreyFragmentMasksMenu"] = "CmdIcon_Import",
         ["StoreyFragmentMasksDelete"] = "CmdIcon_Delete",
+        ["FragmentRebuildMenu"] = "CmdIcon_Refresh",
         ["FemMemberNew"] = "CmdIcon_MemberNew",
         ["FemNodeTreeOpenEditor"] = "CmdIcon_OpenEditor",
         ["FemTreeOpenPage"] = "CmdIcon_OpenEditor",

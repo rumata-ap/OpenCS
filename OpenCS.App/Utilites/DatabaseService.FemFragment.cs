@@ -628,196 +628,208 @@ namespace OpenCS.Utilites
                AddFemSchemaFragmentParameters(cmd, schema);
                schema.Id = (int)(long)cmd.ExecuteScalar()!;
             }
-            int sid = schema.Id;
-
-            var nodeId = new Dictionary<string, int>(StringComparer.Ordinal);
-            using (var cmd = _connection.CreateCommand())
-            {
-               cmd.CommandText = """
-                  INSERT INTO fem_nodes (schema_id, node_tag, x, y, z, dof_mask) VALUES (@sid, @tag, @x, @y, @z, @dm);
-                  SELECT last_insert_rowid();
-                  """;
-               cmd.Parameters.AddWithValue("@sid", sid);
-               var tag = cmd.Parameters.Add("@tag", SqliteType.Text);
-               var x = cmd.Parameters.Add("@x", SqliteType.Real);
-               var y = cmd.Parameters.Add("@y", SqliteType.Real);
-               var z = cmd.Parameters.Add("@z", SqliteType.Real);
-               var dm = cmd.Parameters.Add("@dm", SqliteType.Integer);
-               foreach (var n in draft.Nodes)
-               {
-                  if (nodeId.ContainsKey(n.NodeTag))
-                     throw new InvalidOperationException($"Узел фрагмента {n.NodeTag} повторяется.");
-                  tag.Value = n.NodeTag; x.Value = n.X; y.Value = n.Y; z.Value = n.Z; dm.Value = n.DofMask;
-                  nodeId[n.NodeTag] = (int)(long)cmd.ExecuteScalar()!;
-               }
-            }
-
-            var memberId = new Dictionary<string, int>(StringComparer.Ordinal);
-            foreach (var part in draft.Members)
-            {
-               var m = part.Member;
-               if (memberId.ContainsKey(m.ElemTag))
-                  throw new InvalidOperationException($"КонЭ фрагмента «{m.ElemTag}» повторяется.");
-               if (part.Region is { } region) m.PlanarRegionId = AddPlanarRegion(region, sid);
-               m.Id = 0;
-               m.SchemaId = sid;
-               SaveFemMember(m);
-               memberId[m.ElemTag] = m.Id;
-            }
-
-            // Сохранённая сетка родителя (импортная: сборка её не трогает) — до нагрузок на КЭ и ГУ узлов сетки.
-            if (draft.HasKeptMesh)
-               InsertFemMeshSnapshot(sid, draft.KeptMeshNodes, draft.Members.SelectMany(p => p.KeptElements ?? []).ToList());
-
-            var lcMap = new Dictionary<int, int>();
-            using (var cmd = _connection.CreateCommand())
-            {
-               cmd.CommandText = """
-                  INSERT INTO fem_load_cases
-                     (schema_id, tag, load_type, sp20_type, sp20_group, gamma_f_unfav, gamma_f_fav, psi1, psi2,
-                      self_weight_factor, origin, source_load_num, long_term_share, parent_load_case_id)
-                  VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2, @swf, @origin, @sln, @lts, @plc);
-                  SELECT last_insert_rowid();
-                  """;
-               foreach (var lc in draft.LoadCases)
-               {
-                  cmd.Parameters.Clear();
-                  cmd.Parameters.AddWithValue("@sid", sid);
-                  cmd.Parameters.AddWithValue("@tag", lc.Tag);
-                  cmd.Parameters.AddWithValue("@lt", (object?)lc.LoadType ?? DBNull.Value);
-                  cmd.Parameters.AddWithValue("@st", lc.Sp20Type);
-                  cmd.Parameters.AddWithValue("@sg", (object?)lc.Sp20Group ?? DBNull.Value);
-                  cmd.Parameters.AddWithValue("@gu", (object?)lc.GammaFUnfav ?? DBNull.Value);
-                  cmd.Parameters.AddWithValue("@gf", (object?)lc.GammaFFav ?? DBNull.Value);
-                  cmd.Parameters.AddWithValue("@p1", (object?)lc.Psi1 ?? DBNull.Value);
-                  cmd.Parameters.AddWithValue("@p2", (object?)lc.Psi2 ?? DBNull.Value);
-                  // Копия ссылается на загружение родителя (lc.Id черновика — Id родителя): карта для масок.
-                  lc.ParentLoadCaseId = lc.Id;
-                  AddFemLoadCaseExtraParameters(cmd, lc);
-                  int id = (int)(long)cmd.ExecuteScalar()!;
-                  lcMap[lc.Id] = id;
-                  schema.LoadCases.Add(new FemLoadCase
-                  {
-                     Id = id, SchemaId = sid, Tag = lc.Tag, LoadType = lc.LoadType, Sp20Type = lc.Sp20Type,
-                     Sp20Group = lc.Sp20Group, GammaFUnfav = lc.GammaFUnfav, GammaFFav = lc.GammaFFav, Psi1 = lc.Psi1,
-                     Psi2 = lc.Psi2, LongTermShare = lc.LongTermShare, SelfWeightFactor = lc.SelfWeightFactor,
-                     Origin = lc.Origin, SourceLoadNum = lc.SourceLoadNum, ParentLoadCaseId = lc.Id,
-                  });
-               }
-            }
-            int Lc(int parentLc) => lcMap.TryGetValue(parentLc, out int id) ? id
-               : throw new InvalidOperationException($"Нагрузка фрагмента ссылается на загружение {parentLc}, которого нет в копиях.");
-            int Node(string tag) => nodeId.TryGetValue(tag, out int id) ? id
-               : throw new InvalidOperationException($"Нагрузка фрагмента ссылается на узел {tag}, которого нет во фрагменте.");
-
-            foreach (var d in draft.LoadDefinitions)
-            {
-               var copy = FragmentLoadCopy.RemapLoadCases(d, lcMap);
-               copy.Id = 0;
-               copy.SchemaId = sid;
-               SaveFemLoadDefinition(copy);
-               schema.LoadDefinitions.Add(copy);
-            }
-
-            using (var cmd = _connection.CreateCommand())
-            {
-               cmd.CommandText = """
-                  INSERT INTO fem_member_loads
-                     (schema_id, load_case_id, member_id, coordinate_system, distribution_type,
-                      start_offset_m, end_offset_m, qx_start, qy_start, qz_start, qx_end, qy_end, qz_end, mx, my, mz)
-                  VALUES (@sid, @lc, @mid, @cs, @dt, @so, @eo, @qxs, @qys, @qzs, @qxe, @qye, @qze, @mx, @my, @mz)
-                  """;
-               foreach (var (tag, l) in draft.MemberLoads.Select(x => (x.MemberTag, x.Load)))
-               {
-                  if (!memberId.TryGetValue(tag, out int mid))
-                     throw new InvalidOperationException($"Нагрузка фрагмента ссылается на КонЭ «{tag}», которого нет во фрагменте.");
-                  cmd.Parameters.Clear();
-                  cmd.Parameters.AddWithValue("@sid", sid);
-                  cmd.Parameters.AddWithValue("@lc", Lc(l.LoadCaseId));
-                  cmd.Parameters.AddWithValue("@mid", mid);
-                  cmd.Parameters.AddWithValue("@cs", l.CoordinateSystem);
-                  cmd.Parameters.AddWithValue("@dt", l.DistributionType);
-                  cmd.Parameters.AddWithValue("@so", l.StartOffsetM);
-                  cmd.Parameters.AddWithValue("@eo", l.EndOffsetM);
-                  cmd.Parameters.AddWithValue("@qxs", l.QxStart);
-                  cmd.Parameters.AddWithValue("@qys", l.QyStart);
-                  cmd.Parameters.AddWithValue("@qzs", l.QzStart);
-                  cmd.Parameters.AddWithValue("@qxe", l.QxEnd);
-                  cmd.Parameters.AddWithValue("@qye", l.QyEnd);
-                  cmd.Parameters.AddWithValue("@qze", l.QzEnd);
-                  cmd.Parameters.AddWithValue("@mx", l.Mx);
-                  cmd.Parameters.AddWithValue("@my", l.My);
-                  cmd.Parameters.AddWithValue("@mz", l.Mz);
-                  cmd.ExecuteNonQuery();
-               }
-            }
-
-            using (var cmd = _connection.CreateCommand())
-            {
-               cmd.CommandText = """
-                  INSERT INTO fem_node_loads (schema_id, load_case_id, node_id, fx, fy, fz, mx, my, mz)
-                  VALUES (@sid, @lc, @nid, @fx, @fy, @fz, @mx, @my, @mz)
-                  """;
-               foreach (var (tag, l) in draft.NodeLoads.Select(x => (x.NodeTag, x.Load)))
-               {
-                  cmd.Parameters.Clear();
-                  cmd.Parameters.AddWithValue("@sid", sid);
-                  cmd.Parameters.AddWithValue("@lc", Lc(l.LoadCaseId));
-                  cmd.Parameters.AddWithValue("@nid", Node(tag));
-                  cmd.Parameters.AddWithValue("@fx", l.Fx);
-                  cmd.Parameters.AddWithValue("@fy", l.Fy);
-                  cmd.Parameters.AddWithValue("@fz", l.Fz);
-                  cmd.Parameters.AddWithValue("@mx", l.Mx);
-                  cmd.Parameters.AddWithValue("@my", l.My);
-                  cmd.Parameters.AddWithValue("@mz", l.Mz);
-                  cmd.ExecuteNonQuery();
-               }
-            }
-
-            using (var cmd = _connection.CreateCommand())
-            {
-               cmd.CommandText = """
-                  INSERT INTO fem_kinematic_loads (schema_id, load_case_id, node_id, dof, value)
-                  VALUES (@sid, @lc, @nid, @dof, @value)
-                  """;
-               foreach (var (tag, l) in draft.KinematicLoads.Select(x => (x.NodeTag, x.Load)))
-               {
-                  cmd.Parameters.Clear();
-                  cmd.Parameters.AddWithValue("@sid", sid);
-                  cmd.Parameters.AddWithValue("@lc", Lc(l.LoadCaseId));
-                  cmd.Parameters.AddWithValue("@nid", Node(tag));
-                  cmd.Parameters.AddWithValue("@dof", l.Dof);
-                  cmd.Parameters.AddWithValue("@value", l.Value);
-                  cmd.ExecuteNonQuery();
-               }
-            }
-
-            var keptNodeTags = draft.KeptMeshNodes.Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal);
-            string MeshNode(string tag) => keptNodeTags.Contains(tag) ? tag
-               : throw new InvalidOperationException($"ГУ или нагрузка фрагмента ссылается на узел сетки {tag}, которого нет в сохранённой сетке.");
-            foreach (var s in draft.Springs)
-               if (s.TargetKind == FemSpringTargetKinds.MeshNode) MeshNode(s.NodeTag); else Node(s.NodeTag);
-            foreach (var s in draft.MeshNodeSupports) MeshNode(s.NodeTag);
-            foreach (var l in draft.MeshNodeLoads) MeshNode(l.MeshNodeTag);
-            foreach (var b in draft.MeshRigidBodies) { MeshNode(b.MasterNodeTag); foreach (var t in b.SlaveNodeTags) MeshNode(t); }
-            // АЖТ родителя на сохранённой сетке — по тегам (происхождение «fragment:…», сборка сетки их не пересоздаёт).
-            InsertFemBoundaryCore(sid, draft.MeshNodeSupports, draft.Springs, draft.MeshRigidBodies, updateObjects: false);
-            foreach (var b in draft.NodeRigidBodies) { Node(b.MasterNodeTag); foreach (var t in b.SlaveNodeTags) Node(t); }
-            InsertRigidBodiesCore("fem_node_rigid_bodies", sid, draft.NodeRigidBodies, updateObjects: false);
-            InsertFemMeshLevelLoadsCore(sid, draft.ElementLoads, draft.MeshNodeLoads, Lc, _ => null, updateObjects: false);
-            InsertStoreyFragmentDataCore(sid, draft.Cuts, draft.RefElements, draft.FieldLoads, Lc);
-            CopyFragmentRebarSourcesCore(parentId, sid);
-            foreach (var g in draft.Groups)
-            {
-               g.Id = 0;
-               SaveFemMemberGroupCore(g, sid);
-               schema.MemberGroups.Add(g);
-            }
+            WriteStoreyFragmentContentCore(parentId, schema, draft);
             tx.Commit();
          }
          catch { tx.Rollback(); throw; }
          FemSchemas.Add(schema);
          return schema;
+      }
+
+      /// <summary>
+      /// Состав черновика фрагмента в схему <paramref name="schema"/> (строка схемы уже есть; внутри транзакции вызывающего):
+      /// узлы, области, КонЭ, сохранённая сетка, загружения-копии (Id родителя → новые, <see cref="FemLoadCase.ParentLoadCaseId"/>),
+      /// определения, нагрузки, ГУ и АЖТ сетки, рассечения, опорная сетка, нагрузки-поля, копии источников армирования и
+      /// жёсткостей, группы. Общая запись сборки (<see cref="CreateStoreyFragmentSchema"/>) и пересборки
+      /// (<see cref="RebuildStoreyFragmentSchema"/>).
+      /// </summary>
+      void WriteStoreyFragmentContentCore(int parentId, FemSchema schema, StoreyFragmentDraft draft)
+      {
+         int sid = schema.Id;
+
+         var nodeId = new Dictionary<string, int>(StringComparer.Ordinal);
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = """
+               INSERT INTO fem_nodes (schema_id, node_tag, x, y, z, dof_mask) VALUES (@sid, @tag, @x, @y, @z, @dm);
+               SELECT last_insert_rowid();
+               """;
+            cmd.Parameters.AddWithValue("@sid", sid);
+            var tag = cmd.Parameters.Add("@tag", SqliteType.Text);
+            var x = cmd.Parameters.Add("@x", SqliteType.Real);
+            var y = cmd.Parameters.Add("@y", SqliteType.Real);
+            var z = cmd.Parameters.Add("@z", SqliteType.Real);
+            var dm = cmd.Parameters.Add("@dm", SqliteType.Integer);
+            foreach (var n in draft.Nodes)
+            {
+               if (nodeId.ContainsKey(n.NodeTag))
+                  throw new InvalidOperationException($"Узел фрагмента {n.NodeTag} повторяется.");
+               tag.Value = n.NodeTag; x.Value = n.X; y.Value = n.Y; z.Value = n.Z; dm.Value = n.DofMask;
+               nodeId[n.NodeTag] = (int)(long)cmd.ExecuteScalar()!;
+            }
+         }
+
+         var memberId = new Dictionary<string, int>(StringComparer.Ordinal);
+         foreach (var part in draft.Members)
+         {
+            var m = part.Member;
+            if (memberId.ContainsKey(m.ElemTag))
+               throw new InvalidOperationException($"КонЭ фрагмента «{m.ElemTag}» повторяется.");
+            if (part.Region is { } region) m.PlanarRegionId = AddPlanarRegion(region, sid);
+            m.Id = 0;
+            m.SchemaId = sid;
+            SaveFemMember(m);
+            memberId[m.ElemTag] = m.Id;
+         }
+
+         // Сохранённая сетка родителя (импортная: сборка её не трогает) — до нагрузок на КЭ и ГУ узлов сетки.
+         if (draft.HasKeptMesh)
+            InsertFemMeshSnapshot(sid, draft.KeptMeshNodes, draft.Members.SelectMany(p => p.KeptElements ?? []).ToList());
+
+         var lcMap = new Dictionary<int, int>();
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = """
+               INSERT INTO fem_load_cases
+                  (schema_id, tag, load_type, sp20_type, sp20_group, gamma_f_unfav, gamma_f_fav, psi1, psi2,
+                   self_weight_factor, origin, source_load_num, long_term_share, parent_load_case_id)
+               VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2, @swf, @origin, @sln, @lts, @plc);
+               SELECT last_insert_rowid();
+               """;
+            foreach (var lc in draft.LoadCases)
+            {
+               cmd.Parameters.Clear();
+               cmd.Parameters.AddWithValue("@sid", sid);
+               cmd.Parameters.AddWithValue("@tag", lc.Tag);
+               cmd.Parameters.AddWithValue("@lt", (object?)lc.LoadType ?? DBNull.Value);
+               cmd.Parameters.AddWithValue("@st", lc.Sp20Type);
+               cmd.Parameters.AddWithValue("@sg", (object?)lc.Sp20Group ?? DBNull.Value);
+               cmd.Parameters.AddWithValue("@gu", (object?)lc.GammaFUnfav ?? DBNull.Value);
+               cmd.Parameters.AddWithValue("@gf", (object?)lc.GammaFFav ?? DBNull.Value);
+               cmd.Parameters.AddWithValue("@p1", (object?)lc.Psi1 ?? DBNull.Value);
+               cmd.Parameters.AddWithValue("@p2", (object?)lc.Psi2 ?? DBNull.Value);
+               // Копия ссылается на загружение родителя (lc.Id черновика — Id родителя): карта для масок.
+               lc.ParentLoadCaseId = lc.Id;
+               AddFemLoadCaseExtraParameters(cmd, lc);
+               int id = (int)(long)cmd.ExecuteScalar()!;
+               lcMap[lc.Id] = id;
+               schema.LoadCases.Add(new FemLoadCase
+               {
+                  Id = id, SchemaId = sid, Tag = lc.Tag, LoadType = lc.LoadType, Sp20Type = lc.Sp20Type,
+                  Sp20Group = lc.Sp20Group, GammaFUnfav = lc.GammaFUnfav, GammaFFav = lc.GammaFFav, Psi1 = lc.Psi1,
+                  Psi2 = lc.Psi2, LongTermShare = lc.LongTermShare, SelfWeightFactor = lc.SelfWeightFactor,
+                  Origin = lc.Origin, SourceLoadNum = lc.SourceLoadNum, ParentLoadCaseId = lc.Id,
+               });
+            }
+         }
+         int Lc(int parentLc) => lcMap.TryGetValue(parentLc, out int id) ? id
+            : throw new InvalidOperationException($"Нагрузка фрагмента ссылается на загружение {parentLc}, которого нет в копиях.");
+         int Node(string tag) => nodeId.TryGetValue(tag, out int id) ? id
+            : throw new InvalidOperationException($"Нагрузка фрагмента ссылается на узел {tag}, которого нет во фрагменте.");
+
+         foreach (var d in draft.LoadDefinitions)
+         {
+            var copy = FragmentLoadCopy.RemapLoadCases(d, lcMap);
+            copy.Id = 0;
+            copy.SchemaId = sid;
+            SaveFemLoadDefinition(copy);
+            schema.LoadDefinitions.Add(copy);
+         }
+
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = """
+               INSERT INTO fem_member_loads
+                  (schema_id, load_case_id, member_id, coordinate_system, distribution_type,
+                   start_offset_m, end_offset_m, qx_start, qy_start, qz_start, qx_end, qy_end, qz_end, mx, my, mz)
+               VALUES (@sid, @lc, @mid, @cs, @dt, @so, @eo, @qxs, @qys, @qzs, @qxe, @qye, @qze, @mx, @my, @mz)
+               """;
+            foreach (var (tag, l) in draft.MemberLoads.Select(x => (x.MemberTag, x.Load)))
+            {
+               if (!memberId.TryGetValue(tag, out int mid))
+                  throw new InvalidOperationException($"Нагрузка фрагмента ссылается на КонЭ «{tag}», которого нет во фрагменте.");
+               cmd.Parameters.Clear();
+               cmd.Parameters.AddWithValue("@sid", sid);
+               cmd.Parameters.AddWithValue("@lc", Lc(l.LoadCaseId));
+               cmd.Parameters.AddWithValue("@mid", mid);
+               cmd.Parameters.AddWithValue("@cs", l.CoordinateSystem);
+               cmd.Parameters.AddWithValue("@dt", l.DistributionType);
+               cmd.Parameters.AddWithValue("@so", l.StartOffsetM);
+               cmd.Parameters.AddWithValue("@eo", l.EndOffsetM);
+               cmd.Parameters.AddWithValue("@qxs", l.QxStart);
+               cmd.Parameters.AddWithValue("@qys", l.QyStart);
+               cmd.Parameters.AddWithValue("@qzs", l.QzStart);
+               cmd.Parameters.AddWithValue("@qxe", l.QxEnd);
+               cmd.Parameters.AddWithValue("@qye", l.QyEnd);
+               cmd.Parameters.AddWithValue("@qze", l.QzEnd);
+               cmd.Parameters.AddWithValue("@mx", l.Mx);
+               cmd.Parameters.AddWithValue("@my", l.My);
+               cmd.Parameters.AddWithValue("@mz", l.Mz);
+               cmd.ExecuteNonQuery();
+            }
+         }
+
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = """
+               INSERT INTO fem_node_loads (schema_id, load_case_id, node_id, fx, fy, fz, mx, my, mz)
+               VALUES (@sid, @lc, @nid, @fx, @fy, @fz, @mx, @my, @mz)
+               """;
+            foreach (var (tag, l) in draft.NodeLoads.Select(x => (x.NodeTag, x.Load)))
+            {
+               cmd.Parameters.Clear();
+               cmd.Parameters.AddWithValue("@sid", sid);
+               cmd.Parameters.AddWithValue("@lc", Lc(l.LoadCaseId));
+               cmd.Parameters.AddWithValue("@nid", Node(tag));
+               cmd.Parameters.AddWithValue("@fx", l.Fx);
+               cmd.Parameters.AddWithValue("@fy", l.Fy);
+               cmd.Parameters.AddWithValue("@fz", l.Fz);
+               cmd.Parameters.AddWithValue("@mx", l.Mx);
+               cmd.Parameters.AddWithValue("@my", l.My);
+               cmd.Parameters.AddWithValue("@mz", l.Mz);
+               cmd.ExecuteNonQuery();
+            }
+         }
+
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = """
+               INSERT INTO fem_kinematic_loads (schema_id, load_case_id, node_id, dof, value)
+               VALUES (@sid, @lc, @nid, @dof, @value)
+               """;
+            foreach (var (tag, l) in draft.KinematicLoads.Select(x => (x.NodeTag, x.Load)))
+            {
+               cmd.Parameters.Clear();
+               cmd.Parameters.AddWithValue("@sid", sid);
+               cmd.Parameters.AddWithValue("@lc", Lc(l.LoadCaseId));
+               cmd.Parameters.AddWithValue("@nid", Node(tag));
+               cmd.Parameters.AddWithValue("@dof", l.Dof);
+               cmd.Parameters.AddWithValue("@value", l.Value);
+               cmd.ExecuteNonQuery();
+            }
+         }
+
+         var keptNodeTags = draft.KeptMeshNodes.Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal);
+         string MeshNode(string tag) => keptNodeTags.Contains(tag) ? tag
+            : throw new InvalidOperationException($"ГУ или нагрузка фрагмента ссылается на узел сетки {tag}, которого нет в сохранённой сетке.");
+         foreach (var s in draft.Springs)
+            if (s.TargetKind == FemSpringTargetKinds.MeshNode) MeshNode(s.NodeTag); else Node(s.NodeTag);
+         foreach (var s in draft.MeshNodeSupports) MeshNode(s.NodeTag);
+         foreach (var l in draft.MeshNodeLoads) MeshNode(l.MeshNodeTag);
+         foreach (var b in draft.MeshRigidBodies) { MeshNode(b.MasterNodeTag); foreach (var t in b.SlaveNodeTags) MeshNode(t); }
+         // АЖТ родителя на сохранённой сетке — по тегам (происхождение «fragment:…», сборка сетки их не пересоздаёт).
+         InsertFemBoundaryCore(sid, draft.MeshNodeSupports, draft.Springs, draft.MeshRigidBodies, updateObjects: false);
+         foreach (var b in draft.NodeRigidBodies) { Node(b.MasterNodeTag); foreach (var t in b.SlaveNodeTags) Node(t); }
+         InsertRigidBodiesCore("fem_node_rigid_bodies", sid, draft.NodeRigidBodies, updateObjects: false);
+         InsertFemMeshLevelLoadsCore(sid, draft.ElementLoads, draft.MeshNodeLoads, Lc, _ => null, updateObjects: false);
+         InsertStoreyFragmentDataCore(sid, draft.Cuts, draft.RefElements, draft.FieldLoads, Lc);
+         CopyFragmentRebarSourcesCore(parentId, sid);
+         foreach (var g in draft.Groups)
+         {
+            g.Id = 0;
+            SaveFemMemberGroupCore(g, sid);
+            schema.MemberGroups.Add(g);
+         }
       }
 
       /// <summary>Копия данных фрагмента в схему-копию (внутри транзакции <see cref="DuplicateFemSchema"/>): рассечения,

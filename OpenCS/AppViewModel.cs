@@ -1066,6 +1066,8 @@ namespace OpenCS
       public ICommand StoreyFragmentCommand { get; set; } = null!;
       /// <summary>«Маски из родителя…» у схемы-фрагмента.</summary>
       public ICommand StoreyFragmentMasksCommand { get; set; } = null!;
+      /// <summary>«Пересобрать фрагмент…» у схемы-фрагмента (меню дерева, шапка страницы).</summary>
+      public ICommand RebuildStoreyFragmentCommand { get; set; } = null!;
       /// <summary>«Удалить маски» у схемы-фрагмента.</summary>
       public ICommand DeleteStoreyFragmentMasksCommand { get; set; } = null!;
       /// <summary>Дозагрузить к схеме файл подобранной ЛИРОЙ арматуры (*.asp).</summary>
@@ -2085,6 +2087,7 @@ namespace OpenCS
          StoreyFragmentCommand     = new RelayCommand(p => BuildStoreyFragment(p as CScore.Fem.FemSchema));
          StoreyFragmentMasksCommand = new RelayCommand(p => TakeStoreyFragmentMasks(p as CScore.Fem.FemSchema));
          DeleteStoreyFragmentMasksCommand = new RelayCommand(p => DeleteStoreyFragmentMasks(p as CScore.Fem.FemSchema));
+         RebuildStoreyFragmentCommand = new RelayCommand(p => RebuildStoreyFragment(p as CScore.Fem.FemSchema));
          LoadLiraAspCommand        = new RelayCommand(p => LoadLiraAsp(p as CScore.Fem.FemSchema));
          CreateLiraPlateSectionsCommand = new RelayCommand(p => CreateLiraPlateSections(p as CScore.Fem.FemSchema));
          CreateImportedBarSectionsCommand = new RelayCommand(p => CreateImportedBarSections(p as CScore.Fem.FemSchema));
@@ -3922,6 +3925,50 @@ namespace OpenCS
                Loc.S(result.IsError ? "StoreyFragmentReportRefused" : "StoreyFragmentReportBuilt"), result.Rows) { Owner = owner }
                .ShowDialog();
          if (result.Schema is { } schema) CurrentFemSchema = schema;
+      }
+
+      /// <summary>
+      /// «Пересобрать фрагмент…»: проверка, вопрос, подготовка в фоне, запись на месте (тот же Id) в UI-потоке, отчёт.
+      /// Отказ построителя фрагмент не меняет.
+      /// </summary>
+      public async void RebuildStoreyFragment(CScore.Fem.FemSchema? fragment)
+      {
+         if (fragment?.ParentSchemaId == null) return;
+         var owner = Application.Current?.MainWindow;
+         if (Services.FragmentAuthoring.RebuildBlocker(db, fragment) is { } blocker)
+         {
+            Notifier.Warning(blocker, Loc.S("FragmentRebuildTitle"));
+            return;
+         }
+         if (activeFemSchemaEditor?.Session.Schema.Id == fragment.Id && !TryLeaveFemSchemaEditor()) return;
+         var impact = Services.FragmentAuthoring.RebuildImpact(db, fragment);
+         if (!Notifier.Confirm(Services.FragmentAuthoring.RebuildQuestion(fragment, impact), Loc.S("FragmentRebuildTitle"))) return;
+         BeginBusy(Loc.S("FragmentRebuildBusy"));
+         Services.FragmentRebuildResult result;
+         try
+         {
+            var prepared = await Task.Run(() => Services.FragmentAuthoring.PrepareRebuild(db, fragment));
+            result = Services.FragmentAuthoring.CommitRebuild(db, fragment, prepared);
+         }
+         catch (Exception ex)
+         {
+            EndBusy();
+            LogService.Error(ex.Message);
+            Notifier.Error(ex.Message.Split('\n')[0], Loc.S("FragmentRebuildTitle"));
+            return;
+         }
+         EndBusy(result.LogMessage);
+         if (result.IsError) LogService.Error(result.LogMessage); else LogService.Info(result.LogMessage);
+         if (!result.IsError)
+         {
+            RefreshFemSchemaTreeCounts(fragment);
+            ReloadFemLoadTree(fragment.Id);
+            if (currentFemSchema == fragment) ReloadFemSchemaPage();
+         }
+         if (result.Rows.Count > 0)
+            new Views.StoreyFragmentReportDialog(fragment.Tag,
+               Loc.S(result.IsError ? "FragmentRebuildReportRefused" : "FragmentRebuildReportDone"), result.Rows) { Owner = owner }
+               .ShowDialog();
       }
 
       /// <summary>

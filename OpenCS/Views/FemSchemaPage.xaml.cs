@@ -241,6 +241,8 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
 
     void FragmentMasks_Click(object sender, RoutedEventArgs e) => _app.TakeStoreyFragmentMasks(_schema);
 
+    void FragmentRebuild_Click(object sender, RoutedEventArgs e) => _app.RebuildStoreyFragment(_schema);
+
     void FragmentReport_Click(object sender, RoutedEventArgs e)
     {
         if (fragmentBanner.DataContext is not StoreyFragmentBannerVM banner) return;

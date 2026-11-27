@@ -38,6 +38,9 @@
                         Visibility="{Binding HasMaskReport, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                 <Button DockPanel.Dock="Right" Content="{DynamicResource StoreyFragmentMasksMenu}" Padding="8,0" Margin="0,0,6,0"
                         Click="FragmentMasks_Click"/>
+                <Button DockPanel.Dock="Right" Content="{DynamicResource FragmentRebuildButton}" Padding="8,0" Margin="0,0,6,0"
+                        ToolTip="{DynamicResource FragmentRebuildTip}"
+                        Click="FragmentRebuild_Click"/>
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock TextWrapping="Wrap" Text="{Binding PrismText}"
                                Visibility="{Binding HasPrism, Converter={StaticResource BooleanToVisibilityConverter}}"/>

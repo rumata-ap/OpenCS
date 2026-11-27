@@ -1414,6 +1414,15 @@
                                         Visibility="{Binding PlacementTarget.DataContext.Schema,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu},
                                                      Converter={StaticResource FemFragmentVisibilityConverter}}"/>
+                              <MenuItem helpers:CommandIcons.Header="FragmentRebuildMenu"
+                                        Command="{Binding PlacementTarget.Tag.RebuildStoreyFragmentCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        ToolTip="{DynamicResource FragmentRebuildTip}"
+                                        Visibility="{Binding PlacementTarget.DataContext.Schema,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu},
+                                                     Converter={StaticResource FemFragmentVisibilityConverter}}"/>
                               <MenuItem helpers:CommandIcons.Header="StoreyFragmentMasksDelete"
                                         Command="{Binding PlacementTarget.Tag.DeleteStoreyFragmentMasksCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"

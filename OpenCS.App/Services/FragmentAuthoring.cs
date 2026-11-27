@@ -13,7 +13,7 @@ public sealed record FragmentFieldError(string Field, string Message);
 /// к полю, уникальное имя новой схемы, сборка без окон (<see cref="StoreyFragmentService"/>) и запись снятых масок.
 /// Окна показывают ошибки у полей, CLI печатает их с путём в документе.
 /// </summary>
-public static class FragmentAuthoring
+public static partial class FragmentAuthoring
 {
     public const string FieldZ1 = "z1", FieldZ2 = "z2", FieldOffset = "offset", FieldFloors = "floors", FieldName = "name";
 

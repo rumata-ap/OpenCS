@@ -1,4 +1,4 @@
-<ResourceDictionary
+﻿<ResourceDictionary
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:system="clr-namespace:System;assembly=mscorlib">
@@ -4199,6 +4199,27 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="StoreyFragmentParentChecking">checking the parent…</system:String>
     <system:String x:Key="StoreyFragmentParentUnchanged">the parent band has not changed since the build</system:String>
     <system:String x:Key="StoreyFragmentParentChanged">the parent changed after the build: rebuild the fragment if the changes concern the band</system:String>
+    <system:String x:Key="FragmentRebuildMenu">Rebuild fragment…</system:String>
+    <system:String x:Key="FragmentRebuildButton">Rebuild…</system:String>
+    <system:String x:Key="FragmentRebuildTip">Build the fragment again from the parent at the same levels; the name, cut boundary conditions, analyses and checks are kept, masks and results are reset</system:String>
+    <system:String x:Key="FragmentRebuildTitle">Rebuild fragment</system:String>
+    <system:String x:Key="FragmentRebuildBusy">Rebuilding the fragment…</system:String>
+    <system:String x:Key="FragmentRebuildConfirm">Fragment "{0}" will be built again from "{1}" at the same levels (z {2} m).&#x0a;&#x0a;Kept: the name, cut boundary conditions (overrides: {5}), analyses ({3}), checks ({4}), imperfections and fields.&#x0a;Reset: masks, results, the fragment mesh and edits of its content in the editor — nodes, members, loads, load cases and combinations are taken from the parent again.&#x0a;&#x0a;Rebuild?</system:String>
+    <system:String x:Key="FragmentRebuildNotFragment">The schema is not a fragment — nothing to rebuild.</system:String>
+    <system:String x:Key="FragmentRebuildParentDeleted">The fragment's parent has been deleted — it cannot be rebuilt.</system:String>
+    <system:String x:Key="FragmentRebuildParentNoMesh">Parent schema "{0}" has no mesh — build it and try again.</system:String>
+    <system:String x:Key="FragmentRebuildPrismFailed">The fragment prism can no longer be built around its members.</system:String>
+    <system:String x:Key="FragmentRebuildRefused">Fragment "{0}" was not rebuilt: {1} errors — the fragment is unchanged, see the report.</system:String>
+    <system:String x:Key="FragmentRebuildReportSummary">Transfer</system:String>
+    <system:String x:Key="FragmentRebuildSummary">Transferred: analyses {0}, checks {1}, cut boundary conditions {2}, imperfections {3}. Masks, results and the fragment mesh were reset.</system:String>
+    <system:String x:Key="FragmentRebuildDone">Fragment "{0}" rebuilt from "{1}": members {2}, transferred analyses {3}, checks {4}, cut boundary conditions {5}; not transferred: {6}. Next — "Build schema mesh".</system:String>
+    <system:String x:Key="FragmentRebuildReportDone">Fragment rebuilt</system:String>
+    <system:String x:Key="FragmentRebuildReportRefused">Fragment not rebuilt</system:String>
+    <system:String x:Key="FragmentRebuildLoadCasesLost">Analysis "{0}": load cases {1} no longer exist in the parent — fix its load cases (the run will name them).</system:String>
+    <system:String x:Key="FragmentRebuildCheckMemberLost">Check "{0}" removed: member "{1}" is no longer in the fragment.</system:String>
+    <system:String x:Key="FragmentRebuildCheckGroupLost">Check "{0}" removed: group "{1}" is no longer in the fragment.</system:String>
+    <system:String x:Key="FragmentRebuildImperfectionLost">Imperfection "{0}" removed: load case "{1}" no longer exists in the parent.</system:String>
+    <system:String x:Key="FragmentRebuildCutBcLost">Boundary conditions of cut {0} ({1}) were not transferred: the cut no longer exists.</system:String>
     <system:String x:Key="StoreyFragmentParentDeleted">the parent was deleted: the fragment is a standalone schema</system:String>
     <system:String x:Key="StoreyFragmentParentCheckFailed">parent check failed: {0}</system:String>
     <system:String x:Key="StoreyFragmentReportButton">Build report…</system:String>
@@ -7712,6 +7733,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliFragErrParentNoMesh">parent schema «{0}» has no mesh — run opencs run mesh</system:String>
    <system:String x:Key="CliCmdFragment">FE schema fragments: masks from the parent.</system:String>
    <system:String x:Key="CliCmdFragmentMasks">Fragment masks from the parent: --from analysis | scad | lira, --all, --secant [--by fragment analysis], --delete; without a key — list of sources.</system:String>
+   <system:String x:Key="CliCmdFragmentRebuild">Rebuild the fragment from its parent at the same levels: same Id and name; analyses, checks, imperfections and cut BCs are transferred, masks, results and the fragment mesh are reset.</system:String>
    <system:String x:Key="CliArgFragment">Fragment — schema name or Id.</system:String>
    <system:String x:Key="CliOptMasksFrom">Source: a parent CSfea analysis with a result (name or Id) or a scad / lira results snapshot.</system:String>
    <system:String x:Key="CliOptMasksAll">Run a service linear analysis of the parent for all load cases and take masks from it.</system:String>

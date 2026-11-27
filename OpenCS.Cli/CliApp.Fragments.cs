@@ -31,7 +31,39 @@ sealed partial class CliApp
     {
         EditCommand("masks", "CliCmdFragmentMasks", FragmentMasksAsync, _fragmentRef, _masksFrom, _masksAll, _masksSecant,
             _masksBy, _masksDelete),
+        EditCommand("rebuild", "CliCmdFragmentRebuild", FragmentRebuildAsync, _fragmentRef),
     };
+
+    /// <summary>
+    /// <c>opencs fragment rebuild</c> — как «Пересобрать фрагмент…»: состав заново из родителя по тем же отметкам, тот же Id
+    /// и имя; постановки, проверки, несовершенства и ГУ разрезов переносятся, маски и результаты сбрасываются. Без вопроса
+    /// (CLI); нельзя пересобрать — Usage, отказ построителя — Failed, фрагмент не изменён.
+    /// </summary>
+    Task<int> FragmentRebuildAsync(CliCall call)
+    {
+        string spec = call.Parse.GetValue(_fragmentRef)!;
+        return Edit(call, session =>
+        {
+            var db = session.Context.Db;
+            var fragment = ResolveFragment(db, spec);
+            if (FragmentAuthoring.RebuildBlocker(db, fragment) is { } blocker) throw new CliException(CliExitCode.Usage, blocker);
+            var result = FragmentAuthoring.CommitRebuild(db, fragment, FragmentAuthoring.PrepareRebuild(db, fragment));
+            if (call.Json)
+                CliOutput.WriteJson(call.Out, new
+                {
+                    Fragment = fragment.Tag, result.IsError, Message = result.LogMessage,
+                    Transferred = result.Transfer is { } t
+                        ? new { t.Analyses, t.Checks, t.CutBc, t.Imperfections, Lost = t.Lost.Count } : null,
+                    Rows = result.Rows.Select(r => new { r.Level, r.Message, r.IsError }).ToList(),
+                });
+            else
+            {
+                call.Out.WriteLine(result.LogMessage);
+                foreach (var r in result.Rows) call.Out.WriteLine($"  {r.Level}\t{r.Message}");
+            }
+            if (result.IsError) throw new CliException(CliExitCode.Failed, result.LogMessage);
+        });
+    }
 
     /// <summary>
     /// <c>opencs fragment masks</c> — как окно «Маски из родителя…»: из готового результата родителя (<c>--from</c> постановка,
