@@ -3019,6 +3019,7 @@
     <system:String x:Key="FemMemberTreeGroupFromMember">Member group from this member…</system:String>
     <system:String x:Key="FemMemberTreeGroupFromSelected">Member group from marked…</system:String>
     <system:String x:Key="FemMemberTreeMultiHeader">Marked members: {0} (Ctrl+click)</system:String>
+    <system:String x:Key="FemNodesTableSelected">Selected nodes: {0}</system:String>
     <system:String x:Key="FemMemberTreeProperties">Properties…</system:String>
     <system:String x:Key="FemMemberTreeGroupAllBars">Member group from all bars…</system:String>
     <system:String x:Key="FemMemberTreeGroupAllShells">Member group from all shells…</system:String>
@@ -3031,6 +3032,7 @@
     <system:String x:Key="FemNodeTreeGroupFromMembers">Member group from adjacent…</system:String>
     <system:String x:Key="FemNodeTreeCopyCoords">Copy coordinates</system:String>
     <system:String x:Key="FemNodeTreeOpenEditor">Open schema editor</system:String>
+    <system:String x:Key="FemTreeOpenPage">Open page</system:String>
     <system:String x:Key="FemBoundaryConditions">Boundary conditions</system:String>
     <system:String x:Key="FemBoundaryReleases">Bar end releases</system:String>
     <system:String x:Key="FemBoundaryFoundation">Elastic foundation</system:String>

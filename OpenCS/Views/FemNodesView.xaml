@@ -5,18 +5,25 @@
    <UserControl.Resources>
       <conv:FemDofMaskTextConverter x:Key="DofMaskText"/>
    </UserControl.Resources>
+   <!-- Меню строк — как у узла в дереве (несколько строк — общие действия); двойной щелчок — свойства узла в редакторе. -->
    <DataGrid x:Name="nodesGrid"
              AutoGenerateColumns="False"
              IsReadOnly="True"
              CanUserAddRows="False"
              CanUserDeleteRows="False"
+             SelectionMode="Extended"
              EnableRowVirtualization="True"
-             VirtualizingPanel.IsVirtualizing="True">
+             VirtualizingPanel.IsVirtualizing="True"
+             ContextMenuOpening="NodesGrid_ContextMenuOpening"
+             MouseDoubleClick="NodesGrid_MouseDoubleClick">
+      <DataGrid.ContextMenu>
+         <ContextMenu/>
+      </DataGrid.ContextMenu>
       <DataGrid.Columns>
          <DataGridTextColumn Header="{DynamicResource FemNodeTag}" Binding="{Binding NodeTag}" Width="80"/>
-         <DataGridTextColumn Header="X, м"                        Binding="{Binding X, StringFormat=F4}" Width="100"/>
-         <DataGridTextColumn Header="Y, м"                        Binding="{Binding Y, StringFormat=F4}" Width="100"/>
-         <DataGridTextColumn Header="Z, м"                        Binding="{Binding Z, StringFormat=F4}" Width="100"/>
+         <DataGridTextColumn Header="{DynamicResource FemCreateNodeX}" Binding="{Binding X, StringFormat=F4}" Width="100"/>
+         <DataGridTextColumn Header="{DynamicResource FemCreateNodeY}" Binding="{Binding Y, StringFormat=F4}" Width="100"/>
+         <DataGridTextColumn Header="{DynamicResource FemCreateNodeZ}" Binding="{Binding Z, StringFormat=F4}" Width="100"/>
          <DataGridTextColumn Header="{DynamicResource FemMeshNodeSupportColumn}" Binding="{Binding DofMask, Converter={StaticResource DofMaskText}}" Width="140"/>
       </DataGrid.Columns>
    </DataGrid>

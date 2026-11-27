@@ -464,6 +464,18 @@ namespace OpenCS
             page.Dispatcher.BeginInvoke(() => action(page), System.Windows.Threading.DispatcherPriority.Loaded);
       }
 
+      /// <summary>
+      /// Левый щелчок по узлу или КонЭ в дереве при открытом редакторе этой схемы: выделить его в редакторе, не уходя со
+      /// страницы (уход спрашивал бы о несохранённых правках). false — редактор этой схемы не открыт, щелчок открывает
+      /// страницу узла или КонЭ.
+      /// </summary>
+      public bool SelectInOpenFemEditor(CScore.Fem.FemSchema schema, IReadOnlyCollection<string> nodeTags, IReadOnlyCollection<string> memberTags)
+      {
+         if (OpenEditorPageOf(schema) is not { } page) return false;
+         page.SelectInSchema(nodeTags, memberTags);
+         return true;
+      }
+
       /// <summary>Страница редактора этой схемы, если она сейчас открыта.</summary>
       Views.FemSchemaPage? OpenEditorPageOf(CScore.Fem.FemSchema schema) =>
          activeFemSchemaEditor?.Session.Schema.Id == schema.Id && CurrentPage is Views.FemSchemaPage page ? page : null;

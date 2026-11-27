@@ -3019,6 +3019,7 @@
     <system:String x:Key="FemMemberTreeGroupFromMember">Группа КонЭ из элемента…</system:String>
     <system:String x:Key="FemMemberTreeGroupFromSelected">Группа КонЭ из отмеченных…</system:String>
     <system:String x:Key="FemMemberTreeMultiHeader">Отмечено КонЭ: {0} (Ctrl+щелчок)</system:String>
+    <system:String x:Key="FemNodesTableSelected">Выделено узлов: {0}</system:String>
     <system:String x:Key="FemMemberTreeProperties">Свойства…</system:String>
     <system:String x:Key="FemMemberTreeGroupAllBars">Группа КонЭ из всех стержней…</system:String>
     <system:String x:Key="FemMemberTreeGroupAllShells">Группа КонЭ из всех пластин…</system:String>
@@ -3031,6 +3032,7 @@
     <system:String x:Key="FemNodeTreeGroupFromMembers">Группа КонЭ из примыкающих…</system:String>
     <system:String x:Key="FemNodeTreeCopyCoords">Копировать координаты</system:String>
     <system:String x:Key="FemNodeTreeOpenEditor">Открыть редактор схемы</system:String>
+    <system:String x:Key="FemTreeOpenPage">Открыть страницу</system:String>
     <system:String x:Key="FemBoundaryConditions">Граничные условия</system:String>
     <system:String x:Key="FemBoundaryReleases">Шарниры стержней</system:String>
     <system:String x:Key="FemBoundaryFoundation">Упругое основание</system:String>

@@ -280,15 +280,23 @@ namespace OpenCS
              vm.CurrentFemSchema = schemaTreeVM.Schema;
           }
           else if (e.NewValue is ViewModels.FemNodesSubNode nodesNode)
-             vm.CurrentPage = new Views.FemNodesView(nodesNode);
+             vm.CurrentPage = new Views.FemNodesView(nodesNode, vm);
           else if (e.NewValue is ViewModels.FemBarsSubNode barsNode)
              vm.CurrentPage = new Views.FemBarsView(barsNode, vm);
           else if (e.NewValue is ViewModels.FemShellsSubNode shellsNode)
              vm.CurrentPage = new Views.FemShellsView(shellsNode, vm);
+          // Узел или КонЭ схемы, открытой в редакторе, — выделение в редакторе (страница не меняется, правки не под
+          // вопросом); иначе — его страница. Страница доступна и из меню («Открыть страницу»).
           else if (e.NewValue is ViewModels.FemMemberTreeItem memberItem)
-             vm.CurrentPage = new Views.FemMemberPage(memberItem, vm);
+          {
+             if (!vm.SelectInOpenFemEditor(memberItem.Schema, [], [memberItem.Member.ElemTag]))
+                vm.CurrentPage = new Views.FemMemberPage(memberItem, vm);
+          }
           else if (e.NewValue is ViewModels.FemNodeTreeItem nodeItem)
-             vm.CurrentPage = new Views.FemNodePage(nodeItem, vm);
+          {
+             if (!vm.SelectInOpenFemEditor(nodeItem.Schema, [nodeItem.Node.NodeTag], []))
+                vm.CurrentPage = new Views.FemNodePage(nodeItem, vm);
+          }
           // Строки-мозаики (переменные пружины, упругое основание) щелчком не выделяются — мозаика по «Показать на схеме».
           else if (e.NewValue is ViewModels.FemBoundaryGroupItem { IsMosaic: false } boundaryGroup)
              vm.SelectFemBoundaryInEditor(boundaryGroup.Schema, boundaryGroup.Targets());

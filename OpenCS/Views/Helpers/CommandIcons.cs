@@ -26,6 +26,7 @@ public static class CommandIcons
         ["StoreyFragmentMasksDelete"] = "CmdIcon_Delete",
         ["FemMemberNew"] = "CmdIcon_MemberNew",
         ["FemNodeTreeOpenEditor"] = "CmdIcon_OpenEditor",
+        ["FemTreeOpenPage"] = "CmdIcon_OpenEditor",
 
         // ЛИРА-САПР
         ["FemSchemaMenuLira"] = "CmdIcon_Lira",

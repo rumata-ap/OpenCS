@@ -24,6 +24,10 @@ internal static class FemMemberTreeMenus
         var member = item.Member;
         var schema = item.Schema;
 
+        // Щелчок в дереве при открытом редакторе схемы выделяет КонЭ в нём; страница КонЭ — отсюда.
+        items.Add(Item("FemTreeOpenPage", () => app.CurrentPage = new FemMemberPage(item, app)));
+        items.Add(new Separator());
+
         // Свойства стержня — те же окна, что в 3D-виде редактора (из дерева удобнее, чем попадать мышью в стержень).
         if (!item.IsShell && member.PlanarRegionId == null)
         {
@@ -170,6 +174,9 @@ internal static class FemMemberTreeMenus
     public static void FillNode(ItemCollection items, FemNodeTreeItem item, AppViewModel app)
     {
         var node = item.Node;
+        // Щелчок в дереве при открытом редакторе схемы выделяет узел в нём; страница узла — отсюда.
+        items.Add(Item("FemTreeOpenPage", () => app.CurrentPage = new FemNodePage(item, app)));
+        items.Add(new Separator());
         items.Add(Item("FemNodeTreeProperties", () => app.OpenFemNodeInEditor(item.Schema, node.NodeTag)));
         items.Add(Item("FemNodeBoundaryCtx", () => app.InFemSchemaEditorDeferred(item.Schema, page => page.EditNodeBoundary(node.NodeTag))));
         items.Add(Item("FemNodeLoadCtx", () => app.InFemSchemaEditorDeferred(item.Schema, page => page.OpenLoadDialog(FemTreeLoadKind.Node, node.NodeTag))));
