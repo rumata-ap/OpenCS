@@ -1,5 +1,5 @@
 using System.Windows;
-using OpenCS.ViewModels;
+using OpenCS.Services;
 
 namespace OpenCS.Views;
 
@@ -22,7 +22,7 @@ public partial class StoreyFragmentReportDialog : Window
 
     void Copy_Click(object sender, RoutedEventArgs e)
     {
-        try { Clipboard.SetText(StoreyFragmentReportRows.ToText(_rows)); }
-        catch (System.Runtime.InteropServices.ExternalException) { }
+        if (!OpenCS.Utilites.UiClipboard.TrySetText(StoreyFragmentReportRows.ToText(_rows)))
+            MessageBox.Show(this, OpenCS.Utilites.Loc.S("ClipboardBusy"), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
     }
 }

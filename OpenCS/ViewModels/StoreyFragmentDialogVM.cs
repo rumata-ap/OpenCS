@@ -21,16 +21,24 @@ public sealed class StoreyFragmentDialogVM : ViewModelBase
     readonly string _parentTag;
     readonly StoreyFloorContext _context;
     readonly CultureInfo _culture;
+    readonly Func<string, string?>? _nameError;
+    readonly Func<string, string>? _freeName;
     StoreyFloorRow? _selected;
     bool _manual, _nameEdited, _settingName;
     string _z1Text = "", _z2Text = "", _name = "", _belowText = "", _aboveText = "", _warning = "";
+    string _z1Error = "", _z2Error = "", _nameErrorText = "", _floorError = "";
 
     /// <param name="pickedZ">Отметка перекрытия по выделению в 3D; null — без предвыбора.</param>
     /// <param name="pickErrorKey">Ключ строки отказа отметки по выделению (показывается в диалоге).</param>
+    /// <param name="nameError">Ошибка имени новой схемы (пусто, занято) — <see cref="FragmentAuthoring.NameError"/>;
+    /// null — проверяется только пустое имя.</param>
+    /// <param name="freeName">Свободное имя по умолчанию — <see cref="FragmentAuthoring.FreeName"/>; null — как есть.</param>
     public StoreyFragmentDialogVM(string parentTag, StoreyFloorContext context, double? pickedZ, string? pickErrorKey,
-        CultureInfo culture)
+        CultureInfo culture, Func<string, string?>? nameError = null, Func<string, string>? freeName = null)
     {
         _parentTag = parentTag;
+        _nameError = nameError;
+        _freeName = freeName;
         _context = context;
         _culture = culture;
         Levels = context.Levels
@@ -63,7 +71,7 @@ public sealed class StoreyFragmentDialogVM : ViewModelBase
     public StoreyFloorRow? SelectedLevel
     {
         get => _selected;
-        set { _selected = value; OnPropertyChanged(); Recompute(); }
+        set { _selected = value; OnPropertyChanged(); FloorError = ""; Recompute(); }
     }
 
     /// <summary>Ручной режим: поля z₁/z₂ редактируются; при выключении отметки пересчитываются по перекрытию.</summary>
@@ -82,8 +90,20 @@ public sealed class StoreyFragmentDialogVM : ViewModelBase
 
     public bool Auto => !_manual;
 
-    public string Z1Text { get => _z1Text; set { _z1Text = value; OnPropertyChanged(); ManualNameFollow(); } }
-    public string Z2Text { get => _z2Text; set { _z2Text = value; OnPropertyChanged(); ManualNameFollow(); } }
+    public string Z1Text { get => _z1Text; set { _z1Text = value; OnPropertyChanged(); Z1Error = Z2Error = ""; ManualNameFollow(); } }
+    public string Z2Text { get => _z2Text; set { _z2Text = value; OnPropertyChanged(); Z2Error = ""; ManualNameFollow(); } }
+
+    /// <summary>Ошибка поля z₁ (текст под полем); пусто — нет.</summary>
+    public string Z1Error { get => _z1Error; private set { _z1Error = value; OnPropertyChanged(); } }
+    /// <summary>Ошибка поля z₂ (в т. ч. «z₁ ниже z₂»); пусто — нет.</summary>
+    public string Z2Error { get => _z2Error; private set { _z2Error = value; OnPropertyChanged(); } }
+    /// <summary>Ошибка имени (пусто, занято); пусто — нет.</summary>
+    public string NameError { get => _nameErrorText; private set { _nameErrorText = value; OnPropertyChanged(); } }
+    /// <summary>«Выберите перекрытие»; пусто — нет.</summary>
+    public string FloorError { get => _floorError; private set { _floorError = value; OnPropertyChanged(); } }
+
+    /// <summary>Поле первой ошибки после <see cref="TryRequest"/> (<see cref="FragmentAuthoring.FieldZ1"/> …); null — ошибок нет.</summary>
+    public string? FirstErrorField { get; private set; }
     public string BelowText { get => _belowText; private set { _belowText = value; OnPropertyChanged(); } }
     public string AboveText { get => _aboveText; private set { _aboveText = value; OnPropertyChanged(); } }
     /// <summary>Предупреждение о разрезе по другому перекрытию; пусто — нет.</summary>
@@ -97,20 +117,32 @@ public sealed class StoreyFragmentDialogVM : ViewModelBase
             _name = value;
             if (!_settingName) _nameEdited = value.Length > 0;
             OnPropertyChanged();
+            NameError = "";
         }
     }
 
     /// <summary>«Сохранять сетку родителя у необрезанных элементов» (<see cref="StoreyFragmentRequest.KeepParentMesh"/>).</summary>
     public bool KeepParentMesh { get; set; } = true;
 
-    /// <summary>Запрос сборки; ошибка — текст для пользователя, запрос null.</summary>
+    /// <summary>
+    /// Запрос сборки; ошибки — у полей (<see cref="Z1Error"/>, <see cref="Z2Error"/>, <see cref="NameError"/>,
+    /// <see cref="FloorError"/>), первая — в <paramref name="error"/> и <see cref="FirstErrorField"/>; запрос null.
+    /// </summary>
     public StoreyFragmentRequest? TryRequest(out string? error)
     {
-        if (!_manual && _selected is null)
-        {
-            error = Loc.S("StoreyFloorNotSelected");
-            return null;
-        }
+        var errors = new List<FragmentFieldError>();
+        if (!_manual && _selected is null) errors.Add(new(FragmentAuthoring.FieldFloors, Loc.S("StoreyFloorNotSelected")));
+        else errors.AddRange(FragmentAuthoring.ValidateLevels(Z1Text, Z2Text, out _, out _));
+        string? nameError = _nameError?.Invoke(Name) ?? (string.IsNullOrWhiteSpace(Name) ? Loc.S("StoreyFragmentNameEmpty") : null);
+        if (nameError != null) errors.Add(new(FragmentAuthoring.FieldName, nameError));
+        string Of(string field) => errors.FirstOrDefault(e => e.Field == field)?.Message ?? "";
+        FloorError = Of(FragmentAuthoring.FieldFloors);
+        Z1Error = Of(FragmentAuthoring.FieldZ1);
+        Z2Error = Of(FragmentAuthoring.FieldZ2);
+        NameError = Of(FragmentAuthoring.FieldName);
+        FirstErrorField = errors.FirstOrDefault()?.Field;
+        error = errors.FirstOrDefault()?.Message;
+        if (errors.Count > 0) return null;
         return StoreyFragmentForm.TryRead(Z1Text, Z2Text, Name, out error) is { } request
             ? request with { KeepParentMesh = KeepParentMesh } : null;
     }
@@ -158,7 +190,7 @@ public sealed class StoreyFragmentDialogVM : ViewModelBase
     {
         if (_nameEdited) return;
         _settingName = true;
-        Name = name;
+        Name = _freeName?.Invoke(name) ?? name;
         _settingName = false;
     }
 

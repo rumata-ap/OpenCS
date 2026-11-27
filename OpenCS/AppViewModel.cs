@@ -3828,7 +3828,8 @@ namespace OpenCS
             return;
          }
          EndBusy();
-         var vm = new ViewModels.StoreyFragmentDialogVM(parent.Tag, context, pickedZ, pickErrorKey, CultureInfo.CurrentCulture);
+         var vm = new ViewModels.StoreyFragmentDialogVM(parent.Tag, context, pickedZ, pickErrorKey, CultureInfo.CurrentCulture,
+            name => Services.FragmentAuthoring.NameError(db, name), name => Services.FragmentAuthoring.FreeName(db, name));
          var dlg = new Views.StoreyFragmentDialog(vm) { Owner = owner };
          if (dlg.ShowDialog() != true || dlg.Request is not { } request) return;
          await RunStoreyFragmentBuild(parent, request, owner);
@@ -3874,7 +3875,8 @@ namespace OpenCS
          }
          var vm = new ViewModels.ElementFragmentDialogVM(parent.Tag, selection,
             d => Task.Run(() => ElementFragmentService.PrismFromSelection(db, parent.Id, vertical, d, floors)), rejected,
-            CultureInfo.CurrentCulture);
+            CultureInfo.CurrentCulture, name => Services.FragmentAuthoring.NameError(db, name),
+            name => Services.FragmentAuthoring.FreeName(db, name));
          var dlg = new Views.ElementFragmentDialog(vm) { Owner = owner };
          if (dlg.ShowDialog() != true || dlg.Request is not { } request) return;
          await RunStoreyFragmentBuild(parent, request, owner);
@@ -3889,10 +3891,10 @@ namespace OpenCS
       async Task RunStoreyFragmentBuild(CScore.Fem.FemSchema parent, CScore.Fem.Fragment.StoreyFragmentRequest request, Window? owner)
       {
          BeginBusy(Loc.S("StoreyFragmentBusy"));
-         ViewModels.StoreyFragmentFlowResult result;
+         Services.StoreyFragmentFlowResult result;
          try
          {
-            result = await ViewModels.StoreyFragmentMenuFlow.RunAsync(db, parent, request);
+            result = await Services.StoreyFragmentMenuFlow.RunAsync(db, parent, request);
          }
          catch (Exception ex)
          {
@@ -3918,11 +3920,11 @@ namespace OpenCS
       {
          if (fragment?.ParentSchemaId == null) return;
          var owner = Application.Current?.MainWindow;
-         var sources = ViewModels.StoreyFragmentMaskFlow.Sources(db, fragment, out string? reason);
-         var secantChoices = ViewModels.StoreyFragmentMaskFlow.SecantChoices(db, fragment, out var secantSelected);
+         var sources = Services.StoreyFragmentMaskFlow.Sources(db, fragment, out string? reason);
+         var secantChoices = Services.StoreyFragmentMaskFlow.SecantChoices(db, fragment, out var secantSelected);
          var dlg = new Views.StoreyFragmentMasksDialog(fragment.Tag, sources,
-            ViewModels.StoreyFragmentMaskFlow.DefaultSource(db, fragment, sources), reason,
-            ViewModels.StoreyFragmentMaskFlow.CurrentText(db, fragment), secantChoices, secantSelected) { Owner = owner };
+            Services.StoreyFragmentMaskFlow.DefaultSource(db, fragment, sources), reason,
+            Services.StoreyFragmentMaskFlow.CurrentText(db, fragment), secantChoices, secantSelected) { Owner = owner };
          if (dlg.ShowDialog() != true) return;
          if (dlg.AllLoadCases || dlg.SecantAll)
          {
@@ -3976,24 +3978,24 @@ namespace OpenCS
          }
          if (FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId) is { } parent)
             System.Windows.Data.CollectionViewSource.GetDefaultView(parent.Analyses)?.Refresh();
-         var source = new ViewModels.FragmentMaskSourceItem(analysis.Id,
+         var source = new Services.FragmentMaskSourceItem(analysis.Id,
             secant ? CScore.Fem.Fragment.Masks.FragmentMaskSet.SourceCsfeaSecant : CScore.Fem.Fragment.Masks.FragmentMaskSet.SourceCsfeaLinear,
             analysis.Tag, analysis.Tag);
          await ExtractStoreyFragmentMasks(fragment, source, owner);
       }
 
       /// <summary>Снятие масок фрагмента из источника: занятость, журнал, отчёт и обновление открытой страницы.</summary>
-      async Task ExtractStoreyFragmentMasks(CScore.Fem.FemSchema fragment, ViewModels.FragmentMaskSourceItem source,
+      async Task ExtractStoreyFragmentMasks(CScore.Fem.FemSchema fragment, Services.FragmentMaskSourceItem source,
          System.Windows.Window? owner)
       {
          BeginBusy(Loc.S("StoreyFragmentMasksBusy"));
-         ViewModels.StoreyFragmentMaskFlowResult result;
+         Services.StoreyFragmentMaskFlowResult result;
          try
          {
             // Снятие (чтение полосы родителя, модель, узловые силы — минуты на «Музее») — в фоне, интерфейс не замирает;
             // набор масок пишется здесь, в потоке соединения.
-            result = await Task.Run(() => ViewModels.StoreyFragmentMaskFlow.Extract(db, fragment, source, save: false));
-            if (result.Set is { } set) db.ReplaceFragmentMasks(fragment.Id, set);
+            result = await Task.Run(() => Services.StoreyFragmentMaskFlow.Extract(db, fragment, source, save: false));
+            Services.FragmentAuthoring.SaveMasks(db, fragment, result);
          }
          catch (Exception ex)
          {

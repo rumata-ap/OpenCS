@@ -151,14 +151,18 @@ public sealed class ElementFragmentDialogVMTests
         vm.OffsetText = text;
         await vm.ApplyOffsetAsync();
         Assert.False(vm.CanBuild);
-        Assert.Contains(Loc.S("ElementFragmentOffsetInvalid"), vm.Message);
+        // Ошибка d — под полем d, не в общей строке сообщений.
+        Assert.Equal(Loc.S("ElementFragmentOffsetInvalid"), vm.OffsetError);
+        Assert.Equal("", vm.Message);
         Assert.Null(vm.TryRequest(out var error));
         Assert.Equal(Loc.S("ElementFragmentOffsetInvalid"), error);
+        Assert.Equal(FragmentAuthoring.FieldOffset, vm.FirstErrorField);
         Assert.Equal(0, calls);
 
         vm.OffsetText = "1,5";
         await vm.ApplyOffsetAsync();
         Assert.True(vm.CanBuild);
+        Assert.Equal("", vm.OffsetError);
         Assert.Equal("", vm.Message);
         Assert.Equal(0, calls);
     }

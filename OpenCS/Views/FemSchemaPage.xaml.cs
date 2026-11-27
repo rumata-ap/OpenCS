@@ -781,7 +781,7 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
                 _editorVm.CopySelection();
                 return true;
             case Key.V when _editorVm.HasClipboard:
-                var dlg = new FemFragmentOffsetDialog("FemPasteOffsetTitle", null, showCopies: true) { Owner = Window.GetWindow(this) };
+                var dlg = new FemFragmentOffsetDialog { Owner = Window.GetWindow(this) };
                 if (dlg.ShowDialog() == true) _editorVm.PasteClipboard(dlg.Dx, dlg.Dy, dlg.Dz, dlg.Copies);
                 return true;
             case Key.Z:

@@ -4203,6 +4203,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="StoreyFragmentLevelInvalid">Levels z₁ and z₂ must be numbers in metres.</system:String>
     <system:String x:Key="StoreyFragmentLevelsOrder">Level z₁ must be below z₂.</system:String>
     <system:String x:Key="StoreyFragmentNameEmpty">Enter a name for the new schema.</system:String>
+    <system:String x:Key="StoreyFragmentNameNumbered">{0} ({1})</system:String>
     <system:String x:Key="StoreyFloorLabel">Floor</system:String>
     <system:String x:Key="StoreyFloorRow">{0} · {1} m² · {2}</system:String>
     <system:String x:Key="StoreyFloorMembers">members: {0}</system:String>
@@ -4931,6 +4932,8 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemLoadCaseApplyParameters">Apply parameters</system:String>
     <system:String x:Key="FemSaveBlockedTitle">Save blocked</system:String>
     <system:String x:Key="FemPasteOffsetTitle">Paste offset</system:String>
+    <system:String x:Key="FemPasteOffsetInvalid">A number in metres (comma or dot).</system:String>
+    <system:String x:Key="FemPasteCopiesInvalid">A whole number from 1 to {0}.</system:String>
     <system:String x:Key="FemDiagnosticsTab">Schema check</system:String>
     <system:String x:Key="CalcTaskKind_torsion_bem">Torsion (Saint-Venant, BEM)</system:String>
     <system:String x:Key="CalcTaskKind_torsion_fem">Torsion (Saint-Venant, FEM)</system:String>

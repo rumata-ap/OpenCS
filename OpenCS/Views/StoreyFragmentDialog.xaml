@@ -15,6 +15,11 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+        <!-- Ошибка поля: красный текст под полем; пусто — строки нет. -->
+        <Style x:Key="FieldError" TargetType="TextBlock" BasedOn="{StaticResource NoteText}">
+            <Setter Property="Foreground" Value="Firebrick"/>
+            <Setter Property="Margin" Value="0,-2,0,6"/>
+        </Style>
         <!-- Строки «этаж ниже/выше» держат место и пустыми: окно не растёт после выбора перекрытия. -->
         <Style x:Key="ReservedNoteText" TargetType="TextBlock">
             <Setter Property="TextWrapping" Value="Wrap"/>
@@ -29,6 +34,7 @@
             <TextBlock Text="{DynamicResource StoreyFloorLabel}" Margin="0,0,0,2"/>
             <ListBox x:Name="levelsList" ItemsSource="{Binding Levels}" SelectedItem="{Binding SelectedLevel}"
                      DisplayMemberPath="Label" MaxHeight="180" Margin="0,0,0,6" IsEnabled="{Binding Auto}"/>
+            <TextBlock Text="{Binding FloorError}" Style="{StaticResource FieldError}"/>
             <TextBlock Text="{Binding BelowText}" Style="{StaticResource ReservedNoteText}"/>
             <TextBlock Text="{Binding AboveText}" Style="{StaticResource ReservedNoteText}"/>
             <TextBlock Text="{Binding Warning}" Foreground="DarkOrange" Style="{StaticResource NoteText}"/>
@@ -43,17 +49,24 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             <TextBlock Text="{DynamicResource StoreyFragmentZ1}" VerticalAlignment="Center" Margin="0,0,8,4"/>
             <TextBox x:Name="z1Box" Grid.Column="1" Width="80" Margin="0,0,0,4" VerticalContentAlignment="Center"
                      Text="{Binding Z1Text, UpdateSourceTrigger=PropertyChanged}"/>
-            <TextBlock Grid.Row="1" Text="{DynamicResource StoreyFragmentZ2}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-            <TextBox Grid.Row="1" Grid.Column="1" Width="80" VerticalContentAlignment="Center"
+            <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Z1Error}" Style="{StaticResource FieldError}"
+                       HorizontalAlignment="Right" Margin="0,0,0,4"/>
+            <TextBlock Grid.Row="2" Text="{DynamicResource StoreyFragmentZ2}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBox x:Name="z2Box" Grid.Row="2" Grid.Column="1" Width="80" VerticalContentAlignment="Center"
                      Text="{Binding Z2Text, UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Text="{Binding Z2Error}" Style="{StaticResource FieldError}"
+                       HorizontalAlignment="Right" Margin="0,2,0,0"/>
         </Grid>
         <TextBlock Text="{Binding RangeText}" Foreground="Gray" Style="{StaticResource NoteText}"/>
         <TextBlock Text="{DynamicResource StoreyFragmentName}" Margin="0,0,0,2"/>
-        <TextBox Margin="0,0,0,8" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/>
+        <TextBox x:Name="nameBox" Margin="0,0,0,8" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/>
+        <TextBlock Text="{Binding NameError}" Style="{StaticResource FieldError}"/>
         <CheckBox Content="{DynamicResource StoreyFragmentKeepParentMesh}" IsChecked="{Binding KeepParentMesh}"
                   ToolTip="{DynamicResource StoreyFragmentKeepParentMeshTip}" Margin="0,0,0,8"/>
         <TextBlock Text="{DynamicResource StoreyFragmentHint}" Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,8"/>

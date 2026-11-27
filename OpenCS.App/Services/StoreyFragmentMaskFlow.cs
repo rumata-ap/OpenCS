@@ -1,10 +1,9 @@
 using System.Globalization;
 using CScore.Fem;
 using CScore.Fem.Fragment.Masks;
-using OpenCS.Services;
 using OpenCS.Utilites;
 
-namespace OpenCS.ViewModels;
+namespace OpenCS.Services;
 
 /// <summary>
 /// Источник масок в окне «Маски из родителя…»: постановка CSfea родителя с сохранённым результатом или снимок

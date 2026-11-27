@@ -3,20 +3,34 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="{DynamicResource FemPasteOffsetTitle}" Width="260" SizeToContent="Height"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="NoResize">
+    <Window.Resources>
+        <!-- Ошибка поля: красный текст под полем; пусто — строки нет. -->
+        <Style x:Key="FieldError" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="Firebrick"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,2,0,0"/>
+            <Style.Triggers>
+                <Trigger Property="Text" Value="">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
     <StackPanel Margin="12">
-        <TextBlock x:Name="summaryText" Foreground="Gray" Margin="0,0,0,8" TextWrapping="Wrap" Visibility="Collapsed"/>
         <TextBlock Text="{DynamicResource FemNodeOffsetDx}"/>
-        <TextBox x:Name="dxBox" Text="0"/>
+        <TextBox x:Name="dxBox"/>
+        <TextBlock x:Name="dxError" Style="{StaticResource FieldError}"/>
         <TextBlock Text="{DynamicResource FemNodeOffsetDy}" Margin="0,8,0,0"/>
-        <TextBox x:Name="dyBox" Text="0"/>
+        <TextBox x:Name="dyBox"/>
+        <TextBlock x:Name="dyError" Style="{StaticResource FieldError}"/>
         <TextBlock Text="{DynamicResource FemNodeOffsetDz}" Margin="0,8,0,0"/>
-        <TextBox x:Name="dzBox" Text="0"/>
-        <StackPanel x:Name="copiesPanel" Visibility="Collapsed">
-            <TextBlock Text="{DynamicResource FemFragmentCopies}" Margin="0,8,0,0"/>
-            <TextBox x:Name="copiesBox" Text="1"/>
-        </StackPanel>
+        <TextBox x:Name="dzBox"/>
+        <TextBlock x:Name="dzError" Style="{StaticResource FieldError}"/>
+        <TextBlock Text="{DynamicResource FemFragmentCopies}" Margin="0,8,0,0"/>
+        <TextBox x:Name="copiesBox"/>
+        <TextBlock x:Name="copiesError" Style="{StaticResource FieldError}"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button Content="OK" Click="Ok_Click" IsDefault="True" Padding="16,4" MinWidth="70"/>
+            <Button Content="{DynamicResource OK}" Click="Ok_Click" IsDefault="True" Padding="16,4" MinWidth="70"/>
             <Button Content="{DynamicResource Cancel}" IsCancel="True" Padding="16,4" MinWidth="70" Margin="8,0,0,0"/>
         </StackPanel>
     </StackPanel>

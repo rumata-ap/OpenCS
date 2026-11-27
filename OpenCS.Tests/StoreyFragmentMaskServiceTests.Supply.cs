@@ -168,7 +168,7 @@ public sealed partial class StoreyFragmentMaskServiceTests
         Assert.Null(none);
         Assert.Equal(["Пост. + крен", "Ветер"], FemAnalysisParams.Parse(chosen.ParamsJson).Stages.Select(s => s.Tag));
 
-        var choices = OpenCS.ViewModels.StoreyFragmentMaskFlow.SecantChoices(p.Db, p.Fragment, out var selected);
+        var choices = OpenCS.Services.StoreyFragmentMaskFlow.SecantChoices(p.Db, p.Fragment, out var selected);
         Assert.Equal(3, choices.Count);
         Assert.Null(choices[0].AnalysisId);
         Assert.Equal(sway.Id, selected?.AnalysisId);
@@ -187,7 +187,7 @@ public sealed partial class StoreyFragmentMaskServiceTests
                 SchemaId = p.Fragment.Id, Tag = tag, Kind = FemCsfeaRunner.AnalysisKind,
                 ParamsJson = new FemAnalysisParams { Stages = [.. stages] }.ToJson(),
             });
-        var choices = OpenCS.ViewModels.StoreyFragmentMaskFlow.SecantChoices(p.Db, p.Fragment, out var selected);
+        var choices = OpenCS.Services.StoreyFragmentMaskFlow.SecantChoices(p.Db, p.Fragment, out var selected);
         Assert.Equal(3, choices.Count);
         Assert.Same(choices[0], selected);
     }

@@ -14,6 +14,11 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+        <!-- Ошибка поля: красный текст под полем; пусто — строки нет. -->
+        <Style x:Key="FieldError" TargetType="TextBlock" BasedOn="{StaticResource NoteText}">
+            <Setter Property="Foreground" Value="Firebrick"/>
+            <Setter Property="Margin" Value="0,-4,0,8"/>
+        </Style>
     </Window.Resources>
     <StackPanel Margin="12">
         <TextBlock Text="{Binding ParentTag}" FontWeight="SemiBold" Margin="0,0,0,8"/>
@@ -35,6 +40,7 @@
             <Button Grid.Column="2" Content="{DynamicResource ElementFragmentRecalc}" Padding="8,0" Margin="6,0,0,0"
                     Click="Recalc_Click"/>
         </Grid>
+        <TextBlock Text="{Binding OffsetError}" Style="{StaticResource FieldError}"/>
 
         <Grid Margin="0,0,0,6" IsEnabled="{Binding CanPickLevels}">
             <Grid.ColumnDefinitions>
@@ -46,12 +52,13 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             <TextBlock Text="{DynamicResource ElementFragmentFrom}" VerticalAlignment="Center" Margin="0,0,8,4"/>
-            <ComboBox Grid.Column="1" Margin="0,0,0,4" ItemsSource="{Binding Levels}" SelectedItem="{Binding FromLevel}"
+            <ComboBox x:Name="fromBox" Grid.Column="1" Margin="0,0,0,4" ItemsSource="{Binding Levels}" SelectedItem="{Binding FromLevel}"
                       DisplayMemberPath="Label"/>
             <TextBlock Grid.Row="1" Text="{DynamicResource ElementFragmentTo}" VerticalAlignment="Center" Margin="0,0,8,0"/>
             <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding Levels}" SelectedItem="{Binding ToLevel}"
                       DisplayMemberPath="Label"/>
         </Grid>
+        <TextBlock Text="{Binding FloorError}" Style="{StaticResource FieldError}" Margin="0,0,0,4"/>
         <CheckBox Content="{DynamicResource ElementFragmentFullHeight}" IsChecked="{Binding FullHeight}"
                   IsEnabled="{Binding CanToggleFullHeight}" Margin="0,2,0,8"/>
 
@@ -59,7 +66,8 @@
         <TextBlock Text="{Binding RangeText}" Foreground="Gray" Style="{StaticResource NoteText}"/>
 
         <TextBlock Text="{DynamicResource StoreyFragmentName}" Margin="0,0,0,2"/>
-        <TextBox Margin="0,0,0,8" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/>
+        <TextBox x:Name="nameBox" Margin="0,0,0,8" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/>
+        <TextBlock Text="{Binding NameError}" Style="{StaticResource FieldError}"/>
         <CheckBox Content="{DynamicResource StoreyFragmentKeepParentMesh}" IsChecked="{Binding KeepParentMesh}"
                   ToolTip="{DynamicResource StoreyFragmentKeepParentMeshTip}" Margin="0,0,0,8"/>
         <TextBlock Text="{DynamicResource ElementFragmentHint}" Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,8"/>

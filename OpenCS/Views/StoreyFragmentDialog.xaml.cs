@@ -1,5 +1,6 @@
 using System.Windows;
 using CScore.Fem.Fragment;
+using OpenCS.Services;
 using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
@@ -30,9 +31,19 @@ public partial class StoreyFragmentDialog : Window
 
     void Apply_Click(object sender, RoutedEventArgs e)
     {
-        if (_vm.TryRequest(out var error) is not { } request)
+        // Ошибки — под полями (VM); окно не закрывается, фокус — в поле первой ошибки.
+        if (_vm.TryRequest(out _) is not { } request)
         {
-            MessageBox.Show(this, error, Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            System.Windows.Controls.Control? field = _vm.FirstErrorField switch
+            {
+                FragmentAuthoring.FieldZ1 => z1Box,
+                FragmentAuthoring.FieldZ2 => z2Box,
+                FragmentAuthoring.FieldName => nameBox,
+                FragmentAuthoring.FieldFloors => levelsList,
+                _ => null,
+            };
+            field?.Focus();
+            if (field is System.Windows.Controls.TextBox box) box.SelectAll();
             return;
         }
         Request = request;

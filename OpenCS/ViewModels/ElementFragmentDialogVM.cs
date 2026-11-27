@@ -14,11 +14,13 @@ public sealed class ElementFragmentDialogVM : ViewModelBase
 {
     readonly Func<double, Task<ElementFragmentSelection>> _recompute;
     readonly CultureInfo _culture;
+    readonly Func<string, string?>? _nameError;
+    readonly Func<string, string>? _freeName;
     ElementFragmentSelection _selection;
     IReadOnlyList<StoreyFloorRow> _levels = [];
     StoreyFloorRow? _from, _to;
     bool _fullHeight, _busy, _nameEdited, _settingName, _settingLevels;
-    string _offsetText, _name = "", _message = "", _prismText = "", _rangeText = "", _offsetError = "";
+    string _offsetText, _name = "", _message = "", _prismText = "", _rangeText = "", _offsetError = "", _nameErrorText = "", _floorError = "";
     int _version;
 
     /// <summary>Отступ больше этого (м) — вероятная опечатка (обычно 1–3 м): предупреждение в <see cref="Message"/>, сборку не запрещает.</summary>
@@ -29,10 +31,13 @@ public sealed class ElementFragmentDialogVM : ViewModelBase
     /// <param name="recompute">Пересчёт выбора при новом d (в фоне).</param>
     /// <param name="rejectedTags">Невертикальные КонЭ, отсечённые до диалога (для сообщения).</param>
     public ElementFragmentDialogVM(string parentTag, ElementFragmentSelection selection,
-        Func<double, Task<ElementFragmentSelection>> recompute, IReadOnlyCollection<string> rejectedTags, CultureInfo culture)
+        Func<double, Task<ElementFragmentSelection>> recompute, IReadOnlyCollection<string> rejectedTags, CultureInfo culture,
+        Func<string, string?>? nameError = null, Func<string, string>? freeName = null)
     {
         ArgumentNullException.ThrowIfNull(selection);
         ParentTag = parentTag;
+        _nameError = nameError;
+        _freeName = freeName;
         _recompute = recompute;
         _culture = culture;
         _selection = selection;
@@ -56,6 +61,19 @@ public sealed class ElementFragmentDialogVM : ViewModelBase
         set { _offsetText = value; OnPropertyChanged(); }
     }
 
+    /// <summary>Ошибка отступа d (текст под полем); пусто — нет.</summary>
+    public string OffsetError
+    {
+        get => _offsetError;
+        private set { _offsetError = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanBuild)); }
+    }
+    /// <summary>Ошибка имени (пусто, занято); пусто — нет.</summary>
+    public string NameError { get => _nameErrorText; private set { _nameErrorText = value; OnPropertyChanged(); } }
+    /// <summary>«Выберите перекрытие»; пусто — нет.</summary>
+    public string FloorError { get => _floorError; private set { _floorError = value; OnPropertyChanged(); } }
+    /// <summary>Поле первой ошибки после <see cref="TryRequest"/>; null — ошибок нет.</summary>
+    public string? FirstErrorField { get; private set; }
+
     /// <summary>Доступные крайние перекрытия по возрастанию отметки.</summary>
     public IReadOnlyList<StoreyFloorRow> Levels { get => _levels; private set { _levels = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasLevels)); } }
     public bool HasLevels => _levels.Count > 0;
@@ -69,6 +87,7 @@ public sealed class ElementFragmentDialogVM : ViewModelBase
             if (value == _from) return;
             _from = value;
             OnPropertyChanged();
+            FloorError = "";
             if (!_settingLevels && value is not null && _to is not null && _to.Level.Z < value.Level.Z) { _to = value; OnPropertyChanged(nameof(ToLevel)); }
             if (!_settingLevels) Recompute();
         }
@@ -83,6 +102,7 @@ public sealed class ElementFragmentDialogVM : ViewModelBase
             if (value == _to) return;
             _to = value;
             OnPropertyChanged();
+            FloorError = "";
             if (!_settingLevels && value is not null && _from is not null && _from.Level.Z > value.Level.Z) { _from = value; OnPropertyChanged(nameof(FromLevel)); }
             if (!_settingLevels) Recompute();
         }
@@ -128,6 +148,7 @@ public sealed class ElementFragmentDialogVM : ViewModelBase
             _name = value;
             if (!_settingName) _nameEdited = value.Length > 0;
             OnPropertyChanged();
+            NameError = "";
         }
     }
 
@@ -137,20 +158,13 @@ public sealed class ElementFragmentDialogVM : ViewModelBase
     /// </summary>
     public async Task ApplyOffsetAsync()
     {
-        if (!Pars.ParseAny(_offsetText.Trim(), out double d) || !(d > 0))
+        if (FragmentAuthoring.OffsetError(_offsetText, out double d) is { } offsetError)
         {
-            _offsetError = Loc.S("ElementFragmentOffsetInvalid");
-            UpdateMessage();
-            OnPropertyChanged(nameof(CanBuild));
+            OffsetError = offsetError;
             return;
         }
-        bool hadError = _offsetError.Length > 0;
-        _offsetError = "";
-        if (Math.Abs(d - _selection.OffsetM) < 1e-9)
-        {
-            if (hadError) { UpdateMessage(); OnPropertyChanged(nameof(CanBuild)); }
-            return;
-        }
+        OffsetError = "";
+        if (Math.Abs(d - _selection.OffsetM) < 1e-9) return;
         int version = ++_version;
         IsBusy = true;
         try
@@ -168,18 +182,38 @@ public sealed class ElementFragmentDialogVM : ViewModelBase
     /// <summary>«Сохранять сетку родителя у необрезанных элементов» (<see cref="StoreyFragmentRequest.KeepParentMesh"/>).</summary>
     public bool KeepParentMesh { get; set; } = true;
 
-    /// <summary>Запрос сборки; ошибка — текст для пользователя, запрос null.</summary>
+    /// <summary>
+    /// Запрос сборки; ошибки d, перекрытий и имени — у полей (<see cref="OffsetError"/>, <see cref="FloorError"/>,
+    /// <see cref="NameError"/>), первая — в <paramref name="error"/> и <see cref="FirstErrorField"/>; запрос null.
+    /// Пересчёт не закончен или призма отклонена — <paramref name="error"/> без поля.
+    /// </summary>
     public StoreyFragmentRequest? TryRequest(out string? error)
     {
         error = null;
+        FirstErrorField = null;
         if (_busy) { error = Loc.S("ElementFragmentBusy"); return null; }
-        if (_offsetError.Length > 0) { error = _offsetError; return null; }
+        if (_offsetError.Length > 0)
+        {
+            FirstErrorField = FragmentAuthoring.FieldOffset;
+            error = _offsetError;
+            return null;
+        }
         if (_selection.HasErrors) { error = Message.Length > 0 ? Message : Loc.S("ElementFragmentRefused"); return null; }
+        var errors = new List<FragmentFieldError>();
+        if (!_fullHeight && (_from is null || _to is null)) errors.Add(new(FragmentAuthoring.FieldFloors, Loc.S("StoreyFloorNotSelected")));
+        string? nameError = _nameError?.Invoke(Name) ?? (string.IsNullOrWhiteSpace(Name) ? Loc.S("StoreyFragmentNameEmpty") : null);
+        if (nameError != null) errors.Add(new(FragmentAuthoring.FieldName, nameError));
+        FloorError = errors.FirstOrDefault(e => e.Field == FragmentAuthoring.FieldFloors)?.Message ?? "";
+        NameError = errors.FirstOrDefault(e => e.Field == FragmentAuthoring.FieldName)?.Message ?? "";
+        if (errors.Count > 0)
+        {
+            FirstErrorField = errors[0].Field;
+            error = errors[0].Message;
+            return null;
+        }
         string name = Name.Trim();
-        if (name.Length == 0) { error = Loc.S("StoreyFragmentNameEmpty"); return null; }
         if (_fullHeight) return ElementFragmentService.FullHeightRequest(_selection, name) with { KeepParentMesh = KeepParentMesh };
-        if (_from is null || _to is null) { error = Loc.S("StoreyFloorNotSelected"); return null; }
-        return ElementFragmentService.Request(_selection, _from.Index, _to.Index, name) with { KeepParentMesh = KeepParentMesh };
+        return ElementFragmentService.Request(_selection, _from!.Index, _to!.Index, name) with { KeepParentMesh = KeepParentMesh };
     }
 
     void Apply(ElementFragmentSelection selection, bool keepChoice)
@@ -257,8 +291,7 @@ public sealed class ElementFragmentDialogVM : ViewModelBase
     {
         var parts = new List<string>();
         if (RejectedText.Length > 0) parts.Add(RejectedText);
-        if (_offsetError.Length > 0) parts.Add(_offsetError);
-        else if (_selection.OffsetM > LargeOffsetM)
+        if (_selection.OffsetM > LargeOffsetM)
             parts.Add(string.Format(Loc.S("ElementFragmentOffsetLarge"), _selection.OffsetM.ToString("0.###", _culture),
                 LargeOffsetM.ToString("0.###", _culture)));
         parts.AddRange(_selection.Diagnostics.Select(d => d.Message));
@@ -285,7 +318,7 @@ public sealed class ElementFragmentDialogVM : ViewModelBase
     {
         if (_nameEdited) return;
         _settingName = true;
-        Name = name;
+        Name = _freeName?.Invoke(name) ?? name;
         _settingName = false;
     }
 

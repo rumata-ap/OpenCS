@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 using CScore.Fem.Fragment;
+using OpenCS.Services;
 using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
@@ -35,9 +36,24 @@ public partial class ElementFragmentDialog : Window
     async void Apply_Click(object sender, RoutedEventArgs e)
     {
         await _vm.ApplyOffsetAsync();
+        // Ошибки d, перекрытий и имени — под полями (VM), фокус — в поле первой ошибки. Отказ призмы виден в строке
+        // сообщений, а «Собрать» тогда недоступна; окно сообщения — только если пересчёт ещё идёт.
         if (_vm.TryRequest(out var error) is not { } request)
         {
-            MessageBox.Show(this, error, Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            System.Windows.Controls.Control? field = _vm.FirstErrorField switch
+            {
+                FragmentAuthoring.FieldOffset => offsetBox,
+                FragmentAuthoring.FieldFloors => fromBox,
+                FragmentAuthoring.FieldName => nameBox,
+                _ => null,
+            };
+            if (field != null)
+            {
+                field.Focus();
+                if (field is System.Windows.Controls.TextBox box) box.SelectAll();
+            }
+            else if (error != null)
+                MessageBox.Show(this, error, Title, MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
         Request = request;

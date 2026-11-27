@@ -3,7 +3,7 @@ using CScore.Fem;
 using CScore.Fem.Fragment;
 using OpenCS.Utilites;
 
-namespace OpenCS.ViewModels;
+namespace OpenCS.Services;
 
 /// <summary>Поля диалога «Фрагмент по отметкам…»: отметки z₁ &lt; z₂ (м) и имя новой схемы.</summary>
 public static class StoreyFragmentForm
@@ -37,7 +37,7 @@ public static class StoreyFragmentForm
     }
 
     static bool TryLevel(string text, out double z) =>
-        Pars.ParseAny(text?.Trim() ?? "", out z) && double.IsFinite(z);
+        FragmentAuthoring.TryNumber(text, out z);
 }
 
 /// <summary>Строка отчёта сборки фрагмента (и снятия масок) для окна отчёта; <paramref name="IsSummary"/> — итог.</summary>
