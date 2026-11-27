@@ -116,6 +116,7 @@ sealed partial class CliApp
         DescribeSteelOptions();
         DescribeForceOptions();
         DescribeImportOptions();
+        DescribeRefreshOptions();
         DescribeTaskOptions();
         DescribeModelOptions();
         var listSections = new Command("sections", Loc.S("CliCmdListSections")) { _project };
@@ -134,7 +135,11 @@ sealed partial class CliApp
             ListProfilesCommand()
         };
         var add = new Command("add", Loc.S("CliCmdAdd")) { AddSteelSectionCommand(), AddTasksCommand() };
-        var import = new Command("import", Loc.S("CliCmdImport")) { ImportForcesCommand(), ImportSchemaCommand() };
+        var import = new Command("import", Loc.S("CliCmdImport"))
+        {
+            ImportForcesCommand(), ImportSchemaCommand(), ImportBoundaryCommand(), ImportLoadsCommand()
+        };
+        var convert = new Command("convert", Loc.S("CliCmdConvert")) { ConvertBlocksCommand() };
         var split = new Command("split", Loc.S("CliCmdSplit")) { SplitForcesCommand() };
         var combine = new Command("combine", Loc.S("CliCmdCombine")) { CombineSp20Command() };
 
@@ -159,7 +164,7 @@ sealed partial class CliApp
 
         return new RootCommand(Loc.S("CliRootDescription"))
         {
-            _lang, _json, _quiet, NewCommand(), add, import, split, combine, ApplyCommand(), SchemaCommand(), info, list, run,
+            _lang, _json, _quiet, NewCommand(), add, import, convert, split, combine, ApplyCommand(), SchemaCommand(), info, list, run,
             export, tools
         };
     }

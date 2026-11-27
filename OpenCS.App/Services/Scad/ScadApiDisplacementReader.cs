@@ -7,6 +7,7 @@ namespace OpenCS.Services.Scad;
 /// <see cref="ScadApiSession.TryInitResult"/>): все строки всех загружений — у нелинейного загружения строка на
 /// сохранённый шаг. Только чтение, один поток; память DLL копируется сразу.
 /// </summary>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 internal static unsafe class ScadApiDisplacementReader
 {
     /// <summary>

@@ -9,7 +9,14 @@ namespace OpenCS.Cli;
 /// <summary>Наборы усилий стержней: импорт таблицы (CSV/XLSX/DOCX, HTML ЛИРА-САПР) и выделение строк по номерам КЭ.</summary>
 sealed partial class CliApp
 {
-    readonly Argument<string> _forceFile = new("file");
+    readonly Argument<string?> _forceFile = new("file") { Arity = ArgumentArity.ZeroOrOne };
+    readonly Option<string?> _forceSchema = new("--schema");
+    readonly Option<string?> _forceTarget = new("--target");
+    readonly Option<string?> _scadXls = new("--scad");
+    readonly Option<string?> _forceApi = new("--api");
+    readonly Option<string?> _apiKind = new("--kind");
+    readonly Option<string?> _rsuGroups = new("--rsu-groups");
+    readonly Option<string?> _spr = new("--spr");
     readonly Option<string> _axes = new("--axes") { DefaultValueFactory = _ => "auto" };
     readonly Option<string> _units = new("--units") { DefaultValueFactory = _ => "kN" };
     readonly Option<string?> _sheet = new("--sheet");
@@ -32,6 +39,16 @@ sealed partial class CliApp
         _sheet.Description = Loc.S("CliOptSheet");
         _liraMode.Description = Loc.S("CliOptLiraMode");
         _liraMode.AcceptOnlyFromAmong("rsu", "rsn", "loadcases");
+        _forceSchema.Description = Loc.S("CliOptForceSchema");
+        _forceTarget.Description = Loc.S("CliOptForceTarget");
+        _scadXls.Description = Loc.S("CliOptScadXls");
+        _scadXls.AcceptOnlyFromAmong("loadcases", "rsu", "combinations");
+        _forceApi.Description = Loc.S("CliOptForceApi");
+        _forceApi.AcceptOnlyFromAmong("lira", "scad");
+        _apiKind.Description = Loc.S("CliOptApiKind");
+        _apiKind.AcceptOnlyFromAmong("loadcases", "combinations", "rsn", "rsu");
+        _rsuGroups.Description = Loc.S("CliOptRsuGroups");
+        _spr.Description = Loc.S("CliOptSpr");
         _set.Description = Loc.S("CliOptSet");
         _sp20Sets.Description = Loc.S("CliOptSp20Sets");
         _sp20Mode.Description = Loc.S("CliOptSp20Mode");
@@ -84,7 +101,8 @@ sealed partial class CliApp
     static int SP20RowCount(ForceSet s) => s.Kind == "shell" ? s.ShellItems.Count : s.Items.Count;
 
     Command ImportForcesCommand() => EditCommand("forces", "CliCmdImportForces", ImportForcesAsync,
-        _forceFile, _tag, _axes, _units, _elements, _sheet, _liraMode);
+        _forceFile, _tag, _axes, _units, _elements, _sheet, _liraMode, _forceSchema, _forceTarget, _scadXls, _forceApi, _apiKind,
+        _rsuGroups, _spr, _scadDll);
 
     Command SplitForcesCommand() => EditCommand("forces", "CliCmdSplitForces", SplitForcesAsync, _set, _elements, _tag);
 
@@ -93,7 +111,14 @@ sealed partial class CliApp
     Task<int> ImportForcesAsync(CliCall call)
     {
         var p = call.Parse;
-        string file = p.GetValue(_forceFile)!;
+        string? api = p.GetValue(_forceApi);
+        string? fileArg = p.GetValue(_forceFile);
+        if (p.GetValue(_forceTarget) != null && p.GetValue(_forceSchema) == null)
+            throw new CliException(CliExitCode.Usage, Loc.S("CliErrTargetNeedsSchema"));
+        if (api != null) return ImportApiForces(call, api, fileArg);
+        if (fileArg == null) throw new CliException(CliExitCode.Usage, Loc.S("CliErrForceFileRequired"));
+        if (p.GetValue(_scadXls) is { } scadMode) return ImportScadXlsForces(call, fileArg, scadMode);
+        string file = fileArg;
         string path = Path.GetFullPath(file);
         if (!File.Exists(path)) throw new CliException(CliExitCode.Usage, string.Format(Loc.S("CliErrFileNotFound"), file));
         string ext = Path.GetExtension(path).ToLowerInvariant();
@@ -153,14 +178,161 @@ sealed partial class CliApp
         return Edit(call, session =>
         {
             var db = session.Context.Db;
-            int num = NextNum(db.ForceSets, f => f.Num);
-            foreach (var set in sets)
-            {
-                set.Num = num++;
-                db.SaveForceSet(set);
-            }
+            var (_, target) = ResolveForceTarget(call, db);
+            FemForceImport.Save(db, sets, target);
             ReportImport(call, sets, axesName, columns, warnings);
         });
+    }
+
+    /// <summary>Схема (<c>--schema</c>, Id или имя) и цель в ней (<c>--target</c>: имя группы КЭ/КонЭ или КонЭ).</summary>
+    (CScore.Fem.FemSchema? Schema, CScore.Fem.IFemCheckable? Target) ResolveForceTarget(CliCall call, DatabaseService db)
+    {
+        if (call.Parse.GetValue(_forceSchema) is not { } schemaRef) return (null, null);
+        var schema = CliRefs.Resolve(db.FemSchemas, schemaRef, s => s.Id, s => s.Tag, "CliKindSchema");
+        if (call.Parse.GetValue(_forceTarget) is not { } targetRef) return (schema, null);
+        var groups = schema.MemberGroups.Where(g => g.Tag == targetRef).ToList();
+        var members = db.GetFemMembers(schema.Id).Where(m => m.ElemTag == targetRef).ToList();
+        return (groups.Count + members.Count) switch
+        {
+            1 => (schema, groups.Count == 1 ? groups[0] : members[0]),
+            0 => throw new CliException(CliExitCode.Usage, string.Format(Loc.S("CliErrTargetNotFound"), targetRef, schema.Tag)),
+            _ => throw new CliException(CliExitCode.Usage, string.Format(Loc.S("CliErrTargetAmbiguous"), targetRef, schema.Tag)),
+        };
+    }
+
+    LiraImportSettings LiraSettings(DatabaseService db) => db.LoadLiraImportSettings() ?? LiraImportSettings.Default;
+
+    /// <summary>
+    /// Усилия SCAD из XLS (<c>--scad loadcases|rsu|combinations</c>): КЭ — <c>--elements</c>, иначе КЭ цели, иначе все;
+    /// наборы привязываются к цели <c>--target</c>.
+    /// </summary>
+    Task<int> ImportScadXlsForces(CliCall call, string file, string mode)
+    {
+        string path = Path.GetFullPath(file);
+        if (!File.Exists(path)) throw new CliException(CliExitCode.Usage, string.Format(Loc.S("CliErrFileNotFound"), file));
+        var elements = call.Parse.GetValue(_elements) is { } list ? ElementList.Parse(list) : null;
+        return Edit(call, session =>
+        {
+            var db = session.Context.Db;
+            var (schema, target) = ResolveForceTarget(call, db);
+            var ids = elements ?? (target != null ? FemForceImport.TargetElements(db, target).ToHashSet() : null);
+            var options = FemForceImport.ScadOptions(LiraSettings(db));
+            options.ElementIds = ids ?? new HashSet<int>();
+            options.ImportAllElements = ids == null;
+            var import = ScadXlsForceImporter.ImportFile(path, mode switch
+            {
+                "rsu" => ScadXlsImportMode.Rsu,
+                "combinations" => ScadXlsImportMode.Combinations,
+                _ => ScadXlsImportMode.LoadCases,
+            }, options);
+            if (!import.Success)
+                throw new CliException(CliExitCode.Usage, string.Format(Loc.S("CliErrImport"),
+                    import.Error ?? import.Warning ?? Loc.S("ImportScadForcesNoRows")));
+            if (!string.IsNullOrEmpty(import.Warning)) call.Log.Warning(import.Warning);
+            if (schema != null) foreach (var s in import.ForceSets) s.SourceSchemaId ??= schema.Id;
+            FemForceImport.Save(db, import.ForceSets, target);
+            ReportImport(call, import.ForceSets, "scad", [], []);
+        });
+    }
+
+    /// <summary>
+    /// Усилия через API (<c>--api lira|scad</c>, только Windows) на цель схемы: ЛИРА — открытая в ней схема, КЭ цели;
+    /// SCAD — проект .SPR схемы (<c>--spr</c> или путь, запомненный импортом), КЭ цели или все.
+    /// </summary>
+    Task<int> ImportApiForces(CliCall call, string api, string? file)
+    {
+        if (file != null) throw new CliException(CliExitCode.Usage, Loc.S("CliErrApiNoFile"));
+        if (call.Parse.GetValue(_forceSchema) == null) throw new CliException(CliExitCode.Usage, Loc.S("CliErrApiNeedsSchema"));
+        if (!ComAvailable())
+            throw new CliException(CliExitCode.Usage, Loc.S(api == "lira" ? "CliErrLiraApiWindowsOnly" : "CliErrScadSprWindowsOnly"));
+        string kind = call.Parse.GetValue(_apiKind) ?? "loadcases";
+        if (api == "lira" && kind == "combinations" || api == "scad" && kind == "rsn")
+            throw new CliException(CliExitCode.Usage, string.Format(Loc.S("CliErrApiKind"), kind, api));
+        return Edit(call, session =>
+        {
+            if (!OperatingSystem.IsWindows()) return;
+            var db = session.Context.Db;
+            var (schema, target) = ResolveForceTarget(call, db);
+            var sets = api == "lira" ? ReadLiraApiForces(db, schema!, target, kind) : ReadScadApiForces(call, db, schema!, target, kind);
+            FemForceImport.Save(db, sets, target);
+            ReportImport(call, sets, api, [], []);
+        });
+    }
+
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    List<ForceSet> ReadLiraApiForces(DatabaseService db, CScore.Fem.FemSchema schema, CScore.Fem.IFemCheckable? target, string kind)
+    {
+        if (target == null) throw new CliException(CliExitCode.Usage, Loc.S("CliErrLiraApiNeedsTarget"));
+        var ids = FemForceImport.TargetElements(db, target);
+        if (ids.Length == 0) throw new CliException(CliExitCode.Usage, Loc.S("ImportLiraForcesNoElements"));
+        var settings = LiraSettings(db);
+        try
+        {
+            return RunSta(() => kind switch
+            {
+                "rsn" => LiraApiForceImporter.ReadLoadCombinationForces(schema, ids, settings, target.Tag),
+                "rsu" => LiraApiForceImporter.ReadDesignCombinationForces(schema, ids, settings, target.Tag),
+                _ => LiraApiForceImporter.ReadLoadCaseForces(schema, ids, settings, target.Tag),
+            });
+        }
+        catch (Exception ex) when (ex is not CliException)
+        {
+            throw new CliException(CliExitCode.Failed, string.Format(Loc.S("CliErrLiraApi"), ex.Message.Split('\n')[0]));
+        }
+    }
+
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    List<ForceSet> ReadScadApiForces(CliCall call, DatabaseService db, CScore.Fem.FemSchema schema, CScore.Fem.IFemCheckable? target,
+        string kind)
+    {
+        if (schema.SourceType != "scad")
+            throw new CliException(CliExitCode.Usage, string.Format(Loc.S("ScadForcesNotScadSchema"), schema.Tag));
+        string? spr = call.Parse.GetValue(_spr) is { } given ? Path.GetFullPath(given) : schema.SourcePath;
+        if (spr == null || !File.Exists(spr))
+            throw new CliException(CliExitCode.Usage, string.Format(Loc.S("CliErrSprNotFound"), schema.Tag));
+        if (!string.Equals(spr, schema.SourcePath, StringComparison.OrdinalIgnoreCase)) db.UpdateFemSchemaSourcePath(schema, spr);
+        var (targets, notInMesh) = FemForceImport.ScadApiTargets(db, schema, target);
+        if (targets.Count == 0) throw new CliException(CliExitCode.Usage, Loc.S("ScadForcesNoElements"));
+        var settings = db.LoadScadApiSettings();
+        string dll = ResolveScadDll(call, settings);
+        string? work = !string.IsNullOrWhiteSpace(settings.WorkDirectory) && Directory.Exists(settings.WorkDirectory)
+            ? settings.WorkDirectory : Services.Scad.ScadInstallLocator.FindWorkDirectory();
+        var readKind = kind switch
+        {
+            "combinations" => Services.Scad.ScadForceReadKind.Combinations,
+            "rsu" => Services.Scad.ScadForceReadKind.Rsu,
+            _ => Services.Scad.ScadForceReadKind.LoadCases,
+        };
+        HashSet<int>? rsu = readKind == Services.Scad.ScadForceReadKind.Rsu ? ParseRsuGroups(call, settings) : null;
+        Services.Scad.ScadApiForceReadResult read;
+        Services.Scad.ScadApiNative.Gate.Wait(call.Token);
+        try
+        {
+            using var session = new Services.Scad.ScadApiSession(Services.Scad.ScadApiNative.Load(dll));
+            session.Open(spr);
+            read = Services.Scad.ScadApiForceReader.Read(session, work, targets, readKind, null, call.Token, rsu);
+        }
+        catch (Services.Scad.ScadApiException ex) { throw new CliException(CliExitCode.Failed, ex.Format(Loc.S)); }
+        finally { Services.Scad.ScadApiNative.Gate.Release(); }
+        FemForceImport.ReportScadApiRead(call.Log, read, notInMesh);
+        return FemForceImport.BuildScadApiSets(read, readKind, schema.Id, target?.Tag ?? schema.Tag,
+            FemForceImport.ScadOptions(LiraSettings(db)));
+    }
+
+    /// <summary>Группы РСУ SCAD: <c>--rsu-groups C,CL,N,NL</c>, иначе — запомненные окном.</summary>
+    HashSet<int> ParseRsuGroups(CliCall call, ScadApiSettings settings)
+    {
+        if (call.Parse.GetValue(_rsuGroups) is not { } text) return [.. settings.RsuGroups];
+        string[] names = ["C", "CL", "N", "NL"];
+        var set = new HashSet<int>();
+        foreach (var part in text.Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            int i = Array.FindIndex(names, n => string.Equals(n, part, StringComparison.OrdinalIgnoreCase));
+            if (i < 0) throw new CliException(CliExitCode.Usage, string.Format(Loc.S("CliErrRsuGroup"), part));
+            set.Add(i);
+        }
+        if (set.Count == 0) throw new CliException(CliExitCode.Usage, string.Format(Loc.S("CliErrRsuGroup"), text));
+        return set;
     }
 
     static void ReportImport(CliCall call, List<ForceSet> sets, string axesName, IReadOnlyList<string> columns,
@@ -175,7 +347,7 @@ sealed partial class CliApp
         else
         {
             foreach (var set in sets)
-                call.Out.WriteLine(string.Format(Loc.S("CliImportedSet"), set.Id, set.Tag, set.Items.Count));
+                call.Out.WriteLine(string.Format(Loc.S("CliImportedSet"), set.Id, set.Tag, SP20RowCount(set)));
             if (columns.Count > 0)
                 call.Out.WriteLine(string.Format(Loc.S("CliImportColumns"), axesName, string.Join("; ", columns)));
         }
@@ -183,7 +355,7 @@ sealed partial class CliApp
 
     static object SetSummary(ForceSet set) => new
     {
-        set.Id, set.Num, set.Tag, Rows = set.Items.Count,
+        set.Id, set.Num, set.Tag, Rows = SP20RowCount(set), set.Kind,
         Elements = ElementList.Format(set.Items.Select(i => i.SourceElementNum).OfType<int>())
     };
 

@@ -23,6 +23,7 @@ internal sealed record ScadApiForceReadResult(IReadOnlyList<ScadElementForces> F
 /// Чтение усилий, комбинаций и РСУ КЭ через открытую <see cref="ScadApiSession"/> (результаты в «т, м»,
 /// <see cref="ScadApiSession.TryInitResult"/>). Только чтение, один поток; память DLL копируется сразу.
 /// </summary>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 internal static unsafe class ScadApiForceReader
 {
     const int CancelStride = 256;

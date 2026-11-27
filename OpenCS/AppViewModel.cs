@@ -4254,15 +4254,7 @@ namespace OpenCS
          }
 
          // Вид КЭ — по сетке схемы (номер КЭ SCAD = тег КЭ сетки).
-         var kindById = new Dictionary<int, CScore.Import.ScadElementKind>();
-         foreach (var e in db.GetFemMeshElements(schema.Id))
-            if (int.TryParse(e.ElemTag, out int id))
-               kindById[id] = e.ElemType == "shell" ? CScore.Import.ScadElementKind.Shell : CScore.Import.ScadElementKind.Beam;
-         int[] ids = target is CScore.Fem.IFemCheckable member
-            ? FemTargetElementNumbers(member).Distinct().ToArray()
-            : [.. kindById.Keys];
-         var targets = ids.Where(kindById.ContainsKey).ToDictionary(id => id, id => kindById[id]);
-         int notInMesh = ids.Length - targets.Count;
+         var (targets, notInMesh) = Services.FemForceImport.ScadApiTargets(db, schema, target as CScore.Fem.IFemCheckable);
          if (targets.Count == 0)
          {
             MessageBox.Show(Loc.S("ScadForcesNoElements"), Loc.S("ImportScadErrorTitle"),
@@ -4297,12 +4289,7 @@ namespace OpenCS
          }
 
          string targetTag = target is CScore.Fem.IFemCheckable t ? t.Tag : schema.Tag;
-         var options = new CScore.Import.ScadXlsImportOptions
-         {
-            TonToKnFactor = LiraImportSettings.TonToKnFactor,
-            InvertBarBendingMoments = LiraImportSettings.InvertBarBendingMoments,
-            InvertShellBendingMoments = LiraImportSettings.InvertShellBendingMoments,
-         };
+         var options = Services.FemForceImport.ScadOptions(LiraImportSettings);
          var cts = BeginBusyWithCancellation(string.Format(Loc.S("ScadForcesImporting"), targets.Count, targetTag),
             indeterminate: false);
          var progress = new Progress<double>(f => ReportBusyProgress(f));
@@ -4335,21 +4322,11 @@ namespace OpenCS
                }
             }
 
-            var sets = await Task.Run(() => kind switch
-            {
-               Services.Scad.ScadForceReadKind.LoadCases =>
-                  CScore.Import.ScadForceSetBuilder.LoadCases(read.Forces, read.Catalog, schema.Id, targetTag, options),
-               Services.Scad.ScadForceReadKind.Combinations =>
-                  CScore.Import.ScadForceSetBuilder.Combinations(read.Forces, read.Catalog, schema.Id, targetTag, options),
-               _ => CScore.Import.ScadForceSetBuilder.Rsu(read.Rsu, schema.Id, targetTag, options),
-            }, cts.Token);
+            var sets = await Task.Run(() => Services.FemForceImport.BuildScadApiSets(read, kind, schema.Id, targetTag, options),
+               cts.Token);
 
             SaveImportedForceSets(sets, target as CScore.Fem.IFemCheckable);
-
-            if (notInMesh > 0) LogService.Warning(string.Format(Loc.S("ScadForcesNotInMesh"), notInMesh));
-            if (read.MissingElements > 0) LogService.Warning(string.Format(Loc.S("ScadForcesMissing"), read.MissingElements));
-            if (read.WrongKindElements > 0) LogService.Warning(string.Format(Loc.S("ScadForcesWrongKind"), read.WrongKindElements));
-            if (read.NoResultElements > 0) LogService.Info(string.Format(Loc.S("ScadForcesNoResult"), read.NoResultElements));
+            Services.FemForceImport.ReportScadApiRead(LogService, read, notInMesh);
             string done = string.Format(Loc.S("ScadForcesSuccess"), sets.Count, targetTag,
                sets.Sum(s => s.RowCount));
             LogService.Info(done);
@@ -4600,7 +4577,7 @@ namespace OpenCS
             db.SaveScadApiSettings(scadSettings);
          }
          HashSet<int> elementIds = [.. dlg.ElementIds];
-         int memberId = dlg.BindToMember ? member?.Id ?? 0 : 0;
+         var bindTo = dlg.BindToMember ? member : null;
 
          var options = new CScore.Import.ScadXlsImportOptions
          {
@@ -4635,16 +4612,8 @@ namespace OpenCS
                LogService.Warning(import.Warning);
 
             ReportBusyProgress(0.97, Loc.S("ImportScadForcesSaving"));
-            int nextNum = ForceSets.Count > 0 ? ForceSets.Max(f => f.Num) + 1 : 1;
-            foreach (var fs in import.ForceSets)
-            {
-               fs.Num = nextNum++;
-               if (memberId > 0)
-                  fs.SourceMemberId = memberId;
-               db.SaveForceSet(fs);
-               if (!ForceSets.Contains(fs))
-                  ForceSets.Add(fs);
-            }
+            foreach (var fs in import.ForceSets) fs.Num = 0; // номера — следующие свободные проекта
+            SaveImportedForceSets(import.ForceSets, bindTo);
 
             string done = string.Format(Loc.S("ImportScadForcesSuccess"),
                import.ForceSets.Count, import.RowsMatched);
@@ -5649,58 +5618,17 @@ namespace OpenCS
          if (new Views.LiraBlocksToMembersDialog(vm).ShowDialog() != true) return;
          var selected = vm.SelectedBlocks;
 
-         var replacedTags = members
-            .Where(m => selected.Any(b => CScore.Import.MeshMemberBuilder.IsPartTag(m.ElemTag, b.Tag)))
-            .Select(m => m.ElemTag).ToHashSet(StringComparer.Ordinal);
-         var ownerByElement = meshElements
-            .Where(e => e.SourceMemberTag != null && !replacedTags.Contains(e.SourceMemberTag))
-            .ToDictionary(e => e.ElemTag, e => e.SourceMemberTag!, StringComparer.Ordinal);
-         var claimed = new HashSet<string>(StringComparer.Ordinal);
-         var builds = new List<CScore.Import.MeshMemberBuild>();
-         var converted = new List<CScore.Import.LiraBlockInfo>();
-         foreach (var block in selected)
-         {
-            var free = new List<string>();
-            var busy = new List<string>();
-            foreach (var tag in block.ElementTags)
-               (ownerByElement.ContainsKey(tag) || !claimed.Add(tag) ? busy : free).Add(tag);
-            if (busy.Count > 0)
-               LogService.Warning(string.Format(Loc.S("LiraBlocksElementsBusy"), block.Tag, busy.Count,
-                  string.Join(", ", busy.Take(20))));
-            CScore.Import.MeshMemberBuild build;
-            try
-            {
-               build = CScore.Import.LiraBlockMemberBuilder.Build(block with { ElementTags = free }, meshNodes, meshElements);
-            }
-            catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
-            {
-               // Непредвиденная геометрия одного кБ не должна срывать остальные; его прежние элементы не трогаем.
-               LogService.Error(string.Format(Loc.S("LiraBlocksBuildFailed"), block.Tag, ex.Message));
-               continue;
-            }
-            foreach (var d in build.Diagnostics)
-               LogService.Warning(d.Message);
-            builds.Add(build);
-            converted.Add(block);
-         }
-         if (converted.Count == 0) return;
-         selected = converted;
-
+         string? done;
          try
          {
-            db.ApplyLiraBlockMembers(schema.Id, selected, builds);
+            done = Services.LiraBlockConversion.Convert(db, LogService, schema, selected);
          }
          catch (InvalidOperationException ex)
          {
             MessageBox.Show(ex.Message, Loc.S("LiraBlocksDialogTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
          }
-
-         var parts = builds.SelectMany(b => b.Parts).ToList();
-         string done = string.Format(Loc.S("LiraBlocksConverted"), selected.Count,
-            parts.Count(p => p.Member.ElemType == "beam"), parts.Count(p => p.Member.ElemType == "shell"),
-            builds.Sum(b => b.Diagnostics.Count));
-         LogService.Info(done);
+         if (done == null) return;
          StatusMessage = done;
          if (editorOpen) ReloadFemSchemaPage();
          else RefreshFemSchemaTreeCounts(schema);
@@ -5972,36 +5900,17 @@ namespace OpenCS
 
       /// <summary>Номера КЭ внешней схемы, по которым запрашиваются усилия цели: КЭ сетки группы (у группы КЭ —
       /// её номера, у группы КонЭ — КЭ её элементов) или КЭ, привязанные к конструктивному элементу.</summary>
-      int[] FemTargetElementNumbers(CScore.Fem.IFemCheckable target) => target switch
-      {
-         CScore.Fem.FemMemberGroup group => [.. db.GetFemCheckScope(group).ElementNumbers],
-         CScore.Fem.FemMember element    => [.. db.GetFemCheckScope(element).ElementNumbers],
-         _ => [],
-      };
+      int[] FemTargetElementNumbers(CScore.Fem.IFemCheckable target) => Services.FemForceImport.TargetElements(db, target);
 
-      static int FemTargetSchemaId(CScore.Fem.IFemCheckable target) => target switch
-      {
-         CScore.Fem.FemMemberGroup group => group.SchemaId,
-         CScore.Fem.FemMember element    => element.SchemaId,
-         _ => 0,
-      };
+      static int FemTargetSchemaId(CScore.Fem.IFemCheckable target) => Services.FemForceImport.TargetSchemaId(target);
 
+      /// <summary>Наборы импорта на цель — номер, привязка, запись (<see cref="Services.FemForceImport.Save"/>); в пул окна.</summary>
       void SaveImportedForceSets(IReadOnlyList<CScore.ForceSet> forceSets, CScore.Fem.IFemCheckable? target)
       {
+         Services.FemForceImport.Save(db, forceSets, target);
          foreach (var fs in forceSets)
-         {
-            // Группа и конструктивный элемент — разные таблицы: id могут совпадать, поэтому колонки разные.
-            if (target is CScore.Fem.FemMember element)
-            {
-               fs.SourceElementId  = element.Id;
-               fs.SourceElementTag = element.ElemTag;
-            }
-            else if (target is CScore.Fem.FemMemberGroup group)
-               fs.SourceMemberId = group.Id;
-            db.SaveForceSet(fs);
             if (!ForceSets.Contains(fs))
                ForceSets.Add(fs);
-         }
       }
 
       CancellationTokenSource? _busyCts;

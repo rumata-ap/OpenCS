@@ -27,6 +27,7 @@ internal sealed record ScadProjectSummary(int Nodes, int Bars, int Shells, int S
     string ForceUnit, int? ResultLoads, bool HasForces, bool HasRsu);
 
 /// <summary>Чтение схемы SCAD через открытую <see cref="ScadApiSession"/>. Только чтение, один поток.</summary>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 internal static unsafe class ScadApiReader
 {
     const int CancelStride = 4096;

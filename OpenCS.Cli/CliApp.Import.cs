@@ -178,12 +178,7 @@ sealed partial class CliApp
     [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     SchemaImportOutcome ImportScadSpr(FemSchemaImport import, DatabaseService db, string spr, CliCall call)
     {
-        var settings = db.LoadScadApiSettings();
-        string? dll = call.Parse.GetValue(_scadDll)
-            ?? (Services.Scad.ScadInstallLocator.ContainsDll(settings.DllDirectory) ? settings.DllDirectory
-                : Services.Scad.ScadInstallLocator.FindDllDirectory());
-        if (dll == null || !Services.Scad.ScadInstallLocator.ContainsDll(dll))
-            throw new CliException(CliExitCode.Usage, Loc.S("CliErrScadDllNotFound"));
+        string dll = ResolveScadDll(call, db.LoadScadApiSettings());
         var options = new Services.Scad.ScadReadOptions(!call.Parse.GetValue(_noOutputAxes), ConcreteGroups: true);
         Services.Scad.ScadApiReadResult read;
         Services.Scad.ScadApiNative.Gate.Wait(call.Token);
@@ -206,6 +201,17 @@ sealed partial class CliApp
         var (schema, done, boundary, loads) = import.ImportScadApi(read.Data, spr, new FemSchemaImport.ScadApiImportOptions(
             !call.Parse.GetValue(_noConcreteGroups), !call.Parse.GetValue(_noSteelGroups), dll));
         return new(schema, done, boundary, loads);
+    }
+
+    /// <summary>Каталог SCADAPIX.dll: <c>--scad-dll</c>, иначе из настроек проекта, иначе поиском установки SCAD.</summary>
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    string ResolveScadDll(CliCall call, ScadApiSettings settings)
+    {
+        string? dll = call.Parse.GetValue(_scadDll)
+            ?? (Services.Scad.ScadInstallLocator.ContainsDll(settings.DllDirectory) ? settings.DllDirectory
+                : Services.Scad.ScadInstallLocator.FindDllDirectory());
+        return dll != null && Services.Scad.ScadInstallLocator.ContainsDll(dll)
+            ? dll : throw new CliException(CliExitCode.Usage, Loc.S("CliErrScadDllNotFound"));
     }
 
     [System.Runtime.Versioning.SupportedOSPlatform("windows")]

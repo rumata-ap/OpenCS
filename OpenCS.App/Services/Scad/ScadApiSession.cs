@@ -7,6 +7,7 @@ namespace OpenCS.Services.Scad;
 /// Объект SCAD++ API (ApiCreate / ApiRelease) — только чтение проекта. Все вызовы сессии — из
 /// одного потока (обязанность вызывающего; в отладке проверяется).
 /// </summary>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 internal sealed unsafe class ScadApiSession : IDisposable
 {
     /// <summary>Код успешного завершения (APICode_OK).</summary>
