@@ -161,6 +161,43 @@ public sealed class CliImportAfterTests : IDisposable
     }
 
     [Fact]
+    public async Task ImportContoursAndCircles_UnitsFromFileOrOption_NoDuplicates()
+    {
+        string db = PathOf("geo.db");
+        Assert.Equal(0, (await Run("new", db)).Code);
+        string Sheet(string name, netDxf.Units.DrawingUnits units, double scale)
+        {
+            var doc = new netDxf.DxfDocument();
+            doc.DrawingVariables.InsUnits = units;
+            doc.Entities.Add(new netDxf.Entities.Polyline2D(new List<netDxf.Vector2>
+                { new(0, 0), new(300 * scale, 0), new(300 * scale, 500 * scale), new(0, 500 * scale) }, true));
+            doc.Entities.Add(new netDxf.Entities.Circle(new netDxf.Vector2(50 * scale, 50 * scale), 10 * scale));
+            string path = PathOf(name);
+            doc.Save(path);
+            return path;
+        }
+        string mm = Sheet("mm.dxf", netDxf.Units.DrawingUnits.Millimeters, 1);
+        string bare = Sheet("bare.dxf", netDxf.Units.DrawingUnits.Unitless, 0.001);
+
+        var (code, output, err) = await Run("import", "contours", db, mm, "--json");
+        Assert.True(code == 0, err);
+        Assert.Equal(0.001, JsonDocument.Parse(output).RootElement.GetProperty("metersPerUnit").GetDouble());
+        (code, output, _) = await Run("import", "contours", db, mm, "--json");
+        Assert.Equal(1, JsonDocument.Parse(output).RootElement.GetProperty("duplicates").GetInt32());
+
+        (code, _, _) = await Run("import", "contours", db, bare);
+        Assert.Equal(CliExitCode.Usage, code); // единиц нет ни в файле, ни в --units
+        (code, _, err) = await Run("import", "circles", db, bare, "--units", "m");
+        Assert.True(code == 0, err);
+
+        using var d = new DatabaseService(db);
+        d.LoadAll();
+        Assert.Single(d.Contours);
+        Assert.Equal(0.5, d.Contours[0].Points.Max(p => p.Y), 9);
+        Assert.Equal(0.01, Assert.Single(d.Circles).Radius, 9);
+    }
+
+    [Fact]
     public async Task ImportForces_TargetErrors_AndApiOutsideWindows()
     {
         Loc.SetLanguage(Loc.Russian);

@@ -6275,6 +6275,15 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliOptSheet">Excel sheet: name or number from 1</system:String>
    <system:String x:Key="CliOptLiraMode">ЛИРА-САПР HTML table: rsu, rsn, loadcases</system:String>
    <system:String x:Key="CliErrImport">Import failed: {0}</system:String>
+   <system:String x:Key="CliNoGeometrySet">no set</system:String>
+   <system:String x:Key="CliCmdImportContours">Geometry pool contours from closed DXF polylines (a repeated import creates no duplicates)</system:String>
+   <system:String x:Key="CliCmdImportCircles">Geometry pool circles from DXF circles or CSV "Tag;X;Y;Radius" in metres (a repeated import creates no duplicates)</system:String>
+   <system:String x:Key="CliArgGeometryFile">DXF file (CSV also for circles)</system:String>
+   <system:String x:Key="CliOptDxfUnits">DXF drawing units: mm, cm, m (otherwise from the file's $INSUNITS)</system:String>
+   <system:String x:Key="CliOptGeometrySet">Geometry set (default — the file name)</system:String>
+   <system:String x:Key="CliErrDxfUnits">The file "{0}" does not define drawing units — specify --units mm|cm|m.</system:String>
+   <system:String x:Key="CliContoursImported">Contours added {0}, skipped {1} (not closed or self-intersecting), already in the pool {2} — set "{3}"</system:String>
+   <system:String x:Key="CliCirclesImported">Circles added {0}, skipped {1}, already in the pool {2} — set "{3}"</system:String>
    <system:String x:Key="CliCmdImportBoundary">Re-read model boundary conditions: LIRA — from the model text file, SCAD — from the import attachment; previously transferred are replaced, manual ones kept</system:String>
    <system:String x:Key="CliCmdImportLoads">Re-read model loads: LIRA — from the model text file, SCAD — from the import attachment; previously transferred are replaced, manual ones kept</system:String>
    <system:String x:Key="CliCmdConvert">Imported model conversions</system:String>

@@ -117,6 +117,7 @@ sealed partial class CliApp
         DescribeForceOptions();
         DescribeImportOptions();
         DescribeRefreshOptions();
+        DescribeGeometryOptions();
         DescribeTaskOptions();
         DescribeModelOptions();
         var listSections = new Command("sections", Loc.S("CliCmdListSections")) { _project };
@@ -137,7 +138,8 @@ sealed partial class CliApp
         var add = new Command("add", Loc.S("CliCmdAdd")) { AddSteelSectionCommand(), AddTasksCommand() };
         var import = new Command("import", Loc.S("CliCmdImport"))
         {
-            ImportForcesCommand(), ImportSchemaCommand(), ImportBoundaryCommand(), ImportLoadsCommand()
+            ImportForcesCommand(), ImportSchemaCommand(), ImportBoundaryCommand(), ImportLoadsCommand(), ImportContoursCommand(),
+            ImportCirclesCommand()
         };
         var convert = new Command("convert", Loc.S("CliCmdConvert")) { ConvertBlocksCommand() };
         var split = new Command("split", Loc.S("CliCmdSplit")) { SplitForcesCommand() };

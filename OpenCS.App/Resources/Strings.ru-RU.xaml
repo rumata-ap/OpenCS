@@ -6275,6 +6275,15 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliOptSheet">Лист книги Excel: имя или номер с 1</system:String>
    <system:String x:Key="CliOptLiraMode">Таблица HTML ЛИРА-САПР: rsu, rsn, loadcases</system:String>
    <system:String x:Key="CliErrImport">Импорт не выполнен: {0}</system:String>
+   <system:String x:Key="CliNoGeometrySet">без набора</system:String>
+   <system:String x:Key="CliCmdImportContours">Контуры пула геометрии из замкнутых полилиний DXF (повторный импорт не создаёт дубликатов)</system:String>
+   <system:String x:Key="CliCmdImportCircles">Круги пула геометрии из окружностей DXF или CSV «Tag;X;Y;Radius» в метрах (повторный импорт не создаёт дубликатов)</system:String>
+   <system:String x:Key="CliArgGeometryFile">Файл DXF (для кругов — также CSV)</system:String>
+   <system:String x:Key="CliOptDxfUnits">Единицы чертежа DXF: mm, cm, m (иначе — из $INSUNITS файла)</system:String>
+   <system:String x:Key="CliOptGeometrySet">Набор геометрии (по умолчанию — имя файла)</system:String>
+   <system:String x:Key="CliErrDxfUnits">В файле «{0}» единицы чертежа не заданы — укажите --units mm|cm|m.</system:String>
+   <system:String x:Key="CliContoursImported">Контуров добавлено {0}, пропущено {1} (не замкнуты или самопересечение), уже в пуле {2} — набор «{3}»</system:String>
+   <system:String x:Key="CliCirclesImported">Кругов добавлено {0}, пропущено {1}, уже в пуле {2} — набор «{3}»</system:String>
    <system:String x:Key="CliCmdImportBoundary">Дочитать граничные условия схемы: ЛИРА — из текстового файла схемы, SCAD — из вложения импорта; перенесённые раньше заменяются, ручные не трогаются</system:String>
    <system:String x:Key="CliCmdImportLoads">Дочитать нагрузки схемы: ЛИРА — из текстового файла схемы, SCAD — из вложения импорта; перенесённые раньше заменяются, ручные не трогаются</system:String>
    <system:String x:Key="CliCmdConvert">Преобразования импортной схемы</system:String>
