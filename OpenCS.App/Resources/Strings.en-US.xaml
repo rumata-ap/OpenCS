@@ -6144,7 +6144,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliCmdRunTask">Calculation tasks</system:String>
    <system:String x:Key="CliCmdRunCheck">FE checks</system:String>
    <system:String x:Key="CliCmdRunAnalysis">FE schema analyses</system:String>
-   <system:String x:Key="CliArgIds">Object ids</system:String>
+   <system:String x:Key="CliArgIds">Object ids or names</system:String>
    <system:String x:Key="CliOptAll">All objects of this kind</system:String>
    <system:String x:Key="CliOptOut">Save the project with results to this file</system:String>
    <system:String x:Key="CliOptForce">Overwrite an existing --out file</system:String>
@@ -6167,7 +6167,8 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliErrInPlaceWithOut">--in-place and --out cannot be combined</system:String>
    <system:String x:Key="CliErrIdsOrAll">Specify ids or --all</system:String>
    <system:String x:Key="CliErrIdsAndAll">Specify either ids or --all</system:String>
-   <system:String x:Key="CliErrNotFound">{0}: no object with id {1}</system:String>
+   <system:String x:Key="CliErrNotFound">{0}: no object "{1}" (id or name)</system:String>
+    <system:String x:Key="CliErrRunAmbiguous">{0}: name "{1}" is shared by several objects (ids {2}) — give the id</system:String>
    <system:String x:Key="CliErrNoResult">{0} #{1}: no results</system:String>
    <system:String x:Key="CliErrExportSelector">Specify exactly one of: result id, --task, --check or --analysis</system:String>
    <system:String x:Key="CliErrUnexpected">Error: {0}</system:String>

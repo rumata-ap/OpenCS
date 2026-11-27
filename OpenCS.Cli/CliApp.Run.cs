@@ -29,7 +29,7 @@ sealed partial class CliApp
     async Task<int> RunItemsAsync(CliCall call, string kindKey, Func<HeadlessProjectContext, IEnumerable<RunItem>> candidates)
     {
         var p = call.Parse;
-        int[] ids = p.GetValue(_ids) ?? [];
+        string[] ids = p.GetValue(_ids) ?? [];
         bool all = p.GetValue(_all);
         if (ids.Length == 0 && !all) throw new CliException(CliExitCode.Usage, Loc.S("CliErrIdsOrAll"));
         if (ids.Length > 0 && all) throw new CliException(CliExitCode.Usage, Loc.S("CliErrIdsAndAll"));
@@ -39,10 +39,7 @@ sealed partial class CliApp
             new ProjectSessionOptions(p.GetValue(_inPlace), p.GetValue(_outFile), p.GetValue(_force), p.GetValue(_artifacts)),
             p.GetValue(_yes));
         var available = candidates(session.Context).ToList();
-        var items = all
-            ? available
-            : ids.Select(id => available.FirstOrDefault(i => i.Id == id)
-                ?? throw new CliException(CliExitCode.Usage, string.Format(Loc.S("CliErrNotFound"), Loc.S(kindKey), id))).ToList();
+        var items = all ? available : ids.Select(key => Resolve(available, key, kindKey)).ToList();
 
         var report = new List<object>();
         bool failed = false;
@@ -94,5 +91,25 @@ sealed partial class CliApp
         if (p.GetValue(_artifacts) != null && Directory.Exists(session.ArtifactsPath))
             call.Err.WriteLine(string.Format(Loc.S("CliArtifactsKept"), session.ArtifactsPath));
         return failed ? CliExitCode.Failed : CliExitCode.Ok;
+    }
+
+    /// <summary>
+    /// Объект запуска по ключу: число — Id (как раньше), иначе имя (как ключи документа opencs-model); одно имя у
+    /// нескольких объектов — ошибка с их Id, чтобы не запустить не тот.
+    /// </summary>
+    static RunItem Resolve(IReadOnlyList<RunItem> available, string key, string kindKey)
+    {
+        string k = key.Trim();
+        if (int.TryParse(k, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int id)
+            && available.FirstOrDefault(i => i.Id == id) is { } byId)
+            return byId;
+        var byTag = available.Where(i => string.Equals(i.Tag.Trim(), k, StringComparison.CurrentCultureIgnoreCase)).ToList();
+        return byTag.Count switch
+        {
+            1 => byTag[0],
+            0 => throw new CliException(CliExitCode.Usage, string.Format(Loc.S("CliErrNotFound"), Loc.S(kindKey), k)),
+            _ => throw new CliException(CliExitCode.Usage, string.Format(Loc.S("CliErrRunAmbiguous"), Loc.S(kindKey), k,
+                string.Join(", ", byTag.Select(i => i.Id)))),
+        };
     }
 }

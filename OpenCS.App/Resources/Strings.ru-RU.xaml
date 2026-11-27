@@ -6144,7 +6144,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliCmdRunTask">Расчётные задачи</system:String>
    <system:String x:Key="CliCmdRunCheck">Проверки по КЭ</system:String>
    <system:String x:Key="CliCmdRunAnalysis">Расчёты МКЭ-схем</system:String>
-   <system:String x:Key="CliArgIds">Id объектов</system:String>
+   <system:String x:Key="CliArgIds">Id или имена объектов</system:String>
    <system:String x:Key="CliOptAll">Все объекты этого вида</system:String>
    <system:String x:Key="CliOptOut">Сохранить проект с результатами в этот файл</system:String>
    <system:String x:Key="CliOptForce">Перезаписать существующий файл --out</system:String>
@@ -6167,7 +6167,8 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliErrInPlaceWithOut">--in-place и --out несовместимы</system:String>
    <system:String x:Key="CliErrIdsOrAll">Укажите id или --all</system:String>
    <system:String x:Key="CliErrIdsAndAll">Укажите либо id, либо --all</system:String>
-   <system:String x:Key="CliErrNotFound">{0}: нет объекта с id {1}</system:String>
+   <system:String x:Key="CliErrNotFound">{0}: нет объекта «{1}» (Id или имя)</system:String>
+    <system:String x:Key="CliErrRunAmbiguous">{0}: имя «{1}» у нескольких объектов (Id {2}) — укажите Id</system:String>
    <system:String x:Key="CliErrNoResult">{0} #{1}: результатов нет</system:String>
    <system:String x:Key="CliErrExportSelector">Укажите ровно одно: id результата, --task, --check или --analysis</system:String>
    <system:String x:Key="CliErrUnexpected">Ошибка: {0}</system:String>

@@ -18,7 +18,7 @@ sealed partial class CliApp
     readonly Option<bool> _json = new("--json") { Recursive = true };
     readonly Option<bool> _quiet = new("--quiet", "-q") { Recursive = true };
     readonly Argument<string> _project = new("project");
-    readonly Argument<int[]> _ids = new("ids") { Arity = ArgumentArity.ZeroOrMore };
+    readonly Argument<string[]> _ids = new("ids") { Arity = ArgumentArity.ZeroOrMore };
     readonly Option<bool> _all = new("--all");
     readonly Option<string?> _outFile = new("--out");
     readonly Option<bool> _force = new("--force");
