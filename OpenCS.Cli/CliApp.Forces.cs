@@ -277,7 +277,7 @@ sealed partial class CliApp
         }
         catch (Exception ex) when (ex is not CliException)
         {
-            throw new CliException(CliExitCode.Failed, string.Format(Loc.S("CliErrLiraApi"), ex.Message.Split('\n')[0]));
+            throw new CliException(CliExitCode.Failed, string.Format(Loc.S("CliErrLiraApi"), ex.Message.Split('\n')[0].TrimEnd('.', ' ', '\r')));
         }
     }
 
