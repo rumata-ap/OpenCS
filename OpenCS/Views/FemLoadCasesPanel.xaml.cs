@@ -125,21 +125,55 @@ public partial class FemLoadCasesPanel : UserControl
         return null;
     }
 
-    /// <summary>ПКМ по загружениям: «Вид нагрузки (СП 20)» выделенным строкам одной отменой.</summary>
+    /// <summary>
+    /// ПКМ по загружениям — те же действия, что у загружения в дереве: «Создать загружение…», «Изменить…» (одна строка),
+    /// «Удалить» (выделенные, с вопросом и запретом у постановок — как в дереве), «Вид нагрузки (СП 20)» выделенным
+    /// строкам одной отменой. По пустому месту таблицы — только «Создать…».
+    /// </summary>
     void LoadCasesGrid_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
+        if (_vm is not { } vm || FindPage() is not { } page) { e.Handled = true; return; }
         var rows = loadCasesGrid.SelectedItems.OfType<FemLoadCaseRow>().ToList();
-        if (_vm is not { } vm || rows.Count == 0) { e.Handled = true; return; }
-        var kind = new MenuItem { Header = Utilites.Loc.S("FemLoadsSetKindMenu"), Icon = Helpers.MenuIcon.Create("CmdIcon_Edit", loadCasesGrid) };
-        foreach (var choice in FemLoadsTabVM.Sp20Types)
-        {
-            var item = new MenuItem { Header = choice.Label, IsChecked = rows.All(r => r.Sp20Type == choice.Key) };
-            item.Click += (_, _) => vm.SetSp20Type(rows, choice.Key);
-            kind.Items.Add(item);
-        }
         var menu = new ContextMenu();
-        menu.Items.Add(kind);
+        menu.Items.Add(FemMemberTreeMenus.Item("FemLoadCaseCreate", page.CreateLoadCase));
+        if (rows.Count > 0)
+        {
+            var edit = FemMemberTreeMenus.Item("FemLoadCaseEdit", () => page.EditLoadCase(rows[0].Tag, rows[0].OriginText));
+            edit.IsEnabled = rows.Count == 1;
+            menu.Items.Add(edit);
+            menu.Items.Add(FemMemberTreeMenus.Item("FemLoadCaseDelete", () =>
+            {
+                foreach (var tag in rows.Select(r => r.Tag).ToList()) page.DeleteLoadCase(tag);
+            }));
+            menu.Items.Add(new Separator());
+            var kind = new MenuItem { Header = Utilites.Loc.S("FemLoadsSetKindMenu"), Icon = Helpers.MenuIcon.Create("CmdIcon_Edit", loadCasesGrid) };
+            foreach (var choice in FemLoadsTabVM.Sp20Types)
+            {
+                var item = new MenuItem { Header = choice.Label, IsChecked = rows.All(r => r.Sp20Type == choice.Key) };
+                item.Click += (_, _) => vm.SetSp20Type(rows, choice.Key);
+                kind.Items.Add(item);
+            }
+            menu.Items.Add(kind);
+        }
         loadCasesGrid.ContextMenu = menu;
+    }
+
+    /// <summary>Двойной щелчок по номеру или отметке активного — «Изменить…» загружения (ячейки значений правятся сами).</summary>
+    void LoadCasesGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is not DependencyObject source) return;
+        var cell = FindAncestor<DataGridCell>(source);
+        if (cell is null || !cell.IsReadOnly || cell.DataContext is not FemLoadCaseRow row || FindPage() is not { } page) return;
+        e.Handled = true;
+        page.EditLoadCase(row.Tag, row.OriginText);
+    }
+
+    FemSchemaPage? FindPage() => FindAncestor<FemSchemaPage>(this);
+
+    static T? FindAncestor<T>(DependencyObject? d) where T : DependencyObject
+    {
+        while (d != null && d is not T) d = System.Windows.Media.VisualTreeHelper.GetParent(d);
+        return d as T;
     }
 
     /// <summary>Импортные нагрузки не правятся в ячейках.</summary>

@@ -96,7 +96,8 @@
             </TextBlock>
             <DataGrid x:Name="loadCasesGrid" Style="{StaticResource LoadsGrid}" ContextMenuOpening="LoadCasesGrid_ContextMenuOpening"
                       ItemsSource="{Binding LoadCaseRows}" SelectedItem="{Binding SelectedLoadCaseRow, Mode=OneWay}"
-                      SelectionChanged="LoadCasesGrid_SelectionChanged" BeginningEdit="Grid_BeginningEdit">
+                      SelectionChanged="LoadCasesGrid_SelectionChanged" BeginningEdit="Grid_BeginningEdit"
+                      MouseDoubleClick="LoadCasesGrid_MouseDoubleClick">
                 <DataGrid.RowStyle>
                     <Style TargetType="DataGridRow">
                         <Style.Triggers>
