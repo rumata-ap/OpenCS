@@ -58,7 +58,7 @@ public sealed class LiraBlocksToMembersVM : ViewModelBase
             int plates = b.ElementTags.Count(t => typeByTag.GetValueOrDefault(t) == "shell");
             bool converted = memberTags.Contains(b.Tag) || memberTags.Any(t => t.StartsWith(b.Tag + " · ", StringComparison.Ordinal));
             var row = new LiraBlockRowVM(b, bars, plates, converted);
-            row.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(LiraBlockRowVM.IsSelected)) OnPropertyChanged(nameof(SelectedCount)); };
+            row.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(LiraBlockRowVM.IsSelected)) { OnPropertyChanged(nameof(SelectedCount)); OnPropertyChanged(nameof(HasSelection)); } };
             return row;
         }).ToList();
 
@@ -95,6 +95,9 @@ public sealed class LiraBlocksToMembersVM : ViewModelBase
     }
 
     public int SelectedCount => Rows.Count(r => r.IsSelected);
+
+    /// <summary>Есть что преобразовывать — доступность кнопки «Преобразовать».</summary>
+    public bool HasSelection => Rows.Any(r => r.IsSelected);
 
     public ICommand SelectVisibleCommand { get; }
     public ICommand ClearVisibleCommand { get; }

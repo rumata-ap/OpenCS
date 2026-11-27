@@ -88,7 +88,7 @@ public class FemMemberPageVM
             ? string.Format(Loc.S("FemMemberPageMeshImported"), scope.Elements.Count)
             : string.Format(Loc.S("FemMemberPageMeshGenerated"), scope.Elements.Count)));
         if (scope.ElementNumbers.Count > 0)
-            rows.Add(new(Loc.S("FemMemberPageElements"), LiraElemRangeDialog.FormatRange(
+            rows.Add(new(Loc.S("FemMemberPageElements"), ElementRanges.FormatTags(
                 scope.ElementNumbers.Select(n => n.ToString(CultureInfo.InvariantCulture)).ToList())));
 
         var groups = item.Schema.MemberGroups

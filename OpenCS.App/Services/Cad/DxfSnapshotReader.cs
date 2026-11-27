@@ -20,8 +20,7 @@ public static class DxfSnapshotReader
    /// <param name="tolerance">Допуск совпадения концов при сшивке, в единицах чертежа.</param>
    public static CadSnapshot Read(string path, CadArcDiscretization arcs, double tolerance)
    {
-      var doc = DxfDocument.Load(path)
-         ?? throw new InvalidOperationException($"Не удалось прочитать DXF «{Path.GetFileName(path)}» (поддерживаются версии от AutoCAD 2000).");
+      var doc = DxfFile.Load(path);
       return Read(doc, arcs, tolerance, Path.GetFileName(path));
    }
 

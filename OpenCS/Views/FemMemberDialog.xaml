@@ -11,7 +11,7 @@
          <RowDefinition Height="Auto"/>
          <RowDefinition Height="Auto"/>
          <RowDefinition Height="Auto"/>
-         <RowDefinition Height="8"/>
+         <RowDefinition Height="Auto"/>
          <RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
       <Grid.ColumnDefinitions>
@@ -43,9 +43,13 @@
                  AcceptsReturn="False"
                  VerticalScrollBarVisibility="Auto"
                  Text="{Binding Range, UpdateSourceTrigger=PropertyChanged}"
-                 ToolTip="{DynamicResource LiraElemRangeDlgHint}"
+                 ToolTip="{DynamicResource ElemRangeHint}"
+                 TextChanged="RangeBox_TextChanged"
                  FontFamily="Consolas"
                  Margin="0,0,0,8"/>
+
+      <TextBlock Grid.Row="3" Grid.Column="1" x:Name="RangeErrorText" Foreground="#C0392B" TextWrapping="Wrap"
+                 Margin="0,-4,0,8" Visibility="Collapsed"/>
 
       <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
                   Orientation="Horizontal" HorizontalAlignment="Right">

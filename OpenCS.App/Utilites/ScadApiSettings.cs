@@ -33,6 +33,10 @@ namespace OpenCS.Utilites
       [JsonPropertyName("rsuGroups")]
       public int[] RsuGroups { get; set; } = [0, 1, 2, 3];
 
+      /// <summary>Импорт усилий из XLS SCAD: «все КЭ» вместо списка (запоминается выбор окна).</summary>
+      [JsonPropertyName("xlsAllElements")]
+      public bool XlsAllElements { get; set; }
+
       public static ScadApiSettings Default => new();
    }
 }

@@ -57,6 +57,7 @@
          </TextBlock>
          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="{DynamicResource LiraBlocksConvert}" Click="Convert_Click"
+                    IsEnabled="{Binding HasSelection}"
                     Padding="20,4" Margin="0,0,8,0" IsDefault="True"/>
             <Button Content="{DynamicResource Cancel}" IsCancel="True" Padding="16,4"/>
          </StackPanel>

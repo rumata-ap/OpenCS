@@ -68,6 +68,10 @@ namespace OpenCS.Utilites
       [JsonPropertyName("sectionCutWindow")]
       public SectionCutWindowSettings SectionCutWindow { get; set; } = new();
 
+      /// <summary>Допуск унификации подобранного армирования при создании сечений стержней импорта, % (выбор окна).</summary>
+      [JsonPropertyName("importedBarRebarTolerancePercent")]
+      public double ImportedBarRebarTolerancePercent { get; set; } = CScore.Import.ImportedBarRebar.DefaultSelectedTolerance * 100;
+
       /// <summary>
       /// Нижняя граница нисходящей ветви криволинейной диаграммы бетона по Прил. Г СП 63.13330
       /// (уровень напряжений η = σ/Rb). По норме ≥ 0.85 (п. Г.1).

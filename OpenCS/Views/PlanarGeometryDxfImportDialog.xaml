@@ -2,7 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="{DynamicResource PlanarDxfImportGeometryTitle}"
-        Width="560" Height="440" WindowStartupLocation="CenterOwner">
+        Width="560" Height="440" MinWidth="460" MinHeight="300" WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
    <Grid Margin="10">
       <Grid.RowDefinitions>
          <RowDefinition Height="Auto"/>

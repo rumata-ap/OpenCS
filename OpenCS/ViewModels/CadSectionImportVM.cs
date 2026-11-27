@@ -188,7 +188,7 @@ public sealed class CadSectionImportVM : ViewModelBase
       new(CadLayerRole.Stirrups, Loc.S("CadRoleStirrups")),
    ];
 
-   static readonly double[] UnitMeters = [0.001, 0.01, 1.0];
+   static readonly double[] UnitMeters = DxfFile.UnitMeters;
 
    readonly AppViewModel _mvm;
    CadSnapshot? _snapshot;
@@ -239,7 +239,7 @@ public sealed class CadSectionImportVM : ViewModelBase
 
    public CadInstance? SelectedCad { get => _selectedCad; set { _selectedCad = value; OnPropertyChanged(); } }
 
-   public List<string> Units { get; } = ["мм", "см", "м"];
+   public List<string> Units { get; } = DxfFile.UnitLabels();
 
    public int UnitIdx
    {
@@ -314,7 +314,7 @@ public sealed class CadSectionImportVM : ViewModelBase
    void OpenFile()
    {
       string? file = _mvm.FileDialogService.OpenFile(
-         filter: "Файл обмена чертежами (*.dxf)|*.dxf",
+         filter: Loc.S("DxfFileFilter"),
          title: Loc.S("CadImpOpenDxfTitle"));
       if (string.IsNullOrEmpty(file)) return;
       _file = file;

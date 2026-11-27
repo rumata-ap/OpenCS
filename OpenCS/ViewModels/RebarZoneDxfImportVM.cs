@@ -78,12 +78,11 @@ public sealed class RebarZoneDxfImportVM : ViewModelBase
         DxfDocument dxf;
         try
         {
-            dxf = DxfDocument.Load(path);
+            dxf = OpenCS.Services.Cad.DxfFile.Load(path);
         }
-        catch (Exception ex)
+        catch (OpenCS.Services.Cad.DxfFileException ex)
         {
-            System.Windows.MessageBox.Show(
-                string.Format(Loc.S("PlanarDxfImportLoadError"), ex.Message),
+            System.Windows.MessageBox.Show(ex.Message,
                 Loc.S("Warning"), System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
             return;
         }

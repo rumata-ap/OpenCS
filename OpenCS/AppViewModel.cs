@@ -2405,7 +2405,7 @@ namespace OpenCS
       {
          string? fileName = FileDialogService.OpenFile(
             filter: Loc.S("DxfFileFilter"),
-            title: "Импорт данных из файла DXF");
+            title: Loc.S("FromDxfOpenTitle"));
          if (string.IsNullOrEmpty(fileName)) return;
          CurrentPage = new FromDxfPage(this, fileName);
       }
@@ -2433,86 +2433,73 @@ namespace OpenCS
 
       private void ImportContoursFromDxf(object? _ = null)
       {
-         string? fileName = FileDialogService.OpenFile(
-            filter: Loc.S("DxfFileFilter"),
-            title: Loc.S("ImportContoursFromDxfTitle"));
-         if (string.IsNullOrEmpty(fileName)) return;
-
-         var dxf = DxfDocument.Load(fileName);
-         const double scale = 0.001; // мм → м
-         string geoSet = Path.GetFileNameWithoutExtension(fileName);
-         int added = 0;
-         int skipped = 0;
-
-         foreach (var pline in dxf.Entities.Polylines2D)
-         {
-            var verts = pline.Vertexes;
-            if (verts.Count < 2) continue;
-
-            bool firstEqualsLast =
-               Math.Abs(verts[0].Position.X - verts[^1].Position.X) < 1e-4 &&
-               Math.Abs(verts[0].Position.Y - verts[^1].Position.Y) < 1e-4;
-
-            bool isClosed = pline.IsClosed || firstEqualsLast;
-            if (!isClosed) { skipped++; continue; }
-
-            var pts = new List<StressPoint>();
-            int j = 1;
-            foreach (var v in verts)
-               pts.Add(new StressPoint(v.Position.X * scale, v.Position.Y * scale) { Num = j++ });
-
-            // IsClosed-флаг без совпадающих вершин → добавляем замыкающую точку
-            if (pline.IsClosed && !firstEqualsLast)
-               pts.Add(new StressPoint(verts[0].Position.X * scale, verts[0].Position.Y * scale) { Num = j });
-
-            if (pts.Count < 4) { skipped++; continue; }
-
-            var contour = new Contour(pts, pline.Layer.Name) { GeometrySet = geoSet };
-            if (string.IsNullOrWhiteSpace(contour.Tag)) contour.Tag = Loc.S("Contour");
-            if (ContourAuthoring.Save(db, contour).Count > 0) { skipped++; continue; } // самопересечение, нулевая площадь
-            added++;
-         }
-
-         if (added > 0)
-            LogService.Info(string.Format(Loc.S("ContoursImportedFromDxf"), added, Path.GetFileName(fileName)));
-         if (skipped > 0)
-            LogService.Warning(string.Format(Loc.S("ContoursSkippedDxf"), skipped));
-         if (added == 0 && skipped == 0)
+         if (OpenDxfForGeometry("ImportContoursFromDxfTitle") is not var (fileName, dxf, mpu)) return;
+         var r = Services.Cad.DxfGeometryImport.Contours(db, dxf, mpu, Path.GetFileNameWithoutExtension(fileName));
+         if (r.Added > 0)
+            LogService.Info(string.Format(Loc.S("ContoursImportedFromDxf"), r.Added, Path.GetFileName(fileName)));
+         if (r.Skipped > 0)
+            LogService.Warning(string.Format(Loc.S("ContoursSkippedDxf"), r.Skipped));
+         if (r.Duplicates > 0)
+            LogService.Info(string.Format(Loc.S("GeometryImportDuplicates"), r.Duplicates));
+         if (r.Added + r.Skipped + r.Duplicates == 0)
             LogService.Warning(string.Format(Loc.S("NoDxfPolylines"), Path.GetFileName(fileName)));
       }
 
       private void ImportCirclesFromDxf(object? _ = null)
       {
-         string? fileName = FileDialogService.OpenFile(
-            filter: Loc.S("DxfFileFilter"),
-            title: Loc.S("ImportCirclesFromDxfTitle"));
-         if (string.IsNullOrEmpty(fileName)) return;
+         if (OpenDxfForGeometry("ImportCirclesFromDxfTitle") is not var (fileName, dxf, mpu)) return;
+         var r = Services.Cad.DxfGeometryImport.Circles(db, dxf, mpu, Path.GetFileNameWithoutExtension(fileName));
+         ReportCircleImport(r, Path.GetFileName(fileName), "CirclesImportedFromDxf");
+         if (r.Added + r.Skipped + r.Duplicates == 0)
+            LogService.Warning(string.Format(Loc.S("NoDxfCircles"), Path.GetFileName(fileName)));
+      }
 
-         var dxf = DxfDocument.Load(fileName);
-         const double scale = 0.001; // мм → м
-         string geoSet = Path.GetFileNameWithoutExtension(fileName);
-         int added = 0;
-
-         foreach (var c in dxf.Entities.Circles)
-         {
-            var cp = new CircleP(c.Center.X * scale, c.Center.Y * scale, c.Radius * scale)
-            {
-               Tag = c.Layer.Name,
-               GeometrySet = geoSet
-            };
-            if (ContourAuthoring.SaveCircle(db, cp).Count == 0) added++;
-         }
-
-         if (added > 0)
+      void ReportCircleImport(Services.Cad.GeometryImportResult r, string file, string addedKey)
+      {
+         if (r.Added > 0)
          {
             this.CirclesRenumber();
-            LogService.Info(string.Format(Loc.S("CirclesImportedFromDxf"), added, Path.GetFileName(fileName)));
+            LogService.Info(string.Format(Loc.S(addedKey), r.Added, file));
          }
-          else
-          {
-             LogService.Warning(string.Format(Loc.S("NoDxfCircles"), Path.GetFileName(fileName)));
-          }
-       }
+         if (r.Skipped > 0) LogService.Warning(string.Format(Loc.S("CsvRowsSkippedLog"), r.Skipped));
+         if (r.Duplicates > 0) LogService.Info(string.Format(Loc.S("GeometryImportDuplicates"), r.Duplicates));
+      }
+
+      /// <summary>
+      /// Выбор и чтение DXF для пула геометрии: единицы — из <c>$INSUNITS</c> файла (в журнал), иначе вопрос с
+      /// запомненным выбором (общий множитель импорта AutoCAD/DXF). null — отказ или файл не прочитан.
+      /// </summary>
+      (string FileName, DxfDocument Dxf, double MetersPerUnit)? OpenDxfForGeometry(string titleKey)
+      {
+         string? fileName = FileDialogService.OpenFile(filter: Loc.S("DxfFileFilter"), title: Loc.S(titleKey));
+         if (string.IsNullOrEmpty(fileName)) return null;
+         DxfDocument dxf;
+         try { dxf = Services.Cad.DxfFile.Load(fileName); }
+         catch (Services.Cad.DxfFileException ex)
+         {
+            LogService.Error(ex.Message);
+            MessageBox.Show(ex.Message, Loc.S("Warning"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            return null;
+         }
+         var labels = Services.Cad.DxfFile.UnitLabels();
+         if (Services.Cad.DxfFile.FileUnitMeters(dxf) is double fileUnits)
+         {
+            LogService.Info(string.Format(Loc.S("DxfUnitsFromFile"), Path.GetFileName(fileName),
+               labels[Services.Cad.DxfFile.UnitIndexOf(fileUnits)]));
+            return (fileName, dxf, fileUnits);
+         }
+         int remembered = Math.Max(0, Services.Cad.DxfFile.UnitIndexOf(AcadImportSettings.ScaleFactor));
+         var dialog = new Views.ListChoiceDialog(string.Format(Loc.S("DxfUnitsPrompt"), Path.GetFileName(fileName)), labels,
+            remembered, Loc.S("DxfUnitsTitle"));
+         if (dialog.ShowDialog() != true || dialog.SelectedIndex < 0) return null;
+         double mpu = Services.Cad.DxfFile.UnitMeters[dialog.SelectedIndex];
+         if (mpu != AcadImportSettings.ScaleFactor)
+         {
+            AcadImportSettings.ScaleFactor = mpu;
+            db.SaveAcadImportSettings(AcadImportSettings);
+         }
+         return (fileName, dxf, mpu);
+      }
 
        /// <summary>Текущее выбранное эквивалентное сечение.</summary>
        public EquivalentSection? CurrentEquivalentSection
@@ -2700,16 +2687,8 @@ namespace OpenCS
          int skipped;
          try { parsed = CircleCsv.Parse(File.ReadAllLines(fileName), out skipped); }
          catch (IOException ex) { LogService.Error(ex.Message); return; }
-         int added = 0;
-         foreach (var cp in parsed)
-            if (ContourAuthoring.SaveCircle(db, cp).Count == 0) added++;
-         if (skipped > 0) LogService.Warning(string.Format(Loc.S("CsvRowsSkippedLog"), skipped));
-
-         if (added > 0)
-         {
-            this.CirclesRenumber();
-            LogService.Info(string.Format(Loc.S("CirclesImportedFromCsv"), added, Path.GetFileName(fileName)));
-         }
+         var r = Services.Cad.DxfGeometryImport.Circles(db, parsed, skipped);
+         ReportCircleImport(r, Path.GetFileName(fileName), "CirclesImportedFromCsv");
       }
 
       private void ExportCirclesToCsv(object? _ = null)
@@ -4730,33 +4709,29 @@ namespace OpenCS
             });
          if (string.IsNullOrEmpty(fileName)) return;
 
+         var member = currentFemMember;
          string? seed = null;
-         if (currentFemMember != null)
+         if (member != null)
          {
             try
             {
-               var ids = db.GetFemCheckScope(currentFemMember).ElementNumbers;
+               var ids = db.GetFemCheckScope(member).ElementNumbers;
                if (ids.Count > 0)
-                  seed = string.Join(", ", ids);
+                  seed = ElementRanges.Format(ids);
             }
-            catch { /* ignore bad json */ }
+            catch (Exception) { /* испорченный состав элемента — без подсказки списка */ }
          }
 
-         var dlg = new Views.ScadForceImportDialog(seed) { Owner = System.Windows.Application.Current.MainWindow };
+         var scadSettings = db.LoadScadApiSettings();
+         var dlg = new Views.ScadForceImportDialog(member?.Tag, seed, scadSettings.XlsAllElements);
          if (dlg.ShowDialog() != true) return;
-
-         HashSet<int> elementIds = [];
-         if (!dlg.ImportAllElements)
+         if (scadSettings.XlsAllElements != dlg.ImportAllElements)
          {
-            if (!CScore.Import.ScadElementIdParser.TryParse(dlg.ElementText, out elementIds, out var parseError))
-            {
-               System.Windows.MessageBox.Show(
-                  parseError ?? Loc.S("ImportScadFailed"),
-                  Loc.S("ImportScadErrorTitle"),
-                  MessageBoxButton.OK, MessageBoxImage.Warning);
-               return;
-            }
+            scadSettings.XlsAllElements = dlg.ImportAllElements;
+            db.SaveScadApiSettings(scadSettings);
          }
+         HashSet<int> elementIds = [.. dlg.ElementIds];
+         int memberId = dlg.BindToMember ? member?.Id ?? 0 : 0;
 
          var options = new CScore.Import.ScadXlsImportOptions
          {
@@ -4791,7 +4766,6 @@ namespace OpenCS
                LogService.Warning(import.Warning);
 
             ReportBusyProgress(0.97, Loc.S("ImportScadForcesSaving"));
-            int memberId = currentFemMember?.Id ?? 0;
             int nextNum = ForceSets.Count > 0 ? ForceSets.Max(f => f.Num) + 1 : 1;
             foreach (var fs in import.ForceSets)
             {
@@ -5961,16 +5935,18 @@ namespace OpenCS
          })).ToList();
          int assigned = modes.ToList().IndexOf(CScore.Import.ImportedBarRebarMode.Assigned);
          int selected = modes.ToList().IndexOf(CScore.Import.ImportedBarRebarMode.Selected);
-         var dialog = new Views.SteelMaterialChoiceDialog(Loc.S("BarSectionsRebarPrompt"), items,
+         var dialog = new Views.ListChoiceDialog(Loc.S("BarSectionsRebarPrompt"), items,
             assigned >= 0 ? assigned : modes.Count - 1, Loc.S("BarSectionsRebarTitle"),
-            selected >= 0 ? (Loc.S("BarSectionsRebarTolerance"), selectedRebarTolerancePercent, selected, 0, 100) : null);
+            selected >= 0 ? (Loc.S("BarSectionsRebarTolerance"), CalcSettings.ImportedBarRebarTolerancePercent, selected, 0, 100) : null);
          if (dialog.ShowDialog() != true || dialog.SelectedIndex < 0) return null;
-         if (dialog.Number is double percent) selectedRebarTolerancePercent = percent;
-         return new Services.ImportedBarRebarChoice(modes[dialog.SelectedIndex], selectedRebarTolerancePercent / 100);
+         if (dialog.Number is double percent && percent != CalcSettings.ImportedBarRebarTolerancePercent)
+         {
+            CalcSettings.ImportedBarRebarTolerancePercent = percent;
+            db.SaveCalcSettings(CalcSettings);
+         }
+         return new Services.ImportedBarRebarChoice(modes[dialog.SelectedIndex], CalcSettings.ImportedBarRebarTolerancePercent / 100);
       }
 
-      /// <summary>Допуск унификации подбора, % — запоминается до конца сеанса.</summary>
-      double selectedRebarTolerancePercent = CScore.Import.ImportedBarRebar.DefaultSelectedTolerance * 100;
 
       /// <summary>
       /// Сталь для стальных КЭ импорта вне стальных групп SCAD (или с маркой, которой нет в справочнике): стальной материал проекта
@@ -5980,7 +5956,7 @@ namespace OpenCS
       {
          var steels = db.Materials.Where(m => m.Type == MatType.Steel).ToList();
          var items = steels.Select(m => m.Tag).Append(Loc.S("SteelChoiceCreateC245")).ToList();
-         var dialog = new Views.SteelMaterialChoiceDialog(Loc.S("SteelChoiceDlgPrompt"), items, 0);
+         var dialog = new Views.ListChoiceDialog(Loc.S("SteelChoiceDlgPrompt"), items, 0);
          if (dialog.ShowDialog() != true) return null;
          if (dialog.SelectedIndex < steels.Count) return steels[dialog.SelectedIndex];
          var created = Services.MaterialCatalog.CreateStructuralSteel("С245");
@@ -6440,7 +6416,7 @@ namespace OpenCS
          if (schema == null) return;
          var dlg = new Views.FemMemberDialog();
          if (dlg.ShowDialog() != true) return;
-         var ids = Views.LiraElemRangeDialog.ParseRange(dlg.Range);
+         var ids = dlg.RangeIds.ToList();
          CreateFemMemberFromRange(schema, ids, dlg.MemberTag, dlg.MemberType);
       }
 

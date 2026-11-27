@@ -24,12 +24,4 @@ public static class NumberInput
         try { value = Parse(text); return true; }
         catch (FormatException) { value = 0; return false; }
     }
-
-    /// <summary>
-    /// Для ConvertBack конвертеров единиц: число × <paramref name="factor"/>, а неразобранный ввод —
-    /// <see cref="System.Windows.DependencyProperty.UnsetValue"/>: WPF подсвечивает поле и не меняет значение
-    /// (исключение из ConvertBack роняло программу).
-    /// </summary>
-    public static object Scaled(object? text, double factor) =>
-        TryParse(text as string, out double v) ? factor * v : System.Windows.DependencyProperty.UnsetValue;
 }

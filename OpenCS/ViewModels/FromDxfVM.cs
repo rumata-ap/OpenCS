@@ -1,5 +1,6 @@
 using CScore;
 
+using OpenCS.Services.Cad;
 using OpenCS.Utilites;
 
 using netDxf;
@@ -28,6 +29,7 @@ namespace OpenCS.ViewModels
 
       private double _scale = 0.001;
       private int _unitIdx;
+      private string? _file;
       private DxfRole _selectMode = DxfRole.Hull;
       private CircleDiscretizeMethod _discretizeMethod = CircleDiscretizeMethod.ChordLength;
       private double _discretizeValue = 0.020;
@@ -36,7 +38,7 @@ namespace OpenCS.ViewModels
       private int _currentGroupIdx = 1;
       private int _rebarGroupCount = 1;
 
-      public List<string> Units { get; } = ["мм", "см", "м"];
+      public List<string> Units { get; } = DxfFile.UnitLabels();
 
       /// <summary>Слои DXF — источник для легенды в левой панели.</summary>
       public ObservableCollection<LayerInfo> Layers { get; } = [];
@@ -47,15 +49,31 @@ namespace OpenCS.ViewModels
       /// </summary>
       public Action<IReadOnlyList<DxfPrimitive>, IReadOnlyList<LayerInfo>>? CanvasLoader { get; set; }
 
+      /// <summary>
+      /// Единицы чертежа. Выбор пользователя запоминается (общий множитель импорта AutoCAD/DXF) и перечитывает открытый
+      /// файл — назначенные роли при этом сбрасываются.
+      /// </summary>
       public int UnitIdx
       {
          get => _unitIdx;
          set
          {
-            _unitIdx = value;
-            _scale = value == 0 ? 0.001 : value == 1 ? 0.01 : 1.0;
-            OnPropertyChanged();
+            if (value < 0 || value == _unitIdx) return;
+            SetUnit(value);
+            if (mvm != null)
+            {
+               mvm.AcadImportSettings.ScaleFactor = _scale;
+               mvm.db.SaveAcadImportSettings(mvm.AcadImportSettings);
+            }
+            if (_file != null) LoadFile(_file, keepUnits: true);
          }
+      }
+
+      void SetUnit(int idx)
+      {
+         _unitIdx = idx;
+         _scale = DxfFile.UnitMeters[idx];
+         OnPropertyChanged(nameof(UnitIdx));
       }
 
       public DxfRole SelectMode
@@ -71,7 +89,7 @@ namespace OpenCS.ViewModels
       }
 
       public List<string> DiscretizeMethodDisplayNames { get; } =
-         ["Длина хорды", "Число сегментов"];
+         [Loc.S("DxfDiscretizeChord"), Loc.S("DxfDiscretizeN")];
 
       public int DiscretizeMethodIdx
       {
@@ -182,7 +200,7 @@ namespace OpenCS.ViewModels
       {
          if (HullPrimitive == null && !GroupBarPrimitives.Any())
          {
-            mvm.LogService.Info("Нет назначенных объектов для создания области");
+            mvm.LogService.Info(Loc.S("FromDxfNothingAssigned"));
             return;
          }
 
@@ -209,7 +227,7 @@ namespace OpenCS.ViewModels
          {
             var group = new MaterialArea
             {
-               Tag        = _tag + "_г" + grp.Key,
+               Tag        = _tag + Loc.S("FromDxfGroupSuffix") + grp.Key,
                Category   = AreaCategory.RebarGroup,
                HostAreaId = region?.Id
             };
@@ -232,7 +250,7 @@ namespace OpenCS.ViewModels
          OnPropertyChanged(nameof(GroupBarPrimitives));
 
          mvm.RefreshMaterialAreaLiveCollections();
-         mvm.LogService.Info($"Создана MaterialArea «{_tag}»");
+         mvm.LogService.Info(string.Format(Loc.S("FromDxfAreaCreated"), _tag));
       }
 
       private void AddPrimitiveToGeometry(DxfPrimitive p, ref bool circlesAdded)
@@ -257,20 +275,43 @@ namespace OpenCS.ViewModels
       private void OpenDxf(object? _ = null)
       {
          string? fileName = mvm.FileDialogService.OpenFile(
-            filter: "Файл обмена чертежами (*.dxf)|*.dxf",
-            title: "Импорт данных из файла DXF");
+            filter: Loc.S("DxfFileFilter"),
+            title: Loc.S("FromDxfOpenTitle"));
          if (!string.IsNullOrEmpty(fileName))
             LoadFile(fileName);
       }
 
-      /// <summary>Загружает DXF-файл в канвас. Вызывается из code-behind или через <see cref="OpenDxf"/>.</summary>
-      public void LoadFile(string fileName)
+      /// <summary>
+      /// Загружает DXF-файл в канвас. Вызывается из code-behind или через <see cref="OpenDxf"/>. Единицы — из
+      /// <c>$INSUNITS</c> файла, иначе запомненные; <paramref name="keepUnits"/> — перечитать в выбранных.
+      /// </summary>
+      public void LoadFile(string fileName, bool keepUnits = false)
       {
+         DxfDocument dxf;
+         try { dxf = DxfFile.Load(fileName); }
+         catch (DxfFileException ex)
+         {
+            mvm?.LogService.Error(ex.Message);
+            System.Windows.MessageBox.Show(ex.Message, Loc.S("Warning"), System.Windows.MessageBoxButton.OK,
+               System.Windows.MessageBoxImage.Warning);
+            return;
+         }
+
          foreach (var p in _primitives) { p.Role = DxfRole.None; p.GroupIndex = 1; }
          RebarGroupCount = 1;
          CurrentGroupIdx = 1;
 
-         var dxf = DxfDocument.Load(fileName);
+         if (!keepUnits)
+         {
+            if (DxfFile.FileUnitMeters(dxf) is double fileUnits)
+            {
+               SetUnit(DxfFile.UnitIndexOf(fileUnits));
+               mvm?.LogService.Info(string.Format(Loc.S("DxfUnitsFromFile"), System.IO.Path.GetFileName(fileName), Units[_unitIdx]));
+            }
+            else if (mvm != null)
+               SetUnit(Math.Max(0, DxfFile.UnitIndexOf(mvm.AcadImportSettings.ScaleFactor)));
+         }
+         _file = fileName;
          Tag = dxf.Name;
 
          _primitives = ParseDxf(dxf);

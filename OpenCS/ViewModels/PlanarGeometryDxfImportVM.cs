@@ -1,5 +1,6 @@
 using netDxf;
 using OpenCS.Services;
+using OpenCS.Services.Cad;
 using OpenCS.Utilites;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
@@ -54,11 +55,30 @@ public sealed class PlanarGeometryDxfImportRowVM : ViewModelBase
 public sealed class PlanarGeometryDxfImportVM : ViewModelBase
 {
     readonly IFileDialogService _fileDialogService;
+    readonly AcadImportSettings? _settings;
+    readonly Action? _saveSettings;
+    string? _path;
 
-    public List<string> Units { get; } = ["мм", "см", "м"];
+    public List<string> Units { get; } = DxfFile.UnitLabels();
 
     int _unitIdx;
-    public int UnitIdx { get => _unitIdx; set { _unitIdx = value; OnPropertyChanged(); } }
+    /// <summary>Единицы чертежа; выбор запоминается и перечитывает открытый файл.</summary>
+    public int UnitIdx
+    {
+        get => _unitIdx;
+        set
+        {
+            if (value < 0 || value == _unitIdx) return;
+            _unitIdx = value;
+            OnPropertyChanged();
+            if (_settings != null)
+            {
+                _settings.ScaleFactor = DxfFile.UnitMeters[value];
+                _saveSettings?.Invoke();
+            }
+            if (_path != null) Load(_path, keepUnits: true);
+        }
+    }
 
     string? _fileName;
     public string? FileName { get => _fileName; private set { _fileName = value; OnPropertyChanged(); } }
@@ -71,35 +91,52 @@ public sealed class PlanarGeometryDxfImportVM : ViewModelBase
 
     public ICommand OpenFileCommand { get; }
 
-    public PlanarGeometryDxfImportVM(IFileDialogService fileDialogService)
+    /// <param name="settings">Запомненные единицы (общий множитель импорта AutoCAD/DXF); null — мм.</param>
+    /// <param name="saveSettings">Запись настроек после смены единиц.</param>
+    public PlanarGeometryDxfImportVM(IFileDialogService fileDialogService, AcadImportSettings? settings = null,
+        Action? saveSettings = null)
     {
         _fileDialogService = fileDialogService;
+        _settings = settings;
+        _saveSettings = saveSettings;
+        _unitIdx = Math.Max(0, DxfFile.UnitIndexOf(settings?.ScaleFactor ?? 0.001));
         OpenFileCommand = new RelayCommand(_ => OpenFile());
     }
 
     void OpenFile()
     {
         string? path = _fileDialogService.OpenFile(
-            filter: "Файл обмена чертежами (*.dxf)|*.dxf",
+            filter: Loc.S("DxfFileFilter"),
             title: Loc.S("PlanarDxfImportGeometryTitle"));
         if (string.IsNullOrEmpty(path)) return;
+        Load(path, keepUnits: false);
+    }
 
+    /// <summary>Читает файл: единицы — из <c>$INSUNITS</c>, если заданы, иначе выбранные (<paramref name="keepUnits"/> —
+    /// всегда выбранные).</summary>
+    void Load(string path, bool keepUnits)
+    {
         DxfDocument dxf;
         try
         {
-            dxf = DxfDocument.Load(path);
+            dxf = DxfFile.Load(path);
         }
-        catch (Exception ex)
+        catch (DxfFileException ex)
         {
-            System.Windows.MessageBox.Show(
-                string.Format(Loc.S("PlanarDxfImportLoadError"), ex.Message),
-                Loc.S("Warning"), System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            System.Windows.MessageBox.Show(ex.Message, Loc.S("Warning"), System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
             return;
         }
+        if (!keepUnits && DxfFile.FileUnitMeters(dxf) is double fileUnits)
+        {
+            _unitIdx = DxfFile.UnitIndexOf(fileUnits);
+            OnPropertyChanged(nameof(UnitIdx));
+        }
+        _path = path;
 
         Rows.Clear();
         FileName = System.IO.Path.GetFileName(path);
-        double scale = UnitIdx == 0 ? 0.001 : UnitIdx == 1 ? 0.01 : 1.0;
+        double scale = DxfFile.UnitMeters[_unitIdx];
 
         foreach (var candidate in PlanarDxfPolygonReader.Read(dxf, scale))
         {

@@ -15,7 +15,9 @@ public partial class PlanarGeometryDxfImportDialog : Window
     public PlanarGeometryDxfImportDialog(IFileDialogService fileDialogService)
     {
         InitializeComponent();
-        _vm = new PlanarGeometryDxfImportVM(fileDialogService);
+        var app = Application.Current?.MainWindow?.DataContext as AppViewModel;
+        _vm = new PlanarGeometryDxfImportVM(fileDialogService, app?.AcadImportSettings,
+            app == null ? null : () => app.db.SaveAcadImportSettings(app.AcadImportSettings));
         DataContext = _vm;
     }
 

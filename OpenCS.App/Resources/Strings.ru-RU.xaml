@@ -251,6 +251,19 @@
    <system:String x:Key="Unit_m">м</system:String>
    <system:String x:Key="Unit_mm">мм</system:String>
    <system:String x:Key="Unit_cm2">см</system:String>
+   <system:String x:Key="Unit_cm">см</system:String>
+   <system:String x:Key="DxfLoadFailed">Не удалось прочитать DXF «{0}»: {1}</system:String>
+   <system:String x:Key="DxfLoadUnsupported">Не удалось прочитать DXF «{0}»: файл повреждён или его версия старше AutoCAD 2000 — пересохраните чертёж в DXF 2000 или новее.</system:String>
+   <system:String x:Key="GeometryImportDuplicates">Уже есть в пуле (повторный импорт) — пропущено: {0}.</system:String>
+   <system:String x:Key="FromDxfOpenTitle">Импорт данных из файла DXF</system:String>
+   <system:String x:Key="FromDxfNothingAssigned">Нет назначенных объектов для создания области.</system:String>
+   <system:String x:Key="FromDxfAreaCreated">Создана область «{0}».</system:String>
+   <system:String x:Key="FromDxfGroupSuffix">_г</system:String>
+   <system:String x:Key="FemBoundarySummaryCopyTip">Таблица (столбцы через табуляцию) и сообщения — в буфер обмена</system:String>
+   <system:String x:Key="ClipboardBusy">Не удалось записать текст в буфер обмена — он занят другой программой. Повторите.</system:String>
+   <system:String x:Key="DxfUnitsTitle">Единицы чертежа</system:String>
+   <system:String x:Key="DxfUnitsPrompt">В файле «{0}» единицы чертежа не заданы. В каких единицах координаты?</system:String>
+   <system:String x:Key="DxfUnitsFromFile">Единицы чертежа «{0}» — из файла: {1}.</system:String>
    <system:String x:Key="Superscript2">2</system:String>
 
    <!-- Context menu in App.xaml -->
@@ -1055,6 +1068,7 @@
    <system:String x:Key="ScadSteelProfileFailed">Жёсткость {0} (STZ {1}): {2}.</system:String>
    <system:String x:Key="LiraSteelProfilesLoaded">Стальные профили ЛИРЫ по сортаменту: {0} из {1} стальных жёсткостей.</system:String>
    <system:String x:Key="LiraSteelProfileFailed">Жёсткость {0} ({1}): {2}.</system:String>
+   <system:String x:Key="ListChoiceNumberRange">Нужно число от {0} до {1}.</system:String>
    <system:String x:Key="SteelChoiceDlgTitle">Сталь стальных сечений</system:String>
    <system:String x:Key="SteelChoiceDlgPrompt">Сталь стальных сечений берётся по марке из схемы (стальная группа SCAD, сталь жёсткости ЛИРЫ). Для КЭ без марки (или с маркой, которой нет в справочнике СП 16) выберите сталь:</system:String>
    <system:String x:Key="SteelChoiceCreateC245">Создать С245 по СП 16.13330.2017</system:String>
@@ -1251,13 +1265,14 @@
    <system:String x:Key="ImportScadForcesTitleRsu">Импорт усилий SCAD — РСУ (.xls)</system:String>
    <system:String x:Key="ImportScadForcesTitleCombinations">Импорт усилий SCAD — РСН / комбинации (.xls)</system:String>
    <system:String x:Key="ScadXlsFileFilter">SCAD Excel (*.xls)|*.xls|Все файлы (*.*)|*.*</system:String>
-   <system:String x:Key="ScadForceImportDialogTitle">Фильтр элементов SCAD</system:String>
-   <system:String x:Key="ScadForceImportElementsLabel">Номера элементов (например: 12, 15-20)</system:String>
-   <system:String x:Key="ScadForceImportFromMember">Из FemMember</system:String>
+   <system:String x:Key="ScadForceImportDialogTitle">Усилия SCAD: элементы</system:String>
+   <system:String x:Key="ScadForceImportElementsLabel">Номера КЭ SCAD (например: 12, 15-20 31)</system:String>
+   <system:String x:Key="ScadForceImportFromMember">Из выбранного элемента</system:String>
+   <system:String x:Key="ScadForceImportBindHint">Наборы будут привязаны к элементу «{0}».</system:String>
+   <system:String x:Key="ScadForceImportNoBindHint">Наборы без привязки к элементу схемы.</system:String>
    <system:String x:Key="ScadForceImportAllElements">Для всех элементов схемы</system:String>
    <system:String x:Key="ScadForceImportOk">OK</system:String>
    <system:String x:Key="ScadForceImportCancel">Отмена</system:String>
-   <system:String x:Key="ScadForceImportNoMember">Нет выбранного конструктивного элемента или у него пустой список КЭ.</system:String>
    <system:String x:Key="ImportScadForcesStarted">Импорт усилий SCAD…</system:String>
    <system:String x:Key="ImportScadForcesSaving">Сохранение наборов усилий…</system:String>
    <system:String x:Key="ImportScadForcesSuccess">Импортировано наборов: {0}, строк: {1}</system:String>
@@ -4100,9 +4115,11 @@
     <system:String x:Key="ImportLiraForcesNoMember">Выберите конструктивный элемент в дереве МКЭ (узел «Конструктивные элементы»).</system:String>
     <system:String x:Key="ImportLiraForcesNoElements">Выбранный конструктивный элемент не содержит ни одного КЭ. Добавьте КЭ в группу и повторите.</system:String>
     <system:String x:Key="ImportLiraForcesStarted">Импорт усилий: {0} КЭ, группа «{1}»…</system:String>
-    <system:String x:Key="LiraElemRangeDlgTitle">Диапазон элементов ЛИРА</system:String>
-    <system:String x:Key="LiraElemRangeDlgPrompt">Топология не импортирована. Укажите номера стержневых КЭ для чтения усилий из ЛИРА:</system:String>
-    <system:String x:Key="LiraElemRangeDlgHint" xml:space="preserve">Пример: 1-144  или  1-50, 75-100, 120</system:String>
+    <system:String x:Key="ElemRangeHint" xml:space="preserve">Пример: 1-144  или  1-50, 75-100 120 (разделители — пробел, запятая, «;»)</system:String>
+    <system:String x:Key="ElemRangeErrEmpty">Список КЭ пуст.</system:String>
+    <system:String x:Key="ElemRangeErrToken">Не номер КЭ: «{0}». Пример: 1-50, 75 120.</system:String>
+    <system:String x:Key="ElemRangeErrReversed">Диапазон «{0}»: начало больше конца.</system:String>
+    <system:String x:Key="ElemRangeErrTooLong">Диапазон «{0}» длиннее {1} КЭ — проверьте номера.</system:String>
     <system:String x:Key="ImportLiraForcesStubsCreated">Создано {0} заглушек. Импортировано {1} наборов усилий.</system:String>
     <system:String x:Key="FemSchema3DTab">3D-схема</system:String>
     <system:String x:Key="FemMembersListTab">Элементы</system:String>
@@ -4636,7 +4653,6 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="PlanarDxfRejectNotClosed">Контур не замкнут</system:String>
     <system:String x:Key="PlanarDxfRejectDegenerateArea">Вырожденная площадь</system:String>
     <system:String x:Key="PlanarDxfRejectSelfIntersecting">Самопересечение</system:String>
-    <system:String x:Key="PlanarDxfImportLoadError">Не удалось открыть DXF-файл: {0}</system:String>
     <system:String x:Key="PlanarDxfImportZonesTitle">Импорт зон армирования из DXF</system:String>
     <system:String x:Key="PlanarDxfImportOpenFile">Открыть файл...</system:String>
     <system:String x:Key="PlanarDxfImportLayerColumn">Слой</system:String>
@@ -6218,7 +6234,6 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliColElements">КЭ</system:String>
    <system:String x:Key="CliErrRefNotFound">{0}: не найдено «{1}» (укажите id или точное имя)</system:String>
    <system:String x:Key="CliErrRefAmbiguous">{0}: имени «{1}» соответствуют несколько объектов ({2}); укажите id</system:String>
-   <system:String x:Key="CliErrElements">Неверный список КЭ: «{0}» (пример: 1,2,5-8)</system:String>
    <system:String x:Key="CliKindSection">Сечение</system:String>
    <system:String x:Key="CliKindForceSet">Набор усилий</system:String>
    <system:String x:Key="CliKindMaterial">Материал</system:String>

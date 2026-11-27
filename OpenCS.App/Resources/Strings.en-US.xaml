@@ -251,6 +251,19 @@
    <system:String x:Key="Unit_m">m</system:String>
    <system:String x:Key="Unit_mm">mm</system:String>
    <system:String x:Key="Unit_cm2">cm</system:String>
+   <system:String x:Key="Unit_cm">cm</system:String>
+   <system:String x:Key="DxfLoadFailed">Could not read DXF "{0}": {1}</system:String>
+   <system:String x:Key="DxfLoadUnsupported">Could not read DXF "{0}": the file is damaged or older than AutoCAD 2000 — save the drawing as DXF 2000 or newer.</system:String>
+   <system:String x:Key="GeometryImportDuplicates">Already in the pool (repeated import) — skipped: {0}.</system:String>
+   <system:String x:Key="FromDxfOpenTitle">Import data from a DXF file</system:String>
+   <system:String x:Key="FromDxfNothingAssigned">No objects are assigned to create an area.</system:String>
+   <system:String x:Key="FromDxfAreaCreated">Area "{0}" created.</system:String>
+   <system:String x:Key="FromDxfGroupSuffix">_g</system:String>
+   <system:String x:Key="FemBoundarySummaryCopyTip">Copy the table (tab-separated) and messages to the clipboard</system:String>
+   <system:String x:Key="ClipboardBusy">Could not write text to the clipboard — another program is using it. Try again.</system:String>
+   <system:String x:Key="DxfUnitsTitle">Drawing units</system:String>
+   <system:String x:Key="DxfUnitsPrompt">The file "{0}" does not define drawing units. What units are the coordinates in?</system:String>
+   <system:String x:Key="DxfUnitsFromFile">Drawing units of "{0}" are taken from the file: {1}.</system:String>
    <system:String x:Key="Superscript2">2</system:String>
 
    <!-- Context menu in App.xaml -->
@@ -1055,6 +1068,7 @@
    <system:String x:Key="ScadSteelProfileFailed">Stiffness {0} (STZ {1}): {2}.</system:String>
    <system:String x:Key="LiraSteelProfilesLoaded">LIRA steel profiles from the sortament: {0} of {1} steel stiffnesses.</system:String>
    <system:String x:Key="LiraSteelProfileFailed">Stiffness {0} ({1}): {2}.</system:String>
+   <system:String x:Key="ListChoiceNumberRange">Enter a number from {0} to {1}.</system:String>
    <system:String x:Key="SteelChoiceDlgTitle">Steel for steel sections</system:String>
    <system:String x:Key="SteelChoiceDlgPrompt">The steel of steel sections is taken from the grade in the schema (SCAD steel group, LIRA stiffness steel). Choose the steel for elements without a grade (or with a grade missing from the SP 16 catalog):</system:String>
    <system:String x:Key="SteelChoiceCreateC245">Create C245 per SP 16.13330.2017</system:String>
@@ -1251,13 +1265,14 @@
    <system:String x:Key="ImportScadForcesTitleRsu">Import SCAD forces — RSU (.xls)</system:String>
    <system:String x:Key="ImportScadForcesTitleCombinations">Import SCAD forces — RSN / combinations (.xls)</system:String>
    <system:String x:Key="ScadXlsFileFilter">SCAD Excel (*.xls)|*.xls|All files (*.*)|*.*</system:String>
-   <system:String x:Key="ScadForceImportDialogTitle">SCAD element filter</system:String>
-   <system:String x:Key="ScadForceImportElementsLabel">Element numbers (e.g. 12, 15-20)</system:String>
-   <system:String x:Key="ScadForceImportFromMember">From FemMember</system:String>
+   <system:String x:Key="ScadForceImportDialogTitle">SCAD forces: elements</system:String>
+   <system:String x:Key="ScadForceImportElementsLabel">SCAD element numbers (e.g. 12, 15-20 31)</system:String>
+   <system:String x:Key="ScadForceImportFromMember">From selected member</system:String>
+   <system:String x:Key="ScadForceImportBindHint">The sets will be linked to member "{0}".</system:String>
+   <system:String x:Key="ScadForceImportNoBindHint">The sets will not be linked to a model member.</system:String>
    <system:String x:Key="ScadForceImportAllElements">For all model elements</system:String>
    <system:String x:Key="ScadForceImportOk">OK</system:String>
    <system:String x:Key="ScadForceImportCancel">Cancel</system:String>
-   <system:String x:Key="ScadForceImportNoMember">No design member selected, or its FE list is empty.</system:String>
    <system:String x:Key="ImportScadForcesStarted">Importing SCAD forces…</system:String>
    <system:String x:Key="ImportScadForcesSaving">Saving force sets…</system:String>
    <system:String x:Key="ImportScadForcesSuccess">Imported force sets: {0}, rows: {1}</system:String>
@@ -4100,9 +4115,11 @@
     <system:String x:Key="ImportLiraForcesNoMember">Select a design member in the FEM tree (under «Design Members» node).</system:String>
     <system:String x:Key="ImportLiraForcesNoElements">The selected design member has no elements. Add elements to the group and try again.</system:String>
     <system:String x:Key="ImportLiraForcesStarted">Importing forces: {0} elements, group «{1}»…</system:String>
-    <system:String x:Key="LiraElemRangeDlgTitle">LIRA Element Range</system:String>
-    <system:String x:Key="LiraElemRangeDlgPrompt">Topology not imported. Enter beam element numbers to read forces from LIRA:</system:String>
-    <system:String x:Key="LiraElemRangeDlgHint" xml:space="preserve">Example: 1-144  or  1-50, 75-100, 120</system:String>
+    <system:String x:Key="ElemRangeHint" xml:space="preserve">Example: 1-144  or  1-50, 75-100 120 (separators: space, comma, ";")</system:String>
+    <system:String x:Key="ElemRangeErrEmpty">The element list is empty.</system:String>
+    <system:String x:Key="ElemRangeErrToken">Not an element number: "{0}". Example: 1-50, 75 120.</system:String>
+    <system:String x:Key="ElemRangeErrReversed">Range "{0}": the start is greater than the end.</system:String>
+    <system:String x:Key="ElemRangeErrTooLong">Range "{0}" exceeds {1} elements — check the numbers.</system:String>
     <system:String x:Key="ImportLiraForcesStubsCreated">Created {0} element stubs. Imported {1} force sets.</system:String>
     <system:String x:Key="FemSchema3DTab">3D View</system:String>
     <system:String x:Key="FemMembersListTab">Members</system:String>
@@ -4636,7 +4653,6 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="PlanarDxfRejectNotClosed">Contour is not closed</system:String>
     <system:String x:Key="PlanarDxfRejectDegenerateArea">Degenerate area</system:String>
     <system:String x:Key="PlanarDxfRejectSelfIntersecting">Self-intersecting</system:String>
-    <system:String x:Key="PlanarDxfImportLoadError">Failed to open DXF file: {0}</system:String>
     <system:String x:Key="PlanarDxfImportZonesTitle">Import rebar zones from DXF</system:String>
     <system:String x:Key="PlanarDxfImportOpenFile">Open file...</system:String>
     <system:String x:Key="PlanarDxfImportLayerColumn">Layer</system:String>
@@ -6218,7 +6234,6 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliColElements">Elements</system:String>
    <system:String x:Key="CliErrRefNotFound">{0}: «{1}» not found (give an id or the exact name)</system:String>
    <system:String x:Key="CliErrRefAmbiguous">{0}: several objects are named «{1}» ({2}); give an id</system:String>
-   <system:String x:Key="CliErrElements">Invalid FE list: «{0}» (example: 1,2,5-8)</system:String>
    <system:String x:Key="CliKindSection">Cross section</system:String>
    <system:String x:Key="CliKindForceSet">Force set</system:String>
    <system:String x:Key="CliKindMaterial">Material</system:String>

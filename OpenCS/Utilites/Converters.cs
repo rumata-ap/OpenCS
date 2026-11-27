@@ -112,7 +112,7 @@ namespace OpenCS.Utilites
 
       public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
       {
-         return NumberInput.Scaled(value, 0.001);
+         return NumberInputBinding.Scaled(value, 0.001);
       }
    }
    public class MPaConvert : IValueConverter
@@ -125,7 +125,7 @@ namespace OpenCS.Utilites
 
       public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
       {
-         return NumberInput.Scaled(value, 1000);
+         return NumberInputBinding.Scaled(value, 1000);
       }
    }
    /// <summary>Число как есть; обратно — через <see cref="NumberInput"/> («,» и «.»), нечисло — красная рамка.</summary>
@@ -134,7 +134,7 @@ namespace OpenCS.Utilites
       public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => value;
 
       public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-         => NumberInput.Scaled(value, 1);
+         => NumberInputBinding.Scaled(value, 1);
    }
 
    public class GPaConvert : IValueConverter
@@ -147,7 +147,7 @@ namespace OpenCS.Utilites
 
       public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
       {
-         return NumberInput.Scaled(value, 1000000);
+         return NumberInputBinding.Scaled(value, 1000000);
       }
    }
 
@@ -161,7 +161,7 @@ namespace OpenCS.Utilites
 
       public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
       {
-         return NumberInput.Scaled(value, -1000);
+         return NumberInputBinding.Scaled(value, -1000);
       }
    }
 
@@ -174,7 +174,7 @@ namespace OpenCS.Utilites
 
       public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
       {
-         return NumberInput.Scaled(value, -1);
+         return NumberInputBinding.Scaled(value, -1);
       }
    }
 
@@ -188,7 +188,7 @@ namespace OpenCS.Utilites
 
       public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
       {
-         return NumberInput.Scaled(value, 1000);
+         return NumberInputBinding.Scaled(value, 1000);
       }
    }
 
@@ -316,5 +316,19 @@ namespace OpenCS.Utilites
 
       public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
          Binding.DoNothing;
+   }
+}
+
+namespace OpenCS.Utilites
+{
+   /// <summary>Разбор поля для ConvertBack конвертеров единиц (WPF-часть <see cref="OpenCS.Utilites.NumberInput"/>).</summary>
+   internal static class NumberInputBinding
+   {
+      /// <summary>
+      /// Число × <paramref name="factor"/>, а неразобранный ввод — <see cref="System.Windows.DependencyProperty.UnsetValue"/>:
+      /// WPF подсвечивает поле и не меняет значение (исключение из ConvertBack роняло программу).
+      /// </summary>
+      public static object Scaled(object? text, double factor) =>
+         NumberInput.TryParse(text as string, out double v) ? factor * v : System.Windows.DependencyProperty.UnsetValue;
    }
 }

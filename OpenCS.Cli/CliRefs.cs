@@ -30,25 +30,11 @@ static class CliRefs
 /// <summary>Список номеров КЭ «1,2,5-8» и его сжатая запись.</summary>
 static class ElementList
 {
-    public static IReadOnlySet<int> Parse(string text)
-    {
-        var result = new SortedSet<int>();
-        foreach (string raw in text.Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries))
-        {
-            string part = raw.Trim();
-            int dash = part.IndexOf('-', 1);
-            if (dash > 0 && int.TryParse(part[..dash], NumberStyles.Integer, CultureInfo.InvariantCulture, out int from)
-                         && int.TryParse(part[(dash + 1)..], NumberStyles.Integer, CultureInfo.InvariantCulture, out int to)
-                         && from <= to && to - from < 1_000_000)
-                for (int i = from; i <= to; i++) result.Add(i);
-            else if (int.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out int one))
-                result.Add(one);
-            else
-                throw new CliException(CliExitCode.Usage, string.Format(Loc.S("CliErrElements"), text));
-        }
-        if (result.Count == 0) throw new CliException(CliExitCode.Usage, string.Format(Loc.S("CliErrElements"), text));
-        return result;
-    }
+    /// <summary>Разбор — общий с окнами (<see cref="ElementRanges"/>); ошибка — с указанием неверной части.</summary>
+    public static IReadOnlySet<int> Parse(string text) =>
+        ElementRanges.TryParse(text, out var ids, out string? error)
+            ? ids
+            : throw new CliException(CliExitCode.Usage, error!);
 
     /// <summary>«1-3, 7» по возрастанию; пусто — пустая строка.</summary>
     public static string Format(IEnumerable<int> elements)

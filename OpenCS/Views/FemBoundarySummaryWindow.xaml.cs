@@ -8,10 +8,13 @@ namespace OpenCS.Views;
 /// </summary>
 public partial class FemBoundarySummaryWindow : Window
 {
+    readonly string _text;
+
     public FemBoundarySummaryWindow(string header, IReadOnlyList<CScore.Import.FemBoundaryTransferRow> rows,
         IReadOnlyList<string> messages)
     {
         InitializeComponent();
+        _text = Services.FemBoundarySummaryText.Format(header, rows, messages);
         headerText.Text = header;
         summaryGrid.ItemsSource = rows;
         messagesList.ItemsSource = messages;
@@ -19,4 +22,14 @@ public partial class FemBoundarySummaryWindow : Window
     }
 
     void Close_Click(object sender, RoutedEventArgs e) => Close();
+
+    /// <summary>Сводка и сообщения — в буфер обмена текстом (таблица через табуляцию).</summary>
+    void Copy_Click(object sender, RoutedEventArgs e)
+    {
+        try { Clipboard.SetText(_text); }
+        catch (System.Runtime.InteropServices.ExternalException)
+        {
+            MessageBox.Show(this, Utilites.Loc.S("ClipboardBusy"), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
 }

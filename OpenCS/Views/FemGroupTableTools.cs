@@ -62,14 +62,14 @@ internal sealed class FemGroupTableTools
         // Группа из одного КонЭ — по его имени (так было у прежней команды таблиц).
         bool countedName = IsMesh || tags.Count != 1;
         string defaultTag = countedName ? FemGroupComposition.DefaultTag(_kind, tags.Count) : tags[0];
-        string initialRange = IsMesh ? LiraElemRangeDialog.FormatRange(tags) : "";
+        string initialRange = IsMesh ? ElementRanges.FormatTags(tags) : "";
         var dlg = new FemMemberDialog(initialRange, defaultTag, defaultType, showRange: IsMesh,
             title: Loc.S(IsMesh ? "FemMeshGroupDlgTitle" : "FemMembersGroupDlgTitle"));
         if (dlg.ShowDialog() != true) return;
 
         // Строку номеров не правили — берём выделенные как есть (без разбора, теги бывают нечисловыми).
         if (IsMesh && dlg.Range != initialRange)
-            tags = LiraElemRangeDialog.ParseRange(dlg.Range).Select(id => id.ToString(CultureInfo.InvariantCulture)).ToList();
+            tags = dlg.RangeIds.Select(id => id.ToString(CultureInfo.InvariantCulture)).ToList();
         if (tags.Count == 0) return;
         // Имя по умолчанию не трогали — пусть сервис посчитает его по фактическому составу.
         string? tag = countedName && dlg.MemberTag == defaultTag ? null : dlg.MemberTag;
