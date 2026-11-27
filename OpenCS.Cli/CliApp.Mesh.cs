@@ -27,7 +27,9 @@ sealed partial class CliApp
         catch (Exception e) when (e is not OperationCanceledException)
         {
             // Нет Gmsh или сбой разбиения — список схем всё равно выводится, причина — в столбце сетки.
-            return ("error", e.Message.Split('\n')[0].Trim());
+            string first = e.Message.Split('\n')[0].Trim();
+            int dot = first.IndexOf(". ", StringComparison.Ordinal);
+            return ("error", dot > 0 ? first[..(dot + 1)] : first);
         }
         if (check.HasErrors) return ("error", check.Diagnostics.First(d => d.IsError).Message);
         return check.IsCurrent == true ? ("current", null) : (hasMesh ? "stale" : "none", null);

@@ -278,7 +278,7 @@ sealed class FemFragmentsKind : IModelKind
                 var cuts = db.GetFragmentCutsWithIds(target.Id);
                 var resolved = ResolveOverrides(d, cuts.Select(c => c.Cut).ToList(), errors);
                 if (errors.Count > before) continue;
-                if (!d.HasCutBc) continue;
+                // Без cutBc запись ничего не меняет — в отчёте «без изменений», как у прочих видов.
                 var dc = d;
                 changes.Add(new ModelChange(Name, d.Tag, false, c => ApplyCutBc(c.Db, c.Db.FemSchemas.First(s => s.Id == target.Id), dc, resolved)));
                 continue;
