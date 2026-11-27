@@ -11,12 +11,12 @@ static class ModelDocument
     public const string Format = "opencs-model";
     public const int Version = 1;
 
-    /// <summary>Виды в порядке записи: диаграммы — раньше материалов custom, контуры пула — раньше сечений, материалы —
+    /// <summary>Виды в порядке записи: настройки проекта — первыми (по ним считаются «авто»-коэффициенты комбинаций схем), диаграммы — раньше материалов custom, контуры пула — раньше сечений, материалы —
     /// раньше сечений пластин, сечения — раньше огневых, сечения, огневые и наборы — раньше задач, сечения и задачи кручения — раньше схем МКЭ,
     /// схемы (загружения, комбинации, узлы) — раньше постановок, постановки (расчётные длины стали) — раньше проверок по КЭ.</summary>
     public static IReadOnlyList<IModelKind> Kinds { get; } =
         [
-            new DiagramsKind(), new MaterialsKind(), new ContoursKind(), new CirclesKind(), new SectionsKind(),
+            new SettingsKind(), new DiagramsKind(), new MaterialsKind(), new ContoursKind(), new CirclesKind(), new SectionsKind(),
             new PlateSectionsKind(), new FireSectionsKind(), new ForceSetsKind(), new TasksKind(), new FemSchemasKind(),
             new FemAnalysesKind(), new FemChecksKind()
         ];
@@ -52,8 +52,10 @@ static class ModelDocument
         foreach (var (key, value) in doc)
         {
             if (key is "format" or "version") continue;
-            if (Find(key) == null) errors.Add(key, Loc.S("CliModelErrUnknownSection"));
-            else if (value is not JsonArray) errors.Add(key, Loc.S("CliModelErrNotArray"));
+            var kind = Find(key);
+            if (kind == null) errors.Add(key, Loc.S("CliModelErrUnknownSection"));
+            else if (kind.IsObject ? value is not JsonObject : value is not JsonArray)
+                errors.Add(key, Loc.S(kind.IsObject ? "CliModelErrNotObject" : "CliModelErrNotArray"));
         }
         return doc;
     }
@@ -62,7 +64,10 @@ static class ModelDocument
     {
         var doc = new JsonObject { ["format"] = Format, ["version"] = Version };
         foreach (var kind in Kinds.Where(k => only == null || only.Contains(k.Name)))
-            doc[kind.Name] = kind.Export(ctx, warn);
+        {
+            var items = kind.Export(ctx, warn);
+            doc[kind.Name] = kind.IsObject ? items[0]?.DeepClone() : items;
+        }
         return doc;
     }
 
@@ -72,11 +77,14 @@ static class ModelDocument
         foreach (var kind in Kinds)
             if (doc[kind.Name] is JsonArray items)
                 changes.AddRange(kind.Plan(items, doc, ctx, errors));
+            else if (kind.IsObject && doc[kind.Name] is JsonObject single)
+                changes.AddRange(kind.Plan([single.DeepClone()], doc, ctx, errors));
         return changes;
     }
 
     public static string ReadSchema(IModelKind kind)
     {
+        if (kind.GeneratedSchema() is { } generated) return generated;
         using var stream = typeof(ModelDocument).Assembly.GetManifestResourceStream(kind.SchemaResource)
             ?? throw new InvalidOperationException(kind.SchemaResource);
         using var reader = new StreamReader(stream);

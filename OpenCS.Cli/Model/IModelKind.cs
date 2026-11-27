@@ -21,4 +21,13 @@ interface IModelKind
     /// (<paramref name="doc"/>) — для ссылок на объекты других разделов, создаваемые тем же документом.
     /// </summary>
     IReadOnlyList<ModelChange> Plan(JsonArray items, JsonObject doc, HeadlessProjectContext ctx, ModelErrors errors);
+
+    /// <summary>
+    /// Раздел документа — один объект, а не массив (настройки проекта). Выгрузка и план работают с массивом из одного
+    /// элемента; документ пишет и читает сам объект.
+    /// </summary>
+    bool IsObject => false;
+
+    /// <summary>JSON-схема, собранная в коде (вместо ресурса); null — из <see cref="SchemaResource"/>.</summary>
+    string? GeneratedSchema() => null;
 }

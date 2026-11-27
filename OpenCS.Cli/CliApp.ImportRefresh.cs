@@ -32,7 +32,7 @@ sealed partial class CliApp
         _refreshSchema, _refreshFile);
 
     Command ImportLoadsCommand() => EditCommand("loads", "CliCmdImportLoads", c => RefreshFromSourceAsync(c, boundary: false),
-        _refreshSchema, _refreshFile);
+        _refreshSchema, _refreshFile, _designLoads);
 
     Command ConvertBlocksCommand() => EditCommand("blocks", "CliCmdConvertBlocks", ConvertBlocksAsync,
         _refreshSchema, _blocks, _blockType, _blockFloor);
@@ -81,7 +81,8 @@ sealed partial class CliApp
                 default:
                     throw new CliException(CliExitCode.Usage, string.Format(Loc.S("CliErrRefreshSourceType"), schema.Tag));
             }
-            ReportSchemaImport(call, db, new SchemaImportOutcome(schema, "", summary, loads));
+            bool switched = !boundary && SwitchToDesignLoads(call, ctx, loads);
+            ReportSchemaImport(call, db, new SchemaImportOutcome(schema, "", summary, loads), switched);
         });
     }
 

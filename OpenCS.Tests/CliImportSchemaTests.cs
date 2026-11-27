@@ -70,6 +70,19 @@ public sealed class CliImportSchemaTests : IDisposable
     }
 
     [Fact]
+    public async Task LiraText_DesignLoads_SwitchesProjectSetting_NoWarning()
+    {
+        string db = await NewProject();
+        var (code, output, err) = await Run("import", "schema", db, WallText, "--design-loads", "--json");
+        Assert.True(code == 0, err);
+        using var doc = JsonDocument.Parse(output);
+        Assert.False(doc.RootElement.GetProperty("normativeLoadValues").GetBoolean());
+        Assert.True(doc.RootElement.GetProperty("designLoadsSwitched").GetBoolean());
+        using var project = new DatabaseService(db);
+        Assert.Equal("design", project.LoadCalcSettings().Sp20LoadValueKind);
+    }
+
+    [Fact]
     public async Task LiraText_TagOption_AndTextSummary()
     {
         Loc.SetLanguage(Loc.Russian);

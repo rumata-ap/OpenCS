@@ -6338,7 +6338,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliErrCsvElementsRequired">LIRA CSV needs the elements file: --elements-file.</system:String>
    <system:String x:Key="CliErrScadDllNotFound">SCADAPIX.dll not found — specify the SCAD folder: --scad-dll.</system:String>
    <system:String x:Key="CliErrLiraApi">LIRA did not respond through the API: {0}. Is LIRA running with a model open?</system:String>
-   <system:String x:Key="CliImportLoadValuesNormative">Source loads are design values, but the project settings use characteristic values: SP 20 combinations would apply γf twice. Switch the settings to design values.</system:String>
+   <system:String x:Key="CliImportLoadValuesNormative">Source loads are design values, but the project settings use characteristic values: SP 20 combinations would apply γf twice. Repeat with --design-loads or set "settings": {"loads": {"valueKind": "design"}} in apply.</system:String>
    <system:String x:Key="CliMeshCounts" xml:space="preserve"> · {0} nodes, {1} elements</system:String>
    <system:String x:Key="CliErrLirRead">The .lir file "{0}" could not be read: {1}. Import the LIRA text file instead (Data\&lt;Title&gt;.txt).</system:String>
    <system:String x:Key="CliLirSkippedElements">Elements the .lir reader did not transfer (node count other than 2–4: springs, solids, unrecognised): {0}.</system:String>
@@ -7944,4 +7944,8 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="SettingErrRange">Allowed: {0}.</system:String>
    <system:String x:Key="SettingErrIntList">Point numbers are whole numbers from 1 separated by commas; empty means all points.</system:String>
    <system:String x:Key="SettingsTabHasErrors">Some values are invalid — fix the fields marked with red text. Settings are not saved.</system:String>
+   <system:String x:Key="CliOptDesignLoads">Source loads are design values: switch the project load values to design (like «Yes» in the GUI) and recompute «auto» combination factors</system:String>
+   <system:String x:Key="CliSettingsKey">project settings</system:String>
+   <system:String x:Key="CliSettingsCombinationsRecomputed">Schema «{0}»: «auto» factors of {1} combinations recomputed (new γf or load value kind).</system:String>
+   <system:String x:Key="CliSettingsSchemaDescription">Project settings that affect calculation and import results. Units as in the Settings window (m, mm, kN·m²). apply changes only the fields given. Appearance, remembered window choices, program paths, timeouts and threads stay in the window only.</system:String>
 </ResourceDictionary>

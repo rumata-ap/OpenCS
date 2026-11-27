@@ -17,6 +17,7 @@ sealed partial class CliApp
     readonly Argument<string?> _schemaFile = new("file") { Arity = ArgumentArity.ZeroOrOne };
     readonly Option<string> _schemaFormat = new("--format") { DefaultValueFactory = _ => "auto" };
     readonly Option<bool> _liraApi = new("--lira-api");
+    readonly Option<bool> _designLoads = new("--design-loads");
     readonly Option<string?> _csvElements = new("--elements-file");
     readonly Option<string?> _csvBarStiffness = new("--bar-stiffness");
     readonly Option<string?> _csvPlateStiffness = new("--plate-stiffness");
@@ -36,6 +37,7 @@ sealed partial class CliApp
         _schemaFormat.Description = Loc.S("CliOptSchemaFormat");
         _schemaFormat.AcceptOnlyFromAmong(SchemaFormats);
         _liraApi.Description = Loc.S("CliOptLiraApi");
+        _designLoads.Description = Loc.S("CliOptDesignLoads");
         _csvElements.Description = Loc.S("CliOptCsvElements");
         _csvBarStiffness.Description = Loc.S("CliOptCsvBarStiffness");
         _csvPlateStiffness.Description = Loc.S("CliOptCsvPlateStiffness");
@@ -47,7 +49,7 @@ sealed partial class CliApp
 
     Command ImportSchemaCommand() => EditCommand("schema", "CliCmdImportSchema", ImportSchemaAsync,
         _schemaFile, _tag, _schemaFormat, _liraApi, _csvElements, _csvBarStiffness, _csvPlateStiffness, _scadDll,
-        _noOutputAxes, _noConcreteGroups, _noSteelGroups);
+        _noOutputAxes, _noConcreteGroups, _noSteelGroups, _designLoads);
 
     /// <summary>Итог импорта для вывода: схема, ГУ, ΣF, предупреждение о нормативных нагрузках.</summary>
     sealed record SchemaImportOutcome(FemSchema Schema, string Done, FemBoundarySummary? Boundary, FemLoadTransferOutcome? Loads);
@@ -87,8 +89,23 @@ sealed partial class CliApp
                 outcome.Schema.Tag = tag;
                 ctx.Db.SaveFemSchema(outcome.Schema);
             }
-            ReportSchemaImport(call, ctx.Db, outcome);
+            bool switched = SwitchToDesignLoads(call, ctx, outcome.Loads);
+            ReportSchemaImport(call, ctx.Db, outcome, switched);
         });
+    }
+
+    /// <summary>
+    /// <c>--design-loads</c>: нагрузки источника расчётные, а в настройках нормативные — настройка переключается на
+    /// «расчётные» (как ответ «Да» в GUI), «авто»-слагаемые комбинаций схем пересчитываются.
+    /// </summary>
+    bool SwitchToDesignLoads(CliCall call, HeadlessProjectContext ctx, FemLoadTransferOutcome? loads)
+    {
+        if (loads?.AskDesignLoadValues != true || !call.Parse.GetValue(_designLoads)) return false;
+        ctx.CalcSettings.Sp20LoadValueKind = "design";
+        ctx.Db.SaveCalcSettings(ctx.CalcSettings);
+        call.Log.Info(Loc.S("ImportDesignLoadValuesSwitched"));
+        Model.SettingsKind.RecomputeAutoCombinations(ctx);
+        return true;
     }
 
     /// <summary>Формат по расширению; <c>.txt</c> — по содержимому (текст SCAD начинается с «(0;Version=»).</summary>
@@ -258,13 +275,14 @@ sealed partial class CliApp
         return result;
     }
 
-    static void ReportSchemaImport(CliCall call, DatabaseService db, SchemaImportOutcome o)
+    static void ReportSchemaImport(CliCall call, DatabaseService db, SchemaImportOutcome o, bool designLoadsSwitched = false)
     {
         var schema = o.Schema;
         var elements = db.GetFemMeshElements(schema.Id);
         int nodes = db.GetFemMeshNodes(schema.Id).Count;
         int bars = elements.Count(e => e.ElemType == "beam"), shells = elements.Count(e => e.ElemType == "shell");
-        if (o.Loads?.AskDesignLoadValues == true) call.Log.Warning(Loc.S("CliImportLoadValuesNormative"));
+        bool normative = o.Loads?.AskDesignLoadValues == true && !designLoadsSwitched;
+        if (normative) call.Log.Warning(Loc.S("CliImportLoadValuesNormative"));
         if (call.Json)
         {
             CliOutput.WriteJson(call.Out, new
@@ -277,7 +295,8 @@ sealed partial class CliApp
                     o.Boundary.Messages
                 },
                 LoadCases = o.Loads?.Totals.Select(t => new { t.Case, t.SourceNum, t.FxKn, t.FyKn, t.FzKn }),
-                NormativeLoadValues = o.Loads?.AskDesignLoadValues ?? false,
+                NormativeLoadValues = normative,
+                DesignLoadsSwitched = designLoadsSwitched,
             });
             return;
         }

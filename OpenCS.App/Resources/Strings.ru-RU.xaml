@@ -6338,7 +6338,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliErrCsvElementsRequired">Для CSV ЛИРЫ нужен файл КЭ: --elements-file.</system:String>
    <system:String x:Key="CliErrScadDllNotFound">SCADAPIX.dll не найдена — укажите каталог SCAD: --scad-dll.</system:String>
    <system:String x:Key="CliErrLiraApi">ЛИРА не ответила через API: {0}. Запущена ли ЛИРА и открыта ли в ней схема?</system:String>
-   <system:String x:Key="CliImportLoadValuesNormative">Нагрузки источника — расчётные, а в настройках проекта величины нагрузок — нормативные: сочетания СП 20 учтут γf повторно. Переключите в настройках на «расчётные».</system:String>
+   <system:String x:Key="CliImportLoadValuesNormative">Нагрузки источника — расчётные, а в настройках проекта величины нагрузок — нормативные: сочетания СП 20 учтут γf повторно. Повторите с --design-loads или задайте "settings": {"loads": {"valueKind": "design"}} в apply.</system:String>
    <system:String x:Key="CliMeshCounts" xml:space="preserve"> · узлов {0}, КЭ {1}</system:String>
    <system:String x:Key="CliErrLirRead">Файл .lir «{0}» не прочитан: {1}. Импортируйте текстовый файл схемы ЛИРЫ (Data\&lt;Title&gt;.txt).</system:String>
    <system:String x:Key="CliLirSkippedElements">КЭ, которые разборщик .lir не перенёс (число узлов не 2–4: пружины, объёмные и нераспознанные): {0}.</system:String>
@@ -7944,4 +7944,8 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="SettingErrRange">Допустимо: {0}.</system:String>
    <system:String x:Key="SettingErrIntList">Номера точек — целые числа от 1 через запятую; пусто — все точки.</system:String>
    <system:String x:Key="SettingsTabHasErrors">Есть неверные значения — исправьте поля, отмеченные красным текстом. Настройки не сохранены.</system:String>
+   <system:String x:Key="CliOptDesignLoads">Нагрузки источника расчётные: переключить «Величины нагрузок» проекта на «расчётные» (как «Да» в GUI) и пересчитать «авто»-коэффициенты комбинаций</system:String>
+   <system:String x:Key="CliSettingsKey">настройки проекта</system:String>
+   <system:String x:Key="CliSettingsCombinationsRecomputed">Схема «{0}»: пересчитаны «авто»-коэффициенты {1} комбинаций (новые γf или вид величин нагрузок).</system:String>
+   <system:String x:Key="CliSettingsSchemaDescription">Настройки проекта, от которых зависят результаты расчёта и импорта. Единицы — как в окне «Настройки» (м, мм, кН·м²). apply меняет только указанные поля. Оформление, запомненные выборы окон, пути программ, таймауты и потоки — только в окне.</system:String>
 </ResourceDictionary>
