@@ -34,7 +34,7 @@ public sealed class FemFieldColumnRow : ViewModelBase
         _unit = unit == null ? Units[0] : Units.FirstOrDefault(u => u == unit) ?? Add(unit);
     }
 
-    /// <summary>Номер столбца таблицы (у поля, открытого на правку без новой таблицы, — номер значения точки).</summary>
+    /// <summary>Номер столбца таблицы (у поля, открытого на правку, — столбец восстановленной таблицы точек).</summary>
     public int ColumnIndex { get; }
     public string Header { get; }
     public IReadOnlyList<string> Components { get; }
@@ -105,10 +105,19 @@ public sealed class FemFieldDialogVM : ViewModelBase
             _existingDefinition = existing.Definition;
             _existingHasZ = existing.HasZ;
             SourceFile = existing.SourceFile;
-            for (int k = 0; k < existing.Definition.Columns.Count; k++)
+            var d = existing.Definition;
+            string? zHeader = existing.HasZ ? d.ZHeader ?? "Z" : null;
+            // Сохранённая таблица — снова таблица окна: выбор X/Y/Z и столбцы значений видны и правятся, как после
+            // загрузки (раньше списки X/Y были пусты, а точки брались из поля скрыто).
+            _table = PointTable.FromPoints(d.XHeader ?? "X", d.YHeader ?? "Y", zHeader, d.Columns.Select(c => c.Header).ToList(),
+                existing.Points);
+            Headers = _table.Headers;
+            (XColumn, YColumn, ZColumn) = (0, 1, zHeader != null ? 2 : -1);
+            int offset = zHeader != null ? 3 : 2;
+            for (int k = 0; k < d.Columns.Count; k++)
             {
-                var c = existing.Definition.Columns[k];
-                Columns.Add(new FemFieldColumnRow(k, c.Header, Quantity, c.Component, tonToKn, new FemFieldUnit(c.UnitLabel, c.UnitFactor)));
+                var c = d.Columns[k];
+                Columns.Add(new FemFieldColumnRow(offset + k, c.Header, Quantity, c.Component, tonToKn, new FemFieldUnit(c.UnitLabel, c.UnitFactor)));
             }
         }
     }

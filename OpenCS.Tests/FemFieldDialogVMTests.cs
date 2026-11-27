@@ -147,6 +147,43 @@ public class FemFieldDialogVMTests
         Assert.Equal(FieldMethod.Nearest, rebuilt.Definition.Settings.Method);
     }
 
+    /// <summary>
+    /// «Изменить…» поля показывает сохранённую таблицу: заголовки X/Y/Z и столбцы значений выбраны, точки те же; выбор
+    /// столбца значения «не использовать» убирает его из поля, как у загруженной таблицы.
+    /// </summary>
+    [Fact]
+    public void ExistingField_RestoresTable_HeadersColumnsAndPoints()
+    {
+        var existing = new FemField
+        {
+            Id = 3, SchemaId = 1, Name = "Пружины", Quantity = FemFieldQuantities.Spring, HasZ = true,
+            Definition = new FemFieldDefinition
+            {
+                XHeader = "X [см]", YHeader = "Y [см]", ZHeader = "Z [см]",
+                Columns = [new FemFieldColumn("Rz", "kz", "кН/м", 1000), new FemFieldColumn("Rx", "kx", "кН/м", 1000)],
+                Alignment = new FieldAlignment(Scale: 0.01),
+            },
+            Points = [new(new(100, 200, -50), [5, 1]), new(new(300, 200, -50), [6, 2])],
+        };
+        var vm = new FemFieldDialogVM(Plate(), new FemFieldTargets(), 9.80665, existing);
+        Assert.Equal(["X [см]", "Y [см]", "Z [см]", "Rz", "Rx"], vm.Headers);
+        Assert.Equal((0, 1, 2), (vm.XColumn, vm.YColumn, vm.ZColumn));
+        Assert.Equal([3, 4], vm.Columns.Select(c => c.ColumnIndex));
+        Assert.Equal(0.01, vm.LengthScale);
+
+        var rebuilt = vm.BuildField(1);
+        Assert.True(rebuilt.HasZ);
+        Assert.Equal(existing.Points.Select(p => (p.P, p.Values[0], p.Values[1])),
+            rebuilt.Points.Select(p => (p.P, p.Values[0], p.Values[1])));
+        Assert.Equal(existing.Definition.Columns, rebuilt.Definition.Columns);
+        Assert.Equal("Z [см]", rebuilt.Definition.ZHeader);
+
+        vm.Columns[1].Component = FemFieldColumnRow.Skip;
+        var oneColumn = vm.BuildField(1);
+        Assert.Equal([5.0, 6.0], oneColumn.Points.Select(p => Assert.Single(p.Values)));
+        Assert.Single(oneColumn.Definition.Columns);
+    }
+
     [Fact]
     public void ExtraNumericColumn_IsSkipped_AndRecognizedColumnWins()
     {

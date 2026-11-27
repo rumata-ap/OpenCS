@@ -69,6 +69,31 @@ public sealed class PointTable
         return double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out double v) && double.IsFinite(v) ? v : null;
     }
 
+    /// <summary>
+    /// Таблица из точек сохранённого поля (окно поля при «Изменить…»): столбцы X, Y, (Z) и значения по
+    /// <paramref name="valueHeaders"/> — координаты и значения как в исходной таблице (до совмещения и пересчёта единиц).
+    /// </summary>
+    public static PointTable FromPoints(string xHeader, string yHeader, string? zHeader, IReadOnlyList<string> valueHeaders,
+        IReadOnlyList<FieldPoint> points)
+    {
+        ArgumentNullException.ThrowIfNull(valueHeaders);
+        ArgumentNullException.ThrowIfNull(points);
+        var headers = new List<string> { xHeader, yHeader };
+        if (zHeader != null) headers.Add(zHeader);
+        headers.AddRange(valueHeaders);
+        int offset = zHeader != null ? 3 : 2;
+        var rows = points.Select(p =>
+        {
+            var row = new double?[headers.Count];
+            row[0] = p.P.X;
+            row[1] = p.P.Y;
+            if (zHeader != null) row[2] = p.P.Z;
+            for (int k = 0; k < valueHeaders.Count && k < p.Values.Length; k++) row[offset + k] = p.Values[k];
+            return row;
+        }).ToList();
+        return new PointTable(headers, rows, '\t');
+    }
+
     /// <summary>Есть ли в столбце хоть одно число (пустой столбец Z не предлагается как координата).</summary>
     public bool ColumnHasNumbers(int column) => Rows.Any(r => column < r.Length && r[column] != null);
 
