@@ -17,7 +17,7 @@ static class ModelDocument
     public static IReadOnlyList<IModelKind> Kinds { get; } =
         [
             new SettingsKind(), new DiagramsKind(), new MaterialsKind(), new ContoursKind(), new CirclesKind(), new SectionsKind(),
-            new PlateSectionsKind(), new FireSectionsKind(), new ForceSetsKind(), new TasksKind(), new FemSchemasKind(),
+            new PlateSectionsKind(), new FireSectionsKind(), new ForceSetsKind(), new TasksKind(), new FemSchemasKind(), new FemFragmentsKind(),
             new FemAnalysesKind(), new FemChecksKind()
         ];
 

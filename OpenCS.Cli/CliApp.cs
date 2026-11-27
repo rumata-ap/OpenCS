@@ -115,6 +115,7 @@ sealed partial class CliApp
         DescribeAuthoringOptions();
         DescribeSteelOptions();
         DescribeForceOptions();
+        DescribeFragmentOptions();
         DescribeImportOptions();
         DescribeRefreshOptions();
         DescribeGeometryOptions();
@@ -166,7 +167,7 @@ sealed partial class CliApp
 
         return new RootCommand(Loc.S("CliRootDescription"))
         {
-            _lang, _json, _quiet, NewCommand(), add, import, convert, split, combine, ApplyCommand(), SchemaCommand(), info, list, run,
+            _lang, _json, _quiet, NewCommand(), add, import, convert, split, combine, FragmentCommand(), ApplyCommand(), SchemaCommand(), info, list, run,
             export, tools
         };
     }

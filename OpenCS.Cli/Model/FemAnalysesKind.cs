@@ -108,6 +108,8 @@ sealed class FemAnalysesKind : IModelKind
             var seen = new HashSet<string>(StringComparer.CurrentCultureIgnoreCase);
             foreach (var a in schema.Analyses.OrderBy(a => a.Id))
             {
+                // Служебные постановки «Маски фрагмента» — производные: их пересоздаёт opencs fragment masks.
+                if (FemFragmentsKind.IsMaskSupplyAnalysis(a)) continue;
                 if (KindMap.FirstOrDefault(k => k.Db == a.Kind).Doc is not { } kind)
                 {
                     warn(string.Format(Loc.S("CliFemAnalysisSkippedKind"), schema.Tag.Trim(), a.Tag, a.Kind));
@@ -358,6 +360,17 @@ sealed class FemAnalysesKind : IModelKind
             }
             else if (dbSchemas.SingleOrDefault() is { } s)
                 refs = new Refs { Schema = s, Nodes = db.GetFemNodes(s.Id) };
+            else if (FemFragmentsKind.PlannedFor(doc, ctx, schemaTag) is { } fragment)
+            {
+                // Фрагмент, который собирает этот документ: загружения, комбинации и узлы — из черновика сборки.
+                if (fragment.Skipped)
+                {
+                    ctx.LogService.Warning(string.Format(Loc.S("CliFragAnalysisSkipped"), schemaTag, tag));
+                    continue;
+                }
+                if (!virtualSchemas.TryGetValue(schemaTag, out refs!))
+                    virtualSchemas[schemaTag] = refs = FragmentRefs(fragment.Draft!, schemaTag);
+            }
             else
             {
                 errors.Add($"{path}.schema", string.Format(Loc.S("CliFemAnalysisErrUnknownSchema"), schemaTag));
@@ -417,6 +430,17 @@ sealed class FemAnalysesKind : IModelKind
             ? a.OfType<JsonObject>().FirstOrDefault(o => o["tag"] is JsonValue v && v.TryGetValue(out string? t)
                 && string.Equals(t?.Trim(), tag, StringComparison.CurrentCultureIgnoreCase))
             : null;
+
+    /// <summary>Ссылки плана по черновику фрагмента (Id загружений — родителя, как в формулах черновика; узлы — условные).</summary>
+    static Refs FragmentRefs(CScore.Fem.Fragment.StoreyFragmentDraft draft, string tag)
+    {
+        var schema = new FemSchema { Id = -1, Tag = tag };
+        foreach (var c in draft.LoadCases) schema.LoadCases.Add(c);
+        foreach (var d in draft.LoadDefinitions) schema.LoadDefinitions.Add(d);
+        int fake = -1;
+        var nodes = draft.Nodes.Select(n => new FemNode { Id = fake--, NodeTag = n.NodeTag }).ToList();
+        return new Refs { Schema = schema, Nodes = nodes, Virtual = true };
+    }
 
     static string? NodeKey(JsonNode? n) => n is JsonValue v
         ? v.TryGetValue(out string? s) ? s?.Trim() : v.TryGetValue(out long l) ? l.ToString(CultureInfo.InvariantCulture) : null

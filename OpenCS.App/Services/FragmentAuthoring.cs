@@ -75,6 +75,14 @@ public static class FragmentAuthoring
         StoreyFragmentMenuFlow.Finish(db, parent, request, NameRefusal(db, request) is not null
             ? null : StoreyFragmentService.Prepare(db, parent.Id, request));
 
+    /// <summary>
+    /// Запись черновика, подготовленного <see cref="StoreyFragmentService.Prepare"/> заранее (CLI: сборка — на этапе
+    /// проверки документа, запись — потом), с проверкой имени; отчёт и строка журнала — как у окна.
+    /// </summary>
+    public static StoreyFragmentFlowResult Commit(DatabaseService db, FemSchema parent, StoreyFragmentRequest request,
+        StoreyFragmentPrepared prepared) =>
+        StoreyFragmentMenuFlow.Finish(db, parent, request, NameRefusal(db, request) is not null ? null : prepared);
+
     /// <summary>Отказ по имени запроса (пусто или занято) — строка отчёта; null — имя годится.</summary>
     internal static string? NameRefusal(DatabaseService db, StoreyFragmentRequest request) => NameError(db, request.Name);
 

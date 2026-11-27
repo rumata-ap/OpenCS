@@ -18,8 +18,17 @@ sealed partial class CliApp
         var nodes = db.GetFemNodes(s.Id);
         var members = db.GetFemMembers(s.Id);
         if (members.Count == 0) return (hasMesh ? "current" : "none", null);
-        var check = await new FemSchemaMeshService(db, ctx.GmshSettings)
-            .CheckAsync(s.Id, nodes, members, db.GetFemSchemaMeshSteps(s.Id).Bar, ct);
+        FemSchemaMeshBuildResult check;
+        try
+        {
+            check = await new FemSchemaMeshService(db, ctx.GmshSettings)
+                .CheckAsync(s.Id, nodes, members, db.GetFemSchemaMeshSteps(s.Id).Bar, ct);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            // Нет Gmsh или сбой разбиения — список схем всё равно выводится, причина — в столбце сетки.
+            return ("error", e.Message.Split('\n')[0].Trim());
+        }
         if (check.HasErrors) return ("error", check.Diagnostics.First(d => d.IsError).Message);
         return check.IsCurrent == true ? ("current", null) : (hasMesh ? "stale" : "none", null);
     }
@@ -30,8 +39,10 @@ sealed partial class CliApp
         using var session = call.OpenProject();
         var ctx = session.Context;
         var rows = new List<(int Id, string Tag, string Source, int Nodes, int Members, string Mesh, string? Reason, (int Nodes, int Bars, int Shells) Grid)>();
+        var fragments = new Dictionary<int, (string Parent, string ParentState, string Masks)?>();
         foreach (var s in ctx.FemSchemas.OrderBy(s => s.Id))
         {
+            if (FragmentInfo(ctx.Db, s) is { } info) fragments[s.Id] = info;
             var (state, reason) = await MeshState(ctx, s, CancellationToken.None);
             rows.Add((s.Id, s.Tag, SchemaSource(s), ctx.Db.GetFemNodes(s.Id).Count, ctx.Db.GetFemMembers(s.Id).Count, state, reason,
                 ctx.Db.GetFemMeshSnapshotCounts(s.Id)));
@@ -41,16 +52,22 @@ sealed partial class CliApp
             {
                 r.Id, r.Tag, r.Source, r.Nodes, r.Members, Mesh = r.Mesh, MeshReason = r.Reason,
                 MeshNodes = r.Grid.Nodes, MeshBars = r.Grid.Bars, MeshShells = r.Grid.Shells,
+                Parent = fragments.GetValueOrDefault(r.Id)?.Parent, ParentState = fragments.GetValueOrDefault(r.Id)?.ParentState,
+                Masks = fragments.GetValueOrDefault(r.Id)?.Masks,
             }).ToList());
         else
             CliOutput.WriteTable(call.Out,
                 [Loc.S("CliColId"), Loc.S("CliColTag"), Loc.S("CliColSource"), Loc.S("CliColNodes"), Loc.S("CliColMembers"),
-                 Loc.S("CliColMesh")],
+                 Loc.S("CliColMesh"), Loc.S("CliColFragment")],
                 rows.Select(r => new[]
                 {
                     r.Id.ToString(), r.Tag, r.Source, r.Nodes.ToString(), r.Members.ToString(),
                     Loc.S("CliMesh_" + r.Mesh) + (r.Reason is { } why ? $" ({why})" : "")
                         + (r.Grid.Nodes > 0 ? string.Format(Loc.S("CliMeshCounts"), r.Grid.Nodes, r.Grid.Bars + r.Grid.Shells) : ""),
+                    fragments.GetValueOrDefault(r.Id) is { } f
+                        ? string.Format(Loc.S("CliFragmentInfo"), f.Parent, Loc.S("CliParentState_" + f.ParentState),
+                            f.Masks.Length > 0 ? f.Masks : Loc.S("StoreyFragmentMasksNotTaken"))
+                        : "",
                 }));
         return CliExitCode.Ok;
     }

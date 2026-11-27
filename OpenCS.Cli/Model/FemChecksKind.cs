@@ -315,7 +315,17 @@ sealed partial class FemChecksKind : IModelKind
             if (!virtualRefs.TryGetValue(schemaTag, out var refs))
             {
                 var docSchema = DocSchema(doc, schemaTag);
-                if (docSchema == null && dbSchemas.Count == 0)
+                if (docSchema == null && dbSchemas.Count == 0 && FemFragmentsKind.PlannedFor(doc, ctx, schemaTag) is { } fragment)
+                {
+                    // Фрагмент, который собирает этот документ: КонЭ и группы — из черновика сборки.
+                    if (fragment.Skipped)
+                    {
+                        ctx.LogService.Warning(string.Format(Loc.S("CliFragAnalysisSkipped"), schemaTag, tag));
+                        continue;
+                    }
+                    virtualRefs[schemaTag] = refs = FragmentRefs(doc, fragment.Draft!, schemaTag, ctx);
+                }
+                else if (docSchema == null && dbSchemas.Count == 0)
                 {
                     errors.Add($"{path}.schema", string.Format(Loc.S("CliFemAnalysisErrUnknownSchema"), schemaTag));
                     continue;
@@ -380,6 +390,24 @@ sealed partial class FemChecksKind : IModelKind
             ? a.OfType<JsonObject>().FirstOrDefault(o => o["tag"] is JsonValue v && v.TryGetValue(out string? t)
                 && string.Equals(t?.Trim(), tag, StringComparison.CurrentCultureIgnoreCase))
             : null;
+
+    /// <summary>Ссылки плана по черновику фрагмента, который собирает этот документ: КонЭ, группы и узлы — условные.</summary>
+    static Refs FragmentRefs(JsonObject doc, CScore.Fem.Fragment.StoreyFragmentDraft draft, string tag, HeadlessProjectContext ctx)
+    {
+        var plan = PlanRefs(doc, null, null, tag, ctx);
+        int fake = -1;
+        foreach (var g in draft.Groups) plan.Schema.MemberGroups.Add(g);
+        return new Refs
+        {
+            Schema = plan.Schema,
+            Members = draft.Members.Select(m => new FemMember
+            {
+                Id = fake--, SchemaId = plan.Schema.Id, ElemTag = m.Member.ElemTag, ElemType = m.Member.ElemType,
+            }).ToList(),
+            ForceSets = plan.ForceSets, Analyses = plan.Analyses, Checks = plan.Checks, Materials = plan.Materials,
+            Snapshots = plan.Snapshots, NodeTags = draft.Nodes.Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal),
+        };
+    }
 
     static string? StrOf(JsonNode? n) => n is JsonValue v && v.TryGetValue(out string? s) ? s.Trim() : null;
 
