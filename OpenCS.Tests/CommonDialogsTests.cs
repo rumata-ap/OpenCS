@@ -58,6 +58,31 @@ public sealed class CommonDialogsTests : IDisposable
         Assert.Equal("2.5", dlg.Box(1).Text);
     });
 
+    /// <summary>Строка ошибки занята заранее: высота содержимого одна и та же до ошибки, с ошибкой и после правки.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void DoubleInput_Error_DoesNotChangeHeight(bool twoFields) => RunSta(() =>
+    {
+        var dlg = twoFields ? new DoubleInputDialog("t", "dx", "dy") : new DoubleInputDialog("t", "d, мм", 16);
+        var content = (System.Windows.FrameworkElement)dlg.Content;
+        double Height()
+        {
+            content.InvalidateMeasure();
+            content.Measure(new System.Windows.Size(340, double.PositiveInfinity));
+            return content.DesiredSize.Height;
+        }
+        double before = Height();
+        int field = twoFields ? 2 : 1;
+        dlg.Box(field).Text = "abc";
+        Assert.False(dlg.TryAccept());
+        Assert.NotEqual("", dlg.ErrorText(field));
+        Assert.Equal(before, Height(), 3);
+        dlg.Box(field).Text = "2";
+        Assert.Equal("", dlg.ErrorText(field));
+        Assert.Equal(before, Height(), 3);
+    });
+
     [Fact]
     public void DoubleInput_SingleField_SecondHidden_DefaultsShortFormat() => RunSta(() =>
     {

@@ -41,6 +41,11 @@ public partial class DoubleInputDialog : Window
             Label2.Text = label2;
             Value2Box.Text = Format(default2);
         }
+        // Строка ошибки под каждым видимым полем занята заранее (Hidden, а не Collapsed): окно открывается сразу нужной
+        // высоты, и при появлении или исчезновении ошибки кнопки не смещаются.
+        Reserve(Error1);
+        if (label2 == null) Error2.Visibility = Visibility.Collapsed;
+        else Reserve(Error2);
         Value1Box.TextChanged += (_, _) => Hide(Error1);
         Value2Box.TextChanged += (_, _) => Hide(Error2);
         Loaded += (_, _) => { Value1Box.Focus(); Value1Box.SelectAll(); };
@@ -52,7 +57,17 @@ public partial class DoubleInputDialog : Window
 
     static string Format(double v) => v.ToString("G", CultureInfo.CurrentCulture);
 
-    static void Hide(TextBlock error) => error.Visibility = Visibility.Collapsed;
+    static void Reserve(TextBlock error)
+    {
+        error.Text = " ";
+        error.Visibility = Visibility.Hidden;
+    }
+
+    /// <summary>Скрыть ошибку, оставив её место (скрытое поле второго числа не трогается).</summary>
+    static void Hide(TextBlock error)
+    {
+        if (error.Visibility == Visibility.Visible) error.Visibility = Visibility.Hidden;
+    }
 
     /// <summary>Разбирает и проверяет поля; при ошибке выводит её под полем и возвращает false.</summary>
     public bool TryAccept()
