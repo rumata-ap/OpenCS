@@ -154,9 +154,10 @@
         <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding ErrorText}"
                    Foreground="Firebrick" TextWrapping="Wrap" Margin="0,8,10,0" />
         <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
-            <Button Content="{DynamicResource AbaqusCdpCopyKeyword}" Command="{Binding CopyKeywordCommand}" Margin="0,0,6,0" Padding="12,4" />
+            <!-- Enter копирует основной вывод (*Keyword), Esc закрывает окно. -->
+            <Button Content="{DynamicResource AbaqusCdpCopyKeyword}" Command="{Binding CopyKeywordCommand}" IsDefault="True" Margin="0,0,6,0" Padding="12,4" />
             <Button Content="{DynamicResource AbaqusCdpCopyTsv}" Command="{Binding CopyTsvCommand}" Margin="0,0,6,0" Padding="12,4" />
-            <Button Content="{DynamicResource AbaqusCdpClose}" Click="Close_Click" Padding="12,4" />
+            <Button Content="{DynamicResource AbaqusCdpClose}" Click="Close_Click" IsCancel="True" Padding="12,4" />
         </StackPanel>
     </Grid>
 </Window>

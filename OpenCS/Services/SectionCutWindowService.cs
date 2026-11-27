@@ -32,6 +32,7 @@ public sealed class SectionCutWindowService : IDisposable
         {
             cutVm.ScaleS = _settings.SectionCutWindow.ScaleS;
             cutVm.ScaleV = _settings.SectionCutWindow.ScaleV;
+            cutVm.ExportSettings = _settings.SectionCutWindow;
             cutVm.PropertyChanged += OnVmPropertyChanged;
         }
 

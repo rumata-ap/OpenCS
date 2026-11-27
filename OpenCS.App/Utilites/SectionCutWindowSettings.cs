@@ -23,6 +23,14 @@ public sealed class SectionCutWindowSettings
     [JsonPropertyName("scaleV")]
     public double ScaleV { get; set; } = 1.0;
 
+    /// <summary>Последний выбранный формат экспорта эпюры: png | svg | dxf.</summary>
+    [JsonPropertyName("exportFormat")]
+    public string ExportFormat { get; set; } = "png";
+
+    /// <summary>Последний выбор «как на экране» в диалоге экспорта.</summary>
+    [JsonPropertyName("exportAsOnScreen")]
+    public bool ExportAsOnScreen { get; set; } = true;
+
     public SectionCutWindowSettings Clone() => new()
     {
         Width = Width,
@@ -30,6 +38,8 @@ public sealed class SectionCutWindowSettings
         Left = Left,
         Top = Top,
         ScaleS = ScaleS,
-        ScaleV = ScaleV
+        ScaleV = ScaleV,
+        ExportFormat = ExportFormat,
+        ExportAsOnScreen = ExportAsOnScreen
     };
 }

@@ -778,6 +778,7 @@
    <system:String x:Key="StagedPartDefaultTag">Part {0}</system:String>
    <system:String x:Key="ImportedBarAxesMigratedNotice">Imported bar axes converted to the new rule (local Y = program Z1, as for native beams) in schemes {0}: bars {1}, local loads {2} (records split between bars and plates: {3})</system:String>
    <system:String x:Key="ImportedBarAxesResultsResetNotice">CSfea analysis results of imported schemes were reset (bar forces were in the old axes): {0}. Recalculate them and recreate bar force sets built from those results (sets from LIRA/SCAD tables are correct)</system:String>
+   <system:String x:Key="FemOrphanResultsRemovedNotice">Removed old FE analysis results left after resets and reruns: {0} (≈ {1} MB). Current results are untouched; run “Compact database (VACUUM)” to shrink the file.</system:String>
    <system:String x:Key="StagedSectionsRemovedNotice">Removed {0} two-stage sections; recreate them as staged sections</system:String>
    <system:String x:Key="SectionUsedAsStagedPart">The section is used as a part of staged section «{0}» and cannot be deleted</system:String>
    <system:String x:Key="NewArea">New Area</system:String>
@@ -2127,8 +2128,6 @@
    <system:String x:Key="FireThermal_ShowIsolines">Isolines</system:String>
    <system:String x:Key="FireThermal_IsolineStep">Isoline step</system:String>
    <system:String x:Key="FireThermal_IsolineLabels">Isoline labels</system:String>
-   <system:String x:Key="FireThermal_SmoothMapLoadingTitle">Smooth temperature map</system:String>
-   <system:String x:Key="FireThermal_SmoothMapLoadingMessage">Building a smoothed field on the T3 mesh. Please wait, this may take a few seconds.</system:String>
    <system:String x:Key="FireThermal_TabRebar">Rebar</system:String>
    <system:String x:Key="FireThermal_TabConvergence">Convergence</system:String>
    <system:String x:Key="FireThermal_MeshNodes">Mesh nodes</system:String>
@@ -3812,6 +3811,7 @@
     <system:String x:Key="UnitRad">rad</system:String>
     <system:String x:Key="UnitKNPerM">kN/m</system:String>
     <system:String x:Key="UnitKNmPerM">kN·m/m</system:String>
+    <system:String x:Key="UnitPerM">1/m</system:String>
     <system:String x:Key="FemCsfeaFieldNone">none</system:String>
     <system:String x:Key="FemCsfeaFieldCrackBottom">Bottom cracks (share of cracked layers in the lower half)</system:String>
     <system:String x:Key="FemCsfeaFieldCrackTop">Top cracks (share of cracked layers in the upper half)</system:String>
@@ -5502,6 +5502,9 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="AbaqusCdpCopyTsv">Copy TSV</system:String>
     <system:String x:Key="AbaqusCdpClose">Close</system:String>
     <system:String x:Key="AbaqusCdpInvalidInput">Check the export parameters.</system:String>
+    <system:String x:Key="AbaqusCdpFieldNotNumber">{0}: a number is required (for example, 0.25).</system:String>
+    <system:String x:Key="PunchingFemSourceDeleted">The source analysis “{0}” has been deleted — the result of the previous run is shown. Choose a source in the check parameters and rerun the check.</system:String>
+    <system:String x:Key="PunchingFemSourceChanged">The result of the source analysis “{0}” changed after the check (rerun or reset) — the check result is outdated, rerun the check.</system:String>
     <system:String x:Key="AbaqusCdpCopyFailed">Could not write text to the clipboard.</system:String>
     <system:String x:Key="AbaqusCdpNotConcrete">Abaqus export is available for concrete, steel and reinforcement.</system:String>
     <system:String x:Key="AbaqusSteelExportTitle">Steel for Abaqus (*Elastic + *Plastic)</system:String>
@@ -6101,7 +6104,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliCmdListTasks">Calculation tasks</system:String>
    <system:String x:Key="CliCmdListChecks">Per-element (FE) checks</system:String>
    <system:String x:Key="CliCmdListAnalyses">FE schema analyses</system:String>
-   <system:String x:Key="CliCmdListResults">Calculation task results</system:String>
+   <system:String x:Key="CliCmdListResults">Calculation results: tasks, FE analyses and checks — with their owner</system:String>
    <system:String x:Key="CliOptTask">Calculation task id</system:String>
    <system:String x:Key="CliOptCheck">FE check id</system:String>
    <system:String x:Key="CliOptAnalysis">FE analysis id</system:String>
@@ -6162,12 +6165,20 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliColResult">Result</system:String>
    <system:String x:Key="CliColStatus">Status</system:String>
    <system:String x:Key="CliColCreated">Created</system:String>
+   <system:String x:Key="CliColOwner">Owner</system:String>
+   <system:String x:Key="CliOwnerTask">task "{0}"</system:String>
+   <system:String x:Key="CliOwnerAnalysis">analysis "{0}" (schema "{1}")</system:String>
+   <system:String x:Key="CliOwnerCheck">check "{0}" (schema "{1}")</system:String>
+   <system:String x:Key="CliOwnerSubmodel">previous parent result of submodel "{0}"</system:String>
+   <system:String x:Key="CliOwnerNone">—</system:String>
    <system:String x:Key="CliColTask">Task</system:String>
    <system:String x:Key="CliColSchema">Schema</system:String>
    <system:String x:Key="CliColTarget">Target</system:String>
    <system:String x:Key="CliColNorm">Check</system:String>
-   <system:String x:Key="CliTargetMember">member {0}</system:String>
-   <system:String x:Key="CliTargetElement">element {0}</system:String>
+   <system:String x:Key="CliTargetMember">member "{0}"</system:String>
+   <system:String x:Key="CliTargetGroup">group "{0}"</system:String>
+   <system:String x:Key="CliTargetPunchingNodes">schema nodes</system:String>
+   <system:String x:Key="CliTargetMissing">target not found (#{0})</system:String>
    <system:String x:Key="CliConfirmDeclined">Question answered “No” (run with --yes): {0}</system:String>
    <system:String x:Key="CliRunNotDone">{0} #{1} “{2}”: not calculated</system:String>
    <system:String x:Key="CliRunDone">{0} #{1} “{2}”: {3}, result #{4}</system:String>
@@ -7088,6 +7099,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliModelChange">{0}: {1} '{2}'</system:String>
    <system:String x:Key="CliModelActionCreate">create</system:String>
    <system:String x:Key="CliModelActionUpdate">update</system:String>
+   <system:String x:Key="CliModelActionUnchanged">unchanged</system:String>
    <system:String x:Key="CliModelNothing">No changes</system:String>
    <system:String x:Key="CliModelDryRun">Dry run: nothing written to the project</system:String>
    <system:String x:Key="MaterialSavedMsg">Material '{0}' saved</system:String>
@@ -7733,6 +7745,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FemAnalysisDependentAnalysis">linear analysis "{0}" (stiffnesses from this analysis)</system:String>
    <system:String x:Key="FemAnalysisDependentCheck">check "{0}"</system:String>
    <system:String x:Key="FemAnalysisDependentImperfection">modes imperfection "{0}"</system:String>
+   <system:String x:Key="FemAnalysisDependentSubmodel">submodel "{0}" (the analysis result is kept for it until it is deleted)</system:String>
    <system:String x:Key="FemAnalysisDeleteTitle">Delete analysis</system:String>
    <system:String x:Key="FemAnalysisDeleteConfirm">Delete analysis "{0}"?</system:String>
    <system:String x:Key="FemAnalysisDeleteResult">Its result will be deleted.</system:String>

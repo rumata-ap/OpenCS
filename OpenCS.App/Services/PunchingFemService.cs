@@ -40,6 +40,10 @@ public sealed class PunchingFemSource
     public required string Label { get; init; }
     public required IReadOnlyList<(FragmentMaskKey Key, string Label)> Keys { get; init; }
     public required IFragmentParentResult Result { get; init; }
+    /// <summary>Постановка CSfea-источник и её результат на момент проверки; null — источник не постановка (снимок импорта).</summary>
+    public int? AnalysisId { get; init; }
+    /// <summary>Id результата постановки-источника, по которому посчитана проверка.</summary>
+    public int? AnalysisResultId { get; init; }
     /// <summary>Узловые силы КЭ (способ C); null — разрез по узловым силам недоступен.</summary>
     public IFragmentParentNodalForces? Nodal { get; init; }
     /// <summary>Почему недоступны узловые силы (для журнала); null — доступны.</summary>
@@ -311,6 +315,7 @@ public static class PunchingFemService
         {
             Kind = linear ? FragmentMaskSet.SourceCsfeaLinear : FragmentMaskSet.SourceCsfeaSecant,
             Label = analysis.Tag,
+            AnalysisId = analysis.Id, AnalysisResultId = resultId,
             Keys = steps.Select(s => (s.Key, s.Label)).ToList(),
             Result = parentResult,
             Nodal = nodal,

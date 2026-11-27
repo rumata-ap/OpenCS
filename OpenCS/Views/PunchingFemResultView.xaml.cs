@@ -20,7 +20,7 @@ public partial class PunchingFemResultView : UserControl
         _app = app;
         _check = check;
         _result = result;
-        _vm = new PunchingFemResultVM(result, check, app.db.Materials);
+        _vm = new PunchingFemResultVM(result, check, app.db.Materials, app.db.GetFemAnalysis);
         DataContext = _vm;
         Plan.NodeClicked += node =>
         {

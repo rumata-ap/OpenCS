@@ -181,7 +181,8 @@ namespace OpenCS.Views.Helpers
         {
             if (e.Key is Key.LeftShift or Key.RightShift && CutViewModel?.HasPendingPoint == true)
                 InvalidateVisual();
-            if (e.Key == Key.Escape)
+            // Esc обрабатывается только при начатой точке: иначе он всплывает к окну (окна просмотра закрываются по Esc).
+            if (e.Key == Key.Escape && CutViewModel?.HasPendingPoint == true)
             {
                 CutViewModel?.CancelPending();
                 _hasPreview = false;

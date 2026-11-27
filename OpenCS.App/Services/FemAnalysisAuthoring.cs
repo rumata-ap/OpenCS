@@ -277,6 +277,9 @@ public static class FemAnalysisAuthoring
         foreach (var imp in db.GetFemImperfections(analysis.SchemaId).Where(i => i.Kind == FemImperfectionKinds.Modes))
             if (SafeModes(imp)?.AnalysisId == analysis.Id)
                 deps.Add(string.Format(Loc.S("FemAnalysisDependentImperfection"), imp.Tag));
+        if (analysis.Id > 0)
+            foreach (string tag in db.SubmodelTagsOfParentAnalysis(analysis.Id))
+                deps.Add(string.Format(Loc.S("FemAnalysisDependentSubmodel"), tag));
         return new(analysis.ResultId != null, deps);
     }
 

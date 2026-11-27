@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 102;
+      const int CurrentSchemaVersion = 103;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -122,6 +122,7 @@ namespace OpenCS.Utilites
          [99] = MigrateV100,
          [100] = MigrateV101,
          [101] = MigrateV102,
+         [102] = MigrateV103,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -4759,6 +4760,7 @@ namespace OpenCS.Utilites
       {
          if (schema.Id == 0) return;
          List<int> resultIds;
+         List<int> pinned = [];
          using var tx = _connection.BeginTransaction();
          try
          {
@@ -4771,6 +4773,14 @@ namespace OpenCS.Utilites
             }
             resultIds = CollectFemSchemaResultIds(schema.Id);
             DeleteCalcResultsByIds(resultIds);
+            // Схема — субмодель: результаты родителя, удержанные её извлечением, после удаления освобождаются.
+            using (var pin = _connection.CreateCommand())
+            {
+               pin.CommandText = "SELECT parent_result_id FROM submodel_extractions WHERE submodel_schema_id=@id";
+               pin.Parameters.AddWithValue("@id", schema.Id);
+               using var pr = pin.ExecuteReader();
+               while (pr.Read()) pinned.Add(pr.GetInt32(0));
+            }
             using var cmd = _connection.CreateCommand();
             cmd.CommandText = """
                DELETE FROM fem_checks            WHERE schema_id=@id;
@@ -4828,6 +4838,7 @@ namespace OpenCS.Utilites
             """;
             cmd.Parameters.AddWithValue("@id", schema.Id);
             cmd.ExecuteNonQuery();
+            resultIds.AddRange(DeleteReleasedFemResults(pinned));
             tx.Commit();
          }
          catch { tx.Rollback(); throw; }
@@ -5331,6 +5342,7 @@ namespace OpenCS.Utilites
 
       public void SaveFemAnalysis(CScore.Fem.FemAnalysis analysis)
       {
+         List<int> released = [];
          using var tx = _connection.BeginTransaction();
          try
          {
@@ -5348,6 +5360,7 @@ namespace OpenCS.Utilites
             }
             else
             {
+               int? previousResult = StoredFemAnalysisResultId(analysis.Id);
                cmd.CommandText = """
                   UPDATE fem_analyses SET tag=@tag, kind=@kind, load_expression_json=@expr,
                      params_json=@params, status=@status, result_id=@rid WHERE id=@id AND schema_id=@sid
@@ -5355,6 +5368,9 @@ namespace OpenCS.Utilites
                AddFemAnalysisParameters(cmd, analysis);
                cmd.Parameters.AddWithValue("@id", analysis.Id);
                cmd.ExecuteNonQuery();
+               // Сброс или новый расчёт: прежний результат удаляется, если на него больше никто не ссылается.
+               if (previousResult is int prev && prev != analysis.ResultId)
+                  released = DeleteReleasedFemResults([prev]);
             }
             var schema = FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId);
             if (schema != null && !schema.Analyses.Contains(analysis))
@@ -5367,6 +5383,7 @@ namespace OpenCS.Utilites
             tx.Commit();
          }
          catch { tx.Rollback(); throw; }
+         ForgetCalcResults(released);
       }
 
       /// <summary>Удаляет постановку расчёта и её calc_results (может содержать полные данные
@@ -5375,20 +5392,21 @@ namespace OpenCS.Utilites
       public void DeleteFemAnalysis(CScore.Fem.FemAnalysis analysis)
       {
          if (analysis.Id == 0) return;
+         List<int> released;
          using var tx = _connection.BeginTransaction();
          try
          {
+            int? stored = StoredFemAnalysisResultId(analysis.Id);
             using var cmd = _connection.CreateCommand();
-            cmd.CommandText = """
-               DELETE FROM calc_results WHERE id=@rid;
-               DELETE FROM fem_analyses WHERE id=@id;
-            """;
-            cmd.Parameters.AddWithValue("@rid", (object?)analysis.ResultId ?? DBNull.Value);
+            cmd.CommandText = "DELETE FROM fem_analyses WHERE id=@id";
             cmd.Parameters.AddWithValue("@id", analysis.Id);
             cmd.ExecuteNonQuery();
+            // Результат, на который ссылается извлечение субмодели, остаётся до удаления субмодели.
+            released = DeleteReleasedFemResults(new[] { stored, analysis.ResultId }.OfType<int>());
             tx.Commit();
          }
          catch { tx.Rollback(); throw; }
+         ForgetCalcResults(released);
          FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId)?.Analyses.Remove(analysis);
       }
 

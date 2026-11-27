@@ -15,6 +15,7 @@ public partial class FemSectionStateWindow : Window
     public FemSectionStateWindow()
     {
         InitializeComponent();
+        Helpers.ViewerWindowKeys.CloseOnEscape(this);
         Tabs.SelectionChanged += OnTabSelectionChanged;
         Closed += (_, _) => _cutWindow?.Dispose();
     }

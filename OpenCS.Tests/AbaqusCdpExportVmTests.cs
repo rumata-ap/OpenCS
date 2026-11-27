@@ -44,7 +44,7 @@ public sealed class AbaqusCdpExportVmTests
     }
 
     [Fact]
-    public void ViewModel_InvalidInputClearsOutputAndLocalizesError()
+    public void ViewModel_InvalidInputClearsOutputAndMarksField()
     {
         var vm = new AbaqusCdpExportVM(CreateConcrete(), new RecordingClipboard());
 
@@ -52,7 +52,40 @@ public sealed class AbaqusCdpExportVmTests
 
         Assert.Empty(vm.KeywordText);
         Assert.Empty(vm.TsvText);
-        Assert.Equal(Loc.S("AbaqusCdpInvalidInput"), vm.ErrorText);
+        // Ошибка диапазона генератора — её собственный текст и рамка у поля Gf.
+        Assert.Contains("Энергия разрушения", vm.ErrorText);
+        Assert.DoesNotContain("Parameter", vm.ErrorText);
+        Assert.Equal(nameof(vm.FractureEnergyText), vm.ErrorField);
+        Assert.True(vm.HasErrors);
+        Assert.Equal([vm.ErrorText], vm.GetErrors(nameof(vm.FractureEnergyText)).Cast<string>());
+        Assert.Empty(vm.GetErrors(nameof(vm.KcText)).Cast<string>());
+        Assert.False(vm.CopyKeywordCommand.CanExecute(null));
+
+        vm.FractureEnergyText = "0.0726";
+
+        Assert.Null(vm.ErrorField);
+        Assert.False(vm.HasErrors);
+        Assert.Empty(vm.ErrorText);
+        Assert.NotEmpty(vm.KeywordText);
+    }
+
+    [Fact]
+    public void ViewModel_UnparsedNumberNamesFieldAndRaisesErrorsChanged()
+    {
+        var vm = new AbaqusCdpExportVM(CreateConcrete(), new RecordingClipboard());
+        var changed = new List<string?>();
+        vm.ErrorsChanged += (_, e) => changed.Add(e.PropertyName);
+
+        vm.KcText = "abc";
+
+        Assert.Equal(string.Format(Loc.S("AbaqusCdpFieldNotNumber"), Loc.S("AbaqusCdpK")), vm.ErrorText);
+        Assert.Equal(nameof(vm.KcText), vm.ErrorField);
+        Assert.Empty(vm.KeywordText);
+
+        vm.KcText = "0.667";
+
+        Assert.Equal([nameof(vm.KcText), nameof(vm.KcText)], changed);
+        Assert.Null(vm.ErrorField);
     }
 
     [Fact]
@@ -121,7 +154,8 @@ public sealed class AbaqusCdpExportVmTests
 
         Assert.Empty(vm.KeywordText);
         Assert.Empty(vm.WarningsText);
-        Assert.Equal(Loc.S("AbaqusCdpInvalidInput"), vm.ErrorText);
+        Assert.Contains("Пуассона", vm.ErrorText);
+        Assert.Equal(nameof(vm.PoissonRatioText), vm.ErrorField);
     }
 
     static int PlasticRows(string keyword) => keyword

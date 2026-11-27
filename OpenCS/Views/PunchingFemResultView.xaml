@@ -55,6 +55,8 @@
                </TextBlock>
                <TextBlock Text="{Binding ErrorText}" Foreground="#8B0000" TextWrapping="Wrap"
                           Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}"/>
+               <TextBlock Text="{Binding StaleText}" Foreground="#7A4F00" Background="#FFF4CE" Padding="4,2" TextWrapping="Wrap"
+                          Margin="0,2,0,0" Visibility="{Binding IsStale, Converter={StaticResource BoolToVisibility}}"/>
                <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" Foreground="#333" Margin="0,2,0,0"/>
                <Expander Header="{Binding WarningsHeader}" Foreground="#7A4F00" Margin="0,2,0,0" IsExpanded="False"
                          Visibility="{Binding HasWarnings, Converter={StaticResource BoolToVisibility}}">

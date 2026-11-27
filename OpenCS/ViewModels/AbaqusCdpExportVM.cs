@@ -1,4 +1,6 @@
+using System.Collections;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Windows.Input;
@@ -16,8 +18,45 @@ public sealed record AbaqusCdpChoice<T>(T Value, string Label);
 /// ViewModel окна подготовки и копирования материала Abaqus: CDP для бетона,
 /// *Elastic + *Plastic для стали и арматуры (режим выбирается по типу материала).
 /// </summary>
-public sealed class AbaqusCdpExportVM : ViewModelBase
+public sealed class AbaqusCdpExportVM : ViewModelBase, INotifyDataErrorInfo
 {
+    /// <summary>Параметр опций генератора → свойство поля окна (ошибки генератора отмечают своё поле).</summary>
+    static readonly Dictionary<string, string> OptionFields = new()
+    {
+        ["StressScaleFromOpenCsKpa"] = nameof(CustomStressScaleText),
+        ["DilationAngleDegrees"] = nameof(DilationAngleText),
+        ["Eccentricity"] = nameof(EccentricityText),
+        ["Fb0Fc0"] = nameof(Fb0Fc0Text),
+        ["Kc"] = nameof(KcText),
+        ["Viscosity"] = nameof(ViscosityText),
+        ["PoissonRatio"] = nameof(PoissonRatioText),
+        ["FractureEnergy"] = nameof(FractureEnergyText),
+        ["ElementLength"] = nameof(ElementLengthText),
+        ["InitialCompressionStressRatio"] = nameof(InitialCompressionStressRatioText),
+        ["CompressionEtaMin"] = nameof(CompressionEtaMinText),
+    };
+
+    /// <summary>Свойство поля → ключ его подписи в окне.</summary>
+    static readonly Dictionary<string, string> FieldLabels = new()
+    {
+        [nameof(CustomStressScaleText)] = "AbaqusCdpCustomStressScale",
+        [nameof(DilationAngleText)] = "AbaqusCdpDilationAngle",
+        [nameof(EccentricityText)] = "AbaqusCdpEccentricity",
+        [nameof(Fb0Fc0Text)] = "AbaqusCdpFb0Fc0",
+        [nameof(KcText)] = "AbaqusCdpK",
+        [nameof(ViscosityText)] = "AbaqusCdpViscosity",
+        [nameof(PoissonRatioText)] = "AbaqusCdpPoissonRatio",
+        [nameof(FractureEnergyText)] = "AbaqusCdpFractureEnergy",
+        [nameof(ElementLengthText)] = "AbaqusCdpElementLength",
+        [nameof(InitialCompressionStressRatioText)] = "AbaqusCdpInitialCompressionRatio",
+        [nameof(CompressionEtaMinText)] = "AbaqusCdpCompressionEtaMin",
+    };
+
+    /// <summary>Нераспознанное число в поле окна (имя параметра — свойство поля).</summary>
+    sealed class FieldNotNumberException(string field) : ArgumentException(null, field);
+
+    string? errorField;
+
     readonly ITextClipboardService clipboard;
     double canonicalFractureEnergyNPerMm = 0.0726;
     double canonicalElementLengthMm = 10.0;
@@ -264,6 +303,31 @@ public sealed class AbaqusCdpExportVM : ViewModelBase
     /// <summary>Сообщение об ошибке входных данных или Clipboard.</summary>
     public string ErrorText { get => errorText; private set { errorText = value; OnPropertyChanged(); } }
 
+    /// <summary>Свойство поля с ошибкой ввода (рамка у поля); null — ошибка не относится к полю или её нет.</summary>
+    public string? ErrorField
+    {
+        get => errorField;
+        private set
+        {
+            if (errorField == value) return;
+            string? previous = errorField;
+            errorField = value;
+            OnPropertyChanged();
+            if (previous != null) ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(previous));
+            if (value != null) ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(value));
+        }
+    }
+
+    /// <inheritdoc/>
+    public event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged;
+
+    /// <inheritdoc/>
+    public bool HasErrors => errorField != null;
+
+    /// <inheritdoc/>
+    public IEnumerable GetErrors(string? propertyName) =>
+        propertyName != null && propertyName == errorField ? new[] { errorText } : Array.Empty<string>();
+
     /// <summary>Источник кривых материала.</summary>
     public string SourceText { get; }
 
@@ -313,15 +377,27 @@ public sealed class AbaqusCdpExportVM : ViewModelBase
                 ElasticModulusText = Format(data.ElasticModulus);
             }
             ErrorText = "";
+            ErrorField = null;
             UpdateUnitLabels(unitSystem);
         }
-        catch (ArgumentException)
+        catch (ArgumentException ex)
         {
             KeywordText = "";
             TsvText = "";
             ElasticModulusText = "";
             WarningsText = "";
-            ErrorText = Loc.S("AbaqusCdpInvalidInput");
+            if (ex is FieldNotNumberException)
+            {
+                ErrorText = string.Format(Loc.S("AbaqusCdpFieldNotNumber"), FieldLabel(ex.ParamName!));
+                ErrorField = ex.ParamName;
+            }
+            else
+            {
+                // Ошибка диапазона генератора: её собственный текст и рамка у поля, если параметр — поле окна.
+                string message = ex.ParamName == null ? ex.Message : ex.Message.Replace($" (Parameter '{ex.ParamName}')", "");
+                ErrorText = string.IsNullOrWhiteSpace(message) ? Loc.S("AbaqusCdpInvalidInput") : message;
+                ErrorField = ex.ParamName != null && OptionFields.TryGetValue(ex.ParamName, out var field) ? field : null;
+            }
         }
         CommandManager.InvalidateRequerySuggested();
     }
@@ -436,9 +512,12 @@ public sealed class AbaqusCdpExportVM : ViewModelBase
     static double Parse(string text, string parameterName)
     {
         if (!TryParse(text, out double result))
-            throw new ArgumentException("Ожидалось конечное числовое значение.", parameterName);
+            throw new FieldNotNumberException(parameterName);
         return result;
     }
+
+    static string FieldLabel(string field) =>
+        FieldLabels.TryGetValue(field, out var key) ? Loc.S(key).TrimEnd(',', ' ') : field;
 
     static bool TryParse(string text, out double result) =>
         Pars.ParseAny(text ?? "", out result) && double.IsFinite(result);

@@ -16,6 +16,8 @@ public partial class FemBarsView : UserControl
         _node = node;
         _app  = app;
         InitializeComponent();
+        // Родные стержни — имя назначенного сечения, импортные — тег жёсткости источника.
+        sectionColumn.Binding = new System.Windows.Data.Binding { Converter = new Converters.FemSectionLabelConverter(app.db.CrossSections, app.PlateSections) };
         _groups = new FemGroupTableTools(app, node.Owner.Schema, barsGrid, FemMemberGroup.KindMembers,
             row => ((FemMember)row).ElemTag);
         liraForcesMenu.Visibility = node.Owner.Schema.SourceType == "lira" ? Visibility.Visible : Visibility.Collapsed;

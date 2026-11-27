@@ -109,6 +109,9 @@ public sealed class SectionCutVM : ViewModelBase
 
     public string WindowTitleSuffix { get; set; } = "";
 
+    /// <summary>Настройки окна разреза, где запоминается выбор диалога экспорта (задаёт служба окна); null — не запоминать.</summary>
+    public SectionCutWindowSettings? ExportSettings { get; set; }
+
     public SectionCutResult? Result { get; private set; }
 
     public bool HasPendingPoint => Mode == CutMode.Free && _p1 != null && _p2 == null;
@@ -271,7 +274,7 @@ public sealed class SectionCutVM : ViewModelBase
 
     void Export()
     {
-        var options = SectionCutExportDialog.Show();
+        var options = SectionCutExportDialog.Show(ExportSettings);
         if (options == null) return;
 
         string filter = options.Format switch

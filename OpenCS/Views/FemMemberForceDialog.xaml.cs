@@ -13,19 +13,8 @@ public partial class FemMemberForceDialog : System.Windows.Window
         FemAnalysisResultVM vm)
     {
         InitializeComponent();
+        Helpers.ViewerWindowKeys.CloseOnEscape(this);
         Title = string.Format(Loc.S("FemMemberForceDialogTitle"), memberTag);
         ContentHost.Content = new FemMemberForceView(db, schema, memberTag, vm);
-    }
-
-    /// <summary>Esc закрывает окно просмотра (кнопок у него нет); открытый список сначала закрывается сам.</summary>
-    protected override void OnKeyDown(System.Windows.Input.KeyEventArgs e)
-    {
-        if (e.Key == System.Windows.Input.Key.Escape)
-        {
-            e.Handled = true;
-            Close();
-            return;
-        }
-        base.OnKeyDown(e);
     }
 }

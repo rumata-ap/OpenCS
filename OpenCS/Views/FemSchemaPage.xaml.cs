@@ -109,6 +109,8 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         _app = app;
         _schema = schema;
         InitializeComponent();
+        // Родные КонЭ — имя назначенного сечения, импортные — тег жёсткости источника.
+        sectionColumn.Binding = new System.Windows.Data.Binding { Converter = new Converters.FemSectionLabelConverter(app.db.CrossSections, app.PlateSections) };
         _editorVm = new FemSchemaEditorVM(schema, app);
         app.RegisterFemSchemaEditor(_editorVm);
         DataContext = _editorVm;

@@ -778,6 +778,7 @@
    <system:String x:Key="StagedPartDefaultTag">Часть {0}</system:String>
    <system:String x:Key="ImportedBarAxesMigratedNotice">Оси импортных стержней переведены на новое правило (местная Y = Z1 программы, как у родных балок) в схемах {0}: стержней {1}, местных нагрузок {2} (разделено записей на стержни и пластины: {3})</system:String>
    <system:String x:Key="ImportedBarAxesResultsResetNotice">Сброшены результаты постановок CSfea импортных схем (усилия стержней были в прежних осях): {0}. Пересчитайте их и пересоздайте наборы усилий стержней, составленные из этих результатов (наборы из таблиц ЛИРЫ/SCAD верны)</system:String>
+   <system:String x:Key="FemOrphanResultsRemovedNotice">Удалены прежние результаты постановок МКЭ, оставшиеся после сброса и повторных расчётов: {0} (≈ {1} МБ). Текущие результаты не тронуты; чтобы уменьшить файл, выполните «Сжать базу данных (VACUUM)».</system:String>
    <system:String x:Key="StagedSectionsRemovedNotice">Удалено {0} двухстадийных сечений; создайте их заново как стадийные</system:String>
    <system:String x:Key="SectionUsedAsStagedPart">Сечение используется как часть стадийного сечения «{0}» — удаление невозможно</system:String>
    <system:String x:Key="NewArea">Новая область</system:String>
@@ -2127,8 +2128,6 @@
    <system:String x:Key="FireThermal_ShowIsolines">Изолинии</system:String>
    <system:String x:Key="FireThermal_IsolineStep">Шаг изолиний</system:String>
    <system:String x:Key="FireThermal_IsolineLabels">Подписи изолиний</system:String>
-   <system:String x:Key="FireThermal_SmoothMapLoadingTitle">Плавная карта температуры</system:String>
-   <system:String x:Key="FireThermal_SmoothMapLoadingMessage">Построение сглаженного поля по T3-сетке. Подождите, это может занять несколько секунд.</system:String>
    <system:String x:Key="FireThermal_TabRebar">Арматура</system:String>
    <system:String x:Key="FireThermal_TabConvergence">Сходимость</system:String>
    <system:String x:Key="FireThermal_MeshNodes">Узлов сетки</system:String>
@@ -3812,6 +3811,7 @@
     <system:String x:Key="UnitRad">рад</system:String>
     <system:String x:Key="UnitKNPerM">кН/м</system:String>
     <system:String x:Key="UnitKNmPerM">кН·м/м</system:String>
+    <system:String x:Key="UnitPerM">1/м</system:String>
     <system:String x:Key="FemCsfeaFieldNone">нет</system:String>
     <system:String x:Key="FemCsfeaFieldCrackBottom">Трещины низа (доля слоёв нижней половины)</system:String>
     <system:String x:Key="FemCsfeaFieldCrackTop">Трещины верха (доля слоёв верхней половины)</system:String>
@@ -5502,6 +5502,9 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="AbaqusCdpCopyTsv">Копировать TSV</system:String>
     <system:String x:Key="AbaqusCdpClose">Закрыть</system:String>
     <system:String x:Key="AbaqusCdpInvalidInput">Проверьте параметры экспорта.</system:String>
+    <system:String x:Key="AbaqusCdpFieldNotNumber">{0}: нужно число (например, 0,25).</system:String>
+    <system:String x:Key="PunchingFemSourceDeleted">Постановка-источник «{0}» удалена — показан результат прежнего расчёта. Выберите источник в параметрах проверки и пересчитайте её.</system:String>
+    <system:String x:Key="PunchingFemSourceChanged">Результат постановки-источника «{0}» изменился после проверки (пересчёт или сброс) — результат проверки устарел, пересчитайте её.</system:String>
     <system:String x:Key="AbaqusCdpCopyFailed">Не удалось записать текст в буфер обмена.</system:String>
     <system:String x:Key="AbaqusCdpNotConcrete">Экспорт в Abaqus доступен для бетона, стали и арматуры.</system:String>
     <system:String x:Key="AbaqusSteelExportTitle">Сталь для Abaqus (*Elastic + *Plastic)</system:String>
@@ -6101,7 +6104,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliCmdListTasks">Расчётные задачи</system:String>
    <system:String x:Key="CliCmdListChecks">Проверки по КЭ</system:String>
    <system:String x:Key="CliCmdListAnalyses">Постановки расчёта МКЭ-схем</system:String>
-   <system:String x:Key="CliCmdListResults">Результаты расчётных задач</system:String>
+   <system:String x:Key="CliCmdListResults">Результаты расчётов: задачи, постановки и проверки МКЭ — с владельцем</system:String>
    <system:String x:Key="CliOptTask">Id расчётной задачи</system:String>
    <system:String x:Key="CliOptCheck">Id проверки по КЭ</system:String>
    <system:String x:Key="CliOptAnalysis">Id постановки расчёта схемы</system:String>
@@ -6162,12 +6165,20 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliColResult">Результат</system:String>
    <system:String x:Key="CliColStatus">Статус</system:String>
    <system:String x:Key="CliColCreated">Создан</system:String>
+   <system:String x:Key="CliColOwner">Владелец</system:String>
+   <system:String x:Key="CliOwnerTask">задача «{0}»</system:String>
+   <system:String x:Key="CliOwnerAnalysis">постановка «{0}» (схема «{1}»)</system:String>
+   <system:String x:Key="CliOwnerCheck">проверка «{0}» (схема «{1}»)</system:String>
+   <system:String x:Key="CliOwnerSubmodel">прежний результат родителя субмодели «{0}»</system:String>
+   <system:String x:Key="CliOwnerNone">—</system:String>
    <system:String x:Key="CliColTask">Задача</system:String>
    <system:String x:Key="CliColSchema">Схема</system:String>
    <system:String x:Key="CliColTarget">Цель</system:String>
    <system:String x:Key="CliColNorm">Проверка</system:String>
-   <system:String x:Key="CliTargetMember">КонЭ {0}</system:String>
-   <system:String x:Key="CliTargetElement">КЭ {0}</system:String>
+   <system:String x:Key="CliTargetMember">КонЭ «{0}»</system:String>
+   <system:String x:Key="CliTargetGroup">группа «{0}»</system:String>
+   <system:String x:Key="CliTargetPunchingNodes">узлы схемы</system:String>
+   <system:String x:Key="CliTargetMissing">цель не найдена (#{0})</system:String>
    <system:String x:Key="CliConfirmDeclined">Вопрос без ответа — принято «Нет» (запустите с --yes): {0}</system:String>
    <system:String x:Key="CliRunNotDone">{0} #{1} «{2}»: расчёт не выполнен</system:String>
    <system:String x:Key="CliRunDone">{0} #{1} «{2}»: {3}, результат #{4}</system:String>
@@ -7088,6 +7099,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliModelChange">{0}: {1} «{2}»</system:String>
    <system:String x:Key="CliModelActionCreate">создать</system:String>
    <system:String x:Key="CliModelActionUpdate">обновить</system:String>
+   <system:String x:Key="CliModelActionUnchanged">без изменений</system:String>
    <system:String x:Key="CliModelNothing">Изменений нет</system:String>
    <system:String x:Key="CliModelDryRun">Пробный прогон: в проект ничего не записано</system:String>
    <system:String x:Key="MaterialSavedMsg">Материал «{0}» сохранён</system:String>
@@ -7733,6 +7745,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FemAnalysisDependentAnalysis">линейный расчёт «{0}» (жёсткости — из этой постановки)</system:String>
    <system:String x:Key="FemAnalysisDependentCheck">проверка «{0}»</system:String>
    <system:String x:Key="FemAnalysisDependentImperfection">несовершенство по формам «{0}»</system:String>
+   <system:String x:Key="FemAnalysisDependentSubmodel">субмодель «{0}» (результат расчёта сохранится для неё до её удаления)</system:String>
    <system:String x:Key="FemAnalysisDeleteTitle">Удаление постановки</system:String>
    <system:String x:Key="FemAnalysisDeleteConfirm">Удалить постановку «{0}»?</system:String>
    <system:String x:Key="FemAnalysisDeleteResult">Её результат расчёта будет удалён.</system:String>

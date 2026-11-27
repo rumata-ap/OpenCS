@@ -17,7 +17,11 @@ public partial class FemPlateSectionStateWindow : Window
     public sealed record ForceRow(string Name, string Value, string Recorded, string Strain);
     public sealed record RebarRow(int Layer, string Direction, string Z, string Area, string Eps, string Sigma, string Psi);
 
-    public FemPlateSectionStateWindow() => InitializeComponent();
+    public FemPlateSectionStateWindow()
+    {
+        InitializeComponent();
+        ViewerWindowKeys.CloseOnEscape(this);
+    }
 
     /// <summary>Обновляет содержимое окна под выбранную пластину.</summary>
     public void ShowContent(FemCsfeaPlateSectionPoint s, string title, string stepLabel, string windowTitle)
@@ -35,7 +39,7 @@ public partial class FemPlateSectionStateWindow : Window
         {
             string unit = Loc.S(i < 3 ? "UnitKNPerM" : "UnitKNmPerM");
             return new ForceRow(names[i], $"{s.Forces[i].ToString("+0.000;-0.000", c)} {unit}", $"{s.Recorded[i].ToString("+0.000;-0.000", c)} {unit}",
-                $"{strains[i]} = {s.Strains[i].ToString(i < 3 ? "+0.000000;-0.000000" : "+0.0000e+00;-0.0000e+00", c)}{(i < 3 ? "" : " 1/м")}");
+                $"{strains[i]} = {s.Strains[i].ToString(i < 3 ? "+0.000000;-0.000000" : "+0.0000e+00;-0.0000e+00", c)}{(i < 3 ? "" : " " + Loc.S("UnitPerM"))}");
         }).ToList();
 
         string Fraction(double v) => double.IsFinite(v) ? v.ToString("P0", c) : "—";
@@ -77,6 +81,7 @@ public partial class FemPlateSectionStateWindow : Window
             .Select(r => (r.Z, stress ? r.SigmaMpa : r.Eps, (Brush)(r.AlongX ? Brushes.DarkRed : Brushes.DarkBlue))).ToArray();
 
         string dir = string.Format(CultureInfo.CurrentCulture, Loc.S("FemCsfeaPlateDirection"), s.DirectionDeg);
+        string mpa = Loc.S("Unit_MPa");
         EpsX.Profile = new ThroughThicknessProfile
         {
             Z = edges, Title = Loc.S("ShellStrainEpsXPlot"), ValueAxisLabel = "ε",
@@ -94,17 +99,17 @@ public partial class FemPlateSectionStateWindow : Window
         };
         SigX.Profile = new ThroughThicknessProfile
         {
-            Z = steps, Title = Loc.S("ShellStrainSigXPlot"), ValueAxisLabel = "МПа",
+            Z = steps, Title = Loc.S("ShellStrainSigXPlot"), ValueAxisLabel = mpa,
             Series = [("σx", Step(l => l.SigX), Brushes.Crimson)], Points = Rebar(0, true), PointsInSeparateZone = true,
         };
         SigY.Profile = new ThroughThicknessProfile
         {
-            Z = steps, Title = Loc.S("ShellStrainSigYPlot"), ValueAxisLabel = "МПа",
+            Z = steps, Title = Loc.S("ShellStrainSigYPlot"), ValueAxisLabel = mpa,
             Series = [("σy", Step(l => l.SigY), Brushes.SteelBlue)], Points = Rebar(90, true), PointsInSeparateZone = true,
         };
         SigDir.Profile = new ThroughThicknessProfile
         {
-            Z = steps, Title = "σ(z) " + dir + ", МПа", ValueAxisLabel = "МПа",
+            Z = steps, Title = "σ(z) " + dir + ", " + mpa, ValueAxisLabel = mpa,
             Series = [("σ", Step(l => l.SigDir), Brushes.DarkOrange)], Points = Rebar(s.DirectionDeg, true),
             PointsInSeparateZone = true,
         };

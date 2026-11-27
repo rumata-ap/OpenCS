@@ -17,6 +17,8 @@ public partial class FemShellsView : UserControl
         _node = node;
         _app  = app;
         InitializeComponent();
+        // Родные КонЭ — имя назначенного сечения, импортные — тег жёсткости источника.
+        sectionColumn.Binding = new System.Windows.Data.Binding { Converter = new Converters.FemSectionLabelConverter(app.db.CrossSections, app.PlateSections) };
         _groups = new FemGroupTableTools(app, node.Owner.Schema, shellsGrid, FemMemberGroup.KindMembers,
             row => ((FemMember)row).ElemTag);
         // Меню — только импорт усилий из программы-источника схемы; у прочих схем его нет вовсе.

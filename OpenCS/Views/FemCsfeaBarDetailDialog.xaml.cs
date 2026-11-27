@@ -18,6 +18,7 @@ public partial class FemCsfeaBarDetailDialog : Window
     public FemCsfeaBarDetailDialog(FemCsfeaBarDetailVM vm, string title)
     {
         InitializeComponent();
+        ViewerWindowKeys.CloseOnEscape(this);
         _vm = vm;
         DataContext = vm;
         Title = title;

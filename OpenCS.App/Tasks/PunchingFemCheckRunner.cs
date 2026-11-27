@@ -160,6 +160,10 @@ public sealed record PunchingFemCheckData
     public string Schema { get; init; } = "";
     public string Source { get; init; } = "";
     public string SourceKind { get; init; } = "";
+    /// <summary>Постановка-источник (CSfea) и её результат, по которым посчитана проверка; null — снимок импорта или
+    /// результат до 27.11.2026 (без полей).</summary>
+    public int? SourceAnalysisId { get; init; }
+    public int? SourceResultId { get; init; }
     public bool Passed { get; init; }
     public double Ratio { get; init; }
     /// <summary>Наибольший Кисп под общим именем (его читает консоль: <c>run checks</c>).</summary>
@@ -323,6 +327,7 @@ public static class PunchingFemCheckRunner
         {
             GoverningNode = govJoint?.Node, GoverningDetail = detail,
             Schema = schema.Tag, Source = source.Label, SourceKind = source.Kind,
+            SourceAnalysisId = source.AnalysisId, SourceResultId = source.AnalysisResultId,
             Passed = results.Count > 0 && failed == 0 && noCheck == 0,
             Ratio = results.Where(r => r.Status != "no_check").Select(r => r.Ratio).DefaultIfEmpty(0).Max(),
             TotalJoints = results.Count, PassedJoints = results.Count(r => r.Passed), FailedJoints = failed, NoCheckJoints = noCheck,

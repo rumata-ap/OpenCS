@@ -96,7 +96,7 @@
                         <DataGridTextColumn Header="{DynamicResource Tag}" Binding="{Binding ElemTag}" Width="60"/>
                         <DataGridTextColumn Header="{DynamicResource FemNodeTag1}" Binding="{Binding Node1}" Width="60"/>
                         <DataGridTextColumn Header="{DynamicResource FemNodeTag2}" Binding="{Binding Node2}" Width="60"/>
-                        <DataGridTextColumn Header="{DynamicResource FemSectionTag}" Binding="{Binding SectionTag}" Width="*"/>
+                        <DataGridTextColumn x:Name="sectionColumn" Header="{DynamicResource FemSectionTag}" Binding="{Binding SectionTag}" Width="*"/>
                     </DataGrid.Columns>
                 </DataGrid>
             </DockPanel>

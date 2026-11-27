@@ -13,6 +13,8 @@ public partial class FemMeshBarsView : UserControl
     internal FemMeshBarsView(FemMeshBarsSubNode node, AppViewModel app)
     {
         InitializeComponent();
+        // Родные стержни — имя назначенного сечения, импортные — тег жёсткости источника.
+        sectionColumn.Binding = new System.Windows.Data.Binding { Converter = new Converters.FemSectionLabelConverter(app.db.CrossSections, app.PlateSections) };
         _node = node;
         _groups = new FemGroupTableTools(app, node.Owner.Schema, meshBarsGrid, FemMemberGroup.KindMesh,
             row => ((FemElement)row).ElemTag);

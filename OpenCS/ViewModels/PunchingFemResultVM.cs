@@ -217,7 +217,9 @@ public sealed class PunchingFemResultVM : ViewModelBase
     PunchingFemJointRowVM? _selectedJoint;
     PunchingFemKeyRowVM? _selectedRow;
 
-    public PunchingFemResultVM(CalcResult result, FemCheck? check, IEnumerable<Material> materials)
+    /// <param name="findAnalysis">Поиск постановки по Id — для строки «источник удалён / пересчитан»; null — не проверять.</param>
+    public PunchingFemResultVM(CalcResult result, FemCheck? check, IEnumerable<Material> materials,
+        Func<int, FemAnalysis?>? findAnalysis = null)
     {
         Result = result;
         Check = check;
@@ -233,6 +235,7 @@ public sealed class PunchingFemResultVM : ViewModelBase
         Passed = Data.Passed;
         VerdictBrush = PunchingFemStatus.Brush(Data.Error != null ? "no_check" : Data.Passed ? "concrete" : Data.FailedJoints > 0 ? "not_ensured" : "no_check", Data.Passed);
         WarningsText = string.Join("\n", Data.Warnings.Select(w => "• " + w.Text));
+        StaleText = Data.Error != null || findAnalysis == null ? "" : SourceStaleText(Data, check, findAnalysis);
         // Сначала проверенные по убыванию Кисп (не прошедшие — вверху), узлы без проверки — в конце.
         foreach (var j in Data.Joints.OrderBy(j => j.Status == "no_check").ThenByDescending(j => j.Ratio))
             Joints.Add(new PunchingFemJointRowVM(j));
@@ -278,6 +281,29 @@ public sealed class PunchingFemResultVM : ViewModelBase
         : Loc.S("PunchingFemVerdictNoCheck", "Есть узлы без проверки — см. причины в таблице");
     public string WarningsText { get; }
     public bool HasWarnings => WarningsText.Length > 0;
+
+    /// <summary>Источник проверки удалён или его результат сменился после проверки; пусто — результат актуален.</summary>
+    public string StaleText { get; }
+    public bool IsStale => StaleText.Length > 0;
+
+    /// <summary>
+    /// Строка устаревания результата: постановка-источник удалена или её результат уже другой (пересчёт, сброс). У
+    /// результатов без Id источника (до 27.11.2026) — только «удалена» по источнику в параметрах проверки.
+    /// </summary>
+    public static string SourceStaleText(PunchingFemCheckData data, FemCheck? check, Func<int, FemAnalysis?> findAnalysis)
+    {
+        int? analysisId = data.SourceAnalysisId;
+        if (analysisId == null && check != null && PunchingFemCheckParams.Parse(check.ParamsJson) is { IsCsfea: true } p
+            && int.TryParse(p.SourceRef, NumberStyles.Integer, CultureInfo.InvariantCulture, out int fromParams))
+            analysisId = fromParams;
+        if (analysisId is not int id) return "";
+        var analysis = findAnalysis(id);
+        if (analysis == null)
+            return string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingFemSourceDeleted"), data.Source);
+        if (data.SourceResultId is int rid && analysis.ResultId != rid)
+            return string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingFemSourceChanged"), analysis.Tag);
+        return "";
+    }
     /// <summary>Заголовок свёрнутых предупреждений проверки.</summary>
     public string WarningsHeader => string.Format(CultureInfo.CurrentCulture, Loc.S("PunchingFemWarningsHeader", "Предупреждения: {0}"), Data.Warnings.Count);
 

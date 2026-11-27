@@ -15,6 +15,7 @@ public partial class ShearInclinedProjectionDialog : Window
     {
         ArgumentNullException.ThrowIfNull(charts);
         InitializeComponent();
+        ViewerWindowKeys.CloseOnEscape(this);
 
         Configure(VyCanvas, VyNoData, charts.FirstOrDefault(c => c.Plane == "vy"));
         Configure(VxCanvas, VxNoData, charts.FirstOrDefault(c => c.Plane == "vx"));

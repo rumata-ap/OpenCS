@@ -209,10 +209,21 @@ namespace OpenCS.Utilites
       /// <summary>Сбрасывает результаты постановок CSfea схемы (как после смены сетки); число сброшенных.</summary>
       int ResetFemAnalysisResults(int schemaId)
       {
+         var ids = new List<int>();
+         using (var sel = _connection.CreateCommand())
+         {
+            sel.CommandText = "SELECT result_id FROM fem_analyses WHERE schema_id = @s AND result_id IS NOT NULL";
+            sel.Parameters.AddWithValue("@s", schemaId);
+            using var r = sel.ExecuteReader();
+            while (r.Read()) ids.Add(r.GetInt32(0));
+         }
          using var upd = _connection.CreateCommand();
          upd.CommandText = "UPDATE fem_analyses SET result_id = NULL, status = 'created' WHERE schema_id = @s AND result_id IS NOT NULL";
          upd.Parameters.AddWithValue("@s", schemaId);
-         return upd.ExecuteNonQuery();
+         int reset = upd.ExecuteNonQuery();
+         // Сброшенные результаты удаляются (кроме удержанных субмоделями); кэш в миграции ещё не загружен.
+         DeleteReleasedFemResults(ids);
+         return reset;
       }
    }
 }

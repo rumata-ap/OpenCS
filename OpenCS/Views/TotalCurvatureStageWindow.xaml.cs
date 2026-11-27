@@ -19,6 +19,7 @@ public partial class TotalCurvatureStageWindow : Window
         AppViewModel app, CalcTask task)
     {
         InitializeComponent();
+        Helpers.ViewerWindowKeys.CloseOnEscape(this);
 
         Title = $"{stage.Label} — {Loc.S("TotalCurvature_StagePlotTitle")}";
         section.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin,

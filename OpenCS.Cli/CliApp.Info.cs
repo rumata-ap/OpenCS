@@ -91,6 +91,23 @@ sealed partial class CliApp
     {
         using var session = call.OpenProject();
         var ctx = session.Context;
+        var members = new Dictionary<int, List<FemMember>>();
+        List<FemMember> MembersOf(int schemaId) =>
+            members.TryGetValue(schemaId, out var list) ? list : members[schemaId] = ctx.Db.GetFemMembers(schemaId);
+
+        // Цель словами: группа КонЭ по имени, конструктивный элемент по тегу, продавливание — узлы схемы.
+        string TargetText(FemCheck c)
+        {
+            if (c.NormCode == OpenCS.Tasks.PunchingFemCheckParams.NormCode) return Loc.S("CliTargetPunchingNodes");
+            if (c.TargetsElement)
+                return MembersOf(c.SchemaId).FirstOrDefault(m => m.Id == c.ElementId) is { } m
+                    ? string.Format(Loc.S("CliTargetMember"), m.ElemTag.Trim())
+                    : string.Format(Loc.S("CliTargetMissing"), c.ElementId);
+            var group = ctx.FemSchemas.FirstOrDefault(s => s.Id == c.SchemaId)?.MemberGroups.FirstOrDefault(g => g.Id == c.MemberId);
+            return group != null ? string.Format(Loc.S("CliTargetGroup"), group.Tag.Trim())
+                : string.Format(Loc.S("CliTargetMissing"), c.MemberId);
+        }
+
         var rows = ctx.Db.FemChecks.OrderBy(c => c.SchemaId).ThenBy(c => c.Id).Select(c =>
         {
             var last = ctx.Db.GetCalcResultHeaderByFemCheck(c.Id);
@@ -98,9 +115,7 @@ sealed partial class CliApp
             {
                 c.Id, c.SchemaId,
                 Schema = ctx.FemSchemas.FirstOrDefault(s => s.Id == c.SchemaId)?.Tag,
-                Target = c.TargetsElement
-                    ? string.Format(Loc.S("CliTargetElement"), c.ElementId)
-                    : string.Format(Loc.S("CliTargetMember"), c.MemberId),
+                Target = TargetText(c),
                 c.NormCode, Tag = c.DisplayTag,
                 Result = last == null ? null : new { last.Id, last.Status, last.Created }
             };
@@ -149,20 +164,45 @@ sealed partial class CliApp
     {
         int? taskId = call.Parse.GetValue(_task);
         using var session = call.OpenProject();
-        var rows = session.Context.Db.CalcResults
+        var db = session.Context.Db;
+        // Владелец результата: задача, постановка или проверка МКЭ; результат родителя, удержанный субмоделью.
+        var tasks = session.Context.CalcTasks.ToDictionary(t => t.Id, t => t.Tag);
+        var schemas = session.Context.FemSchemas.ToDictionary(s => s.Id, s => s.Tag);
+        var analyses = new Dictionary<int, (string Tag, string Schema)>();
+        foreach (var s in session.Context.FemSchemas)
+            foreach (var a in db.GetFemAnalyses(s.Id))
+                if (a.ResultId is int rid) analyses.TryAdd(rid, (a.Tag, s.Tag));
+        var checks = db.FemChecks.ToDictionary(c => c.Id, c => (c.DisplayTag, schemas.GetValueOrDefault(c.SchemaId, "")));
+        var checkByResult = db.FemChecks.Where(c => c.ResultId != null).GroupBy(c => c.ResultId!.Value)
+            .ToDictionary(g => g.Key, g => g.First().Id);
+        var pinned = db.SubmodelPinnedResults();
+
+        (string Kind, string Text) Owner(DatabaseService.CalcResultHeader r)
+        {
+            if (r.TaskId != 0)
+                return ("task", string.Format(Loc.S("CliOwnerTask"), tasks.GetValueOrDefault(r.TaskId, r.TaskTag)));
+            int? checkId = r.FemCheckId ?? (checkByResult.TryGetValue(r.Id, out int c) ? c : null);
+            if (checkId is int cid && checks.TryGetValue(cid, out var check))
+                return ("check", string.Format(Loc.S("CliOwnerCheck"), check.Item1, check.Item2));
+            if (analyses.TryGetValue(r.Id, out var a))
+                return ("analysis", string.Format(Loc.S("CliOwnerAnalysis"), a.Tag, a.Schema));
+            if (pinned.TryGetValue(r.Id, out var sub))
+                return ("submodel", string.Format(Loc.S("CliOwnerSubmodel"), sub));
+            return ("none", Loc.S("CliOwnerNone"));
+        }
+
+        var rows = db.GetCalcResultHeaders()
             .Where(r => taskId == null || r.TaskId == taskId)
-            .OrderBy(r => r.Id)
-            .Select(r => new { r.Id, r.TaskId, r.TaskTag, r.TaskKind, r.Status, r.Created })
+            .Select(r => { var o = Owner(r); return new { r.Id, r.TaskId, r.TaskTag, r.TaskKind, r.Status, r.Created, OwnerKind = o.Kind, Owner = o.Text }; })
             .ToList();
 
         if (call.Json) CliOutput.WriteJson(call.Out, rows);
         else
             CliOutput.WriteTable(call.Out,
-                [Loc.S("CliColId"), Loc.S("CliColTask"), Loc.S("CliColTag"), Loc.S("CliColKind"),
-                 Loc.S("CliColStatus"), Loc.S("CliColCreated")],
+                [Loc.S("CliColId"), Loc.S("CliColOwner"), Loc.S("CliColKind"), Loc.S("CliColStatus"), Loc.S("CliColCreated")],
                 rows.Select(r => new[]
                 {
-                    r.Id.ToString(), r.TaskId.ToString(), r.TaskTag, r.TaskKind, r.Status, r.Created
+                    r.Id.ToString(), r.Owner, r.TaskKind, r.Status, r.Created
                 }));
         return Task.FromResult(CliExitCode.Ok);
     }

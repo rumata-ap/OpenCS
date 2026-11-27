@@ -435,4 +435,57 @@ public sealed class CliFemChecksTests : IDisposable
             Assert.DoesNotContain(withResult, db.FemChecks);
         }
     }
+
+    /// <summary>
+    /// Раздел results, 8б/8г: <c>list checks</c> называет цель словами (группа по имени, КонЭ по тегу), <c>list results</c>
+    /// показывает результаты проверок с владельцем, <c>apply --dry-run</c> неизменённого документа — «без изменений».
+    /// </summary>
+    [Fact]
+    public async Task Lists_TargetWords_ResultOwner_DryRunUnchanged()
+    {
+        string project = PathOf("l.db");
+        Assert.Equal(CliExitCode.Ok, (await Run("new", project)).Code);
+        var seed = await Run("apply", project, Doc("seed.json", Full()));
+        Assert.True(seed.Code == CliExitCode.Ok, seed.Err + seed.Out);
+        string slsParams;
+        using (var db = Open(project))
+        {
+            FakeResult(db, db.FemChecks.Single(c => c.Tag == "Ригель / ЖБ"));
+            slsParams = db.FemChecks.Single(c => c.Tag == "Плиты / ПС2").ParamsJson;
+        }
+
+        var checks = await Run("list", "checks", project, "--json");
+        Assert.True(checks.Code == CliExitCode.Ok, checks.Err);
+        var targets = JsonNode.Parse(checks.Out)!.AsArray().ToDictionary(n => n!["tag"]!.GetValue<string>(), n => n!["target"]!.GetValue<string>());
+        Assert.Equal(string.Format(Loc.S("CliTargetGroup"), "Колонны"), targets["Колонны / сталь"]);
+        Assert.Equal(string.Format(Loc.S("CliTargetMember"), "Р1"), targets["Ригель / ЖБ"]);
+
+        var results = await Run("list", "results", project, "--json");
+        Assert.True(results.Code == CliExitCode.Ok, results.Err);
+        var row = Assert.Single(JsonNode.Parse(results.Out)!.AsArray());
+        Assert.Equal("check", row!["ownerKind"]!.GetValue<string>());
+        Assert.Equal(string.Format(Loc.S("CliOwnerCheck"), "Ригель / ЖБ", "Рама"), row["owner"]!.GetValue<string>());
+
+        var same = await Run("apply", project, Doc("same.json", OnlyChecks(Checks)), "--dry-run", "--json");
+        Assert.True(same.Code == CliExitCode.Ok, same.Err + same.Out);
+        var actions = JsonNode.Parse(same.Out)!["changes"]!.AsArray().Select(c => c!["action"]!.GetValue<string>()).ToList();
+        Assert.Equal(4, actions.Count);
+        Assert.All(actions, a => Assert.Equal("unchanged", a));
+        var text = await Run("apply", project, Doc("same2.json", OnlyChecks(Checks)), "--dry-run");
+        Assert.Contains(Loc.S("CliModelActionUnchanged"), text.Out);
+
+        var changed = await Run("apply", project, Doc("changed.json", OnlyChecks(Checks.Replace("\"acrcLimMm\": 0.2", "\"acrcLimMm\": 0.3"))),
+            "--dry-run", "--json");
+        Assert.True(changed.Code == CliExitCode.Ok, changed.Err + changed.Out);
+        var byKey = JsonNode.Parse(changed.Out)!["changes"]!.AsArray()
+            .ToDictionary(c => c!["key"]!.GetValue<string>(), c => c!["action"]!.GetValue<string>());
+        Assert.Equal("update", byKey["Рама / Плиты / ПС2"]);
+        Assert.Equal("unchanged", byKey["Рама / Колонны / сталь"]);
+        // Проба на копии: результат проверки и параметры в проекте не тронуты.
+        using (var db = Open(project))
+        {
+            Assert.NotNull(db.FemChecks.Single(c => c.Tag == "Ригель / ЖБ").ResultId);
+            Assert.Equal(slsParams, db.FemChecks.Single(c => c.Tag == "Плиты / ПС2").ParamsJson);
+        }
+    }
 }

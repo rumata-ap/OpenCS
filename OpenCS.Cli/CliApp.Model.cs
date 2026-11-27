@@ -1,5 +1,6 @@
 using System.CommandLine;
 using OpenCS.Cli.Model;
+using OpenCS.Services;
 using OpenCS.Utilites;
 
 namespace OpenCS.Cli;
@@ -73,41 +74,70 @@ sealed partial class CliApp
 
         if (call.Parse.GetValue(_dryRun))
         {
+            // Проба — на рабочей копии проекта (сессия без --in-place), которая отбрасывается: так план знает,
+            // какие объекты документа уже совпадают с проектом («без изменений»).
             using var session = call.OpenProject();
             var planned = ModelDocument.Plan(doc!, session.Context, errors);
             errors.ThrowIfAny();
+            var tried = CommitAll(planned, session.Context);
             session.Discard();
-            ReportChanges(call, planned, dryRun: true);
+            ReportChanges(call, tried, dryRun: true);
             return CliExitCode.Ok;
         }
 
-        IReadOnlyList<ModelChange> applied = [];
+        IReadOnlyList<AppliedChange> applied = [];
         int code = await Edit(call, session =>
         {
             var changes = ModelDocument.Plan(doc!, session.Context, errors);
             errors.ThrowIfAny();
-            foreach (var change in changes) change.Commit(session.Context);
-            applied = changes;
+            applied = CommitAll(changes, session.Context);
         });
         ReportChanges(call, applied, dryRun: false);
         return code;
     }
 
-    static void ReportChanges(CliCall call, IReadOnlyList<ModelChange> changes, bool dryRun)
+    /// <summary>Изменение плана после записи: <c>Unchanged</c> — выгрузка вида до и после записи совпала.</summary>
+    sealed record AppliedChange(ModelChange Change, bool Unchanged);
+
+    /// <summary>
+    /// Записывает изменения по порядку плана; у обновлений сравнивает выгрузку своего вида до и после записи —
+    /// совпала (объект в документе такой же, как в проекте) → «без изменений».
+    /// </summary>
+    static List<AppliedChange> CommitAll(IReadOnlyList<ModelChange> changes, HeadlessProjectContext ctx)
     {
+        var result = new List<AppliedChange>(changes.Count);
+        foreach (var change in changes)
+        {
+            var kind = change.Create ? null : ModelDocument.Find(change.Kind);
+            string? before = kind == null ? null : Snapshot(kind, ctx);
+            change.Commit(ctx);
+            result.Add(new(change, before != null && before == Snapshot(kind!, ctx)));
+        }
+        return result;
+    }
+
+    static string Snapshot(IModelKind kind, HeadlessProjectContext ctx) => kind.Export(ctx, _ => { }).ToJsonString();
+
+    static void ReportChanges(CliCall call, IReadOnlyList<AppliedChange> changes, bool dryRun)
+    {
+        static string Action(AppliedChange c) => c.Change.Create ? "create" : c.Unchanged ? "unchanged" : "update";
         if (call.Json)
         {
             CliOutput.WriteJson(call.Out, new
             {
                 DryRun = dryRun,
-                Changes = changes.Select(c => new { c.Kind, c.Key, Action = c.Create ? "create" : "update" })
+                Changes = changes.Select(c => new { c.Change.Kind, c.Change.Key, Action = Action(c) })
             });
             return;
         }
         if (changes.Count == 0) call.Out.WriteLine(Loc.S("CliModelNothing"));
         foreach (var c in changes)
-            call.Out.WriteLine(string.Format(Loc.S("CliModelChange"),
-                Loc.S(c.Create ? "CliModelActionCreate" : "CliModelActionUpdate"), c.Kind, c.Key));
+            call.Out.WriteLine(string.Format(Loc.S("CliModelChange"), Loc.S(Action(c) switch
+            {
+                "create" => "CliModelActionCreate",
+                "unchanged" => "CliModelActionUnchanged",
+                _ => "CliModelActionUpdate"
+            }), c.Change.Kind, c.Change.Key));
         if (dryRun) call.Out.WriteLine(Loc.S("CliModelDryRun"));
     }
 

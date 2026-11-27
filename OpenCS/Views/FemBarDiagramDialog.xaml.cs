@@ -14,6 +14,7 @@ public partial class FemBarDiagramDialog : Window
     public FemBarDiagramDialog(FemBarDiagramVM vm)
     {
         InitializeComponent();
+        ViewerWindowKeys.CloseOnEscape(this);
         _vm = vm;
         DataContext = vm;
         Title = string.Format(Loc.S("FemBarDiagramTitle"), vm.TargetTag);

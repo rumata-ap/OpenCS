@@ -18,6 +18,8 @@ public partial class SectionCutDiagramWindow : Window
     public SectionCutDiagramWindow(CalcSettings settings)
     {
         InitializeComponent();
+        // Esc на холсте сначала отменяет начатую точку разреза, следующим нажатием — закрывает окно (инструмент выключается).
+        ViewerWindowKeys.CloseOnEscape(this);
         CommandBindings.Add(new CommandBinding(ApplicationCommands.Copy, OnCopyExecuted, OnCopyCanExecute));
     }
 
