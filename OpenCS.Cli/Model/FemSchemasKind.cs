@@ -1052,6 +1052,9 @@ sealed partial class FemSchemasKind : IModelKind
     static void Commit(HeadlessProjectContext ctx, SchemaDoc d, FemSchema? target)
     {
         var db = ctx.Db;
+        // Выгрузка схемы до записи: «сетка устарела» — только если документ схему действительно изменил (повторный apply
+        // того же документа сетку не трогает, и предупреждение противоречило бы list schemas — «актуальна»).
+        string? before = target != null ? ToJson(db, target, _ => { }).ToJsonString() : null;
         var schema = target ?? FemSchemaAuthoring.CreateNew(db, d.Tag);
         if (d.Mesh is { } mesh)
         {
@@ -1082,7 +1085,7 @@ sealed partial class FemSchemasKind : IModelKind
         CommitFields(ctx, d, schema);
         if (built.CasesRemoved + built.CombinationsRemoved + imperfectionsRemoved > 0)
             ctx.LogService.Warning(string.Format(Loc.S("CliFemLoadsRemoved"), d.Tag, built.CasesRemoved, built.CombinationsRemoved, imperfectionsRemoved));
-        if (hadMesh)
+        if (hadMesh && ToJson(db, schema, _ => { }).ToJsonString() != before)
             ctx.LogService.Warning(string.Format(Loc.S("CliFemMeshStale"), d.Tag));
     }
 }
