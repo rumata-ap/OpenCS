@@ -47,7 +47,9 @@ public sealed class SettingsWindowTests
             grid.Text = "abc";
             Assert.Single(w.FieldErrors);
             Assert.NotEqual("", status.Text);
-            Assert.Equal(Brushes.Crimson, ((TabItem)tabs.Items[0]).Foreground);
+            var calcTab = (TabItem)tabs.Items[0];
+            Assert.Equal(Brushes.Crimson, ((TextBlock)calcTab.Header).Foreground);
+            Assert.NotEqual(Brushes.Crimson, calcTab.Foreground); // подписи вкладки — обычным цветом
             Assert.False(w.TrySaveAndApply());
             Assert.Equal(40, app.db.LoadCalcSettings().GridDensity);
 

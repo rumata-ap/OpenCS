@@ -612,8 +612,10 @@ namespace OpenCS.Views
          if (Tabs == null) return;
          foreach (var tab in Tabs.Items.OfType<TabItem>())
          {
-            if (_errors.Keys.Any(b => TabOf(b) == tab)) tab.Foreground = Brushes.Crimson;
-            else tab.ClearValue(Control.ForegroundProperty);
+            if (tab.Header is not TextBlock header) continue;
+            // Только заголовок: Foreground вкладки наследуется её содержимым (красились все подписи).
+            if (_errors.Keys.Any(b => TabOf(b) == tab)) header.Foreground = Brushes.Crimson;
+            else header.ClearValue(TextBlock.ForegroundProperty);
          }
       }
 

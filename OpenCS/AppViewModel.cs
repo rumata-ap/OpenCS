@@ -1861,6 +1861,9 @@ namespace OpenCS
       /// </summary>
       void SaveProjectInternal()
       {
+         // Черновик открытой страницы (контур, область, сечение…) — сначала в базу: иначе «Проект сохранён», а страница
+         // остаётся с «*» и при уходе снова спрашивает. Не записался (ошибка проверки) — проект не сохраняется.
+         if (currentPage?.DataContext is IUnsavedChanges { IsDirty: true } page && !page.SaveChanges()) return;
          if (CurrentProjectPath == null)
          {
             SaveAsProject();

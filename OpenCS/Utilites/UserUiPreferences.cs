@@ -49,5 +49,6 @@ public sealed class UserUiPreferences
     }
 
     /// <summary>Номер языка меню «Вид → Язык»: 0 — русский, 1 — английский.</summary>
+    [JsonIgnore]
     public int LanguageIndex => Language == "en-US" ? 1 : 0;
 }

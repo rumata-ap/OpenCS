@@ -21,7 +21,7 @@
 
         <TabControl Grid.Row="0" Margin="0,0,0,5" x:Name="Tabs">
             <!-- Вкладка «Расчёт» -->
-            <TabItem Header="{DynamicResource CalcSettingsTab}">
+            <TabItem><TabItem.Header><TextBlock Text="{DynamicResource CalcSettingsTab}"/></TabItem.Header>
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="10">
                         <GroupBox Header="{DynamicResource CalcSettingsGridGroup}" Margin="0,0,0,10">
@@ -333,7 +333,7 @@
                 </ScrollViewer>
             </TabItem>
             <!-- Вкладка «CSV» -->
-            <TabItem Header="{DynamicResource CsvSettingsTab}">
+            <TabItem><TabItem.Header><TextBlock Text="{DynamicResource CsvSettingsTab}"/></TabItem.Header>
                 <StackPanel Margin="10">
                     <GroupBox Header="{DynamicResource ColumnDelimiter}" Margin="0,0,0,10">
                         <StackPanel Margin="4">
@@ -350,7 +350,7 @@
                 </StackPanel>
             </TabItem>
             <!-- Вкладка «Импорт» -->
-            <TabItem Header="{DynamicResource ImportSettingsTab}">
+            <TabItem><TabItem.Header><TextBlock Text="{DynamicResource ImportSettingsTab}"/></TabItem.Header>
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="10">
                         <GroupBox Header="{DynamicResource LiraImportGroupBox}" Margin="0,0,0,10">
@@ -409,7 +409,7 @@
                 </ScrollViewer>
             </TabItem>
             <!-- Вкладка «Gmsh» -->
-            <TabItem Header="{DynamicResource GmshSettingsTab}">
+            <TabItem><TabItem.Header><TextBlock Text="{DynamicResource GmshSettingsTab}"/></TabItem.Header>
                 <StackPanel Margin="10">
                     <GroupBox Header="{DynamicResource GmshExecutableGroup}" Margin="0,0,0,10">
                         <Grid Margin="4">
@@ -504,7 +504,7 @@
                 </StackPanel>
             </TabItem>
             <!-- Вкладка «OpenSees» -->
-            <TabItem Header="{DynamicResource OpenSeesSettingsTab}">
+            <TabItem><TabItem.Header><TextBlock Text="{DynamicResource OpenSeesSettingsTab}"/></TabItem.Header>
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="10">
                         <GroupBox Header="{DynamicResource OpenSeesExecutableGroup}" Margin="0,0,0,10">
@@ -665,7 +665,7 @@
             </TabItem>
 
             <!-- Вкладка «Графики» (последняя: нужна редко). Слева настройки, справа живой предпросмотр. -->
-            <TabItem Header="{DynamicResource PlotsTab}">
+            <TabItem><TabItem.Header><TextBlock Text="{DynamicResource PlotsTab}"/></TabItem.Header>
                 <TabItem.Resources>
                     <Style x:Key="PlotNumBox" TargetType="TextBox">
                         <Setter Property="Height" Value="22"/>
