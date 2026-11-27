@@ -6,6 +6,7 @@ using Xunit;
 namespace OpenCS.Tests;
 
 /// <summary>Состав типа ГУ текстом («Узлы №» RFEM): диапазоны узлов, грани «КонЭ/сторона» и «КонЭ/о1/сторона».</summary>
+[Collection("Loc language")]
 public sealed class FemBoundaryObjectListTests
 {
     [Fact]
@@ -42,6 +43,23 @@ public sealed class FemBoundaryObjectListTests
         Assert.Equal([other, outer, hole], FemBoundaryObjectList.ParseEdges(text, out _)!);
         // Латинская «o» в номере отверстия — то же.
         Assert.Equal([hole], FemBoundaryObjectList.ParseEdges("12/o1/2", out _)!);
+    }
+
+    /// <summary>В английском интерфейсе отверстие — латинская «h1», а не кириллическая «о1»; разбор возвращает ту же грань.</summary>
+    [Fact]
+    public void Edges_Hole_EnglishLatinPrefix()
+    {
+        FemPlateEdgeKey hole = new("12", BoundaryLoop.Hole, 1, 0);
+        try
+        {
+            OpenCS.Utilites.Loc.SetLanguage(OpenCS.Utilites.Loc.English);
+            string text = FemBoundaryObjectList.FormatEdges([hole]);
+            Assert.Equal("12/h2/1", text);
+            Assert.Equal([hole], FemBoundaryObjectList.ParseEdges(text, out _)!);
+            OpenCS.Utilites.Loc.SetLanguage(OpenCS.Utilites.Loc.Russian);
+            Assert.Equal("12/о2/1", FemBoundaryObjectList.FormatEdges([hole]));
+        }
+        finally { OpenCS.Utilites.Loc.SetLanguage(null); }
     }
 
     [Theory]

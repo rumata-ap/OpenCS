@@ -3098,10 +3098,10 @@
     <system:String x:Key="FemBoundaryObjectsHeader">Type "{0}"</system:String>
     <system:String x:Key="FemBoundaryObjectsNodes">Member nodes No.:</system:String>
     <system:String x:Key="FemBoundaryObjectsMeshNodes">Mesh nodes No.:</system:String>
-    <system:String x:Key="FemBoundaryObjectsEdges">Plate edges (member/side, hole — member/о1/side):</system:String>
+    <system:String x:Key="FemBoundaryObjectsEdges">Plate edges (member/side, hole — member/h1/side):</system:String>
     <system:String x:Key="FemBoundaryObjectsHint">Numbers separated by spaces or commas, range — "1-4". Removed objects lose the support, added ones get the type parameters (the previous support of an object is replaced).</system:String>
     <system:String x:Key="FemBoundaryObjectsBadRange">Invalid range "{0}".</system:String>
-    <system:String x:Key="FemBoundaryObjectsBadEdge">Invalid edge "{0}": expected "member/side" or "member/о1/side".</system:String>
+    <system:String x:Key="FemBoundaryObjectsBadEdge">Invalid edge "{0}": expected "member/side" or "member/h1/side".</system:String>
     <system:String x:Key="FemBoundaryObjectsMissingNodes">No member nodes: {0}.</system:String>
     <system:String x:Key="FemBoundaryObjectsMissingMeshNodes">No mesh nodes: {0}.</system:String>
     <system:String x:Key="FemBoundaryObjectsMissingEdges">No plate edges: {0}.</system:String>

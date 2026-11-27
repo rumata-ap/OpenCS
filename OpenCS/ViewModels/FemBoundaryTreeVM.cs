@@ -506,10 +506,13 @@ public static class FemBoundaryObjectList
         return result.Distinct(StringComparer.Ordinal).ToList();
     }
 
-    /// <summary>«12/3» — сторона 3 внешнего контура КонЭ 12, «12/о1/2» — сторона 2 отверстия 1.</summary>
+    /// <summary>
+    /// «12/3» — сторона 3 внешнего контура КонЭ 12, «12/о1/2» — сторона 2 отверстия 1 (в английском интерфейсе —
+    /// латинская «h1»: кириллическая «о» там неотличима от латинской и чужда; разбор принимает обе).
+    /// </summary>
     public static string FormatEdge(FemPlateEdgeKey key) => key.Loop == BoundaryLoop.Outer
         ? $"{key.MemberTag}/{key.StartVertex + 1}"
-        : $"{key.MemberTag}/о{key.HoleIndex + 1}/{key.StartVertex + 1}";
+        : $"{key.MemberTag}/{(Loc.Language == Loc.English ? "h" : "о")}{key.HoleIndex + 1}/{key.StartVertex + 1}";
 
     public static string FormatEdges(IEnumerable<FemPlateEdgeKey> keys) => string.Join(" ", keys.Distinct()
         .OrderBy(k => int.TryParse(k.MemberTag, out int n) ? n : int.MaxValue).ThenBy(k => k.MemberTag, StringComparer.Ordinal)
