@@ -3,8 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:h="clr-namespace:OpenCS.Views.Helpers"
         xmlns:v="clr-namespace:OpenCS.Views"
-        Title="{DynamicResource SettingsTitle}" Width="880" MinWidth="880" Height="680"
-        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+        Title="{DynamicResource SettingsTitle}" Width="880" MinWidth="880" Height="680" MinHeight="480"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResize" ShowInTaskbar="False">
     <Window.Resources>
         <!-- Группы окна — карточками (общий словарь). -->
         <ResourceDictionary>
@@ -19,7 +19,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TabControl Grid.Row="0" Margin="0,0,0,5">
+        <TabControl Grid.Row="0" Margin="0,0,0,5" x:Name="Tabs">
             <!-- Вкладка «Расчёт» -->
             <TabItem Header="{DynamicResource CalcSettingsTab}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -903,10 +903,14 @@
             </TabItem>
         </TabControl>
 
-        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,0,0">
-            <Button Content="{DynamicResource Apply}" Click="Apply_Click" Width="90" Height="28" Margin="0,0,8,0" IsDefault="True"/>
-            <Button Content="OK" Click="Ok_Click" Width="70" Height="28" Margin="0,0,8,0"/>
-            <Button Content="{DynamicResource Cancel}" Click="Cancel_Click" Width="70" Height="28" IsCancel="True"/>
-        </StackPanel>
+        <DockPanel Grid.Row="1" Margin="0,5,0,0" LastChildFill="True">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="{DynamicResource OK}" Click="Ok_Click" Width="80" Height="28" Margin="0,0,8,0" IsDefault="True"/>
+                <Button Content="{DynamicResource Cancel}" Click="Cancel_Click" Width="80" Height="28" Margin="0,0,8,0" IsCancel="True"/>
+                <Button Content="{DynamicResource Apply}" Click="Apply_Click" Width="90" Height="28"/>
+            </StackPanel>
+            <!-- Ошибка поля в фокусе или отказ «OK»/«Применить»: текстом, без модальных окон. -->
+            <TextBlock x:Name="StatusText" Foreground="#B91C1C" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"/>
+        </DockPanel>
     </Grid>
 </Window>

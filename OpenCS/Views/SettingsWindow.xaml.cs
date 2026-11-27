@@ -24,18 +24,27 @@ namespace OpenCS.Views
       readonly LiraImportSettings _liraSettings;
        readonly AcadImportSettings _acadSettings;
        readonly GmshSettings _gmshSettings;
+      /// <summary>Черновик настроек проекта: проверка и запись — через ProjectSettingsAuthoring (как в CLI).</summary>
+      readonly Services.ProjectSettings _draft;
+      /// <summary>Поля с неверным вводом и текст ошибки; при них «OK» и «Применить» не сохраняют.</summary>
+      readonly Dictionary<TextBox, string> _errors = [];
 
       public SettingsWindow(AppViewModel mvm)
       {
          InitializeComponent();
          _mvm = mvm;
          _settings = mvm.PlotSettings.Clone();
-         _calcSettings = mvm.CalcSettings.Clone();
          _csvSettings = mvm.CsvSettings.Clone();
-          _liraSettings = mvm.LiraImportSettings.Clone();
-           _acadSettings = mvm.AcadImportSettings.Clone();
-           _gmshSettings = mvm.GmshSettings.Clone();
-          Owner = Application.Current.MainWindow;
+          _draft = new Services.ProjectSettings
+          {
+             Calc = mvm.CalcSettings.Clone(), Lira = mvm.LiraImportSettings.Clone(),
+             Acad = mvm.AcadImportSettings.Clone(), Gmsh = mvm.GmshSettings.Clone(),
+          };
+          _calcSettings = _draft.Calc;
+          _liraSettings = _draft.Lira;
+          _acadSettings = _draft.Acad;
+          _gmshSettings = _draft.Gmsh;
+          Owner = Dialogs.DialogOwner.Active();
 
          LoadToUi();
          HookTextBoxes();
@@ -52,6 +61,7 @@ namespace OpenCS.Views
            HookOpenSeesControls();
            LoadGmshToUi();
            HookGmshControls();
+           BindFields();
        }
 
       void LoadToUi()
@@ -157,16 +167,12 @@ namespace OpenCS.Views
                : Pars.ParseAny(tb.Text, out v) && v >= min && v <= max;
             if (ok)
             {
-               tb.ClearValue(Control.BorderBrushProperty);
-               tb.ClearValue(FrameworkElement.ToolTipProperty);
+               SetError(tb, null);
                set(v);
                RefreshPreview();
             }
             else
-            {
-               tb.BorderBrush = Brushes.Crimson;
-               tb.ToolTip = string.Format(Loc.S(integer ? "SettingsIntRangeTip" : "SettingsRangeTip"), min, max);
-            }
+               SetError(tb, string.Format(Loc.S("SettingErrRange"), Services.SettingRange.Between(min, max).Text()));
          };
       }
 
@@ -204,38 +210,48 @@ namespace OpenCS.Views
          _preview.Refresh();
       }
 
-      void Apply_Click(object sender, RoutedEventArgs e)
-      {
-         SaveAndApply();
-      }
+      void Apply_Click(object sender, RoutedEventArgs e) => TrySaveAndApply();
 
       void Ok_Click(object sender, RoutedEventArgs e)
       {
-         SaveAndApply();
-         Close();
+         if (TrySaveAndApply()) Close();
       }
 
-      void SaveAndApply()
+      /// <summary>Записывает настройки; при неверных полях ничего не пишет, открывает вкладку с первой ошибкой.</summary>
+      internal bool TrySaveAndApply()
       {
+         if (_errors.Count > 0)
+         {
+            var (box, error) = _errors.First();
+            if (TabOf(box) is { } tab) Tabs.SelectedItem = tab;
+            StatusText.Text = Loc.S("SettingsTabHasErrors") + " " + FieldCaption(box, error);
+            box.Focus();
+            return false;
+         }
+         var serviceErrors = Services.ProjectSettingsAuthoring.Save(_mvm.db, _draft);
+         if (serviceErrors.Count > 0)
+         {
+            StatusText.Text = Loc.S("SettingsTabHasErrors") + " " + string.Join("; ", serviceErrors.Select(x => $"{x.Path}: {x.Error}"));
+            return false;
+         }
+         StatusText.Text = "";
+
          _mvm.PlotSettings = _settings.Clone();
          _mvm.ApplyPlotSettings();
          _mvm.db.SavePlotSettings(_mvm.PlotSettings);
 
          _mvm.CalcSettings = _calcSettings.Clone();
-         _mvm.db.SaveCalcSettings(_mvm.CalcSettings);
          _mvm.NotifyCalcSettingsApplied();
 
          _mvm.CsvSettings = _csvSettings.Clone();
          _mvm.db.SaveCsvSettings(_mvm.CsvSettings);
 
           _mvm.LiraImportSettings = _liraSettings.Clone();
-          _mvm.db.SaveLiraImportSettings(_mvm.LiraImportSettings);
 
            _mvm.AcadImportSettings = _acadSettings.Clone();
-           _mvm.db.SaveAcadImportSettings(_mvm.AcadImportSettings);
 
            _mvm.GmshSettings = _gmshSettings.Clone();
-           _mvm.db.SaveGmshSettings(_mvm.GmshSettings);
+           return true;
        }
 
       void Cancel_Click(object sender, RoutedEventArgs e)
@@ -245,12 +261,6 @@ namespace OpenCS.Views
 
       void LoadCalcToUi()
       {
-         GridDensityBox.Text   = _calcSettings.GridDensity.ToString();
-         NewtonTolBox.Text     = _calcSettings.NewtonTolerance.ToString("G6", System.Globalization.CultureInfo.InvariantCulture);
-         NewtonMaxIterBox.Text = _calcSettings.NewtonMaxIter.ToString();
-         NewtonDeltaHBox.Text  = _calcSettings.NewtonDeltaH.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
-         LimitBisectAbsBox.Text = _calcSettings.LimitBisectAbsTol.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
-         LimitBisectRelBox.Text = _calcSettings.LimitBisectRelTol.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
 
          HullField.Value           = _calcSettings.HullColor;
          HullThickBox.Text         = _calcSettings.HullThickness.ToString("F1");
@@ -261,15 +271,7 @@ namespace OpenCS.Views
          CentroidNdsField.Value    = _calcSettings.CentroidNdsColor;
          CentroidNdsSizeBox.Text   = _calcSettings.CentroidNdsSize.ToString("F0");
          LabelFontSizeBox.Text     = _calcSettings.FiberLabelFontSize.ToString("F0");
-         Sp63EtaMinBox.Text        = _calcSettings.Sp63DescEtaMin.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
-         EkbEtaMinBox.Text         = _calcSettings.EkbDescEtaMin.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
          NewtonJacobianCombo.SelectedIndex = _calcSettings.NewtonJacobian == "central" ? 1 : 0;
-         ShellTolResBox.Text         = _calcSettings.ShellNewtonTolRes.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
-         Sp20GammaGBox.Text          = _calcSettings.Sp20GammaFPermanent.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
-         Sp20GammaGFavBox.Text       = _calcSettings.Sp20GammaFPermanentFav.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
-         Sp20GammaLBox.Text          = _calcSettings.Sp20GammaFLongTerm.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
-         Sp20GammaQBox.Text          = _calcSettings.Sp20GammaFShortTerm.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
-         Sp20GammaABox.Text          = _calcSettings.Sp20GammaFAccidental.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
          Sp20LoadValueKindCombo.SelectedIndex = _calcSettings.Sp20LoadValueKind == "design" ? 1 : 0;
          BatchParallelCb.IsChecked   = _calcSettings.BatchParallel;
          ShellWarmStartCb.IsChecked  = _calcSettings.ShellWarmStart;
@@ -280,42 +282,10 @@ namespace OpenCS.Views
          SelectComboByTag(FireCompressionZoneMethodCombo, _calcSettings.FireCompressionZoneMethod);
          PsiSMethodCombo.SelectedIndex = _calcSettings.CrackWidthPsiSMethod == "strain8232" ? 1 : 0;
          StageStrainModeCombo.SelectedIndex = _calcSettings.StageStrainMode == "fibers" ? 1 : 0;
-         ShearStationStepBox.Text    = _calcSettings.ShearStationStep.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
-         ShearProjectionStepBox.Text = _calcSettings.ShearProjectionStep.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
-         ShearMomentZoneBox.Text     = _calcSettings.ShearMomentZoneLength.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
-         ShearAnchorageFactorBox.Text = _calcSettings.ShearAnchorageFactor.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
       }
 
       void HookCalcBoxes()
       {
-         GridDensityBox.TextChanged += (_, _) =>
-         {
-            if (int.TryParse(GridDensityBox.Text, out var v) && v >= 1) _calcSettings.GridDensity = v;
-         };
-         NewtonTolBox.TextChanged += (_, _) =>
-         {
-            if (Pars.ParseAny(NewtonTolBox.Text, out var v) && v > 0)
-               _calcSettings.NewtonTolerance = v;
-         };
-         NewtonMaxIterBox.TextChanged += (_, _) =>
-         {
-            if (int.TryParse(NewtonMaxIterBox.Text, out var v) && v >= 1) _calcSettings.NewtonMaxIter = v;
-         };
-         NewtonDeltaHBox.TextChanged += (_, _) =>
-         {
-            if (Pars.ParseAny(NewtonDeltaHBox.Text, out var v) && v > 0)
-               _calcSettings.NewtonDeltaH = v;
-         };
-         LimitBisectAbsBox.TextChanged += (_, _) =>
-         {
-            if (Pars.ParseAny(LimitBisectAbsBox.Text, out var v) && v > 0)
-               _calcSettings.LimitBisectAbsTol = v;
-         };
-         LimitBisectRelBox.TextChanged += (_, _) =>
-         {
-            if (Pars.ParseAny(LimitBisectRelBox.Text, out var v) && v >= 0)
-               _calcSettings.LimitBisectRelTol = v;
-         };
          NewtonJacobianCombo.SelectionChanged += (_, _) =>
          {
             _calcSettings.NewtonJacobian =
@@ -331,26 +301,6 @@ namespace OpenCS.Views
          HookNumber(NeutralAxisThickBox, 0.1, 20, v => _calcSettings.NeutralAxisThickness = v);
          HookNumber(CentroidNdsSizeBox, 1, 30, v => _calcSettings.CentroidNdsSize = v);
          HookNumber(LabelFontSizeBox, 5, 48, v => _calcSettings.FiberLabelFontSize = v);
-         Sp63EtaMinBox.TextChanged += (_, _) =>
-         {
-            if (Pars.ParseAny(Sp63EtaMinBox.Text, out var v) && v > 0 && v < 1)
-               _calcSettings.Sp63DescEtaMin = v;
-         };
-         EkbEtaMinBox.TextChanged += (_, _) =>
-         {
-            if (Pars.ParseAny(EkbEtaMinBox.Text, out var v) && v > 0 && v < 1)
-               _calcSettings.EkbDescEtaMin = v;
-         };
-         ShellTolResBox.TextChanged += (_, _) =>
-         {
-            if (Pars.ParseAny(ShellTolResBox.Text, out var v) && v > 0)
-               _calcSettings.ShellNewtonTolRes = v;
-         };
-         HookSp20GammaBox(Sp20GammaGBox, v => _calcSettings.Sp20GammaFPermanent = v);
-         HookSp20GammaBox(Sp20GammaGFavBox, v => _calcSettings.Sp20GammaFPermanentFav = v);
-         HookSp20GammaBox(Sp20GammaLBox, v => _calcSettings.Sp20GammaFLongTerm = v);
-         HookSp20GammaBox(Sp20GammaQBox, v => _calcSettings.Sp20GammaFShortTerm = v);
-         HookSp20GammaBox(Sp20GammaABox, v => _calcSettings.Sp20GammaFAccidental = v);
          Sp20LoadValueKindCombo.SelectionChanged += (_, _) =>
             _calcSettings.Sp20LoadValueKind = ComboTag(Sp20LoadValueKindCombo) ?? "normative";
          BatchParallelCb.Checked    += (_, _) => _calcSettings.BatchParallel  = true;
@@ -378,36 +328,8 @@ namespace OpenCS.Views
                (PsiSMethodCombo.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Tag as string ?? "stress8138";
          };
          // Шаги перебора и длина зоны допускают 0 («авто» / «2·h0» по норме), k — строго больше нуля.
-         ShearStationStepBox.TextChanged += (_, _) =>
-         {
-            if (Pars.ParseAny(ShearStationStepBox.Text, out var v) && v >= 0)
-               _calcSettings.ShearStationStep = v;
-         };
-         ShearProjectionStepBox.TextChanged += (_, _) =>
-         {
-            if (Pars.ParseAny(ShearProjectionStepBox.Text, out var v) && v >= 0)
-               _calcSettings.ShearProjectionStep = v;
-         };
-         ShearMomentZoneBox.TextChanged += (_, _) =>
-         {
-            if (Pars.ParseAny(ShearMomentZoneBox.Text, out var v) && v >= 0)
-               _calcSettings.ShearMomentZoneLength = v;
-         };
-         ShearAnchorageFactorBox.TextChanged += (_, _) =>
-         {
-            if (Pars.ParseAny(ShearAnchorageFactorBox.Text, out var v) && v > 0)
-               _calcSettings.ShearAnchorageFactor = v;
-         };
       }
 
-      static void HookSp20GammaBox(System.Windows.Controls.TextBox box, Action<double> setter)
-      {
-         box.TextChanged += (_, _) =>
-         {
-            if (Pars.ParseAny(box.Text, out var v) && v > 0)
-               setter(v);
-         };
-      }
 
       void LoadCsvToUi()
       {
@@ -457,8 +379,6 @@ namespace OpenCS.Views
 
          AcadArcChordRb.IsChecked = _acadSettings.ArcDiscretizationMode == ArcDiscretization.ChordLength;
          AcadArcFixedRb.IsChecked = _acadSettings.ArcDiscretizationMode == ArcDiscretization.FixedSegments;
-         AcadArcChordBox.Text = _acadSettings.ArcChordLength.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
-         AcadArcSegBox.Text = _acadSettings.ArcSegments.ToString();
       }
 
       void HookAcadControls()
@@ -469,101 +389,43 @@ namespace OpenCS.Views
 
          AcadArcChordRb.Checked += (_, _) => _acadSettings.ArcDiscretizationMode = ArcDiscretization.ChordLength;
          AcadArcFixedRb.Checked += (_, _) => _acadSettings.ArcDiscretizationMode = ArcDiscretization.FixedSegments;
-         AcadArcChordBox.TextChanged += (_, _) =>
-         {
-            if (Pars.ParseAny(AcadArcChordBox.Text, out var v) && v > 0)
-               _acadSettings.ArcChordLength = v;
-         };
-         AcadArcSegBox.TextChanged += (_, _) =>
-         {
-            if (int.TryParse(AcadArcSegBox.Text, out var v) && v >= 3)
-               _acadSettings.ArcSegments = v;
-         };
       }
 
       void LoadOpenSeesToUi()
       {
          if (!double.IsFinite(_calcSettings.OpenSeesDefaultGjKnm2) || _calcSettings.OpenSeesDefaultGjKnm2 <= 0)
             _calcSettings.OpenSeesDefaultGjKnm2 = CalcSettings.DefaultOpenSeesGjKnm2;
-         OpenSeesDefaultGjBox.Text = _calcSettings.OpenSeesDefaultGjKnm2.ToString("G6", System.Globalization.CultureInfo.InvariantCulture);
          OpenSeesAutoGjFromSectionCb.IsChecked = _calcSettings.OpenSeesAutoGjFromSection;
          SubmodelLinearPrecheckCb.IsChecked = _calcSettings.SubmodelLinearPrecheck;
          OpenSeesExeBox.Text = _calcSettings.OpenSeesExecutablePath ?? "";
-         OpenSeesTimeoutBox.Text = _calcSettings.OpenSeesTimeoutSeconds.ToString();
          OpenSeesArtifactsPathBox.Text = _calcSettings.OpenSeesArtifactsPath ?? "";
-         OpenSeesRefinementDivisionsBox.Text = _calcSettings.OpenSeesRefinementDivisions.ToString();
-         OpenSeesMaxRefinementDepthBox.Text = _calcSettings.OpenSeesMaxRefinementDepth.ToString();
-         OpenSeesToleranceBox.Text = _calcSettings.OpenSeesTolerance.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
-         OpenSeesMaxIterationsBox.Text = _calcSettings.OpenSeesMaxIterations.ToString();
          SelectComboByTag(OpenSeesGeomTransfCombo, _calcSettings.OpenSeesGeomTransfKind);
          SelectComboByTag(OpenSeesConvergenceTestCombo, _calcSettings.OpenSeesConvergenceTest);
-         OpenSeesIntegrationPointsBox.Text = _calcSettings.OpenSeesIntegrationPoints.ToString();
          SelectComboByTag(OpenSeesAlgorithmCombo, _calcSettings.OpenSeesAlgorithm);
          OpenSeesRecordFiberStatesCb.IsChecked = _calcSettings.OpenSeesRecordFiberStates;
-         OpenSeesFiberStatesIntegrationPointsBox.Text = _calcSettings.OpenSeesFiberStatesIntegrationPoints ?? "";
          OpenSeesFiberStatesIntegrationPointsBox.IsEnabled = _calcSettings.OpenSeesRecordFiberStates;
-         CsfeaThreadsBox.Text = Math.Max(0, _calcSettings.CsfeaThreads).ToString();
          CsfeaBarStiffnessAggregateCombo.SelectedIndex = _calcSettings.CsfeaBarStiffnessMean ? 1 : 0;
-         CsfeaStiffnessFloorBox.Text = _calcSettings.ResolveCsfeaStiffnessFloor().ToString("G4", System.Globalization.CultureInfo.CurrentCulture);
       }
 
       void HookOpenSeesControls()
       {
-         OpenSeesDefaultGjBox.TextChanged += (_, _) =>
-         {
-            if (Pars.ParseAny(OpenSeesDefaultGjBox.Text, out var v) && double.IsFinite(v) && v > 0)
-               _calcSettings.OpenSeesDefaultGjKnm2 = v;
-         };
-         OpenSeesDefaultGjBox.LostFocus += (_, _) =>
-         {
-            if (Pars.ParseAny(OpenSeesDefaultGjBox.Text, out var v) && double.IsFinite(v) && v > 0) return;
-            MessageBox.Show(Loc.S("OpenSeesDefaultGjInvalid"), Loc.S("OpenSeesSettingsTab"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
-            OpenSeesDefaultGjBox.Text = _calcSettings.OpenSeesDefaultGjKnm2.ToString("G6", System.Globalization.CultureInfo.InvariantCulture);
-         };
          OpenSeesAutoGjFromSectionCb.Checked += (_, _) => _calcSettings.OpenSeesAutoGjFromSection = true;
          OpenSeesAutoGjFromSectionCb.Unchecked += (_, _) => _calcSettings.OpenSeesAutoGjFromSection = false;
          SubmodelLinearPrecheckCb.Checked += (_, _) => _calcSettings.SubmodelLinearPrecheck = true;
          SubmodelLinearPrecheckCb.Unchecked += (_, _) => _calcSettings.SubmodelLinearPrecheck = false;
          OpenSeesExeBox.TextChanged += (_, _) =>
             _calcSettings.OpenSeesExecutablePath = string.IsNullOrWhiteSpace(OpenSeesExeBox.Text) ? null : OpenSeesExeBox.Text.Trim();
-         OpenSeesTimeoutBox.TextChanged += (_, _) =>
-         {
-            if (int.TryParse(OpenSeesTimeoutBox.Text, out var v) && v > 0) _calcSettings.OpenSeesTimeoutSeconds = v;
-         };
          OpenSeesArtifactsPathBox.TextChanged += (_, _) =>
             _calcSettings.OpenSeesArtifactsPath = string.IsNullOrWhiteSpace(OpenSeesArtifactsPathBox.Text) ? null : OpenSeesArtifactsPathBox.Text.Trim();
          OpenSeesArtifactsPathBox.LostFocus += (_, _) =>
          {
-            if (!OpenCS.OpenSees.Runtime.WindowsShortPath.IsAsciiSafe(OpenSeesArtifactsPathBox.Text))
-               MessageBox.Show(Loc.S("OpenSeesArtifactsPathNonAsciiWarning"), Loc.S("OpenSeesSettingsTab"),
-                  MessageBoxButton.OK, MessageBoxImage.Warning);
-         };
-         OpenSeesRefinementDivisionsBox.TextChanged += (_, _) =>
-         {
-            if (int.TryParse(OpenSeesRefinementDivisionsBox.Text, out var v) && v > 0) _calcSettings.OpenSeesRefinementDivisions = v;
-         };
-         OpenSeesMaxRefinementDepthBox.TextChanged += (_, _) =>
-         {
-            if (int.TryParse(OpenSeesMaxRefinementDepthBox.Text, out var v) && v > 0) _calcSettings.OpenSeesMaxRefinementDepth = v;
-         };
-         OpenSeesToleranceBox.TextChanged += (_, _) =>
-         {
-            if (Pars.ParseAny(OpenSeesToleranceBox.Text, out var v) && v > 0)
-               _calcSettings.OpenSeesTolerance = v;
-         };
-         OpenSeesMaxIterationsBox.TextChanged += (_, _) =>
-         {
-            if (int.TryParse(OpenSeesMaxIterationsBox.Text, out var v) && v > 0) _calcSettings.OpenSeesMaxIterations = v;
+            StatusText.Text = OpenCS.OpenSees.Runtime.WindowsShortPath.IsAsciiSafe(OpenSeesArtifactsPathBox.Text)
+               ? "" : Loc.S("OpenSeesArtifactsPathNonAsciiWarning");
          };
          OpenSeesGeomTransfCombo.SelectionChanged += (_, _) =>
             _calcSettings.OpenSeesGeomTransfKind = ComboTag(OpenSeesGeomTransfCombo) ?? "Linear";
          OpenSeesConvergenceTestCombo.SelectionChanged += (_, _) =>
             _calcSettings.OpenSeesConvergenceTest = ComboTag(OpenSeesConvergenceTestCombo) ?? "EnergyIncr";
-         OpenSeesIntegrationPointsBox.TextChanged += (_, _) =>
-         {
-            if (int.TryParse(OpenSeesIntegrationPointsBox.Text, out var v) && v > 0) _calcSettings.OpenSeesIntegrationPoints = v;
-         };
          OpenSeesAlgorithmCombo.SelectionChanged += (_, _) =>
             _calcSettings.OpenSeesAlgorithm = ComboTag(OpenSeesAlgorithmCombo) ?? "NewtonLineSearch";
          OpenSeesRecordFiberStatesCb.Checked += (_, _) =>
@@ -576,20 +438,8 @@ namespace OpenCS.Views
             _calcSettings.OpenSeesRecordFiberStates = false;
             OpenSeesFiberStatesIntegrationPointsBox.IsEnabled = false;
          };
-         OpenSeesFiberStatesIntegrationPointsBox.TextChanged += (_, _) =>
-            _calcSettings.OpenSeesFiberStatesIntegrationPoints =
-               string.IsNullOrWhiteSpace(OpenSeesFiberStatesIntegrationPointsBox.Text) ? null : OpenSeesFiberStatesIntegrationPointsBox.Text.Trim();
-         CsfeaThreadsBox.TextChanged += (_, _) =>
-         {
-            if (int.TryParse(CsfeaThreadsBox.Text, out var v) && v >= 0) _calcSettings.CsfeaThreads = v;
-         };
          CsfeaBarStiffnessAggregateCombo.SelectionChanged += (_, _) =>
             _calcSettings.CsfeaBarStiffnessMean = CsfeaBarStiffnessAggregateCombo.SelectedIndex == 1;
-         CsfeaStiffnessFloorBox.TextChanged += (_, _) =>
-         {
-            if (Pars.ParseAny(CsfeaStiffnessFloorBox.Text, out var v) && v is > 0 and < 1)
-               _calcSettings.CsfeaStiffnessFloor = v;
-         };
       }
 
       void LiraTextDirBrowse_Click(object sender, RoutedEventArgs e)
@@ -617,8 +467,6 @@ namespace OpenCS.Views
           GmshExeBox.Text = _gmshSettings.ExecutablePath ?? "";
           SelectComboByTag(GmshAlgorithmCombo, _gmshSettings.Algorithm.ToString());
           SelectComboByTag(GmshElementModeCombo, _gmshSettings.ElementMode.ToString());
-          GmshTimeoutBox.Text = _gmshSettings.TimeoutSeconds.ToString();
-          GmshSeamToleranceBox.Text = SeamToleranceMmText(_gmshSettings.SeamToleranceM);
           GmshKeepArtifactsCb.IsChecked = _gmshSettings.KeepArtifacts;
           GmshArtifactsPathBox.Text = _gmshSettings.ArtifactsPath ?? "";
        }
@@ -639,18 +487,7 @@ namespace OpenCS.Views
           SelectComboByTag(GmshElementModeCombo, nameof(CScore.Planar.PlanarMeshElementMode.Mixed));
        }
 
-       /// <summary>Допуск шва в миллиметрах для поля ввода.</summary>
-       static string SeamToleranceMmText(double toleranceM) =>
-          (toleranceM * 1000).ToString("G6", System.Globalization.CultureInfo.CurrentCulture);
 
-       /// <summary>Разбирает допуск шва, введённый в мм; true — число в диапазоне 0,001–1 мм (результат в м).</summary>
-       static bool TrySeamToleranceMm(string text, out double toleranceM)
-       {
-          toleranceM = 0;
-          if (!Pars.ParseAny(text, out var mm) || !double.IsFinite(mm)) return false;
-          toleranceM = mm / 1000;
-          return toleranceM >= CScore.Fem.FemPlanarMeshPlan.MinSeamToleranceM && toleranceM <= CScore.Fem.FemPlanarMeshPlan.MaxSeamToleranceM;
-       }
 
        void HookGmshControls()
        {
@@ -661,20 +498,6 @@ namespace OpenCS.Views
           GmshElementModeCombo.SelectionChanged += (_, _) =>
              _gmshSettings.ElementMode = Enum.TryParse<CScore.Planar.PlanarMeshElementMode>(ComboTag(GmshElementModeCombo), out var mode)
                 ? mode : CScore.Planar.PlanarMeshElementMode.Mixed;
-          GmshTimeoutBox.TextChanged += (_, _) =>
-          {
-             if (int.TryParse(GmshTimeoutBox.Text, out var v) && v > 0) _gmshSettings.TimeoutSeconds = v;
-          };
-          GmshSeamToleranceBox.TextChanged += (_, _) =>
-          {
-             if (TrySeamToleranceMm(GmshSeamToleranceBox.Text, out var m)) _gmshSettings.SeamToleranceM = m;
-          };
-          GmshSeamToleranceBox.LostFocus += (_, _) =>
-          {
-             if (TrySeamToleranceMm(GmshSeamToleranceBox.Text, out _)) return;
-             MessageBox.Show(Loc.S("GmshSeamToleranceInvalid"), Loc.S("GmshSettingsTab"), MessageBoxButton.OK, MessageBoxImage.Warning);
-             GmshSeamToleranceBox.Text = SeamToleranceMmText(_gmshSettings.SeamToleranceM);
-          };
           GmshKeepArtifactsCb.Checked   += (_, _) => _gmshSettings.KeepArtifacts = true;
           GmshKeepArtifactsCb.Unchecked += (_, _) => _gmshSettings.KeepArtifacts = false;
           GmshArtifactsPathBox.TextChanged += (_, _) =>
@@ -714,6 +537,114 @@ namespace OpenCS.Views
              GmshCheckVersionBtn.IsEnabled = true;
           }
        }
+
+      // ── Числовые поля через службу: разбор с запятой и точкой, диапазон, ошибка текстом ────────
+
+      /// <summary>Поля окна, связанные с полями настроек проекта (путь документа CLI).</summary>
+      (TextBox Box, string Path)[] BoundFields() =>
+      [
+            (GridDensityBox, "sections.gridDensity"),
+            (NewtonTolBox, "sections.newton.tolerance"),
+            (NewtonMaxIterBox, "sections.newton.maxIterations"),
+            (NewtonDeltaHBox, "sections.newton.deltaH"),
+            (LimitBisectAbsBox, "sections.limitBisection.absTolerance"),
+            (LimitBisectRelBox, "sections.limitBisection.relTolerance"),
+            (Sp63EtaMinBox, "sections.descendingBranch.sp63EtaMin"),
+            (EkbEtaMinBox, "sections.descendingBranch.ekbEtaMin"),
+            (ShellTolResBox, "sections.plates.newtonResidual"),
+            (Sp20GammaGBox, "loads.gammaF.permanent"),
+            (Sp20GammaGFavBox, "loads.gammaF.permanentFavourable"),
+            (Sp20GammaLBox, "loads.gammaF.longTerm"),
+            (Sp20GammaQBox, "loads.gammaF.shortTerm"),
+            (Sp20GammaABox, "loads.gammaF.accidental"),
+            (ShearStationStepBox, "sections.shear.stationStepM"),
+            (ShearProjectionStepBox, "sections.shear.projectionStepM"),
+            (ShearMomentZoneBox, "sections.shear.momentZoneLengthM"),
+            (ShearAnchorageFactorBox, "sections.shear.anchorageFactor"),
+            (AcadArcChordBox, "import.autocad.arcs.chordMm"),
+            (AcadArcSegBox, "import.autocad.arcs.segments"),
+            (OpenSeesDefaultGjBox, "openSees.defaultGjKnm2"),
+            (OpenSeesTimeoutBox, "gui.openSeesTimeoutSeconds"),
+            (OpenSeesRefinementDivisionsBox, "openSees.refinementDivisions"),
+            (OpenSeesMaxRefinementDepthBox, "openSees.maxRefinementDepth"),
+            (OpenSeesToleranceBox, "openSees.tolerance"),
+            (OpenSeesMaxIterationsBox, "openSees.maxIterations"),
+            (OpenSeesIntegrationPointsBox, "openSees.integrationPoints"),
+            (OpenSeesFiberStatesIntegrationPointsBox, "openSees.fiberStatesIntegrationPoints"),
+            (CsfeaThreadsBox, "gui.csfeaThreads"),
+            (CsfeaStiffnessFloorBox, "csfea.stiffnessFloor"),
+            (GmshTimeoutBox, "gui.gmshTimeoutSeconds"),
+            (GmshSeamToleranceBox, "mesh.seamToleranceMm"),
+      ];
+
+      void BindFields()
+      {
+         foreach (var (box, path) in BoundFields())
+         {
+            var field = Services.ProjectSettingsAuthoring.Field(path);
+            box.Text = field.Format(_draft);
+            box.TextChanged += (_, _) =>
+            {
+               string? error = field.Parse(box.Text, out var value);
+               if (error == null) field.Set(_draft, value);
+               SetError(box, error);
+            };
+         }
+      }
+
+      /// <summary>Неверное поле: светло-красный фон, подсказка, строка внизу окна, вкладка выделена красным.</summary>
+      void SetError(TextBox box, string? error)
+      {
+         if (error == null)
+         {
+            if (!_errors.Remove(box)) return;
+            box.ClearValue(Control.BackgroundProperty);
+            box.ClearValue(FrameworkElement.ToolTipProperty);
+            if (StatusText != null) StatusText.Text = _errors.Count > 0 ? FieldCaption(_errors.First().Key, _errors.First().Value) : "";
+         }
+         else
+         {
+            _errors[box] = error;
+            box.Background = new SolidColorBrush(Color.FromRgb(0xFD, 0xE2, 0xE2));
+            box.ToolTip = error;
+            if (StatusText != null) StatusText.Text = FieldCaption(box, error);
+         }
+         if (Tabs == null) return;
+         foreach (var tab in Tabs.Items.OfType<TabItem>())
+         {
+            if (_errors.Keys.Any(b => TabOf(b) == tab)) tab.Foreground = Brushes.Crimson;
+            else tab.ClearValue(Control.ForegroundProperty);
+         }
+      }
+
+      /// <summary>Вкладка поля — по логическому дереву (визуального у невыбранной вкладки ещё нет).</summary>
+      static TabItem? TabOf(DependencyObject element)
+      {
+         for (var p = LogicalTreeHelper.GetParent(element); p != null; p = LogicalTreeHelper.GetParent(p))
+            if (p is TabItem tab) return tab;
+         return null;
+      }
+
+      /// <summary>«Подпись поля: ошибка» — подпись из TextBlock той же строки сетки (или стоящего перед полем).</summary>
+      static string FieldCaption(TextBox box, string error)
+      {
+         string? caption = null;
+         if (box.Parent is Grid grid)
+         {
+            int row = Grid.GetRow(box);
+            caption = grid.Children.OfType<TextBlock>().FirstOrDefault(t => Grid.GetRow(t) == row && Grid.GetColumn(t) < Grid.GetColumn(box))?.Text;
+         }
+         else if (box.Parent is Panel panel)
+         {
+            int i = panel.Children.IndexOf(box);
+            caption = panel.Children.OfType<UIElement>().Take(i).OfType<TextBlock>().LastOrDefault()?.Text;
+         }
+         caption = caption?.Trim().TrimEnd(':');
+         return string.IsNullOrEmpty(caption) ? error : $"{caption}: {error}";
+      }
+
+      /// <summary>Неверные поля окна (для проверок).</summary>
+      internal IReadOnlyDictionary<TextBox, string> FieldErrors => _errors;
 
       static string? ComboTag(ComboBox combo) => (combo.SelectedItem as ComboBoxItem)?.Tag as string;
 
