@@ -2162,8 +2162,19 @@ namespace OpenCS
 
       void SetLanguage(object? param)
       {
-         if (param != null && int.TryParse(param.ToString(), out int lang))
-            SetLanguageDictionary(lang);
+         if (param == null || !int.TryParse(param.ToString(), out int lang)) return;
+         SetLanguageDictionary(lang);
+         // Выбор меню запоминается для следующих запусков (файл пользователя, не проект).
+         var prefs = Utilites.UserUiPreferences.Load();
+         prefs.Language = lang == 1 ? "en-US" : "ru-RU";
+         prefs.Save();
+      }
+
+      /// <summary>Язык из файла пользователя при старте; русский — словарь App.xaml по умолчанию, менять нечего.</summary>
+      public void ApplyStartupLanguage()
+      {
+         int lang = Utilites.UserUiPreferences.Load().LanguageIndex;
+         if (lang != 0) SetLanguageDictionary(lang);
       }
 
       /// <summary>
@@ -5418,16 +5429,21 @@ namespace OpenCS
             if (scad)
             {
                // У SCAD привязки — из ЖБ-группы; диаметр нужен для ширины раскрытия трещин.
-               var input = new Views.Dialogs.TextInputDialog(Loc.S("ScadSectionsDiameterTitle"), Loc.S("ScadSectionsDiameter"),
-                  (suggested.DiameterM * 1000).ToString("0.#", CultureInfo.CurrentCulture));
+               var input = new Views.Dialogs.DoubleInputDialog(Loc.S("ScadSectionsDiameterTitle"), Loc.S("ScadSectionsDiameter"),
+                  Math.Round(suggested.DiameterM * 1000, 1))
+               {
+                  Validate = (d, _) => d > 0 ? null : (1, Loc.S("NumberInputPositive")),
+               };
                if (input.ShowDialog() != true) return null;
-               return double.TryParse(input.Value.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out double mm)
-                  ? new CScore.Import.LiraPlateNominalRebar(0, mm / 1000)
-                  : new CScore.Import.LiraPlateNominalRebar(0, 0);
+               return new CScore.Import.LiraPlateNominalRebar(0, input.Value1 / 1000);
             }
             var dlg = new Views.Dialogs.DoubleInputDialog(Loc.S("LiraSectionsNominalTitle"),
                Loc.S("LiraSectionsNominalCover"), Loc.S("LiraSectionsNominalDiameter"),
-               suggested.CoverM * 1000, suggested.DiameterM * 1000);
+               Math.Round(suggested.CoverM * 1000, 1), Math.Round(suggested.DiameterM * 1000, 1))
+            {
+               Validate = (cover, d) => cover < 0 ? (1, Loc.S("NumberInputNonNegative"))
+                  : d <= 0 ? (2, Loc.S("NumberInputPositive")) : null,
+            };
             return dlg.ShowDialog() == true
                ? new CScore.Import.LiraPlateNominalRebar(dlg.Value1 / 1000, dlg.Value2 / 1000)
                : null;
@@ -5974,7 +5990,7 @@ namespace OpenCS
       {
          schema ??= currentFemSchema;
          if (schema == null) return;
-         FemGroups.CreateEmptyGroup(schema, "Группа");
+         FemGroups.CreateEmptyGroup(schema, Services.FemGroupService.FreeTag(schema, Loc.S("FemGroupDefaultTag")));
       }
 
       void NewFemMemberDialog(CScore.Fem.FemSchema? schema)
@@ -6009,17 +6025,21 @@ namespace OpenCS
       {
          schema ??= currentFemSchema;
          if (schema == null) return;
-         FemGroups.CreateEmptyGroup(schema, "Группа", CScore.Fem.FemMemberGroup.KindMembers);
+         FemGroups.CreateEmptyGroup(schema, Services.FemGroupService.FreeTag(schema, Loc.S("FemGroupDefaultTag")), CScore.Fem.FemMemberGroup.KindMembers);
       }
 
       void RenameFemMemberGroup(CScore.Fem.FemMemberGroup? group)
       {
          group ??= currentFemMember;
          if (group == null) return;
+         var schema = FemSchemas.FirstOrDefault(s => s.Id == group.SchemaId);
          var dlg = new Views.Dialogs.TextInputDialog(
-            Loc.S("FemGroupRenameTitle"), Loc.S("FemGroupRenameLabel"), group.Tag);
+            Loc.S("FemGroupRenameTitle"), Loc.S("FemGroupRenameLabel"), group.Tag)
+         {
+            Validate = t => Services.FemGroupService.TagError(schema, group, t),
+         };
          if (dlg.ShowDialog() != true) return;
-         FemGroups.Rename(group, dlg.Value);
+         FemGroups.Rename(group, dlg.Value, schema);
       }
 
       /// <param name="group">Группа из меню дерева; без параметра — открытая группа.</param>

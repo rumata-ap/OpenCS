@@ -596,16 +596,15 @@ namespace OpenCS.ViewModels
                Loc.S("ContourScaleTitle"),
                Loc.S("ContourScaleKx"),
                Loc.S("ContourScaleKy"),
-               1.0, 1.0);
+               1.0, 1.0)
+           {
+               // Проверка до закрытия окна: введённое не теряется.
+               Validate = (kx, ky) => kx <= 0 ? (1, Loc.S("ContourScaleMustBePositive"))
+                   : ky <= 0 ? (2, Loc.S("ContourScaleMustBePositive")) : null,
+           };
            if (dlg.ShowDialog() != true) return;
 
            double sx = dlg.Value1, sy = dlg.Value2;
-           if (sx <= 0 || sy <= 0)
-           {
-               MessageBox.Show(Loc.S("ContourScaleMustBePositive"),
-                   Loc.S("Warning"), MessageBoxButton.OK, MessageBoxImage.Warning);
-               return;
-           }
            if (sx == 1 && sy == 1) return;
 
            ApplyContourGeometryChange();

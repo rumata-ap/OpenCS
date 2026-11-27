@@ -7929,4 +7929,13 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliFemCheckErrKindClash">check «{0}» already exists in the schema with another kind (punching and 1st/2nd limit state checks are not converted into each other) — choose another name.</system:String>
    <system:String x:Key="FemForceSetTagTaken">The project already has {0} sets with this name. The name is the key of SP 20 combinations and the console; better make it unique</system:String>
    <system:String x:Key="FemForceSetSaveError">The set is not saved: {0}</system:String>
+   <system:String x:Key="NumberInputInvalid">Enter a number (comma or dot).</system:String>
+   <system:String x:Key="NumberInputPositive">The value must be greater than 0.</system:String>
+   <system:String x:Key="NumberInputNonNegative">The value cannot be negative.</system:String>
+   <system:String x:Key="TextInputEmpty">The name cannot be empty.</system:String>
+   <system:String x:Key="FemGroupTagTaken">The schema already has a group «{0}».</system:String>
+   <system:String x:Key="FemGroupDefaultTag">Group</system:String>
+   <system:String x:Key="MainDbReleaseError">Failed to release the database: {0}</system:String>
+   <system:String x:Key="AppHelixLoadFailed">Failed to load HelixToolkit.Wpf (3D schema viewer).&#10;Rebuild OpenCS (Debug) and run OpenCS.exe from the OpenCS\bin\Debug folder.&#10;&#10;{0}</system:String>
+   <system:String x:Key="AppUnhandledException">Unhandled exception</system:String>
 </ResourceDictionary>

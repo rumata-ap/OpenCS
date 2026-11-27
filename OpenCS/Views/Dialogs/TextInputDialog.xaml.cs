@@ -1,7 +1,9 @@
 using System.Windows;
+using System.Windows.Controls;
 
 namespace OpenCS.Views.Dialogs;
 
+/// <summary>Ввод строки (имени). Пустое значение и отказ <see cref="Validate"/> — текстом под полем, окно не закрывается.</summary>
 public partial class TextInputDialog : Window
 {
     public string Value { get; private set; } = "";
@@ -12,32 +14,39 @@ public partial class TextInputDialog : Window
     public TextInputDialog(string title, string label, string defaultValue = "")
     {
         InitializeComponent();
-        Owner = Application.Current.MainWindow;
+        Owner = DialogOwner.Active();
         Title = title;
         LabelText.Text = label;
         ValueBox.Text = defaultValue;
-        ValueBox.Focus();
-        ValueBox.SelectAll();
+        ValueBox.TextChanged += (_, _) => ErrorBlock.Visibility = Visibility.Collapsed;
+        Loaded += (_, _) => { ValueBox.Focus(); ValueBox.SelectAll(); };
+    }
+
+    /// <summary>Поле ввода — для проверок.</summary>
+    public TextBox Box => ValueBox;
+
+    /// <summary>Текст ошибки под полем; пусто — ошибки нет.</summary>
+    public string ErrorText => ErrorBlock.Visibility == Visibility.Visible ? ErrorBlock.Text : "";
+
+    /// <summary>Проверяет значение; при ошибке выводит её под полем и возвращает false.</summary>
+    public bool TryAccept()
+    {
+        string trimmed = ValueBox.Text.Trim();
+        string? error = trimmed.Length == 0 ? Utilites.Loc.S("TextInputEmpty") : Validate?.Invoke(trimmed);
+        if (error != null)
+        {
+            ErrorBlock.Text = error;
+            ErrorBlock.Visibility = Visibility.Visible;
+            ValueBox.Focus();
+            ValueBox.SelectAll();
+            return false;
+        }
+        Value = trimmed;
+        return true;
     }
 
     void Ok_Click(object sender, RoutedEventArgs e)
     {
-        string trimmed = ValueBox.Text.Trim();
-        if (trimmed.Length == 0)
-        {
-            MessageBox.Show(Utilites.Loc.S("FemRenameInvalid"), Title,
-                MessageBoxButton.OK, MessageBoxImage.Warning);
-            ValueBox.Focus();
-            return;
-        }
-        if (Validate?.Invoke(trimmed) is { } error)
-        {
-            MessageBox.Show(this, error, Title, MessageBoxButton.OK, MessageBoxImage.Warning);
-            ValueBox.Focus();
-            ValueBox.SelectAll();
-            return;
-        }
-        Value = trimmed;
-        DialogResult = true;
+        if (TryAccept()) DialogResult = true;
     }
 }

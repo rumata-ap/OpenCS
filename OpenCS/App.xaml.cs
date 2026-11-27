@@ -23,9 +23,7 @@ namespace OpenCS
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    "Не удалось загрузить HelixToolkit.Wpf (3D-просмотрщик схем).\n" +
-                    "Пересоберите OpenCS (Debug) и запускайте exe из\n" +
-                    "OpenCS\\bin\\Debug\\net9.0-windows\\OpenCS.exe\n\n" + ex.Message,
+                    string.Format(Utilites.Loc.S("AppHelixLoadFailed"), ex.Message),
                     "HelixToolkit",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
             }
@@ -44,7 +42,7 @@ namespace OpenCS
             {
                 // Обработчик ошибки не должен завершать приложение, если журнал недоступен.
             }
-            MessageBox.Show(msg, "Необработанное исключение",
+            MessageBox.Show(msg, Utilites.Loc.S("AppUnhandledException"),
                 MessageBoxButton.OK, MessageBoxImage.Error);
             e.Handled = true;
         }

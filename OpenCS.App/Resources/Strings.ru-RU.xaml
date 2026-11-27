@@ -7929,4 +7929,13 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliFemCheckErrKindClash">проверка «{0}» уже есть в схеме другого вида (продавливание и проверки 1-й/2-й ГПС не превращаются друг в друга) — выберите другое имя.</system:String>
    <system:String x:Key="FemForceSetTagTaken">В проекте уже есть наборы с этим именем: {0}. Имя — ключ сочетаний СП 20 и консоли, лучше сделать его уникальным</system:String>
    <system:String x:Key="FemForceSetSaveError">Набор не записан: {0}</system:String>
+   <system:String x:Key="NumberInputInvalid">Введите число (допустимы запятая и точка).</system:String>
+   <system:String x:Key="NumberInputPositive">Значение должно быть больше 0.</system:String>
+   <system:String x:Key="NumberInputNonNegative">Значение не может быть отрицательным.</system:String>
+   <system:String x:Key="TextInputEmpty">Имя не может быть пустым.</system:String>
+   <system:String x:Key="FemGroupTagTaken">В схеме уже есть группа «{0}».</system:String>
+   <system:String x:Key="FemGroupDefaultTag">Группа</system:String>
+   <system:String x:Key="MainDbReleaseError">Ошибка освобождения базы данных: {0}</system:String>
+   <system:String x:Key="AppHelixLoadFailed">Не удалось загрузить HelixToolkit.Wpf (3D-просмотрщик схем).&#10;Пересоберите OpenCS (Debug) и запускайте OpenCS.exe из папки OpenCS\bin\Debug.&#10;&#10;{0}</system:String>
+   <system:String x:Key="AppUnhandledException">Необработанное исключение</system:String>
 </ResourceDictionary>

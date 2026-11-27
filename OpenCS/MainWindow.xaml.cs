@@ -30,6 +30,7 @@ namespace OpenCS
 
          DataContext = new AppViewModel(logService, fileDialogService);
          vm = (AppViewModel)DataContext;
+         vm.ApplyStartupLanguage();
          // Горячие клавиши редактора схемы работают, где бы ни был фокус в окне (дерево, 3D, панели), кроме полей ввода.
          PreviewKeyDown += (_, e) =>
          {
@@ -569,7 +570,7 @@ namespace OpenCS
          try
          {
             try { vm.db.Dispose(); }
-            catch (Exception ex) { vm.LogService.Error($"Ошибка освобождения базы данных: {ex.Message}"); }
+            catch (Exception ex) { vm.LogService.Error(string.Format(Loc.S("MainDbReleaseError"), ex.Message)); }
          }
          finally
          {

@@ -12,8 +12,11 @@ public sealed class TextReportWindow : Window
         Title = title;
         Width = 760;
         Height = 480;
+        MinWidth = 420;
+        MinHeight = 240;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ShowInTaskbar = false;
+        Owner = DialogOwner.Active();
 
         var box = new TextBox
         {
@@ -26,7 +29,11 @@ public sealed class TextReportWindow : Window
         };
         var copy = new Button { Padding = new Thickness(12, 4, 12, 4), MinWidth = 90 };
         copy.SetResourceReference(ContentProperty, "Copy");
-        copy.Click += (_, _) => Clipboard.SetText(text);
+        copy.Click += (_, _) =>
+        {
+            if (!Utilites.UiClipboard.TrySetText(text))
+                MessageBox.Show(this, Utilites.Loc.S("ClipboardBusy"), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+        };
         var close = new Button { Padding = new Thickness(12, 4, 12, 4), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0), IsCancel = true };
         close.SetResourceReference(ContentProperty, "Close");
         close.Click += (_, _) => Close();

@@ -65,6 +65,17 @@ public sealed class UiLintTests
     }
 
     [Fact]
+    public void MainWindow_NoDefaultCancelRule_ButMinSizeRule()
+    {
+        var f = Check("""
+            <Window x:Class="OpenCS.MainWindow" Title="{Binding T}">
+              <Button Content="{DynamicResource Add}" Click="Add"/>
+            </Window>
+            """);
+        Assert.Equal(["no-min-size"], f.Select(x => x.Rule));
+    }
+
+    [Fact]
     public void Window_NoResize_NeedsNoMinSize()
     {
         Assert.Empty(Check("""<Window x:Class="A" ResizeMode="NoResize"><TextBlock Text="{Binding X}"/></Window>"""));

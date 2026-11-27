@@ -43,7 +43,9 @@ public static partial class UiLint
         var root = WindowRootRegex().Match(xaml);
         if (!root.Success) yield break;
         string attrs = root.Groups["attrs"].Value;
-        if (xaml.Contains("<Button"))
+        // Главное окно — не диалог: «OK/Отмена» у него нет, правило минимального размера остаётся.
+        bool mainWindow = attrs.Contains("x:Class=\"OpenCS.MainWindow\"");
+        if (!mainWindow && xaml.Contains("<Button"))
         {
             if (!xaml.Contains("IsDefault=\"True\"")) yield return new(relPath, 1, "no-default", "нет кнопки IsDefault");
             if (!xaml.Contains("IsCancel=\"True\"")) yield return new(relPath, 1, "no-cancel", "нет кнопки IsCancel");

@@ -47,11 +47,33 @@ public sealed class FemGroupService(DatabaseService db, ILogService log)
         return group;
     }
 
-    /// <summary>Переименовывает группу. Пустое имя не принимается.</summary>
-    public bool Rename(FemMemberGroup group, string tag)
+    /// <summary>
+    /// Ошибка имени группы схемы: пустое или занятое другой группой той же схемы (CLI сопоставляет группы по имени);
+    /// <c>null</c> — имя годится.
+    /// </summary>
+    public static string? TagError(FemSchema? schema, FemMemberGroup group, string? tag)
+    {
+        tag = tag?.Trim() ?? "";
+        if (tag.Length == 0) return Loc.S("TextInputEmpty");
+        return schema != null && schema.MemberGroups.Any(g => !ReferenceEquals(g, group) && (group.Id == 0 || g.Id != group.Id) && g.Tag.Trim() == tag)
+            ? string.Format(Loc.S("FemGroupTagTaken"), tag)
+            : null;
+    }
+
+    /// <summary>Свободное имя группы: «Группа», затем «Группа 2», «Группа 3»…</summary>
+    public static string FreeTag(FemSchema schema, string baseTag)
+    {
+        var used = schema.MemberGroups.Select(g => g.Tag.Trim()).ToHashSet(StringComparer.Ordinal);
+        if (!used.Contains(baseTag)) return baseTag;
+        for (int n = 2; ; n++)
+            if (!used.Contains($"{baseTag} {n}")) return $"{baseTag} {n}";
+    }
+
+    /// <summary>Переименовывает группу. Пустое и занятое в схеме имя не принимается.</summary>
+    public bool Rename(FemMemberGroup group, string tag, FemSchema? schema = null)
     {
         tag = tag.Trim();
-        if (tag.Length == 0 || tag == group.Tag) return false;
+        if (tag == group.Tag || TagError(schema, group, tag) != null) return false;
         group.Tag = tag;
         db.SaveFemMemberGroup(group);
         return true;
