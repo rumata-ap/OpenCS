@@ -791,7 +791,9 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
                 if (_editorVm.RedoCommand.CanExecute(null)) _editorVm.RedoCommand.Execute(null);
                 return true;
             case Key.S:
-                if (_editorVm.SaveCommand.CanExecute(null)) _editorVm.SaveCommand.Execute(null);
+                // Одна «Сохранить»: Ctrl+S = сохранить проект, схема — первым шагом (черновик открытой страницы);
+                // раньше здесь сохранялась только схема, отложенные данные проекта оставались несохранёнными.
+                if (_app.SaveProjectCommand.CanExecute(null)) _app.SaveProjectCommand.Execute(null);
                 return true;
             default:
                 return false;
