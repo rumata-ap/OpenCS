@@ -232,6 +232,41 @@ public sealed class CliFemAnalysesTests : IDisposable
         Assert.Empty(db.FemSchemas);   // при ошибках не записано ничего, даже схема
     }
 
+    [Fact]
+    public async Task Recording_LowercaseAsInSchema_ExportLowercase_OldCapitalizedAccepted()
+    {
+        string project = PathOf("rec.db");
+        Assert.Equal(CliExitCode.Ok, (await Run("new", project)).Code);
+        Assert.Equal(CliExitCode.Ok, (await Run("apply", project, Doc("seed.json", Full()))).Code);
+        // Значения из JSON-схемы (строчными) принимаются и в базу пишутся как у окна.
+        var r = await Run("apply", project, Doc("lower.json", """
+            { "format": "opencs-model", "version": 1, "femAnalyses": [
+              { "schema": "Рама", "tag": "Секущий", "kind": "csfea", "csfea": { "recording": { "mode": "all" } } },
+              { "schema": "Рама", "tag": "Пакет", "kind": "csfea", "batch": { "recording": "envelopes" } } ] }
+            """));
+        Assert.True(r.Code == CliExitCode.Ok, r.Err + r.Out);
+        var (db, schema) = Open(project);
+        using (db)
+        {
+            var list = db.GetFemAnalyses(schema.Id);
+            Assert.Equal(FemCsfeaRecording.All, FemAnalysisParams.Parse(list.Single(a => a.Tag == "Секущий").ParamsJson).Csfea!.ResultRecording);
+            Assert.Equal(FemCsfeaBatchRecording.Envelopes, FemAnalysisParams.Parse(list.Single(a => a.Tag == "Пакет").ParamsJson).Batch!.Recording);
+        }
+        // Выгрузка — строчными, как в схеме.
+        string e = PathOf("rec.json");
+        Assert.Equal(CliExitCode.Ok, (await Run("export", "model", project, "--to", e, "--only", "femAnalyses")).Code);
+        var items = Export(e);
+        Assert.Equal("all", items.Single(i => i!["tag"]!.GetValue<string>() == "Секущий")!["csfea"]!["recording"]!["mode"]!.GetValue<string>());
+        Assert.Equal("envelopes", items.Single(i => i!["tag"]!.GetValue<string>() == "Пакет")!["batch"]!["recording"]!.GetValue<string>());
+        // Прежние выгрузки (с заглавной) тоже применяются.
+        var old = await Run("apply", project, Doc("old.json", """
+            { "format": "opencs-model", "version": 1, "femAnalyses": [
+              { "schema": "Рама", "tag": "Секущий", "kind": "csfea", "csfea": { "recording": { "mode": "Final" } } },
+              { "schema": "Рама", "tag": "Пакет", "kind": "csfea", "batch": { "recording": "Fields" } } ] }
+            """));
+        Assert.True(old.Code == CliExitCode.Ok, old.Err + old.Out);
+    }
+
     // ── Служба ─────────────────────────────────────────────────────────────────────────────
 
     static FemSchema TestSchema()

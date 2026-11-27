@@ -64,6 +64,16 @@ sealed class FemAnalysesKind : IModelKind
 
     static double R(double v) => Math.Round(v, 9) + 0.0;
 
+    static readonly string[] CsfeaRecordings = [FemCsfeaRecording.Final, FemCsfeaRecording.Selected, FemCsfeaRecording.All];
+    static readonly string[] BatchRecordings = [FemCsfeaBatchRecording.Fields, FemCsfeaBatchRecording.Envelopes];
+
+    /// <summary>
+    /// Режим записи из документа (<c>final</c>, <c>fields</c>… — строчными, как в JSON-схеме; прежние выгрузки писали
+    /// <c>Final</c>, <c>Fields</c> — тоже принимаются) → значение базы. Неизвестное остаётся как есть — его отклоняет служба.
+    /// </summary>
+    static string Canonical(string value, string[] known) =>
+        known.FirstOrDefault(k => string.Equals(k, value.Trim(), StringComparison.OrdinalIgnoreCase)) ?? value;
+
     /// <summary>Ссылки схемы по тегам: загружения, комбинации, узлы, постановки — из базы или из документа (план).</summary>
     sealed class Refs
     {
@@ -275,7 +285,7 @@ sealed class FemAnalysesKind : IModelKind
             },
             ["recording"] = new JsonObject
             {
-                ["mode"] = c.ResultRecording, ["steps"] = c.RecordSteps, ["stageEnds"] = c.RecordStageEnds, ["strains"] = c.RecordSectionStrains,
+                ["mode"] = c.ResultRecording.ToLowerInvariant(), ["steps"] = c.RecordSteps, ["stageEnds"] = c.RecordStageEnds, ["strains"] = c.RecordSectionStrains,
             },
             ["controlNode"] = c.ControlNodeTag,
             ["controlDof"] = c.ControlDof is >= 0 and <= 5 ? Dofs[c.ControlDof] : Dofs[2],
@@ -288,7 +298,7 @@ sealed class FemAnalysesKind : IModelKind
         var o = new JsonObject
         {
             ["items"] = new JsonArray(b.Items.Select(i => LoadJson(i.LoadExpressionJson, refs)).ToArray()),
-            ["step"] = R(b.LoadFactorStep), ["max"] = R(b.MaxLoadFactor), ["stopAtLimit"] = b.StopAtLimit, ["recording"] = b.Recording,
+            ["step"] = R(b.LoadFactorStep), ["max"] = R(b.MaxLoadFactor), ["stopAtLimit"] = b.StopAtLimit, ["recording"] = b.Recording.ToLowerInvariant(),
             ["longTerm"] = new JsonArray(b.LongTermPairs.Select(t => (JsonNode)t).ToArray()),
             ["longTermDeflection"] = b.LongTermDeflection,
         };
@@ -750,7 +760,7 @@ sealed class FemAnalysesKind : IModelKind
         if (SectionJson.Num(o, "step", path, errors) is double st) b.LoadFactorStep = st;
         if (SectionJson.Num(o, "max", path, errors) is double mx) b.MaxLoadFactor = mx;
         if (SectionJson.Bool(o, "stopAtLimit", path, errors) is bool sl) b.StopAtLimit = sl;
-        if (SectionJson.Str(o, "recording", path, errors) is { } rec) b.Recording = rec;
+        if (SectionJson.Str(o, "recording", path, errors) is { } rec) b.Recording = Canonical(rec, BatchRecordings);
         if (o["longTerm"] is JsonArray la)
         {
             var pairs = new List<string>();
@@ -823,7 +833,7 @@ sealed class FemAnalysesKind : IModelKind
         {
             string rp = $"{path}.recording";
             Unknown(rc, RecKeys, rp, errors);
-            if (SectionJson.Str(rc, "mode", rp, errors) is { } m) c.ResultRecording = m;
+            if (SectionJson.Str(rc, "mode", rp, errors) is { } m) c.ResultRecording = Canonical(m, CsfeaRecordings);
             if (SectionJson.Str(rc, "steps", rp, errors) is { } st) c.RecordSteps = st.Trim();
             if (SectionJson.Bool(rc, "stageEnds", rp, errors) is bool se) c.RecordStageEnds = se;
             if (SectionJson.Bool(rc, "strains", rp, errors) is bool sr) c.RecordSectionStrains = sr;
