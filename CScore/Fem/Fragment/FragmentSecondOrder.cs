@@ -72,13 +72,12 @@ public static class FragmentSecondOrder
         {
             var tags = f.CoarseMembers.Select(m => m.MemberTag).ToList();
             var sample = f.CoarseMembers.Take(3).Select(m => m.Beams > 0
-                ? string.Format(c, "«{0}» — {1} КЭ на {2:0.##} м", m.MemberTag, m.Beams, m.HeightM)
-                : string.Format(c, "«{0}» — шаг пластин {1:0.##} м при высоте {2:0.##} м", m.MemberTag, m.ShellStepM, m.HeightM));
-            diag.Add(new("fragment_second_order_coarse",
-                $"Второй порядок: грубая сетка вертикальных КонЭ ({string.Join("; ", sample)}" +
-                (f.CoarseMembers.Count > 3 ? $"; всего {f.CoarseMembers.Count}" : "") +
-                $") — нужно не меньше {MinBeamsPerHeight} стержневых КЭ на высоту или шаг пластин по высоте не больше l/4, " +
-                "иначе P-δ и N_cr завышены (один КЭ на высоту — +22 %).", false, tags));
+                ? new DiagText("fragment_second_order_coarse_beams", m.MemberTag, m.Beams, m.HeightM)
+                : new DiagText("fragment_second_order_coarse_shells", m.MemberTag, m.ShellStepM, m.HeightM));
+            diag.Add(FemValidationDiagnostic.Of("fragment_second_order_coarse", new DiagText("fragment_second_order_coarse",
+                DiagText.Join("; ", sample),
+                f.CoarseMembers.Count > 3 ? new DiagText("fragment_second_order_coarse_total", f.CoarseMembers.Count) : "",
+                MinBeamsPerHeight), false, tags));
         }
 
         bool secondOrder;
@@ -95,26 +94,20 @@ public static class FragmentSecondOrder
             bool sourceOk = f.SourceSecondOrder == true || !f.MasksUsed;
             if (f.MasksUsed && f.SourceSecondOrder != true)
             {
-                string what = f.SourceSecondOrder == null
-                    ? "порядок источника масок не определён (маски не сняты, устарели или источник удалён)"
-                    : $"маски сняты из источника первого порядка{(f.SourceLabel.Length > 0 ? $" «{f.SourceLabel}»" : "")}";
-                diag.Add(new("fragment_second_order_source_first_order", f.AllowFirstOrderMasks
-                    ? $"Второй порядок фрагмента: {what} — сдвиг этажа не усилен; по выбору пользователя результат считается " +
-                      "вторым порядком (η в проверке по КЭ не применяется)."
-                    : $"Второй порядок фрагмента: {what} — сдвиг этажа не усилен: посчитайте родителя по второму порядку и " +
-                      "снимите маски заново.", false));
+                var what = f.SourceSecondOrder == null
+                    ? new DiagText("fragment_second_order_source_unknown")
+                    : new DiagText("fragment_second_order_source_first", f.SourceLabel.Length > 0 ? $" «{f.SourceLabel}»" : "");
+                diag.Add(FemValidationDiagnostic.Of("fragment_second_order_source_first_order", new DiagText(f.AllowFirstOrderMasks
+                    ? "fragment_second_order_source_first_order_allowed" : "fragment_second_order_source_first_order", what), false));
             }
             if (f.StaticEndMembers.Count > 0)
-                diag.Add(new("fragment_second_order_static_ends",
-                    $"Второй порядок фрагмента: торцы (низ/верх) {FemLoadTargets.Sample(f.StaticEndMembers)} не в перемещениях из " +
-                    "маски по Ux/Uy — P-Δ этажа не передан, учтён только P-δ.", false, f.StaticEndMembers));
+                diag.Add(FemValidationDiagnostic.Of("fragment_second_order_static_ends", new DiagText("fragment_second_order_static_ends",
+                    DiagText.Total(f.StaticEndMembers, 5)), false, f.StaticEndMembers));
             secondOrder = (sourceOk || f.AllowFirstOrderMasks) && f.StaticEndMembers.Count == 0;
         }
         if (!secondOrder)
-            diag.Add(new("fragment_second_order_eta",
-                "Наборы усилий этого расчёта в проверке по КЭ — первого порядка: η (п. 8.1.15 СП 63) применяется, а не " +
-                "пропускается" + (f.LocalOnly ? " (λ_cr каркаса < 10 или не посчитан)." : " (см. предупреждения второго порядка)."),
-                false));
+            diag.Add(FemValidationDiagnostic.Of("fragment_second_order_eta",
+                new DiagText(f.LocalOnly ? "fragment_second_order_eta_local" : "fragment_second_order_eta"), false));
         return new(secondOrder, diag);
     }
 

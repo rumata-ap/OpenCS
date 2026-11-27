@@ -189,7 +189,7 @@ public static partial class StoreyFragmentBuilder
         if (l.Lost.Count > 0)
         {
             var lost = l.Lost.Distinct().ToList();
-            c.Warn("fragment_load_lost", $"Нагрузки не перенесены — нет части фрагмента или вид не поддержан: {Head(lost)}.", [.. lost]);
+            c.Warn("fragment_load_lost", new DiagText("fragment_load_lost", Head(lost)), [.. lost]);
         }
         CheckResultants(l);
     }

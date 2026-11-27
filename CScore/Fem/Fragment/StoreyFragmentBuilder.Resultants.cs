@@ -97,12 +97,10 @@ public static partial class StoreyFragmentBuilder
             {
                 var p = l.ParentSums.GetValueOrDefault((lc.Id, category)) ?? new Resultant();
                 var f = frag.GetValueOrDefault((lc.Id, category)) ?? new Resultant();
-                return $"{category}: ΔF {Pct((f.F - p.F).Length, scaleF)}, ΔM {Pct((f.M - p.M).Length, scaleM)}";
+                return new DiagText("fragment_load_resultant_category", category, Pct((f.F - p.F).Length, scaleF), Pct((f.M - p.M).Length, scaleM));
             });
-            l.C.Warn("fragment_load_resultant_mismatch",
-                $"Загружение «{lc.Tag}»: равнодействующая фрагмента отличается от родителя — ΔF {Pct(dF, scaleF)}, " +
-                $"ΔM {Pct(dM, scaleM)} ({string.Join("; ", byCategory)}). Возможно, сетка фрагмента грубее опорной.",
-                lc.Tag);
+            l.C.Warn("fragment_load_resultant_mismatch", new DiagText("fragment_load_resultant_mismatch", lc.Tag, Pct(dF, scaleF),
+                Pct(dM, scaleM), DiagText.Join("; ", byCategory)), lc.Tag);
         }
     }
 

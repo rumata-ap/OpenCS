@@ -132,14 +132,18 @@ public static class FragmentCutLabel
     /// <summary>Нормаль вдоль общей оси, если косинус не меньше этого (1°).</summary>
     const double AxisAlignedCos = 0.99985;
 
-    public static string Side(FragmentCut cut)
+    public static string Side(FragmentCut cut) => SideText(cut).ToString();
+
+    /// <summary>Сторона разреза переводимым текстом: «низ», «верх», «бок, грань +X», «бок, ∠30°».</summary>
+    public static DiagText SideText(FragmentCut cut)
     {
         ArgumentNullException.ThrowIfNull(cut);
         return cut.Side switch
         {
-            FragmentCutSide.Bottom => "низ",
-            FragmentCutSide.Top => "верх",
-            _ => FaceCode(cut.Outward, out bool axis) is var code && axis ? "бок, грань " + code : "бок, " + code,
+            FragmentCutSide.Bottom => new DiagText("fragment_cut_side_bottom"),
+            FragmentCutSide.Top => new DiagText("fragment_cut_side_top"),
+            _ => FaceCode(cut.Outward, out bool axis) is var code && axis
+                ? new DiagText("fragment_cut_side_face", code) : new DiagText("fragment_cut_side_azimuth", code),
         };
     }
 

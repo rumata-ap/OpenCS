@@ -300,7 +300,7 @@ sealed class FemFragmentsKind : IModelKind
             }
             if (prepared.Draft.HasErrors)
             {
-                var first = prepared.Draft.Diagnostics.Where(x => x.IsError).Take(3).Select(x => x.Message);
+                var first = prepared.Draft.Diagnostics.Where(x => x.IsError).Take(3).Select(DiagnosticText.Format);
                 errors.Add(path, string.Format(Loc.S("CliFragErrRefused"), string.Join("; ", first)));
                 continue;
             }
@@ -491,7 +491,7 @@ sealed class FemFragmentsKind : IModelKind
         var selection = ElementFragmentService.PrismFromSelection(db, parent.Id, vertical, d.OffsetM, floors);
         if (selection.HasErrors)
         {
-            var msgs = selection.Diagnostics.Where(x => x.IsError).Take(3).Select(x => x.Message).ToList();
+            var msgs = selection.Diagnostics.Where(x => x.IsError).Take(3).Select(DiagnosticText.Format).ToList();
             errors.Add($"{path}.prism", string.Format(Loc.S("CliFragErrRefused"),
                 msgs.Count > 0 ? string.Join("; ", msgs) : Loc.S("ElementFragmentRefused")));
             return null;

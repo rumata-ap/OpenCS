@@ -56,7 +56,7 @@ public static class FragmentMaskExtractor
     public const double CutResultantKeyShare = 0.5;
 
     /// <summary>Отложенная сверка кромки: сравнивается, когда известна Σ|F| масок ключа.</summary>
-    sealed record ResultantCheck(FragmentMaskCutInput Cut, FragmentMaskKey Key, string Where, double Length,
+    sealed record ResultantCheck(FragmentMaskCutInput Cut, FragmentMaskKey Key, DiagText Where, double Length,
         PlanarVector3 MaskF, PlanarVector3 MaskM, PlanarVector3 DirectF, PlanarVector3 DirectM);
 
     public static FragmentMaskExtraction Extract(FragmentMaskInput input)
@@ -89,7 +89,7 @@ public static class FragmentMaskExtractor
         {
             var c = input.Cuts[i];
             var outward = c.Cut.Outward;
-            string where = $"{c.Cut.MemberTag} ({FragmentCutLabel.Side(c.Cut)}, z = {c.Cut.Z.ToString("0.###", CultureInfo.CurrentCulture)})";
+            var where = new DiagText("fragment_mask_where", c.Cut.MemberTag, FragmentCutLabel.SideText(c.Cut), c.Cut.Z);
             if (c.Cut.Kind == FragmentCutKind.End)
                 ExtractEnd(input, x, i, c, outward, where, bars);
             else if (nodal != null)
@@ -120,35 +120,36 @@ public static class FragmentMaskExtractor
             double scaleM = Math.Max(k.DirectM.Length + Math.Max(k.DirectF.Length, floor) * k.Length / 2, 1e-9);
             double dF = (k.MaskF - k.DirectF).Length / scaleF, dM = (k.MaskM - k.DirectM).Length / scaleM;
             if (dF > CutResultantTolerance || dM > CutResultantTolerance)
-                Warn(x, "fragment_mask_cut_resultant", string.Create(CultureInfo.CurrentCulture,
-                    $"Сечение {k.Where}, {KeyText(k.Key)}: равнодействующая МНК расходилась с суммой по КЭ на {Math.Max(dF, dM):P1} — маска исправлена к сумме по КЭ."), k.Cut);
+                Warn(x, "fragment_mask_cut_resultant",
+                    new DiagText("fragment_mask_cut_resultant", k.Where, KeyText(k.Key), Math.Max(dF, dM)), k.Cut);
         }
     }
 
     static void ExtractEnd(FragmentMaskInput input, FragmentMaskExtraction x, int index, FragmentMaskCutInput c, PlanarVector3 outward,
-        string where, List<FragmentBarElement> bars)
+        DiagText where, List<FragmentBarElement> bars)
     {
         if (c.EndPoint is not { } point
             || (FragmentBarCutSampler.Locate(point, outward, bars, input.ToleranceM)
                 // Хорда импортного КонЭ может отходить от его КЭ на миллиметры («Музей», колонны 71/80).
                 ?? FragmentBarCutSampler.Locate(point, outward, bars, input.ToleranceM, StoreyFragmentBuilder.SourceSnapM)) is not { } hit)
         {
-            Warn(x, "fragment_mask_cut_unmatched", $"Сечение {where}: нет КЭ стержня родителя в точке рассечения — маски нет.", c);
+            Warn(x, "fragment_mask_cut_unmatched", new DiagText("fragment_mask_cut_unmatched_bar", where), c);
             return;
         }
         foreach (var key in input.Result.Keys)
         {
             var s = FragmentBarCutSampler.Sample(hit, input.Result, key, out bool loadsUnknown);
             x.Masks.Add(new FragmentCutMask(index, key, [s]));
-            if (s.U == null) Warn(x, "fragment_mask_no_displacement", $"Сечение {where}, {KeyText(key)}: нет перемещений узлов КЭ {hit.ElemTag}.", c);
-            if (s.F == null) Warn(x, "fragment_mask_no_forces", $"Сечение {where}, {KeyText(key)}: нет усилий КЭ {hit.ElemTag}.", c);
+            if (s.U == null) Warn(x, "fragment_mask_no_displacement",
+                new DiagText("fragment_mask_no_displacement_element", where, KeyText(key), hit.ElemTag), c);
+            if (s.F == null) Warn(x, "fragment_mask_no_forces", new DiagText("fragment_mask_no_forces_element", where, KeyText(key), hit.ElemTag), c);
             if (loadsUnknown) Warn(x, "fragment_mask_beam_loads_unknown",
-                $"Сечение {where}, {KeyText(key)}: нагрузки КЭ {hit.ElemTag} источнику неизвестны — усилие без нагрузки участка.", c);
+                new DiagText("fragment_mask_beam_loads_unknown", where, KeyText(key), hit.ElemTag), c);
         }
     }
 
     static void ExtractEdge(FragmentMaskInput input, FragmentMaskExtraction x, int index, FragmentMaskCutInput c, PlanarVector3 outward,
-        string where, List<(string, FemElementGeometry)> shells, List<ResultantCheck> checks)
+        DiagText where, List<(string, FemElementGeometry)> shells, List<ResultantCheck> checks)
     {
         if (PrepareEdge(input, x, c, outward, where, shells) is not { } geometries) return;
         foreach (var key in input.Result.Keys)
@@ -192,33 +193,33 @@ public static class FragmentMaskExtractor
                     masked = FragmentMaskResultantCorrection.Correct(c, samples, direct.F, direct.M, shellNormal);
             }
             x.Masks.Add(new FragmentCutMask(index, key, masked));
-            if (noU) Warn(x, "fragment_mask_no_displacement", $"Сечение {where}, {KeyText(key)}: в части точек нет перемещений источника.", c);
-            if (noF) Warn(x, "fragment_mask_no_forces", $"Сечение {where}, {KeyText(key)}: в части точек нет усилий КЭ источника.", c);
+            if (noU) Warn(x, "fragment_mask_no_displacement", new DiagText("fragment_mask_no_displacement", where, KeyText(key)), c);
+            if (noF) Warn(x, "fragment_mask_no_forces", new DiagText("fragment_mask_no_forces", where, KeyText(key)), c);
             if (degenerate > 0) Warn(x, "fragment_mask_patch_degenerate",
-                $"Сечение {where}, {KeyText(key)}: в {degenerate} точках патч КЭ вырожден — усилия по ближайшим центрам.", c);
+                new DiagText("fragment_mask_patch_degenerate", where, KeyText(key), degenerate), c);
         }
     }
 
     /// <summary>Геометрия отрезков кромки или null (предупреждение «маски нет»).</summary>
     static List<FragmentWallCutGeometry>? PrepareEdge(FragmentMaskInput input, FragmentMaskExtraction x, FragmentMaskCutInput c,
-        PlanarVector3 outward, string where, List<(string, FemElementGeometry)> shells)
+        PlanarVector3 outward, DiagText where, List<(string, FemElementGeometry)> shells)
     {
         if (c.ShellNormal is not { } normal || c.Cut.Segments.Count == 0)
         {
-            Warn(x, "fragment_mask_cut_unmatched", $"Сечение {where}: нет плоскости пластины — маски нет.", c);
+            Warn(x, "fragment_mask_cut_unmatched", new DiagText("fragment_mask_cut_unmatched_plane", where), c);
             return null;
         }
         var unit = normal.Normalize();
         if ((outward - unit * outward.Dot(unit)).Length < 1e-6)
         {
-            Warn(x, "fragment_mask_cut_unmatched", $"Сечение {where}: нормаль разреза перпендикулярна плоскости пластины — маски нет.", c);
+            Warn(x, "fragment_mask_cut_unmatched", new DiagText("fragment_mask_cut_unmatched_normal", where), c);
             return null;
         }
         var geometries = c.Cut.Segments
             .Select(seg => FragmentWallCutSampler.Prepare(seg.P, seg.Q, normal, outward, shells, input.ToleranceM)).ToList();
         if (geometries.All(g => g.Plane.Count == 0))
         {
-            Warn(x, "fragment_mask_cut_unmatched", $"Сечение {where}: нет КЭ пластин родителя в плоскости кромки — маски нет.", c);
+            Warn(x, "fragment_mask_cut_unmatched", new DiagText("fragment_mask_cut_unmatched_shells", where), c);
             return null;
         }
         return geometries;
@@ -229,7 +230,7 @@ public static class FragmentMaskExtractor
     /// точки геометрии кромки и узлы плотности, перемещения — по функциям формы, как на пути МНК.
     /// </summary>
     static void ExtractEdgeNodal(FragmentMaskInput input, FragmentMaskExtraction x, int index, FragmentMaskCutInput c,
-        PlanarVector3 outward, string where, List<(string, FemElementGeometry)> shells, FragmentNodalCutResult nodal)
+        PlanarVector3 outward, DiagText where, List<(string, FemElementGeometry)> shells, FragmentNodalCutResult nodal)
     {
         if (PrepareEdge(input, x, c, outward, where, shells) is not { } geometries) return;
         // Плотности всех ключей; точки — общие для ключей (узлы плотностей всех ключей и точки геометрии): у ключей разные
@@ -273,13 +274,13 @@ public static class FragmentMaskExtractor
                 offset += g.Length;
             }
             x.Masks.Add(new FragmentCutMask(index, key, samples));
-            if (noU) Warn(x, "fragment_mask_no_displacement", $"Сечение {where}, {KeyText(key)}: в части точек нет перемещений источника.", c);
+            if (noU) Warn(x, "fragment_mask_no_displacement", new DiagText("fragment_mask_no_displacement", where, KeyText(key)), c);
         }
     }
 
-    internal static string KeyText(FragmentMaskKey key) => key.Kind == FragmentMaskKeyKind.LoadCase
-        ? $"загружение #{key.LoadCaseId}" : $"сочетание {key.StageExpressionJson}";
+    internal static DiagText KeyText(FragmentMaskKey key) => key.Kind == FragmentMaskKeyKind.LoadCase
+        ? new DiagText("fragment_mask_key_load_case", key.LoadCaseId) : new DiagText("fragment_mask_key_stage", key.StageExpressionJson);
 
-    static void Warn(FragmentMaskExtraction x, string code, string message, FragmentMaskCutInput c) =>
-        x.Diagnostics.Add(new FemValidationDiagnostic(code, message, false, [c.Cut.MemberTag]));
+    static void Warn(FragmentMaskExtraction x, string code, DiagText text, FragmentMaskCutInput c) =>
+        x.Diagnostics.Add(FemValidationDiagnostic.Of(code, text, false, [c.Cut.MemberTag]));
 }

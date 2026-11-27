@@ -21,8 +21,8 @@ public static partial class StoreyFragmentBuilder
             (c.SourceElements.TryGetValue(tag, out var own) ? own : byMember.GetValueOrDefault(tag) ?? []).Where(bandShells.Contains);
         var shells = c.Draft.Members.Where(m => m.Member.ElemType == "shell" && m.Member.PlateSectionId == null).ToList();
 
-        var transferred = new List<string>();
-        var partial = new List<string>();
+        var transferred = new List<DiagText>();
+        var partial = new List<DiagText>();
         var partialKeys = new List<string>();
         foreach (var g in groups)
         {
@@ -41,7 +41,7 @@ public static partial class StoreyFragmentBuilder
                 if (hit == source.Count) members.Add(m.Member.ElemTag);
                 else if (hit > 0)
                 {
-                    partial.Add($"«{g.Tag}» — «{m.Member.ElemTag}» ({hit} из {source.Count} КЭ)");
+                    partial.Add(new DiagText("fragment_group_partial_item", g.Tag, m.Member.ElemTag, hit, source.Count));
                     partialKeys.Add(m.Member.ElemTag);
                 }
             }
@@ -50,14 +50,13 @@ public static partial class StoreyFragmentBuilder
             copy.PlateSectionId = g.PlateSectionId;
             copy.DesignParamsJson = g.DesignParamsJson;
             c.Draft.Groups.Add(copy);
-            transferred.Add($"«{g.Tag}» ({members.Count} КонЭ)");
+            transferred.Add(new DiagText("fragment_groups_transferred_item", g.Tag, members.Count));
         }
         if (transferred.Count > 0)
-            c.Warn("fragment_groups_transferred", "Группы родителя с сечением пластины перенесены как группы КонЭ: " +
-                string.Join(", ", transferred) + ".", [.. c.Draft.Groups.SelectMany(g => g.Tags).Distinct(StringComparer.Ordinal)]);
+            c.Warn("fragment_groups_transferred", new DiagText("fragment_groups_transferred", DiagText.Join(", ", transferred)),
+                [.. c.Draft.Groups.SelectMany(g => g.Tags).Distinct(StringComparer.Ordinal)]);
         if (partial.Count > 0)
-            c.Warn("fragment_group_partial", "КонЭ фрагмента лишь частично в группе родителя с сечением пластины — в группу не " +
-                $"включены, сечение назначьте сами: {string.Join("; ", partial.Take(10))}{(partial.Count > 10 ? " …" : "")}.",
+            c.Warn("fragment_group_partial", new DiagText("fragment_group_partial", DiagText.List(partial, 10, "; ", "diag_list_dots")),
                 [.. partialKeys.Distinct(StringComparer.Ordinal)]);
     }
 }

@@ -157,32 +157,28 @@ public static partial class StoreyFragmentBuilder
             origins.Add(origin);
         }
 
-        void Row(string code, List<string> labels, string text)
+        // Шаблон: {0} — число тел, {1} — их ведущие узлы, {2} — уточнение (источник, маски, узлы сетки).
+        void Row(string code, string key, List<string> labels, object? extra = null)
         {
             if (labels.Count == 0) return;
             labels.Sort(FemNodeRigidBodies.TagComparer);
-            c.Warn(code, string.Format(text, labels.Count, FemNodeRigidBodies.Short(labels)), [.. labels]);
+            c.Warn(code, new DiagText(key, labels.Count, DiagText.Total(labels.Distinct(), 10), extra), [.. labels]);
         }
-        string source = string.Join(", ", origins.Select(o => o switch { "import:scad" => "SCAD", "import:lira" => "ЛИРЫ", _ => o }));
-        Row("fragment_rigid_body_points", points,
-            $"АЖТ {source} перенесены по узлам схемы: {{0}} ({{1}}) — тела на узлах сетки появятся после построения сетки.");
-        Row("fragment_rigid_body_merged", mergedRigid,
-            "АЖТ на совпадающих узлах — во фрагменте узлы слиты в один, связь общим узлом, тело не нужно: {0} ({1}).");
-        Row("fragment_rigid_body_hinge_merged", mergedHinge,
-            $"АЖТ с неполной маской ({string.Join("; ", hingeMasks)}) на совпадающих узлах — во фрагменте узлы слиты в один, " +
-            "связь стала жёсткой (освобождённые DOF шарнира не сохраняются): {0} ({1}).");
-        Row("fragment_rigid_body_slaves_dropped", partial, "АЖТ с ведомыми узлами вне КонЭ фрагмента — эти узлы отброшены: {0} ({1}).");
-        Row("fragment_rigid_body_lost", masterOutside, "АЖТ не перенесены — ведущий узел вне КонЭ фрагмента: {0} ({1}).");
-        Row("fragment_rigid_body_lost", slavesOutside, "АЖТ не перенесены — все ведомые узлы вне КонЭ фрагмента: {0} ({1}).");
-        Row("fragment_rigid_body_lost", manual, "АЖТ заданы вручную — во фрагмент не переносятся: {0} ({1}).");
-        Row("fragment_rigid_body_trace_points", tracePoints,
-            $"АЖТ {source} у колонн с ведомыми узлами вне плиты (стены, стержни): плита — следом по узлам тела, эти узлы — " +
-            "по узлам схемы с тем же ведущим: {0} ({1}).");
-        Row("fragment_rigid_body_degenerate", degenerate, "АЖТ у колонн, узлы тела в плите не образуют площадки — след по сечению: {0} ({1}).");
-        Row("fragment_rigid_body_kept", byTags, "АЖТ родителя перенесены по тегам сохранённой сетки: {0} ({1}).");
-        Row("fragment_rigid_from_trace", fromTrace,
-            $"АЖТ родителя на стыке сохранённой и перестроенной сетки не перенесены по тегам — нет узлов сетки " +
-            $"{FemNodeRigidBodies.Short(missingNodes)} — переносятся как без сохранения сетки (след, по точкам): {{0}} ({{1}}).");
+        var source = DiagText.Join(", ", origins.Select(o => o switch
+        {
+            "import:scad" => "SCAD", "import:lira" => (object)new DiagText("fragment_rigid_source_lira"), _ => o,
+        }));
+        Row("fragment_rigid_body_points", "fragment_rigid_body_points", points, source);
+        Row("fragment_rigid_body_merged", "fragment_rigid_body_merged", mergedRigid);
+        Row("fragment_rigid_body_hinge_merged", "fragment_rigid_body_hinge_merged", mergedHinge, string.Join("; ", hingeMasks));
+        Row("fragment_rigid_body_slaves_dropped", "fragment_rigid_body_slaves_dropped", partial);
+        Row("fragment_rigid_body_lost", "fragment_rigid_body_lost_master", masterOutside);
+        Row("fragment_rigid_body_lost", "fragment_rigid_body_lost_slaves", slavesOutside);
+        Row("fragment_rigid_body_lost", "fragment_rigid_body_lost_manual", manual);
+        Row("fragment_rigid_body_trace_points", "fragment_rigid_body_trace_points", tracePoints, source);
+        Row("fragment_rigid_body_degenerate", "fragment_rigid_body_degenerate", degenerate);
+        Row("fragment_rigid_body_kept", "fragment_rigid_body_kept", byTags);
+        Row("fragment_rigid_from_trace", "fragment_rigid_from_trace", fromTrace, DiagText.Total(missingNodes.Distinct(), 10));
     }
 
     /// <summary>Приставка происхождения АЖТ родителя, перенесённых по тегам сохранённой сетки

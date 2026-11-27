@@ -26,11 +26,9 @@ public static partial class StoreyFragmentBuilder
         if (c.Planes.FirstOrDefault(pl => Math.Abs(pl.Normal.Dot(d)) <= c.Tol && Math.Abs(pl.Eval(a)) <= c.Tol) is { } on)
         {
             if (on.Side == FragmentCutSide.Lateral)
-                c.Error("fragment_member_on_prism_face",
-                    $"Стержень {tag} лежит в плоскости боковой грани фрагмента — измените отступ d.", tag);
+                c.Error("fragment_member_on_prism_face", new DiagText("fragment_member_on_prism_face_bar", tag), tag);
             else
-                c.Error("fragment_member_on_cut_plane",
-                    $"Стержень {tag} на отметке {a.Z:0.###} м лежит на границе полосы — сдвиньте z₁/z₂ к середине этажа.", tag);
+                c.Error("fragment_member_on_cut_plane", new DiagText("fragment_member_on_cut_plane_bar", tag, a.Z), tag);
             return;
         }
         if (lo < eps) lo = 0;
@@ -38,7 +36,7 @@ public static partial class StoreyFragmentBuilder
         var u = d * (1 / len);
         bool Shallow(double t) => c.Planes.Any(pl => Math.Abs(pl.Eval(At(a, d, t))) <= c.Tol && Math.Abs(pl.Normal.Dot(u)) < ShallowCutSine);
         if ((lo > 0 && Shallow(lo)) || (hi < 1 && Shallow(hi)))
-            c.Warn("fragment_bar_shallow_cut", $"Стержень {tag} почти лежит в плоскости рассечения — проверьте отметки z₁/z₂ и отступ d.", tag);
+            c.Warn("fragment_bar_shallow_cut", new DiagText("fragment_bar_shallow_cut", tag), tag);
 
         var stations = new List<double> { lo, hi };
         if (!horizontal)
@@ -98,9 +96,7 @@ public static partial class StoreyFragmentBuilder
         var overlap = PlanarPolygonOps.ClipByConvex(footprint, prism.Corners());
         if (overlap.Count < 3 || Math.Abs(PlanarPolygonOps.SignedArea(overlap)) <= c.Tol * c.Tol) return;
         string tag = s.Member.ElemTag;
-        c.Warn("fragment_column_outside_prism",
-            $"Колонна {tag}: ось вне призмы фрагмента, но сечение задевает её грань — колонна не входит во фрагмент. " +
-            "Измените отступ d, если она нужна.", tag);
+        c.Warn("fragment_column_outside_prism", new DiagText("fragment_column_outside_prism", tag), tag);
     }
 
     /// <summary>Стержневые КЭ сетки родителя с КонЭ — по тегу КонЭ (импорт SCAD/ЛИРЫ: сечение есть у КЭ, у КонЭ нет).</summary>
@@ -171,9 +167,8 @@ public static partial class StoreyFragmentBuilder
         if (lengths.Count == 0) return null;
         var best = lengths.OrderByDescending(x => x.Value).ThenBy(x => x.Key).First().Key;
         if (lengths.Count > 1)
-            c.Warn("fragment_bar_rotation_varies",
-                $"У КЭ стержня {partTag} в родителе разные повороты сечения ({string.Join("; ", lengths.Keys.Order().Select(v => v.ToString("0.###", System.Globalization.CultureInfo.CurrentCulture)))}°) — " +
-                $"взят {best.ToString("0.###", System.Globalization.CultureInfo.CurrentCulture)}° по большей длине.", partTag);
+            c.Warn("fragment_bar_rotation_varies", new DiagText("fragment_bar_rotation_varies", partTag,
+                DiagText.Join("; ", lengths.Keys.Order().Select(v => new DiagText("diag_number", v))), best), partTag);
         return best;
     }
 
@@ -183,9 +178,8 @@ public static partial class StoreyFragmentBuilder
         if (lengths.Count == 0) return null;
         var best = lengths.OrderByDescending(p => p.Value).ThenBy(p => p.Key).First().Key;
         if (lengths.Count > 1)
-            c.Warn("fragment_bar_section_varies",
-                $"У КЭ стержня {partTag} в родителе разные сечения ({string.Join(", ", lengths.Keys.Order())}) — взято сечение {best} " +
-                "по большей длине. Разделите КонЭ по смене сечения, если это важно.", partTag);
+            c.Warn("fragment_bar_section_varies", new DiagText("fragment_bar_section_varies", partTag,
+                string.Join(", ", lengths.Keys.Order()), best), partTag);
         return best;
     }
 

@@ -63,8 +63,7 @@ public static partial class StoreyFragmentBuilder
         // параметры теряются, а КЭ собираются как КЭ без КонЭ.
         var lost = uncovered.Select(e => e.SourceMemberTag).OfType<string>().Distinct(StringComparer.Ordinal).ToList();
         if (lost.Count > 0)
-            c.Warn("fragment_member_unresolved", $"КЭ полосы ссылаются на КонЭ родителя без узлов схемы: {Head(lost)} — сечения " +
-                $"и параметры этих КонЭ не переносятся, КЭ собраны в КонЭ «{UncoveredTag}». Проверьте узлы КонЭ в родителе.", [.. lost]);
+            c.Warn("fragment_member_unresolved", new DiagText("fragment_member_unresolved", Head(lost), UncoveredTag), [.. lost]);
 
         var build = MeshMemberBuilder.Build(new MeshMemberRequest(UncoveredTag, null, tags, "auto"), parent.MeshNodes, parent.MeshElements);
         foreach (var d in build.Diagnostics) c.Warn(d.Code, d.Message, [.. d.SourceKeys ?? []]);
@@ -92,8 +91,7 @@ public static partial class StoreyFragmentBuilder
             else if (part.Region is not null)
                 result.Add(new(m, part.Region, default, default, 0, 0));
         }
-        c.Warn("fragment_uncovered_members",
-            $"КЭ полосы без КонЭ ({tags.Count}) собраны в КонЭ «{UncoveredTag}».", [.. tags]);
+        c.Warn("fragment_uncovered_members", new DiagText("fragment_uncovered_members", tags.Count, UncoveredTag), [.. tags]);
         return result;
     }
 
@@ -103,12 +101,11 @@ public static partial class StoreyFragmentBuilder
         var band = BandElements(c, parent);
         var released = band.Where(e => e.ReleaseI is > 0 || e.ReleaseJ is > 0).Select(e => e.ElemTag).ToList();
         if (released.Count > 0)
-            c.Warn("fragment_releases_lost", $"Шарниры концов КЭ не переносятся (у КонЭ нет такого поля): {Head(released)}.", [.. released]);
+            c.Warn("fragment_releases_lost", new DiagText("fragment_releases_lost", Head(released)), [.. released]);
         var other = band.Where(e => e.ElemType is not ("beam" or "shell")).Select(e => e.ElemTag).ToList();
         if (other.Count > 0)
-            c.Warn("fragment_element_type_lost", $"КЭ без аналога на уровне КонЭ не переносятся: {Head(other)}.", [.. other]);
+            c.Warn("fragment_element_type_lost", new DiagText("fragment_element_type_lost", Head(other)), [.. other]);
     }
 
-    static string Head(List<string> tags) =>
-        tags.Count <= 10 ? string.Join(", ", tags) : $"{string.Join(", ", tags.Take(10))} … ещё {tags.Count - 10}";
+    static object Head(List<string> tags) => DiagText.List(tags, 10, ", ", "diag_list_more_dots");
 }

@@ -149,7 +149,7 @@ public static class StoreyFragmentMaskFlow
     {
         var list = diagnostics.ToList();
         var summary = list.Where(d => d.Code == SummaryCode)
-            .Select(d => new StoreyFragmentReportRow(Loc.S("StoreyFragmentReportSummary"), d.Message, false, IsSummary: true));
+            .Select(d => new StoreyFragmentReportRow(Loc.S("StoreyFragmentReportSummary"), DiagnosticText.Format(d), false, IsSummary: true));
         return summary.Concat(StoreyFragmentReportRows.From(list.Where(d => d.Code != SummaryCode))).ToList();
     }
 }

@@ -26,7 +26,7 @@ public static partial class StoreyFragmentBuilder
         if (!ClipLateral(c, f, tag, ref pieces, minArea)) return;
         bool whole = c.Keep is not null && WholeAfterClip(polygon, pieces);
         if (Math.Abs(f.LocalZ.Z) > 1e-4)
-            c.Warn("fragment_wall_inclined", $"Стена {tag} не вертикальна — рассечена плоскостями z₁/z₂ как есть.", tag);
+            c.Warn("fragment_wall_inclined", new DiagText("fragment_wall_inclined", tag), tag);
 
         foreach (var slab in c.Slabs.OrderBy(sl => sl.Z))
         {
@@ -45,7 +45,7 @@ public static partial class StoreyFragmentBuilder
         var ordered = pieces.OrderBy(p => p.Level).ThenBy(p => p.Polygon.Outer.Min(q => q.U)).ToList();
         var names = PartNames(tag, ordered.Count, twoLevels: ordered.Count == 2 && ordered[0].Level != ordered[1].Level);
         if (region.ConstraintObjects.Count > 0 || region.BoundarySegments.Count > 0)
-            c.Warn("fragment_wall_constraints_lost", $"Ручные ограничения сетки стены {tag} не переносятся в рассечённые куски.", tag);
+            c.Warn("fragment_wall_constraints_lost", new DiagText("fragment_wall_constraints_lost", tag), tag);
         for (int i = 0; i < ordered.Count; i++)
         {
             var piece = ordered[i];
@@ -81,8 +81,7 @@ public static partial class StoreyFragmentBuilder
             double e = face.Eval(f.Origin);
             if (e > c.Tol) return false;
             if (e < -c.Tol) continue;
-            c.Error("fragment_member_on_prism_face",
-                $"Пластина {tag} лежит в плоскости боковой грани фрагмента — измените отступ d.", tag);
+            c.Error("fragment_member_on_prism_face", new DiagText("fragment_member_on_prism_face_plate", tag), tag);
             return false;
         }
         return true;

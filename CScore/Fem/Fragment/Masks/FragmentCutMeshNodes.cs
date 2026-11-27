@@ -12,7 +12,7 @@ public sealed record FragmentCutNode(string Tag, double S, PlanarVector3 X);
 /// в оба), <see cref="SegmentIndices"/> — номера этих отрезков в <see cref="FragmentCut.Segments"/> (отрезки нулевой длины
 /// пропускаются). <see cref="Error"/> — разрез не лёг на сетку.
 /// </summary>
-public sealed record FragmentCutMeshNodes(string? EndNode, IReadOnlyList<IReadOnlyList<FragmentCutNode>> Segments, string? Error)
+public sealed record FragmentCutMeshNodes(string? EndNode, IReadOnlyList<IReadOnlyList<FragmentCutNode>> Segments, DiagText? Error)
 {
     public IReadOnlyList<int> SegmentIndices { get; init; } = [];
 
@@ -38,7 +38,7 @@ public sealed record FragmentCutMeshNodes(string? EndNode, IReadOnlyList<IReadOn
                 var near = meshNodes.Where(n => (Point(n) - p).Length <= tol).MinBy(n => (Point(n) - p).Length);
                 if (near != null) return new(near.NodeTag, [], null);
             }
-            return new(null, [], $"узла сетки у конца «{c.NodeTag}» нет");
+            return new(null, [], new DiagText("fragment_cut_mesh_no_end_node", c.NodeTag));
         }
 
         var segments = new List<IReadOnlyList<FragmentCutNode>>();
@@ -65,15 +65,14 @@ public sealed record FragmentCutMeshNodes(string? EndNode, IReadOnlyList<IReadOn
             foreach (var n in on)
                 if (unique.Count == 0 || n.S - unique[^1].S > tol) unique.Add(n);
             if (unique.Count < 2 || unique[0].S - offset > tol || offset + len - unique[^1].S > tol)
-                return new(null, [], string.Create(CultureInfo.CurrentCulture,
-                    $"отрезок кромки ({a.X:0.###}; {a.Y:0.###}) – ({b.X:0.###}; {b.Y:0.###}) не лёг на сетку: нет узлов на его концах"));
+                return new(null, [], new DiagText("fragment_cut_mesh_segment_off", a.X, a.Y, b.X, b.Y));
             unique[0] = unique[0] with { S = offset };
             unique[^1] = unique[^1] with { S = offset + len };
             segments.Add(unique);
             indices.Add(i);
             offset += len;
         }
-        if (segments.Count == 0) return new(null, [], "у кромки нет отрезков");
+        if (segments.Count == 0) return new(null, [], new DiagText("fragment_cut_mesh_no_segments"));
         return new(null, segments, null) { SegmentIndices = indices };
     }
 

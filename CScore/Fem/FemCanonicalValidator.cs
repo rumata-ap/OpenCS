@@ -6,8 +6,15 @@ namespace CScore.Fem;
 /// <param name="SourceKeys">Теги объектов, участвовавших в диагностике. Существующие вызовы
 /// new("code", "msg") продолжают работать; шаблон вкладки диагностики использует только
 /// Message и IsError, поэтому UI не меняется.</param>
+/// <param name="Text">Переводимый текст (<see cref="DiagText"/>); есть — <see cref="Message"/> его русский вид, OpenCS.App
+/// показывает его на языке интерфейса. null — только <see cref="Message"/>.</param>
 public sealed record FemValidationDiagnostic(
-    string Code, string Message, bool IsError = true, IReadOnlyList<string>? SourceKeys = null);
+    string Code, string Message, bool IsError = true, IReadOnlyList<string>? SourceKeys = null, DiagText? Text = null)
+{
+    /// <summary>Диагностика с переводимым текстом: <see cref="Message"/> — русский вид <paramref name="text"/>.</summary>
+    public static FemValidationDiagnostic Of(string code, DiagText text, bool isError, IReadOnlyList<string>? keys = null) =>
+        new(code, text.ToString(), isError, keys, text);
+}
 
 /// <summary>Проверяет ссылки, идентификаторы и числовую корректность FEM-контрактов.</summary>
 public static class FemCanonicalValidator

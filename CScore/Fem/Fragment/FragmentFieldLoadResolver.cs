@@ -62,12 +62,13 @@ public static class FragmentFieldLoadResolver
                 case FemElementLoadKinds.Nodal: Nodal(f, shells, Map, mapper, result); break;
                 case FemElementLoadKinds.Edge: Edge(f, shells, refByTag, toleranceM, result, diagnostics); break;
                 default:
-                    diagnostics.Add(new("fragment_field_kind_unknown", $"Нагрузка-поле вида «{f.LoadKind}» не поддержана — пропущена.", false));
+                    diagnostics.Add(FemValidationDiagnostic.Of("fragment_field_kind_unknown",
+                        new DiagText("fragment_field_kind_unknown", f.LoadKind), false));
                     break;
             }
         if (unmapped.Count > 0)
-            diagnostics.Add(new("fragment_field_unmapped",
-                $"КЭ фрагмента без пары в опорной сетке (нагрузка-поле на них — 0): {FemLoadTargets.Sample(unmapped)}.", false, unmapped.ToArray()));
+            diagnostics.Add(FemValidationDiagnostic.Of("fragment_field_unmapped",
+                new DiagText("fragment_field_unmapped", DiagText.Total(unmapped, 5)), false, unmapped.ToArray()));
         return result;
     }
 
@@ -167,7 +168,7 @@ public static class FragmentFieldLoadResolver
             if (assigned.Count == 0) missed.Add(entry.RefTag);
         }
         if (missed.Count > 0)
-            diagnostics.Add(new("fragment_field_edge_unmapped",
-                $"Нагрузка на ребро не легла на рёбра сетки фрагмента (КЭ родителя {FemLoadTargets.Sample(missed)}).", false, missed.ToArray()));
+            diagnostics.Add(FemValidationDiagnostic.Of("fragment_field_edge_unmapped",
+                new DiagText("fragment_field_edge_unmapped", DiagText.Total(missed, 5)), false, missed.ToArray()));
     }
 }

@@ -46,6 +46,8 @@ public static partial class StoreyFragmentBuilder
 
         public void Error(string code, string message, params string[] keys) => draft.Diagnostics.Add(new(code, message, true, keys));
         public void Warn(string code, string message, params string[] keys) => draft.Diagnostics.Add(new(code, message, false, keys));
+        public void Error(string code, DiagText text, params string[] keys) => draft.Diagnostics.Add(FemValidationDiagnostic.Of(code, text, true, keys));
+        public void Warn(string code, DiagText text, params string[] keys) => draft.Diagnostics.Add(FemValidationDiagnostic.Of(code, text, false, keys));
         /// <summary>КЭ-пластины сетки родителя (снимок) — проверка «родитель продолжается за грань» у боковых разрезов.</summary>
         public IReadOnlyList<ParentShell> ParentShells { get; set; } = [];
         /// <summary>Контур сечения по Id из снимка (правило (а): габарит колонны у грани призмы).</summary>
@@ -68,12 +70,12 @@ public static partial class StoreyFragmentBuilder
         var c = new Ctx(request, draft) { SectionOutline = parent.SectionOutline, ParentShells = ParentShellsOf(parent) };
         if (request.Z2 - request.Z1 <= request.ToleranceM)
         {
-            c.Error("fragment_band_empty", $"Отметка z₂ = {request.Z2:0.###} м должна быть выше z₁ = {request.Z1:0.###} м.");
+            c.Error("fragment_band_empty", new DiagText("fragment_band_empty", request.Z2, request.Z1));
             return draft;
         }
         if (parent.MeshElements.Count == 0)
         {
-            c.Error("fragment_parent_no_mesh", "У схемы-родителя нет сетки — фрагмент не строится.");
+            c.Error("fragment_parent_no_mesh", new DiagText("fragment_parent_no_mesh"));
             return draft;
         }
 
@@ -90,7 +92,7 @@ public static partial class StoreyFragmentBuilder
         if (draft.HasErrors) return draft;
         if (c.Slabs.Count == 0)
         {
-            c.Error("fragment_no_slab", "В полосе нет ни одной горизонтальной плиты — сдвиньте отметки z₁/z₂.");
+            c.Error("fragment_no_slab", new DiagText("fragment_no_slab"));
             return draft;
         }
         foreach (var s in sources.Where(s => s.Member.ElemType == "beam")) CutBar(c, s);
@@ -120,7 +122,7 @@ public static partial class StoreyFragmentBuilder
                     || !nodeByTag.TryGetValue(ids[0].ToString(CultureInfo.InvariantCulture), out var a)
                     || !nodeByTag.TryGetValue(ids[^1].ToString(CultureInfo.InvariantCulture), out var b))
                 {
-                    c.Warn("fragment_member_broken", $"У стержня {m.ElemTag} нет узлов — пропущен.", m.ElemTag);
+                    c.Warn("fragment_member_broken", new DiagText("fragment_member_broken_bar", m.ElemTag), m.ElemTag);
                     continue;
                 }
                 result.Add(new(m, null, P(a), P(b), a.DofMask, b.DofMask));
@@ -128,7 +130,7 @@ public static partial class StoreyFragmentBuilder
             else if (m.ElemType == "shell" && m.PlanarRegionId is int id && regionById.TryGetValue(id, out var region))
                 result.Add(new(m, region, default, default, 0, 0));
             else if (m.ElemType == "shell")
-                c.Warn("fragment_member_broken", $"У пластины {m.ElemTag} нет области — пропущена.", m.ElemTag);
+                c.Warn("fragment_member_broken", new DiagText("fragment_member_broken_plate", m.ElemTag), m.ElemTag);
         }
         return result;
     }
@@ -142,8 +144,7 @@ public static partial class StoreyFragmentBuilder
         double z = source.Frame.Origin.Z;
         if (c.OnCutPlane(z))
         {
-            c.Error("fragment_member_on_cut_plane",
-                $"Плита {s.Member.ElemTag} на отметке {z:0.###} м лежит на границе полосы — сдвиньте z₁/z₂ к середине этажа.",
+            c.Error("fragment_member_on_cut_plane", new DiagText("fragment_member_on_cut_plane_slab", s.Member.ElemTag, z),
                 s.Member.ElemTag);
             return;
         }

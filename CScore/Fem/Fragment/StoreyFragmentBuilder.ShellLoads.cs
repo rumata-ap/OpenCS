@@ -121,8 +121,7 @@ public static partial class StoreyFragmentBuilder
                     var k = elems.Select(t => _selfWeight.GetValueOrDefault((lc, t))).ToList();
                     if (k.All(x => x == 0)) continue;
                     if (k.All(x => Math.Abs(x - k[0]) <= 1e-12 * Math.Abs(k[0]))) Lift(lc, part, FemElementLoadKinds.SelfWeight, "z", k[0], null);
-                    else l.C.Warn("fragment_self_weight_mixed",
-                        $"Собственный вес КЭ с разными коэффициентами на КонЭ «{part}» не перенесён — задайте коэффициент загружения.", part);
+                    else l.C.Warn("fragment_self_weight_mixed", new DiagText("fragment_self_weight_mixed", part), part);
                 }
 
             foreach (var ((lc, kind, axis), entries) in _field)

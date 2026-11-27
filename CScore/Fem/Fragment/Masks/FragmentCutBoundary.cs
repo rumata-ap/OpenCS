@@ -98,10 +98,11 @@ public static class FragmentCutBoundary
                 input.Overrides.GetValueOrDefault(id), cut.ShellNormal, out bool o);
             oblique |= o;
             var nodes = FragmentCutMeshNodes.Find(cut, input.MeshNodes, input.ToleranceM);
-            string where = Where(cut.Cut);
+            var where = Where(cut.Cut);
             if (nodes.Error != null)
             {
-                r.Diagnostics.Add(new("fragment_cut_mesh", $"Разрез {where}: {nodes.Error}.", true, [cut.Cut.MemberTag]));
+                r.Diagnostics.Add(FemValidationDiagnostic.Of("fragment_cut_mesh", new DiagText("fragment_cut_mesh", where, nodes.Error), true,
+                    [cut.Cut.MemberTag]));
                 continue;
             }
             cuts.Add(new CutState(id, cut, modes, nodes, where));
@@ -110,8 +111,7 @@ public static class FragmentCutBoundary
         if (parts != null) parts.Report(r);
         cuts = FreeComponents(input, cuts, r, parts);
         if (oblique)
-            r.Diagnostics.Add(new("fragment_cut_oblique_wall", "Стены не вдоль общих осей: поворот вокруг нормали стены не " +
-                "выделяется одним DOF и задаётся по пресету.", false));
+            r.Diagnostics.Add(FemValidationDiagnostic.Of("fragment_cut_oblique_wall", new DiagText("fragment_cut_oblique_wall"), false));
         // Фрагмент с призмой держится только силами масок и ничем не закреплён — отказ (спека призмы 3.2); при опорах и
         // пружинах фрагмента (колонна на фундаментной плите) он устойчив и без кинематики разрезов.
         if (cuts.Count > 0 && cuts.Any(c => c.Cut.Cut.Side == FragmentCutSide.Lateral) && input.OtherConstraints.Count == 0
@@ -119,17 +119,14 @@ public static class FragmentCutBoundary
         {
             // Горизонтальных разрезов может не быть (полоса не доходит до плит): тогда совет — боковые грани.
             bool horizontal = cuts.Any(c => c.Cut.Cut.Side != FragmentCutSide.Lateral);
-            r.Diagnostics.Add(new("fragment_bc_all_static", "Все разрезы фрагмента — силовые, а опор у него нет: " +
-                (horizontal
-                    ? "задайте кинематику хотя бы на одном горизонтальном разрезе."
-                    : "горизонтальных разрезов нет — задайте кинематику на боковых гранях (пресет «Изоляция» или маски)."), true));
+            r.Diagnostics.Add(FemValidationDiagnostic.Of("fragment_bc_all_static", new DiagText(horizontal
+                ? "fragment_bc_all_static_horizontal" : "fragment_bc_all_static_lateral"), true));
             return r;
         }
         bool needsMask = cuts.Any(c => c.Modes.Any(FragmentCutBc.NeedsMask));
         if (needsMask && (input.Masks == null || input.Masks.Items.Count == 0))
         {
-            r.Diagnostics.Add(new("fragment_masks_missing", "ГУ разрезов требуют маски, а они не сняты: снимите их командой " +
-                "«Маски из родителя…» или выберите пресет «Изоляция».", true));
+            r.Diagnostics.Add(FemValidationDiagnostic.Of("fragment_masks_missing", new DiagText("fragment_masks_missing"), true));
             return r;
         }
         if (r.HasErrors) return r;
@@ -195,9 +192,8 @@ public static class FragmentCutBoundary
             }
         }
         if (unanchored.Count == 0) return;
-        r.Diagnostics.Add(new("fragment_cut_rigid_slave", $"Узлы разрезов — ведомые узлы жёстких тел, ведущий узел которых не " +
-            $"получает кинематики разреза: их закрепления и перемещения из масок сняты, они следуют за ведущим ({unanchored.Count}): " +
-            $"{string.Join(", ", unanchored.Take(10))}{(unanchored.Count > 10 ? " …" : "")}.", false, [.. unanchored]));
+        r.Diagnostics.Add(FemValidationDiagnostic.Of("fragment_cut_rigid_slave", new DiagText("fragment_cut_rigid_slave",
+            unanchored.Count, DiagText.List(unanchored, 10, ", ", "diag_list_dots")), false, [.. unanchored]));
     }
 
     /// <summary>Значения масок по загружениям расчёта: заданные перемещения и силы узлов.</summary>
@@ -210,7 +206,7 @@ public static class FragmentCutBoundary
         bool stageKeys = masks.Items.Any(i => i.Key.Kind == FragmentMaskKeyKind.Stage);
 
         // Загружения расчёта: (Id, подпись, маска разреза или null).
-        var cases = new List<(int Id, string Label, Func<CutState, IReadOnlyList<FragmentMaskSample>?> Samples)>();
+        var cases = new List<(int Id, DiagText Label, Func<CutState, IReadOnlyList<FragmentMaskSample>?> Samples)>();
         IReadOnlyList<FragmentMaskSample>? Of(CutState c, FragmentMaskKey key) =>
             byCut.TryGetValue(c.Id, out var keys) && keys.TryGetValue(key, out var s) ? s : null;
         if (!stageKeys)
@@ -218,7 +214,7 @@ public static class FragmentCutBoundary
             foreach (int lc in input.Stages.SelectMany(s => s.Terms).Select(t => t.LoadCaseId).Distinct())
             {
                 var key = FragmentMaskKey.OfLoadCase(lc);
-                cases.Add((lc, $"загружение «{input.LoadCaseTags.GetValueOrDefault(lc, $"#{lc}")}»", c => Of(c, key)));
+                cases.Add((lc, new DiagText("fragment_mask_case_load", input.LoadCaseTags.GetValueOrDefault(lc, $"#{lc}")), c => Of(c, key)));
             }
         }
         else
@@ -234,7 +230,7 @@ public static class FragmentCutBoundary
                 var before = previous;
                 int id = -(k + 1);
                 r.StageCases.Add(new FragmentMaskStageCase(k, id, $"Маски стадии «{stage.Tag}»"));
-                cases.Add((id, $"стадия «{stage.Tag}»", c =>
+                cases.Add((id, new DiagText("fragment_mask_case_stage", stage.Tag), c =>
                 {
                     var now = Of(c, key);
                     if (now == null || before == null) return now;
@@ -246,11 +242,11 @@ public static class FragmentCutBoundary
         }
 
         var reported = new HashSet<(int, int, int)>();
-        void Missing(CutState c, int dof, int caseId, string label, string what)
+        void Missing(CutState c, int dof, int caseId, DiagText label, string whatKey)
         {
             if (!reported.Add((c.Id, dof, caseId))) return;
-            r.Diagnostics.Add(new("fragment_mask_missing", $"Разрез {c.Where}, DOF {DofNames[dof]}, {label}: {what}.", true,
-                [c.Cut.Cut.MemberTag]));
+            r.Diagnostics.Add(FemValidationDiagnostic.Of("fragment_mask_missing",
+                new DiagText("fragment_mask_missing", c.Where, DofNames[dof], label, new DiagText(whatKey)), true, [c.Cut.Cut.MemberTag]));
         }
 
         foreach (var (caseId, label, samplesOf) in cases)
@@ -262,8 +258,8 @@ public static class FragmentCutBoundary
                 {
                     if (modes[d] != FragmentDofMode.MaskDisplacement) continue;
                     var c = owner[d]!;
-                    if (samples[c] is not { } s) { Missing(c, d, caseId, label, "нет маски"); continue; }
-                    if (DisplacementAt(c, s, tag) is not { } u) { Missing(c, d, caseId, label, "в маске нет перемещений"); continue; }
+                    if (samples[c] is not { } s) { Missing(c, d, caseId, label, "fragment_mask_missing_none"); continue; }
+                    if (DisplacementAt(c, s, tag) is not { } u) { Missing(c, d, caseId, label, "fragment_mask_missing_displacement"); continue; }
                     r.Prescribed.Add(new FragmentPrescribedDof(caseId, tag, d, u[d]));
                 }
             // Силы — от каждого разреза по его режиму (кромка прибавляет и к узлу стержня).
@@ -273,11 +269,11 @@ public static class FragmentCutBoundary
             {
                 if (!c.Modes.Any(m => m == FragmentDofMode.MaskForce)) continue;
                 int dof = Array.IndexOf(c.Modes, FragmentDofMode.MaskForce);
-                if (samples[c] is not { } s) { Missing(c, dof, caseId, label, "нет маски"); continue; }
+                if (samples[c] is not { } s) { Missing(c, dof, caseId, label, "fragment_mask_missing_none"); continue; }
                 Dictionary<string, Dof6>? nodal = c.Cut.Cut.Kind == FragmentCutKind.End
                     ? s.Count > 0 && s[0].F is { } endForce ? new(StringComparer.Ordinal) { [c.Nodes.EndNode!] = endForce } : null
                     : FragmentMaskDistribution.EdgeNodalForces(c.Cut.Cut, c.Nodes, s);
-                if (nodal == null) { Missing(c, dof, caseId, label, "в маске нет сил"); continue; }
+                if (nodal == null) { Missing(c, dof, caseId, label, "fragment_mask_missing_forces"); continue; }
                 foreach (var (tag, f) in nodal)
                 {
                     if (!forces.TryGetValue(tag, out var v)) forces[tag] = v = new double[6];
@@ -381,15 +377,13 @@ public static class FragmentCutBoundary
             foreach (var part in parts!.Keys)
                 if (!parts.Supported.Contains(part) && groups.All(g => g.Key != part)) mechanism.Add(part);
         if (r.Gauge.Count > 0)
-            r.Diagnostics.Add(new("fragment_gauge", string.Create(CultureInfo.CurrentCulture,
-                $"Силовые ГУ разрезов: жёсткие смещения фрагмента{(split ? $" (по частям сетки, {groups.Count})" : "")} сняты " +
-                $"автозакреплением {r.Gauge.Count} DOF " +
-                $"({string.Join(", ", r.Gauge.Select(g => $"{g.MeshNodeTag}:{DofNames[g.Dof]}"))}); их реакции сверяются после расчёта."),
+            r.Diagnostics.Add(FemValidationDiagnostic.Of("fragment_gauge", new DiagText("fragment_gauge",
+                split ? new DiagText("fragment_gauge_by_parts", groups.Count) : "", r.Gauge.Count,
+                string.Join(", ", r.Gauge.Select(g => $"{g.MeshNodeTag}:{DofNames[g.Dof]}"))),
                 false, r.Gauge.Select(g => g.MeshNodeTag).Distinct().ToList()));
         if (mechanism.Count > 0)
-            r.Diagnostics.Add(new("fragment_mechanism", "Связей разрезов и опор фрагмента не хватает на все шесть жёстких " +
-                "смещений" + (split ? " части сетки " + string.Join("; ", mechanism.Select(parts!.Describe)) : "") +
-                ": расчёт может не найти равновесия — закрепите DOF разрезов.", false));
+            r.Diagnostics.Add(FemValidationDiagnostic.Of("fragment_mechanism", new DiagText("fragment_mechanism",
+                split ? new DiagText("fragment_mechanism_parts", DiagText.Join("; ", mechanism.Select(parts!.Describe))) : ""), false));
     }
 
     /// <summary>
@@ -411,10 +405,8 @@ public static class FragmentCutBoundary
             if (v > max) { max = v; worst = g; }
         }
         if (scale <= 0 || sum <= GaugeReactionTolerance * scale) return null;
-        return new FemValidationDiagnostic("fragment_gauge_reaction", string.Create(CultureInfo.CurrentCulture,
-            $"{label}: маска не уравновешена — реакции автозакреплений Σ|R| = {sum / 1e3:0.###} кН ({sum / scale:P1} от Σ|F| масок " +
-            $"{scale / 1e3:0.###} кН), наибольшая — узел {worst!.MeshNodeTag}, {DofNames[worst.Dof]}."), false,
-            [worst.MeshNodeTag]);
+        return FemValidationDiagnostic.Of("fragment_gauge_reaction", new DiagText("fragment_gauge_reaction",
+            label, sum / 1e3, sum / scale, scale / 1e3, worst!.MeshNodeTag, DofNames[worst.Dof]), false, [worst.MeshNodeTag]);
     }
 
     /// <summary>
@@ -453,9 +445,8 @@ public static class FragmentCutBoundary
             result.Add(c with { Modes = modes });
         }
         foreach (var comp in switched)
-            r.Diagnostics.Add(new("fragment_component_free",
-                $"Часть сетки фрагмента не связана с остальной и ничем не закреплена: {parts.Describe(comp)}" +
-                " — её разрезы переведены на перемещения из родителя (пресет «Как в родителе»).", false, parts.SourceKeys(comp)));
+            r.Diagnostics.Add(FemValidationDiagnostic.Of("fragment_component_free",
+                new DiagText("fragment_component_free", parts.Describe(comp)), false, parts.SourceKeys(comp)));
         return result;
     }
 
@@ -558,26 +549,23 @@ public static class FragmentCutBoundary
         }
 
         /// <summary>«N КЭ (КонЭ «a», «b», …)» — КонЭ по убыванию числа КЭ.</summary>
-        public string Describe(string part)
+        public DiagText Describe(string part)
         {
             var elements = _elements.GetValueOrDefault(part);
-            if (elements == null) return "узлы вне КЭ";
+            if (elements == null) return new DiagText("fragment_part_outside_elements");
             var members = elements.Select(e => e.SourceMemberTag).OfType<string>().GroupBy(m => m, StringComparer.Ordinal)
                 .OrderByDescending(g => g.Count()).Select(g => g.Key).ToList();
-            string names = members.Count == 0 ? ""
-                : " (КонЭ " + string.Join(", ", members.Take(3).Select(m => "«" + m + "»")) + (members.Count > 3 ? ", …" : "") + ")";
-            return $"{elements.Count} КЭ{names}";
+            if (members.Count == 0) return new DiagText("fragment_part_elements", elements.Count);
+            string names = string.Join(", ", members.Take(3).Select(m => "«" + m + "»")) + (members.Count > 3 ? ", …" : "");
+            return new DiagText("fragment_part_elements_members", elements.Count, names);
         }
 
         /// <summary>Сообщение о несвязанных частях: в родителе они могут соединяться вне фрагмента (швы, нижние этажи).</summary>
         public void Report(FragmentCutBoundaryResult r)
         {
             if (Count < 2) return;
-            r.Diagnostics.Add(new("fragment_components",
-                $"Сетка фрагмента распадается на несвязанные части (нет общих узлов КЭ и жёстких тел), частей {Count}: " +
-                string.Join("; ", Keys.Take(3).Select(Describe)) + (Count > 3 ? "; …" : "") +
-                ". В родителе они могут соединяться вне фрагмента (деформационные швы, нижние этажи) — каждая держится " +
-                "своими разрезами и опорами; автозакрепление силовых разрезов — по частям.", false,
+            r.Diagnostics.Add(FemValidationDiagnostic.Of("fragment_components", new DiagText("fragment_components",
+                Count, DiagText.List(Keys.Select(Describe), 3, "; ", "diag_list_semicolon_dots")), false,
                 [.. Keys.Take(3).SelectMany(k => SourceKeys(k).Take(3))]));
         }
     }
@@ -587,8 +575,7 @@ public static class FragmentCutBoundary
         FragmentDofMode.Fixed => 3, FragmentDofMode.MaskDisplacement => 2, FragmentDofMode.MaskForce => 1, _ => 0,
     };
 
-    static string Where(FragmentCut c) => string.Create(CultureInfo.CurrentCulture,
-        $"«{c.MemberTag}» ({FragmentCutLabel.Side(c)}, z = {c.Z:0.###})");
+    static DiagText Where(FragmentCut c) => new("fragment_cut_where", c.MemberTag, FragmentCutLabel.SideText(c), c.Z);
 
-    sealed record CutState(int Id, FragmentMaskCutInput Cut, FragmentDofMode[] Modes, FragmentCutMeshNodes Nodes, string Where);
+    sealed record CutState(int Id, FragmentMaskCutInput Cut, FragmentDofMode[] Modes, FragmentCutMeshNodes Nodes, DiagText Where);
 }

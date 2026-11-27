@@ -69,12 +69,8 @@ public static class FragmentMaskBalance
         foreach (var b in Evaluate(cuts, masks, loads, origin))
         {
             if (b.Force <= BalanceForceTolerance && b.Moment <= BalanceMomentTolerance) continue;
-            string key = b.Key.Kind == FragmentMaskKeyKind.LoadCase
-                ? $"загружение #{b.Key.LoadCaseId}" : $"сочетание {b.Key.StageExpressionJson}";
-            result.Add(new FemValidationDiagnostic("fragment_mask_balance", string.Create(
-                System.Globalization.CultureInfo.CurrentCulture,
-                $"{key}: маски сечений не уравновешивают нагрузки полосы — по силе {b.Force:P1}, по моменту {b.Moment:P1} ({string.Join("; ", b.Parts)})."),
-                false));
+            result.Add(FemValidationDiagnostic.Of("fragment_mask_balance", new DiagText("fragment_mask_balance",
+                FragmentMaskExtractor.KeyText(b.Key), b.Force, b.Moment, DiagText.Join("; ", b.Parts)), false));
         }
         return result;
     }
@@ -84,7 +80,7 @@ public static class FragmentMaskBalance
         IReadOnlyList<FragmentCutMask> masks, IReadOnlyDictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)> loads,
         PlanarVector3 origin) => Evaluate(cuts, masks, loads, origin).ToDictionary(b => b.Key, b => (b.Force, b.Moment));
 
-    sealed record KeyBalance(FragmentMaskKey Key, double Force, double Moment, List<string> Parts);
+    sealed record KeyBalance(FragmentMaskKey Key, double Force, double Moment, List<DiagText> Parts);
 
     static IEnumerable<KeyBalance> Evaluate(IReadOnlyList<FragmentMaskCutInput> cuts, IReadOnlyList<FragmentCutMask> masks,
         IReadOnlyDictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)> loads, PlanarVector3 origin)
@@ -94,7 +90,7 @@ public static class FragmentMaskBalance
             var sumF = PlanarVector3.Zero;
             var sumM = PlanarVector3.Zero;
             double absF = 0, radius = 0;
-            var parts = new List<string>();
+            var parts = new List<DiagText>();
             foreach (var m in group)
             {
                 var cut = cuts[m.CutIndex];
@@ -105,8 +101,8 @@ public static class FragmentMaskBalance
                 absF += f.Length;
                 foreach (var at in Points(cut)) radius = Math.Max(radius, (at - origin).Length);
                 bool lateral = cut.Cut.Side == FragmentCutSide.Lateral;
-                parts.Add(string.Create(System.Globalization.CultureInfo.CurrentCulture,
-                    $"{cut.Cut.MemberTag} {FragmentCutLabel.Side(cut.Cut)}: {(lateral ? "|F|" : "Fz")} {(lateral ? f.Length : f.Z) / 1e3:0.##} кН"));
+                parts.Add(new DiagText("fragment_mask_balance_part", cut.Cut.MemberTag, FragmentCutLabel.SideText(cut.Cut),
+                    lateral ? "|F|" : "Fz", (lateral ? f.Length : f.Z) / 1e3));
             }
             var (lf, lm) = loads.TryGetValue(group.Key, out var l) ? l : (PlanarVector3.Zero, PlanarVector3.Zero);
             double scaleF = lf.Length > 0 ? lf.Length : absF;

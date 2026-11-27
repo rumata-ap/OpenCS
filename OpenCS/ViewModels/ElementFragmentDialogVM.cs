@@ -294,7 +294,7 @@ public sealed class ElementFragmentDialogVM : ViewModelBase
         if (_selection.OffsetM > LargeOffsetM)
             parts.Add(string.Format(Loc.S("ElementFragmentOffsetLarge"), _selection.OffsetM.ToString("0.###", _culture),
                 LargeOffsetM.ToString("0.###", _culture)));
-        parts.AddRange(_selection.Diagnostics.Select(d => d.Message));
+        parts.AddRange(_selection.Diagnostics.Select(OpenCS.Services.DiagnosticText.Format));
         Message = string.Join(Environment.NewLine, parts);
     }
 

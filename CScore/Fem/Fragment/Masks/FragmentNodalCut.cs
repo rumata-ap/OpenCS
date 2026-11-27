@@ -214,15 +214,14 @@ public static class FragmentNodalCut
 
         var links = Links(body, nodes, bounds, source.NodeLinks, keys, Forces);
         if (links.Skipped.Count > 0)
-            r.Diagnostics.Add(new FemValidationDiagnostic("fragment_mask_link_crosses_cut",
-                $"Связи узлов (АЖТ, пружины) через ступеньку разреза не учтены, групп связей {links.Skipped.Count} " +
-                $"({string.Join("; ", links.Skipped.Take(10))}{(links.Skipped.Count > 10 ? "; …" : "")}) — их силы в маски кромок не входят.", false));
+            r.Diagnostics.Add(FemValidationDiagnostic.Of("fragment_mask_link_crosses_cut", new DiagText("fragment_mask_link_crosses_cut",
+                links.Skipped.Count, DiagText.List(links.Skipped, 10, "; ", "diag_list_semicolon_dots")), false));
 
         foreach (var key in keys)
             if (SelfCheck(body, bounds, key, source, linked, Forces) is { } fail)
             {
-                r.Diagnostics.Add(new FemValidationDiagnostic("fragment_mask_nodal_selfcheck",
-                    fail + " — силы кромок пластин сняты МНК по центрам КЭ.", false));
+                r.Diagnostics.Add(FemValidationDiagnostic.Of("fragment_mask_nodal_selfcheck",
+                    new DiagText("fragment_mask_nodal_selfcheck", fail), false));
                 return r;
             }
 
@@ -316,15 +315,14 @@ public static class FragmentNodalCut
             }
 
             if (lost.Length > 1e-9 * Math.Max(scale, 1))
-                r.Diagnostics.Add(new FemValidationDiagnostic("fragment_mask_nodal_unassigned", string.Create(CultureInfo.CurrentCulture,
-                    $"{FragmentMaskExtractor.KeyText(key)}: силы ступеньки без разреза кромки на своей грани — |ΣF| = {lost.Length / 1e3:0.###} кН не вошли в маски."), false));
+                r.Diagnostics.Add(FemValidationDiagnostic.Of("fragment_mask_nodal_unassigned",
+                    new DiagText("fragment_mask_nodal_unassigned", FragmentMaskExtractor.KeyText(key), lost.Length / 1e3), false));
             r.Terms[key] = map;
         }
         if (links.Counted.Count > 0)
-            r.Diagnostics.Add(new FemValidationDiagnostic("fragment_mask_link_forces", string.Create(CultureInfo.CurrentCulture,
-                $"Связи узлов через ступеньку разреза учтены узловыми силами из равновесия узлов родителя, групп связей {links.Counted.Count} " +
-                $"({string.Join("; ", links.Counted.Take(10).Select(g => g.Label))}{(links.Counted.Count > 10 ? "; …" : "")}), " +
-                $"наибольшая |ΣF| группы {linkMax / 1e3:0.###} кН."), false));
+            r.Diagnostics.Add(FemValidationDiagnostic.Of("fragment_mask_link_forces", new DiagText("fragment_mask_link_forces",
+                links.Counted.Count, DiagText.List(links.Counted.Select(g => g.Label), 10, "; ", "diag_list_semicolon_dots"),
+                linkMax / 1e3), false));
         r.Ok = true;
         return r;
     }
@@ -332,7 +330,7 @@ public static class FragmentNodalCut
     /// <summary>
     /// Равновесие узлов тела без связей: |Σ_e (f_int,e − f_нагр,e) − P_N − R_N| ≤ допуска. Текст отказа или null.
     /// </summary>
-    static string? SelfCheck(Body body, FragmentBounds bounds, FragmentMaskKey key, IFragmentParentNodalForces source,
+    static DiagText? SelfCheck(Body body, FragmentBounds bounds, FragmentMaskKey key, IFragmentParentNodalForces source,
         HashSet<string> linked, Func<FragmentMaskKey, string, IReadOnlyDictionary<string, Dof6>?> forces)
     {
         var loads = source.NodeLoads(key);
@@ -346,7 +344,7 @@ public static class FragmentNodalCut
             foreach (var e in body.At(n))
             {
                 if (forces(key, e)?.GetValueOrDefault(n) is not { } f)
-                    return $"Самопроверка узловых сил КЭ, {FragmentMaskExtractor.KeyText(key)}: нет сил КЭ {e} в узле {n}";
+                    return new DiagText("fragment_mask_selfcheck_no_forces", FragmentMaskExtractor.KeyText(key), e, n);
                 sum += f;
                 var full = f + (source.ElementLoads(key, e).GetValueOrDefault(n) ?? Dof6.Zero);
                 scale = Math.Max(scale, full.Force.Length);
@@ -358,8 +356,7 @@ public static class FragmentNodalCut
         var worst = residual.Select(x => (x.Node, V: Math.Max(x.R.Force.Length / scale, x.R.Moment.Length / (scale * length))))
             .MaxBy(x => x.V);
         return worst.V > SelfCheckTolerance
-            ? string.Create(CultureInfo.CurrentCulture,
-                $"Самопроверка узловых сил КЭ, {FragmentMaskExtractor.KeyText(key)}: в узле {worst.Node} невязка {worst.V:0.##E+0} при допуске {SelfCheckTolerance:0.##E+0}")
+            ? new DiagText("fragment_mask_selfcheck_residual", FragmentMaskExtractor.KeyText(key), worst.Node, worst.V, SelfCheckTolerance)
             : null;
     }
 
@@ -380,7 +377,7 @@ public static class FragmentNodalCut
     /// с множителем 1; одиночная пружина — χ_s − χ_f; пары с пружинами через ступеньку или нет сил КЭ узла — неучтённые
     /// с причиной.
     /// </summary>
-    static (List<LinkGroup> Counted, List<string> Skipped) Links(Body body, IReadOnlyDictionary<string, FemMeshNode> nodes,
+    static (List<LinkGroup> Counted, List<DiagText> Skipped) Links(Body body, IReadOnlyDictionary<string, FemMeshNode> nodes,
         FragmentBounds bounds, IReadOnlyCollection<(string A, string? B)> links, IReadOnlyList<FragmentMaskKey> keys,
         Func<FragmentMaskKey, string, IReadOnlyDictionary<string, Dof6>?> forces)
     {
@@ -418,14 +415,14 @@ public static class FragmentNodalCut
             || keys.All(k => body.At(n).All(e => forces(k, e)?.GetValueOrDefault(n) != null));
 
         var counted = new List<LinkGroup>();
-        var skipped = new List<string>();
+        var skipped = new List<DiagText>();
         foreach (var g in groups.Values)
         {
             string label = string.Join(", ", g.Labels);
             var holds = g.Nodes.Where(n => body.Holds(n, nodes, bounds)).ToList();
             bool crossing = holds.Count > 0 && holds.Count < g.Nodes.Count;
             Dictionary<string, int>? factor = null;
-            string? reason = null;
+            DiagText? reason = null;
             if (!g.Pairs)
             {
                 var f = g.Nodes.Where(n => K(n) != 0).ToDictionary(n => n, K, StringComparer.Ordinal);
@@ -436,14 +433,14 @@ public static class FragmentNodalCut
                 if (crossing) factor = holds.ToDictionary(n => n, _ => 1, StringComparer.Ordinal);
             }
             else if (crossing || g.Springs.Any(n => K(n) != 0))
-                reason = "АЖТ и пружины в одной группе";
+                reason = new DiagText("fragment_mask_link_reason_mixed");
             if (factor != null && !factor.Keys.All(HasForces))
             {
                 factor = null;
-                reason = "нет сил КЭ";
+                reason = new DiagText("fragment_mask_link_reason_no_forces");
             }
             if (factor != null) counted.Add(new LinkGroup(label, factor));
-            else if (reason != null) skipped.Add($"{label} — {reason}");
+            else if (reason != null) skipped.Add(new DiagText("fragment_mask_link_skipped", label, reason));
         }
         return (counted, skipped);
     }

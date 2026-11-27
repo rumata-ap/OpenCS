@@ -49,7 +49,7 @@ public static class StoreyFragmentReportRows
     public static IReadOnlyList<StoreyFragmentReportRow> From(IEnumerable<FemValidationDiagnostic> diagnostics) =>
         diagnostics.OrderByDescending(d => d.IsError)
             .Select(d => new StoreyFragmentReportRow(
-                Loc.S(d.IsError ? "StoreyFragmentReportError" : "StoreyFragmentReportWarning"), d.Message, d.IsError))
+                Loc.S(d.IsError ? "StoreyFragmentReportError" : "StoreyFragmentReportWarning"), DiagnosticText.Format(d), d.IsError))
             .ToList();
 
     /// <summary>Текст для буфера обмена: «уровень⇥сообщение» по строке.</summary>

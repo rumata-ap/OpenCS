@@ -89,8 +89,8 @@ public static class FemKeptMeshUnlock
             plan.UnlockedMemberTags.Add(m.ElemTag);
         }
         if (noRegion.Count > 0)
-            plan.Diagnostics.Add(new("fragment_mesh_unlock_no_region",
-                $"Сетку КонЭ {Join(noRegion)} нельзя перестроить: у пластины нет области — сохранённая сетка оставлена.", false, [.. noRegion]));
+            plan.Diagnostics.Add(FemValidationDiagnostic.Of("fragment_mesh_unlock_no_region",
+                new DiagText("fragment_mesh_unlock_no_region", Join(noRegion)), false, [.. noRegion]));
         if (plan.IsEmpty)
         {
             plan.Nodes.AddRange(input.Nodes);
@@ -126,19 +126,10 @@ public static class FemKeptMeshUnlock
 
     static IEnumerable<string> NodeTags(FemElement e) => FemMemberGroup.ParseTags(e.NodeIdsJson);
 
-    static string Join(IEnumerable<string> tags)
-    {
-        var list = tags.Distinct(StringComparer.Ordinal).ToList();
-        string head = string.Join(", ", list.Take(10).Select(t => $"«{t}»"));
-        return list.Count > 10 ? $"{head} и ещё {list.Count - 10}" : head;
-    }
+    static object Join(IEnumerable<string> tags) =>
+        DiagText.List(tags.Distinct(StringComparer.Ordinal).Select(t => $"«{t}»"));
 
-    static string Short(IEnumerable<string> tags)
-    {
-        var list = tags.Distinct(StringComparer.Ordinal).ToList();
-        string head = string.Join(", ", list.Take(10));
-        return list.Count > 10 ? $"{head} и ещё {list.Count - 10}" : head;
-    }
+    static object Short(IEnumerable<string> tags) => DiagText.List(tags.Distinct(StringComparer.Ordinal));
 
     /// <summary>Состояние планирования: узлы схемы по точке, новые теги, сетка до снятия (геометрия удаляемых КЭ).</summary>
     sealed class Ctx
@@ -286,17 +277,15 @@ public static class FemKeptMeshUnlock
         }
         var origins = c.Plan.RemovedRigidBodies.GroupBy(b => b.Origin, StringComparer.Ordinal)
             .Select(g => $"{g.Key} — {g.Count()}");
-        string points = c.Plan.NodeRigidBodies.Count > 0
-            ? $"; импортные переведены на узлы схемы (по точкам): {c.Plan.NodeRigidBodies.Count}"
+        object points = c.Plan.NodeRigidBodies.Count > 0
+            ? new DiagText("fragment_mesh_unlock_rigid_points", c.Plan.NodeRigidBodies.Count)
             : "";
-        c.Plan.Diagnostics.Add(new("fragment_mesh_unlock_rigid_removed",
-            $"АЖТ на узлах перестраиваемой сетки удалены: {c.Plan.RemovedRigidBodies.Count} ({string.Join(", ", origins)}){points}; " +
-            "автоматические АЖТ перестроенных областей строятся заново.", false,
+        c.Plan.Diagnostics.Add(FemValidationDiagnostic.Of("fragment_mesh_unlock_rigid_removed",
+            new DiagText("fragment_mesh_unlock_rigid_removed", c.Plan.RemovedRigidBodies.Count, string.Join(", ", origins), points), false,
             [.. c.Plan.RemovedRigidBodies.Select(b => b.MasterNodeTag).Distinct(StringComparer.Ordinal)]));
         if (lost.Count > 0)
-            c.Plan.Diagnostics.Add(new("fragment_mesh_unlock_rigid_lost",
-                $"Импортные АЖТ перестраиваемой сетки не перенесены — нет узлов тела в сетке: {Short(lost)}.", false,
-                [.. lost.Distinct(StringComparer.Ordinal)]));
+            c.Plan.Diagnostics.Add(FemValidationDiagnostic.Of("fragment_mesh_unlock_rigid_lost",
+                new DiagText("fragment_mesh_unlock_rigid_lost", Short(lost)), false, [.. lost.Distinct(StringComparer.Ordinal)]));
     }
 
     static void TransferNodeLoads(Ctx c)
@@ -409,9 +398,8 @@ public static class FemKeptMeshUnlock
         var missingRefs = fieldRefs.Where(t => !c.Input.RefElementTags.Contains(t)).Select(t => c.Mesh.ElementsByTag[t]).ToList();
         c.Plan.RefElements.AddRange(FragmentRefElement.From(missingRefs, c.MeshNodeByTag));
         if (lost.Count > 0)
-            c.Plan.Diagnostics.Add(new("fragment_mesh_unlock_load_lost",
-                $"Нагрузки на КЭ перестраиваемой сетки не перенесены (вид не поддержан, собственный вес не на всех КЭ КонЭ, " +
-                $"оси КЭ неизвестны): КЭ {Short(lost)}.", false, [.. lost.Distinct(StringComparer.Ordinal)]));
+            c.Plan.Diagnostics.Add(FemValidationDiagnostic.Of("fragment_mesh_unlock_load_lost",
+                new DiagText("fragment_mesh_unlock_load_lost", Short(lost)), false, [.. lost.Distinct(StringComparer.Ordinal)]));
     }
 
     /// <summary>Нагрузка КЭ-стержня (равномерная, трапеция, сосредоточенная) → нагрузка КонЭ в глобальных осях на том

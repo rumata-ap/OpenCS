@@ -26,15 +26,15 @@ public static class FragmentPrismBuilder
         ArgumentNullException.ThrowIfNull(parent);
         ArgumentNullException.ThrowIfNull(memberTags);
         var diagnostics = new List<FemValidationDiagnostic>();
-        void Error(string code, string message, params string[] keys) => diagnostics.Add(new(code, message, true, keys));
+        void Error(string code, DiagText text, params string[] keys) => diagnostics.Add(FemValidationDiagnostic.Of(code, text, true, keys));
         if (!(d > 0))
         {
-            Error("fragment_prism_offset_invalid", $"Отступ d = {d:0.###} м должен быть больше нуля.");
+            Error("fragment_prism_offset_invalid", new DiagText("fragment_prism_offset_invalid", d));
             return new(null, diagnostics);
         }
         if (memberTags.Count == 0)
         {
-            Error("fragment_prism_empty", "Не выбрано ни одной колонны или стены.");
+            Error("fragment_prism_empty", new DiagText("fragment_prism_empty"));
             return new(null, diagnostics);
         }
 
@@ -47,7 +47,7 @@ public static class FragmentPrismBuilder
         {
             if (!memberByTag.TryGetValue(tag, out var m))
             {
-                Error("fragment_prism_member_missing", $"Элемент {tag} не найден в схеме.", tag);
+                Error("fragment_prism_member_missing", new DiagText("fragment_prism_member_missing", tag), tag);
                 continue;
             }
             FragmentPrism? prism = null;
@@ -60,8 +60,7 @@ public static class FragmentPrismBuilder
             }
             if (prism is null)
             {
-                Error("fragment_prism_not_vertical",
-                    $"Элемент {tag} — не вертикальная колонна и не вертикальная стена: фрагмент строится только вокруг них.", tag);
+                Error("fragment_prism_not_vertical", new DiagText("fragment_prism_not_vertical", tag), tag);
                 continue;
             }
             single = prism;

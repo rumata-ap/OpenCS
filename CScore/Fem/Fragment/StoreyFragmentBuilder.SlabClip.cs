@@ -45,9 +45,7 @@ public static partial class StoreyFragmentBuilder
             AddLateralEdgeCuts(c, source, names[i], pieces[i].Polygon);
         }
         if (lost.Count > 0)
-            c.Warn("fragment_slab_constraints_lost",
-                $"Плита {tag}: ограничения сетки и размеченные участки границы, пересекающие грань фрагмента, не переносятся: " +
-                $"{Head(lost.Distinct().ToList())}.", tag);
+            c.Warn("fragment_slab_constraints_lost", new DiagText("fragment_slab_constraints_lost", tag, Head(lost.Distinct().ToList())), tag);
     }
 
     static bool Inside(IReadOnlyList<PlanarHalfPlane> cuts, PlanarPoint2D p, double tol) => cuts.All(h => Norm(h).Eval(p) >= -tol);
