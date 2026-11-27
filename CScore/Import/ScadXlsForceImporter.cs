@@ -191,6 +191,13 @@ public static class ScadXlsForceImporter
             result.ForceSets.Clear();
             return result;
         }
+        catch (ExcelDataReader.Exceptions.ExcelReaderException ex)
+        {
+            // «Invalid file signature» и т. п. — файл не книга Excel (повреждён, пуст или другого формата).
+            result.Error = $"Файл «{Path.GetFileName(path)}» не читается как книга Excel (XLS/XLSX): {ex.Message} " +
+                           "Откройте таблицу усилий в SCAD и сохраните её в Excel заново.";
+            return result;
+        }
         catch (Exception ex)
         {
             result.Error = ex.Message;

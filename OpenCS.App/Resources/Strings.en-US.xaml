@@ -268,6 +268,7 @@
    <system:String x:Key="LiraComDiagnostics">LIRA-SAPR COM DIAGNOSTICS:</system:String>
    <system:String x:Key="SeeEventLogForDetails">See the event log for details.</system:String>
    <system:String x:Key="LiraHtmlFilter">LIRA-SAPR HTML tables (*.htm;*.html)|*.htm;*.html</system:String>
+   <system:String x:Key="DxfUnitsReloaded">Drawing "{0}" re-read in units: {1}.</system:String>
    <system:String x:Key="DxfUnitsTitle">Drawing units</system:String>
    <system:String x:Key="DxfUnitsPrompt">The file "{0}" does not define drawing units. What units are the coordinates in?</system:String>
    <system:String x:Key="DxfUnitsFromFile">Drawing units of "{0}" are taken from the file: {1}.</system:String>
@@ -986,7 +987,7 @@
    <system:String x:Key="ImportLiraSchemaElemsTitle">LIRA-SAPR elements file (CSV)</system:String>
    <system:String x:Key="ImportLiraSchemaBarStiffTitle">Bar stiffnesses file (CSV, optional)</system:String>
    <system:String x:Key="ImportLiraSchemaPlateStiffTitle">Plate stiffnesses file (CSV, optional)</system:String>
-   <system:String x:Key="ImportLiraSchemaSuccess">Imported schema: {0} nodes, {1} bars, {2} shells, {3} design members</system:String>
+   <system:String x:Key="ImportLiraSchemaSuccess">Imported model: nodes {0}, bars {1}, plates {2}, element groups {3}</system:String>
    <system:String x:Key="CsvFileFilter">CSV file (*.csv)|*.csv|All files (*.*)|*.*</system:String>
    <system:String x:Key="ImportScadTopologyFromTxt">Import SCAD topology (text format)…</system:String>
    <system:String x:Key="ImportScadSchemaFromApi">Schema from SCAD project (.SPR)…</system:String>
@@ -1264,14 +1265,14 @@
    <system:String x:Key="ScadTextFileFilter">SCAD text format (*.txt)|*.txt|All files (*.*)|*.*</system:String>
    <system:String x:Key="ImportScadErrorTitle">SCAD import</system:String>
    <system:String x:Key="ImportScadFailed">Failed to import the file.</system:String>
-   <system:String x:Key="ImportScadSuccess">Imported SCAD schema: {0} nodes, {1} bars, {2} shells, {3} design members, {4} named groups</system:String>
+   <system:String x:Key="ImportScadSuccess">Imported SCAD model: nodes {0}, bars {1}, shells {2}, element groups {3}, named groups {4}</system:String>
    <system:String x:Key="ImportScadForcesLoadCases">Forces — load cases (XLS)…</system:String>
    <system:String x:Key="ImportScadForcesRsu">Forces — design combinations RSU (XLS)…</system:String>
    <system:String x:Key="ImportScadForcesCombinations">Forces — RSN (combinations) (XLS)…</system:String>
    <system:String x:Key="ImportScadForcesTitleLoadCases">Import SCAD forces — load cases (.xls)</system:String>
    <system:String x:Key="ImportScadForcesTitleRsu">Import SCAD forces — RSU (.xls)</system:String>
    <system:String x:Key="ImportScadForcesTitleCombinations">Import SCAD forces — RSN / combinations (.xls)</system:String>
-   <system:String x:Key="ScadXlsFileFilter">SCAD Excel (*.xls)|*.xls|All files (*.*)|*.*</system:String>
+   <system:String x:Key="ScadXlsFileFilter">SCAD Excel (*.xls;*.xlsx)|*.xls;*.xlsx|All files (*.*)|*.*</system:String>
    <system:String x:Key="ScadForceImportDialogTitle">SCAD forces: elements</system:String>
    <system:String x:Key="ScadForceImportElementsLabel">SCAD element numbers (e.g. 12, 15-20 31)</system:String>
    <system:String x:Key="ScadForceImportFromMember">From selected member</system:String>
@@ -1608,8 +1609,8 @@
 
    <!-- Contours DXF import -->
    <system:String x:Key="ImportContoursFromDxfTitle">Import contours from DXF</system:String>
-   <system:String x:Key="ContoursImportedFromDxf">Imported {0} contours from '{1}'</system:String>
-   <system:String x:Key="ContoursSkippedDxf">Skipped {0} open polylines</system:String>
+   <system:String x:Key="ContoursImportedFromDxf">Contours imported: {0} — from "{1}"</system:String>
+   <system:String x:Key="ContoursSkippedDxf">Polylines skipped (open, self-intersecting, zero area): {0}</system:String>
    <system:String x:Key="NoDxfPolylines">No polylines found in '{0}'</system:String>
 
    <!-- Circles context menu -->
@@ -1621,9 +1622,9 @@
    <system:String x:Key="ExportCirclesToDxfTitle">Export circles to DXF</system:String>
    <system:String x:Key="ImportCirclesFromCsvTitle">Import circles from CSV</system:String>
    <system:String x:Key="ExportCirclesToCsvTitle">Export circles to CSV</system:String>
-   <system:String x:Key="CirclesImportedFromDxf">Imported {0} circles from '{1}'</system:String>
+   <system:String x:Key="CirclesImportedFromDxf">Circles imported: {0} — from "{1}"</system:String>
    <system:String x:Key="CirclesExportedToDxf">Exported {0} circles to '{1}'</system:String>
-   <system:String x:Key="CirclesImportedFromCsv">Imported {0} circles from '{1}'</system:String>
+   <system:String x:Key="CirclesImportedFromCsv">Circles imported: {0} — from "{1}"</system:String>
    <system:String x:Key="CirclesExportedToCsv">Exported {0} circles to '{1}'</system:String>
    <system:String x:Key="NoDxfCircles">No circles found in '{0}'</system:String>
    <system:String x:Key="NoCirclesToExport">No circles to export</system:String>

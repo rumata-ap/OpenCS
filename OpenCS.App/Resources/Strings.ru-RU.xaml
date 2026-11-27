@@ -268,6 +268,7 @@
    <system:String x:Key="LiraComDiagnostics">ДИАГНОСТИКА ЛИРА-САПР COM:</system:String>
    <system:String x:Key="SeeEventLogForDetails">Подробности — в журнале событий.</system:String>
    <system:String x:Key="LiraHtmlFilter">Таблицы ЛИРА-САПР HTML (*.htm;*.html)|*.htm;*.html</system:String>
+   <system:String x:Key="DxfUnitsReloaded">Чертёж «{0}» перечитан в единицах: {1}.</system:String>
    <system:String x:Key="DxfUnitsTitle">Единицы чертежа</system:String>
    <system:String x:Key="DxfUnitsPrompt">В файле «{0}» единицы чертежа не заданы. В каких единицах координаты?</system:String>
    <system:String x:Key="DxfUnitsFromFile">Единицы чертежа «{0}» — из файла: {1}.</system:String>
@@ -986,7 +987,7 @@
    <system:String x:Key="ImportLiraSchemaElemsTitle">Файл элементов ЛИРА-САПР (CSV)</system:String>
    <system:String x:Key="ImportLiraSchemaBarStiffTitle">Файл жёсткостей стержней (CSV, опционально)</system:String>
    <system:String x:Key="ImportLiraSchemaPlateStiffTitle">Файл жёсткостей пластин (CSV, опционально)</system:String>
-   <system:String x:Key="ImportLiraSchemaSuccess">Импортирована схема: {0} узлов, {1} стержней, {2} пластин, {3} конструктивных элементов</system:String>
+   <system:String x:Key="ImportLiraSchemaSuccess">Импортирована схема: узлов {0}, стержней {1}, пластин {2}, групп КЭ {3}</system:String>
    <system:String x:Key="CsvFileFilter">CSV-файл (*.csv)|*.csv|Все файлы (*.*)|*.*</system:String>
    <system:String x:Key="ImportScadTopologyFromTxt">Импорт топологии SCAD (текстовый формат)…</system:String>
    <system:String x:Key="ImportScadSchemaFromApi">Схема из проекта SCAD (.SPR)…</system:String>
@@ -1264,14 +1265,14 @@
    <system:String x:Key="ScadTextFileFilter">Текстовый формат SCAD (*.txt)|*.txt|Все файлы (*.*)|*.*</system:String>
    <system:String x:Key="ImportScadErrorTitle">Импорт SCAD</system:String>
    <system:String x:Key="ImportScadFailed">Не удалось импортировать файл.</system:String>
-   <system:String x:Key="ImportScadSuccess">Импортирована схема SCAD: {0} узлов, {1} стержней, {2} оболочек, {3} конструктивных элементов, {4} именованных групп</system:String>
+   <system:String x:Key="ImportScadSuccess">Импортирована схема SCAD: узлов {0}, стержней {1}, оболочек {2}, групп КЭ {3}, именованных групп {4}</system:String>
    <system:String x:Key="ImportScadForcesLoadCases">Усилия — загружения (XLS)…</system:String>
    <system:String x:Key="ImportScadForcesRsu">Усилия — РСУ (XLS)…</system:String>
    <system:String x:Key="ImportScadForcesCombinations">Усилия — РСН (комбинации) (XLS)…</system:String>
    <system:String x:Key="ImportScadForcesTitleLoadCases">Импорт усилий SCAD — загружения (.xls)</system:String>
    <system:String x:Key="ImportScadForcesTitleRsu">Импорт усилий SCAD — РСУ (.xls)</system:String>
    <system:String x:Key="ImportScadForcesTitleCombinations">Импорт усилий SCAD — РСН / комбинации (.xls)</system:String>
-   <system:String x:Key="ScadXlsFileFilter">SCAD Excel (*.xls)|*.xls|Все файлы (*.*)|*.*</system:String>
+   <system:String x:Key="ScadXlsFileFilter">SCAD Excel (*.xls;*.xlsx)|*.xls;*.xlsx|Все файлы (*.*)|*.*</system:String>
    <system:String x:Key="ScadForceImportDialogTitle">Усилия SCAD: элементы</system:String>
    <system:String x:Key="ScadForceImportElementsLabel">Номера КЭ SCAD (например: 12, 15-20 31)</system:String>
    <system:String x:Key="ScadForceImportFromMember">Из выбранного элемента</system:String>
@@ -1608,8 +1609,8 @@
 
    <!-- Contours DXF import -->
    <system:String x:Key="ImportContoursFromDxfTitle">Импорт контуров из DXF</system:String>
-   <system:String x:Key="ContoursImportedFromDxf">Импортировано {0} контуров из «{1}»</system:String>
-   <system:String x:Key="ContoursSkippedDxf">Пропущено {0} незамкнутых полилиний</system:String>
+   <system:String x:Key="ContoursImportedFromDxf">Импортировано контуров: {0} — из «{1}»</system:String>
+   <system:String x:Key="ContoursSkippedDxf">Пропущено полилиний (незамкнутые, самопересечение, нулевая площадь): {0}</system:String>
    <system:String x:Key="NoDxfPolylines">В файле «{0}» нет полилиний</system:String>
 
    <!-- Circles context menu -->
@@ -1621,9 +1622,9 @@
    <system:String x:Key="ExportCirclesToDxfTitle">Экспорт окружностей в DXF</system:String>
    <system:String x:Key="ImportCirclesFromCsvTitle">Импорт окружностей из CSV</system:String>
    <system:String x:Key="ExportCirclesToCsvTitle">Экспорт окружностей в CSV</system:String>
-   <system:String x:Key="CirclesImportedFromDxf">Импортировано {0} окружностей из «{1}»</system:String>
+   <system:String x:Key="CirclesImportedFromDxf">Импортировано окружностей: {0} — из «{1}»</system:String>
    <system:String x:Key="CirclesExportedToDxf">Экспортировано {0} окружностей в «{1}»</system:String>
-   <system:String x:Key="CirclesImportedFromCsv">Импортировано {0} окружностей из «{1}»</system:String>
+   <system:String x:Key="CirclesImportedFromCsv">Импортировано окружностей: {0} — из «{1}»</system:String>
    <system:String x:Key="CirclesExportedToCsv">Экспортировано {0} окружностей в «{1}»</system:String>
    <system:String x:Key="NoDxfCircles">В файле «{0}» нет окружностей</system:String>
    <system:String x:Key="NoCirclesToExport">Нет окружностей для экспорта</system:String>

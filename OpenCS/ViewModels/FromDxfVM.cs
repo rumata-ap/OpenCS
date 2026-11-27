@@ -65,7 +65,12 @@ namespace OpenCS.ViewModels
                mvm.AcadImportSettings.ScaleFactor = _scale;
                mvm.db.SaveAcadImportSettings(mvm.AcadImportSettings);
             }
-            if (_file != null) LoadFile(_file, keepUnits: true);
+            if (_file != null)
+            {
+               LoadFile(_file, keepUnits: true);
+               // Канвас вписывает чертёж в окно — размер на экране не меняется; смену единиц видно по журналу.
+               mvm?.LogService.Info(string.Format(Loc.S("DxfUnitsReloaded"), System.IO.Path.GetFileName(_file), Units[_unitIdx]));
+            }
          }
       }
 
