@@ -10,6 +10,7 @@ namespace OpenCS.Services;
 /// объекта мусор (проверено 13.10). Перемещения узлов API отдаёт в метрах и радианах независимо от единиц документа
 /// (проверено 10.11 на «Мирной»: осадка ЗН1 4,3 мм при единице перемещений «мм»; ручная сверка 13.10 с CSfea — в метрах).
 /// </summary>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 static class LiraApiMaskSnapshotReader
 {
     const double TonToKn = 9.80665;

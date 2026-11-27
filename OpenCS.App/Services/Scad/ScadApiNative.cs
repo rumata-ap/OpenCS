@@ -8,6 +8,7 @@ namespace OpenCS.Services.Scad;
 /// на функции (все WINAPI; APICode — UINT16, BOOL — int, строки — LPCSTR в cp1251). Библиотека
 /// загружается в процесс один раз; повторная загрузка из другого каталога — ошибка (нужен перезапуск).
 /// </summary>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 internal sealed unsafe class ScadApiNative
 {
     /// <summary>Имя файла библиотеки.</summary>

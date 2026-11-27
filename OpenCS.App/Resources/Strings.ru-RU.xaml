@@ -261,6 +261,13 @@
    <system:String x:Key="FromDxfGroupSuffix">_г</system:String>
    <system:String x:Key="FemBoundarySummaryCopyTip">Таблица (столбцы через табуляцию) и сообщения — в буфер обмена</system:String>
    <system:String x:Key="ClipboardBusy">Не удалось записать текст в буфер обмена — он занят другой программой. Повторите.</system:String>
+   <system:String x:Key="FemImportRolledBack">Импорт схемы «{0}» прерван: {1}. Схема не создана.</system:String>
+   <system:String x:Key="FemImportRollbackFailed">Импорт схемы «{0}» прерван, неполную схему удалить не удалось: {1}. Удалите её из дерева вручную.</system:String>
+   <system:String x:Key="ImportLiraBlocksSuffix"> ({0} кБ)</system:String>
+   <system:String x:Key="LiraApiSchemaDefaultTag">Схема ЛИРА-САПР (API)</system:String>
+   <system:String x:Key="LiraComDiagnostics">ДИАГНОСТИКА ЛИРА-САПР COM:</system:String>
+   <system:String x:Key="SeeEventLogForDetails">Подробности — в журнале событий.</system:String>
+   <system:String x:Key="LiraHtmlFilter">Таблицы ЛИРА-САПР HTML (*.htm;*.html)|*.htm;*.html</system:String>
    <system:String x:Key="DxfUnitsTitle">Единицы чертежа</system:String>
    <system:String x:Key="DxfUnitsPrompt">В файле «{0}» единицы чертежа не заданы. В каких единицах координаты?</system:String>
    <system:String x:Key="DxfUnitsFromFile">Единицы чертежа «{0}» — из файла: {1}.</system:String>

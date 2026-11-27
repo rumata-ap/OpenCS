@@ -37,4 +37,12 @@
     <ProjectReference Include="..\OpenCS.Reporting\OpenCS.Reporting.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- COM-интероп результатов ЛИРЫ (LiraResultsAccess); вызовы — только в Windows. -->
+    <Reference Include="Interop.LiraSaprRes">
+      <HintPath>..\OpenCS\Interop\Interop.LiraSaprRes.dll</HintPath>
+      <EmbedInteropTypes>false</EmbedInteropTypes>
+    </Reference>
+  </ItemGroup>
+
 </Project>

@@ -17,6 +17,7 @@ namespace OpenCS.Services;
 /// по реально запущенному exe (путь из LocalServer32), а CLSID объекта результатов — из библиотеки
 /// типов LiraResAPI.dll, лежащей рядом с этим exe (см. <see cref="LiraResultsApi"/>).
 /// </remarks>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 static class LiraComConnector
 {
     /// <summary>Зарегистрированный COM-сервер приложения ЛИРА.</summary>
@@ -233,6 +234,7 @@ static class LiraComConnector
 /// и в интерфейсы ответов вставлены новые методы в середину при тех же IID (vtable сдвинут),
 /// а в LiraRequestEnum — новый член (РСН 5→6, РСУ 7→8). Вызовы по имени через IDispatch от этого не зависят.
 /// </remarks>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 sealed class LiraResultsApi(object access, IReadOnlyDictionary<string, int> requestCodes)
 {
     /// <summary>COM-объект LiraResultsAccess (вызовы — только через dynamic).</summary>

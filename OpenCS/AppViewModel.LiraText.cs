@@ -30,14 +30,13 @@ namespace OpenCS
 
       /// <summary>
       /// После импорта схемы из API: найти текстовый файл открытой схемы во всех версиях ЛИРЫ и перенести из него ГУ (C1
-      /// пластин — из API) и нагрузки. Файла нет или он от другой схемы — предупреждение, закрепления и C1 — из API.
+      /// пластин — из API) и нагрузки. Файла нет или он от другой схемы — предупреждение, закрепления и C1 — из API (null).
       /// </summary>
-      /// <returns>Путь перенесённого файла; null — перенос не выполнен.</returns>
-      async Task<string?> TransferLiraTextAfterImport(FemSchema schema, LiraSchemaData raw, string? title, int? version,
-         string? lirPath)
+      async Task<(Services.FemBoundarySummary Boundary, Services.FemLoadTransferOutcome Loads)?> TransferLiraTextAfterImport(
+         Services.FemSchemaImport import, FemSchema schema, LiraSchemaData raw, string? title, int? version, string? lirPath)
       {
-         var dirs = LiraTextDirectories();
-         string? path = FindLiraText(title, dirs, version);
+         var dirs = import.LiraTextDirectories();
+         string? path = import.FindLiraText(title, dirs, version);
          if (path == null)
          {
             LogService.Warning(string.Format(Loc.S("LiraTextNotFound"), LiraTextFileLocator.FileName(title) ?? title ?? "?",
@@ -45,50 +44,36 @@ namespace OpenCS
                Loc.S("LiraBoundaryRefresh"), Loc.S("LiraLoadsTransfer")));
             return null;
          }
-         var txt = await ReadLiraText(path);
+         var txt = await import.ReadLiraTextAsync(path, Services.BackgroundImportWork.Instance);
          if (txt == null) return null;
-         WarnIfLiraTextStale(path, lirPath);
-         var meshNodes = db.GetFemMeshNodes(schema.Id);
-         var elements = db.GetFemMeshElements(schema.Id);
-         var match = LiraTextMeshMatch.Compare(txt, meshNodes, elements);
+         import.WarnIfLiraTextStale(path, lirPath);
+         var match = LiraTextMeshMatch.Compare(txt, db.GetFemMeshNodes(schema.Id), db.GetFemMeshElements(schema.Id));
          if (!match.Ok)
          {
-            LogService.Warning(MismatchMessage(schema, path, match));
+            LogService.Warning(Services.FemSchemaImport.MismatchMessage(schema, path, match));
             return null;
          }
-         await ApplyLiraTextToNewSchema(schema, raw, txt, path, meshNodes, elements);
-         return path;
-      }
-
-      /// <summary>ГУ (C1 пластин — из <paramref name="raw"/>) и нагрузки текстового файла в только что импортированную
-      /// схему; путь файла — в <see cref="FemSchema.SourcePath"/>.</summary>
-      async Task ApplyLiraTextToNewSchema(FemSchema schema, LiraSchemaData raw, LiraTextSchema txt, string path,
-         IReadOnlyList<FemMeshNode> meshNodes, IReadOnlyList<FemElement> elements)
-      {
-         var c1 = CScore.Import.LiraSchemaConverter.ToFemElementBoundaryProps(raw)
-            .ToDictionary(kv => kv.Key, kv => kv.Value.FoundationC1!.Value, StringComparer.Ordinal);
-         TransferLiraBoundary(schema, txt, meshNodes, elements, c1.Count > 0 ? c1 : null, showSummary: true);
-         await TransferLiraLoads(schema, txt, meshNodes, elements);
-         db.UpdateFemSchemaSourcePath(schema, Path.GetFullPath(path));
+         return await import.ApplyLiraTextToNewSchema(schema, raw, txt, path, Services.BackgroundImportWork.Instance);
       }
 
       /// <summary>
       /// Импорт схемы целиком из текстового файла ЛИРЫ — без COM API (ранние версии ЛИРЫ) и без запущенной ЛИРЫ: геометрия
       /// и жёсткости — документы 1, 3, 4, 9 и <c>{13/}</c>, имена и Ro жёсткостей, блоки и C1 пластин —
-      /// <c>Work\&lt;Title&gt;.ald</c> (если есть), ГУ и нагрузки — как при импорте из API.
+      /// <c>Work\&lt;Title&gt;.ald</c> (если есть), ГУ и нагрузки — как при импорте из API. Ошибка — схема не создаётся.
       /// </summary>
       async void ImportLiraSchemaFromText()
       {
          if (IsBusy) return;
-         var dirs = LiraTextDirectories();
+         var import = FemImport;
+         var dirs = import.LiraTextDirectories();
          string? path = FileDialogService.OpenFile(Loc.S("LiraTextFilter"), Loc.S("ImportLiraSchemaFromTextTitle"),
-            OwnLiraTextDirectory() ?? dirs.LastOrDefault()?.Path);
+            import.OwnLiraTextDirectory() ?? dirs.LastOrDefault()?.Path);
          if (path == null) return;
 
          BeginBusy(Loc.S("StatusImportingSchema"));
          try
          {
-            var txt = await ReadLiraText(path);
+            var txt = await import.ReadLiraTextAsync(path, Services.BackgroundImportWork.Instance);
             if (txt == null) { EndBusy(); return; }
             if (txt.Nodes.Count == 0 || txt.Elements.Count == 0)
             {
@@ -97,29 +82,12 @@ namespace OpenCS
                   MessageBoxButton.OK, MessageBoxImage.Warning);
                return;
             }
-            string? aldPath = LiraAldFile.PathFor(path);
-            LiraAldFile? ald = null;
-            if (aldPath != null)
-               try { ald = await Task.Run(() => LiraAldFile.Read(aldPath)); }
-               catch (Exception ex) { LogService.Warning(string.Format(Loc.S("LiraAldReadError"), aldPath, ex.Message)); }
-            else LogService.Warning(string.Format(Loc.S("LiraAldNotFound"), Path.GetFileNameWithoutExtension(path) + ".ald"));
-
-            var report = new List<string>();
-            double tonToKn = LiraImportSettings.TonToKnFactor;
-            var raw = await Task.Run(() => LiraTextSchemaConverter.ToSchemaData(txt, ald, tonToKn, report));
-            foreach (var line in report) LogService.Warning(line);
-
-            string title = txt.Title.Trim() is { Length: > 0 } t ? t : Path.GetFileNameWithoutExtension(path);
-            var schema = new FemSchema { Tag = title, SourceType = "lira" };
-            db.SaveFemSchema(schema);
-            int groupCount = SaveLiraSchemaMesh(schema, raw);
-            await ApplyLiraTextToNewSchema(schema, raw, txt, path, db.GetFemMeshNodes(schema.Id), db.GetFemMeshElements(schema.Id));
-            if (raw.PlateFoundationBeyondC1 > 0)
-               LogService.Warning(string.Format(Loc.S("LiraFoundationBeyondC1"), raw.PlateFoundationBeyondC1));
-            SaveLiraSchemaExtras(schema, raw);
-            string done = LiraImportDone(raw, groupCount);
+            var (schema, done, boundary, loads) = await import.ImportLiraText(txt, path, null, Services.BackgroundImportWork.Instance);
+            RefreshFemSchemaTreeCounts(schema);
+            ShowBoundarySummary(schema, boundary, show: true);
             LogService.Info(done);
             EndBusy(done);
+            AskDesignLoadValues(loads);
          }
          catch (Exception ex)
          {
@@ -148,42 +116,41 @@ namespace OpenCS
          bool editorOpen = ReferenceEquals(currentFemSchema, schema) && currentPage is Views.FemSchemaPage;
          if (editorOpen && !TryLeaveFemSchemaEditor()) return;
 
-         var (path, lirPath) = await ChooseLiraTextPath(schema, title);
+         var import = FemImport;
+         var (path, lirPath) = await ChooseLiraTextPath(import, schema, title);
          if (path == null) return;
          BeginBusy(Loc.S("LiraTextReading"));
-         var txt = await ReadLiraText(path);
+         var txt = await import.ReadLiraTextAsync(path, Services.BackgroundImportWork.Instance);
          EndBusy();
          if (txt == null) return;
-         WarnIfLiraTextStale(path, lirPath);
+         import.WarnIfLiraTextStale(path, lirPath);
 
          var meshNodes = db.GetFemMeshNodes(schema.Id);
          var elements = db.GetFemMeshElements(schema.Id);
          var match = LiraTextMeshMatch.Compare(txt, meshNodes, elements);
          if (!match.Ok)
          {
-            string msg = MismatchMessage(schema, path, match);
+            string msg = Services.FemSchemaImport.MismatchMessage(schema, path, match);
             LogService.Warning(msg);
             MessageBox.Show(msg, title, MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
          }
 
+         // C1 пластин в текстовом файле не читается — сохраняется прочитанный импортом из API.
          if (boundary)
-         {
-            // C1 пластин в текстовом файле не читается — сохраняется прочитанный импортом из API.
-            var c1 = elements.Where(e => e.Origin == FemMember.MeshSourceImported && e.ElemType == "shell" && e.FoundationC1 is > 0)
-               .GroupBy(e => e.ElemTag, StringComparer.Ordinal)
-               .ToDictionary(g => g.Key, g => g.First().FoundationC1!.Value, StringComparer.Ordinal);
-            TransferLiraBoundary(schema, txt, meshNodes, elements, c1.Count > 0 ? c1 : null, showSummary: true);
-         }
+            ShowBoundarySummary(schema, import.TransferLiraBoundary(schema, txt, meshNodes, elements,
+               Services.FemSchemaImport.ImportedFoundationC1(elements)), show: true);
+         Services.FemLoadTransferOutcome? outcome = null;
          if (loads)
          {
             BeginBusy(Loc.S("LiraLoadsTransferring"));
-            try { await TransferLiraLoads(schema, txt, meshNodes, elements); }
+            try { outcome = await import.TransferLiraLoads(schema, txt, meshNodes, elements, Services.BackgroundImportWork.Instance); }
             finally { EndBusy(); }
          }
          if (!string.Equals(schema.SourcePath, Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase))
             db.UpdateFemSchemaSourcePath(schema, Path.GetFullPath(path));
          RefreshFemSchemaTreeCounts(schema);
+         if (outcome != null) AskDesignLoadValues(outcome);
       }
 
       /// <summary>
@@ -191,15 +158,15 @@ namespace OpenCS
       /// схемы — с подтверждением («Нет» — выбрать другой); не найден — выбор файла. Второй элемент — путь .lir открытой
       /// схемы (для проверки свежести файла), если файл — её.
       /// </summary>
-      async Task<(string? Path, string? LirPath)> ChooseLiraTextPath(FemSchema schema, string title)
+      async Task<(string? Path, string? LirPath)> ChooseLiraTextPath(Services.FemSchemaImport import, FemSchema schema, string title)
       {
          (int? Version, string? Title, string? PathName)? open = null;
          try { open = await RunOnStaThread(Services.LiraApiSchemaReader.ReadDocumentInfo); }
          catch (Exception) { }  // ЛИРА не запущена — ищем по имени схемы
 
-         var dirs = LiraTextDirectories();
-         string? openFile = FindLiraText(open?.Title, dirs, open?.Version);
-         string? found = FindLiraText(schema.Tag, dirs, open?.Version)
+         var dirs = import.LiraTextDirectories();
+         string? openFile = import.FindLiraText(open?.Title, dirs, open?.Version);
+         string? found = import.FindLiraText(schema.Tag, dirs, open?.Version)
             ?? (schema.SourcePath is { } sp && sp.EndsWith(".txt", StringComparison.OrdinalIgnoreCase) && File.Exists(sp) ? sp : null)
             ?? openFile;
          string? LirFor(string path) => openFile != null && string.Equals(Path.GetFullPath(openFile), Path.GetFullPath(path),
@@ -215,126 +182,9 @@ namespace OpenCS
          }
 
          string? initial = found != null ? Path.GetDirectoryName(found)
-            : OwnLiraTextDirectory() ?? dirs.FirstOrDefault(d => d.Version == open?.Version)?.Path ?? dirs.LastOrDefault()?.Path;
+            : import.OwnLiraTextDirectory() ?? dirs.FirstOrDefault(d => d.Version == open?.Version)?.Path ?? dirs.LastOrDefault()?.Path;
          string? chosen = FileDialogService.OpenFile(Loc.S("LiraTextFilter"), string.Format(Loc.S("LiraTextOpenTitle"), schema.Tag), initial);
          return chosen == null ? (null, null) : (chosen, LirFor(chosen));
       }
-
-      /// <summary>Свой каталог текстовых файлов из настроек импорта ЛИРЫ; не задан или не существует — null.</summary>
-      string? OwnLiraTextDirectory() =>
-         LiraImportSettings.TextFileDirectory is { } d && Directory.Exists(d) ? d : null;
-
-      /// <summary>Каталоги поиска текстового файла: свой каталог из настроек (первым) и каталоги Data версий ЛИРЫ.</summary>
-      List<LiraDataDirectory> LiraTextDirectories()
-      {
-         var dirs = LiraTextFileLocator.DataDirectories(LiraTextFileLocator.PublicDocuments);
-         if (OwnLiraTextDirectory() is { } own) dirs.Insert(0, new LiraDataDirectory(own, null));
-         return dirs;
-      }
-
-      /// <summary>Текстовый файл схемы <paramref name="title"/>: в своём каталоге — он и берётся, иначе — по каталогам Data
-      /// (версия открытой ЛИРЫ, затем самый свежий).</summary>
-      string? FindLiraText(string? title, List<LiraDataDirectory> dirs, int? version) =>
-         (OwnLiraTextDirectory() is { } own ? LiraTextFileLocator.Find(title, [new LiraDataDirectory(own, null)], null) : null)
-         ?? LiraTextFileLocator.Find(title, dirs, version);
-
-      /// <summary>Читает текстовый файл ЛИРЫ в фоне; замечания разбора — в журнал; ошибка чтения — в журнал, null.</summary>
-      async Task<LiraTextSchema?> ReadLiraText(string path)
-      {
-         try
-         {
-            var txt = await Task.Run(() => LiraTextReader.Read(path));
-            foreach (var w in txt.Warnings.Take(10)) LogService.Warning($"{Path.GetFileName(path)}: {w}");
-            int more = txt.Warnings.Count - 10 + txt.SuppressedWarnings;
-            if (more > 0) LogService.Warning(string.Format(Loc.S("LiraTextMoreWarnings"), Path.GetFileName(path), more));
-            LogService.Info(string.Format(Loc.S("LiraTextRead"), path, txt.Nodes.Count, txt.Elements.Count, txt.Loads.Count));
-            return txt;
-         }
-         catch (Exception ex)  // повреждённый файл не должен ронять импорт: ГУ и нагрузки дочитываются командой
-         {
-            LogService.Warning(string.Format(Loc.S("LiraTextReadError"), path, ex.Message));
-            return null;
-         }
-      }
-
-      /// <summary>Текстовый файл старше файла схемы .lir — ГУ и нагрузки могут быть устаревшими (предупреждение).</summary>
-      void WarnIfLiraTextStale(string path, string? lirPath)
-      {
-         if (lirPath == null || !File.Exists(lirPath)) return;
-         DateTime txtTime = File.GetLastWriteTime(path), lirTime = File.GetLastWriteTime(lirPath);
-         if (txtTime < lirTime.AddMinutes(-1))
-            LogService.Warning(string.Format(Loc.S("LiraTextStale"), Path.GetFileName(path), txtTime.ToString("dd.MM.yyyy HH:mm"),
-               Path.GetFileName(lirPath), lirTime.ToString("dd.MM.yyyy HH:mm")));
-      }
-
-      static string MismatchMessage(FemSchema schema, string path, LiraTextMeshMatch match) =>
-         string.Format(Loc.S("LiraTextMismatch"), Path.GetFileName(path), schema.Tag, match.Missing, match.Different,
-            match.Example ?? (match.Nodes == 0 ? Loc.S("LiraTextNoImportedNodes") : ""));
-
-      /// <summary>Переносит ГУ текстового файла в сеточный уровень схемы (заменяет перенесённые раньше).</summary>
-      void TransferLiraBoundary(FemSchema schema, LiraTextSchema txt, IReadOnlyList<FemMeshNode> meshNodes,
-         IReadOnlyList<FemElement> elements, IReadOnlyDictionary<string, double>? foundationC1, bool showSummary)
-      {
-         var result = LiraBoundaryTransfer.Transfer(txt, meshNodes.Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal),
-            ElementTypes(elements), LiraImportSettings.TonToKnFactor, foundationC1);
-         SaveBoundaryTransfer(schema, result, LiraBoundaryTransfer.Origin, meshNodes, showSummary);
-      }
-
-      /// <summary>
-      /// Переносит нагрузки текстового файла в сеточный уровень схемы (заменяет перенесённые раньше). Перенос и ΣF — в
-      /// фоне (ФР19: 0,6 млн нагрузок, по 4–7 с), запись в БД — в потоке интерфейса.
-      /// </summary>
-      async Task TransferLiraLoads(FemSchema schema, LiraTextSchema txt, IReadOnlyList<FemMeshNode> meshNodes,
-         IReadOnlyList<FemElement> elements)
-      {
-         ApplyLiraBarAxes(schema, txt, meshNodes, elements);
-         var tags = meshNodes.Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal);
-         var types = ElementTypes(elements);
-         var cases = schema.LoadCases.ToList();
-         var elementLoads = db.GetFemElementLoads(schema.Id);
-         var nodeLoads = db.GetFemMeshNodeLoads(schema.Id);
-         double tonToKn = LiraImportSettings.TonToKnFactor;
-         var result = await Task.Run(() =>
-         {
-            int next = 0;
-            return LiraLoadTransfer.Transfer(txt, tags, types, tonToKn, cases, elementLoads, nodeLoads, () => --next);
-         });
-         SaveLoadTransferResult(schema, result);
-         var resolve = LoadTotalsResolver(schema, result, LiraLoadTransfer.Origin, meshNodes, elements);
-         FinishLoadTransfer(schema, "LiraLoadsTotal", await Task.Run(resolve));
-      }
-
-      /// <summary>
-      /// Повороты сечений импортных стержней — по осям ЛИРЫ с углами документа 17: местные нагрузки по Y1/Z1
-      /// прикладываются в осях сетки. Схемы, импортированные до 23.10.2026, углов не имели (и у вертикальных стержней
-      /// Y1 была развёрнута на 180°) — исправляются здесь; число изменённых — в журнал.
-      /// </summary>
-      void ApplyLiraBarAxes(FemSchema schema, LiraTextSchema txt, IReadOnlyList<FemMeshNode> meshNodes,
-         IReadOnlyList<FemElement> elements)
-      {
-         var nodes = meshNodes.GroupBy(n => n.NodeTag, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
-         var rotations = new Dictionary<string, double>(StringComparer.Ordinal);
-         var changed = new List<(FemElement Element, double Deg)>();
-         foreach (var e in elements.Where(e => e.ElemType == "beam" && e.Origin == FemMember.MeshSourceImported))
-         {
-            if (e.Node1 is not { } n1 || e.Node2 is not { } n2
-                || !nodes.TryGetValue(n1.ToString(CultureInfo.InvariantCulture), out var a)
-                || !nodes.TryGetValue(n2.ToString(CultureInfo.InvariantCulture), out var b)
-                || !int.TryParse(e.ElemTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int number)) continue;
-            double? deg = LiraSchemaConverter.BarRotationDeg(new LiraNodeRecord(0, a.X, a.Y, a.Z, 0),
-               new LiraNodeRecord(0, b.X, b.Y, b.Z, 0), txt.ElementAngles.GetValueOrDefault(number));
-            if (deg is not { } d) continue;
-            rotations[e.ElemTag] = d;
-            if (e.BeamRotationDeg is not { } old || Math.Abs(Math.IEEERemainder(old - d, 360)) > 1e-6) changed.Add((e, d));
-         }
-         if (changed.Count == 0) return;
-         db.ReplaceFemElementBeamRotations(schema.Id, rotations);
-         foreach (var (e, d) in changed) e.BeamRotationDeg = d;
-         LogService.Info(string.Format(Loc.S("LiraBarAxesUpdated"), changed.Count));
-      }
-
-      static Dictionary<string, string> ElementTypes(IEnumerable<FemElement> elements) =>
-         elements.GroupBy(e => e.ElemTag, StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.First().ElemType, StringComparer.Ordinal);
    }
 }

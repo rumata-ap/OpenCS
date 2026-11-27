@@ -11,6 +11,7 @@ namespace OpenCS.Services.Scad;
 /// удалённых версий, поэтому проверяется наличие файла), затем стандартные папки «SCAD Soft».
 /// Из нескольких установок выбирается DLL с наибольшей версией файла.
 /// </summary>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 internal static class ScadInstallLocator
 {
     const string UninstallKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";

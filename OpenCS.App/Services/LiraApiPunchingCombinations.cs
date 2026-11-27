@@ -21,6 +21,7 @@ sealed record LiraPunchingApiData(
     IReadOnlyDictionary<int, string> LoadCaseNames);
 
 /// <summary>Чтение усилий загружений, РСУ и РСН стержней колонн узлов продавливания из открытого документа ЛИРЫ.</summary>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 static class LiraApiPunchingCombinations
 {
     /// <summary>Имя документа, открытого в ЛИРЕ (без пути и расширения); исключение — ЛИРА не запущена или документа нет.</summary>

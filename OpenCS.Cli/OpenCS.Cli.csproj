@@ -37,6 +37,12 @@
       <HintPath>..\CSTriangulation\libs\Triangle\Triangle.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <!-- COM-интероп результатов ЛИРЫ: та же причина (.deps.json); вызовы — только в Windows. -->
+    <Reference Include="Interop.LiraSaprRes">
+      <HintPath>..\OpenCS\Interop\Interop.LiraSaprRes.dll</HintPath>
+      <EmbedInteropTypes>false</EmbedInteropTypes>
+      <Private>True</Private>
+    </Reference>
   </ItemGroup>
 
 </Project>

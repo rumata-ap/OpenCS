@@ -14,6 +14,7 @@ namespace OpenCS.Services;
 /// Маппинг LIRA → OpenCS LoadItem: BarN→N, BarMx→T, BarMy→Mx, BarMz→My, BarQz→Vy, BarQy→Vx
 /// (оси сечения OpenCS: x — вдоль Y1, y — вдоль Z1; см. CScore.Import.LiraForceMapper.MapBar).
 /// </remarks>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 static class LiraApiForceImporter
 {
     /// <summary>Читает усилия от загружений для заданных КЭ.</summary>

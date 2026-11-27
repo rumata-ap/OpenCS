@@ -261,6 +261,13 @@
    <system:String x:Key="FromDxfGroupSuffix">_g</system:String>
    <system:String x:Key="FemBoundarySummaryCopyTip">Copy the table (tab-separated) and messages to the clipboard</system:String>
    <system:String x:Key="ClipboardBusy">Could not write text to the clipboard — another program is using it. Try again.</system:String>
+   <system:String x:Key="FemImportRolledBack">Import of model "{0}" stopped: {1}. The model was not created.</system:String>
+   <system:String x:Key="FemImportRollbackFailed">Import of model "{0}" stopped and the incomplete model could not be removed: {1}. Delete it from the tree manually.</system:String>
+   <system:String x:Key="ImportLiraBlocksSuffix"> ({0} design blocks)</system:String>
+   <system:String x:Key="LiraApiSchemaDefaultTag">LIRA-SAPR model (API)</system:String>
+   <system:String x:Key="LiraComDiagnostics">LIRA-SAPR COM DIAGNOSTICS:</system:String>
+   <system:String x:Key="SeeEventLogForDetails">See the event log for details.</system:String>
+   <system:String x:Key="LiraHtmlFilter">LIRA-SAPR HTML tables (*.htm;*.html)|*.htm;*.html</system:String>
    <system:String x:Key="DxfUnitsTitle">Drawing units</system:String>
    <system:String x:Key="DxfUnitsPrompt">The file "{0}" does not define drawing units. What units are the coordinates in?</system:String>
    <system:String x:Key="DxfUnitsFromFile">Drawing units of "{0}" are taken from the file: {1}.</system:String>

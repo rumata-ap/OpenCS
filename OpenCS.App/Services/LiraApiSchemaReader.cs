@@ -8,6 +8,7 @@ namespace OpenCS.Services;
 /// Читает топологию расчётной схемы из открытого документа ЛираСАПР через COM (dynamic).
 /// GetContents — ByRef Sub (VBA: tbl.GetContents data), вызываем через ref или InvokeMember.
 /// </summary>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 static class LiraApiSchemaReader
 {
     const int kNodesTable              = 2;   // kLiraTable_Nodes_Coordinates

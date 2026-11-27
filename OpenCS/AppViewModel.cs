@@ -2712,7 +2712,7 @@ namespace OpenCS
       void ImportLiraHtml(LiraImportMode mode)
       {
          string? fileName = FileDialogService.OpenFile(
-            filter: "HTML LIRA SAPR (*.htm;*.html)|*.htm;*.html",
+            filter: Loc.S("LiraHtmlFilter"),
             title: mode switch
             {
                LiraImportMode.LoadCases => Loc.S("ImportLiraLoadCasesTitle"),
@@ -4080,122 +4080,42 @@ namespace OpenCS
 
          try
          {
-            var raw = CScore.Import.LiraCsvSchemaParser.Parse(
-               nodesPath, elemsPath, barStiffPath, plateStiffPath);
-
-            var schemaName = System.IO.Path.GetFileNameWithoutExtension(nodesPath);
-            var schema = new CScore.Fem.FemSchema
-            {
-               Tag        = schemaName,
-               SourceType = "lira",
-            };
-            db.SaveFemSchema(schema);
-
-            var meshNodes = CScore.Import.LiraSchemaConverter.ToFemMeshNodes(raw, schema.Id);
-            var meshElements = CScore.Import.LiraSchemaConverter.ToFemMeshBarElements(raw, schema.Id)
-                .Concat(CScore.Import.LiraSchemaConverter.ToFemMeshShellElements(raw, schema.Id))
-                .ToArray();
-            var memberGroups = CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByStiffness(raw, schema.Id)
-                .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByPlateStiffness(raw, schema.Id))
-                .ToArray();
-
-            SaveImportedSchema(schema, CScore.Fem.Import.FemImportResult.MeshOnly(meshNodes, meshElements, memberGroups));
-            SaveLiraSupports(schema, raw);
-            RefreshFemSchemaTreeCounts(schema);
-
-            int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
-            int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
-            if (barCount > 0) LogService.Warning(Loc.S("LiraBarAxesDefault"));
-            LogService.Info(string.Format(Loc.S("ImportLiraSchemaSuccess"),
-               raw.Nodes.Count, barCount, shellCount, memberGroups.Length));
+            var raw = CScore.Import.LiraCsvSchemaParser.Parse(nodesPath, elemsPath, barStiffPath, plateStiffPath);
+            FinishLiraMeshOnlyImport(raw, Path.GetFileNameWithoutExtension(nodesPath));
          }
-         catch (Exception ex)
-         {
-            System.Windows.MessageBox.Show(ex.Message,
-               Loc.S("ImportLiraErrorTitle"),
-               System.Windows.MessageBoxButton.OK,
-               System.Windows.MessageBoxImage.Error);
-         }
+         catch (Exception ex) { ShowImportError(ex, "ImportLiraErrorTitle"); }
       }
+
+      /// <summary>Схема из CSV ЛИРЫ или .lir: запись службой (ошибка — схема удаляется), дерево, итог в журнал.</summary>
+      void FinishLiraMeshOnlyImport(CScore.Import.LiraSchemaData raw, string tag)
+      {
+         var (schema, done) = FemImport.ImportLiraMeshOnly(raw, tag, null);
+         RefreshFemSchemaTreeCounts(schema);
+         ReloadFemMeshSnapshotTree(schema.Id);
+         LogService.Info(done);
+      }
+
+      void SaveImportedSchema(CScore.Fem.FemSchema schema, CScore.Fem.Import.FemImportResult result) =>
+         FemImport.SaveMesh(schema, result);
 
       /// <summary>
-      /// Закрепления узлов ЛИРЫ → закрепления узлов сетки, C1 пластин (таблица 5) → <c>FoundationC1</c> КЭ
-      /// (происхождение «import:lira»).
+      /// Схема из файла .lir разборщиком <see cref="CScore.Import.LiraFileParser"/> (без ЛИРЫ). Пункт меню скрыт, пока формат
+      /// разобран не полностью; тот же путь — у консоли (<c>import schema *.lir</c>, в том числе в Linux).
       /// </summary>
-      void SaveLiraSupports(CScore.Fem.FemSchema schema, CScore.Import.LiraSchemaData raw)
-      {
-         var supports = CScore.Import.LiraSchemaConverter.ToFemMeshNodeSupports(raw);
-         var props = CScore.Import.LiraSchemaConverter.ToFemElementBoundaryProps(raw);
-         if (supports.Length == 0 && props.Count == 0) return;
-         db.SaveFemBoundary(schema.Id, CScore.Import.LiraSchemaConverter.BoundaryOrigin, supports, [], [],
-            props.Count > 0 ? props : null);
-         ReloadFemMeshSnapshotTree(schema.Id);
-         if (supports.Length > 0) LogService.Info(string.Format(Loc.S("LiraSupportsImported"), supports.Length));
-         if (props.Count > 0) LogService.Info(string.Format(Loc.S("LiraFoundationImported"), props.Count));
-         if (raw.PlateFoundationBeyondC1 > 0)
-            LogService.Warning(string.Format(Loc.S("LiraFoundationBeyondC1"), raw.PlateFoundationBeyondC1));
-      }
-
-      /// <summary>Сохраняет прочитанный импорт в только что созданную схему (<see cref="Utilites.DatabaseService.SaveFemImport"/>).
-      /// Номера, которых нет в сетке (КЭ пропущенных типов), из групп убираются с предупреждением.</summary>
-      void SaveImportedSchema(CScore.Fem.FemSchema schema, CScore.Fem.Import.FemImportResult result)
-      {
-         int pruned = result.PruneMissingGroupTags();
-         if (pruned > 0)
-            LogService.Warning(string.Format(Loc.S("FemImportGroupTagsPruned"), pruned));
-         var warnings = db.SaveFemImport(schema.Id, result);
-         foreach (var w in warnings.Take(20))
-            LogService.Warning(w.Message);
-         if (warnings.Count > 20)
-            LogService.Warning(string.Format(Loc.S("FemImportMoreWarnings"), warnings.Count - 20));
-      }
-
       void ImportLiraSchemaFromFile()
       {
          string? fileName = FileDialogService.OpenFile(
             filter: Loc.S("LiraFileFilter"),
             title:  Loc.S("ImportLiraSchemaFromFileTitle"));
          if (string.IsNullOrEmpty(fileName)) return;
-
          try
          {
             // Жёсткости нужны для групп КЭ; записи нагрузок (~1 млн строк на крупной модели) при импорте
             // сетки не используются и не читаются, чтобы не тратить время и память.
             var raw = CScore.Import.LiraFileParser.Parse(fileName, CScore.Import.LiraBinaryExtrasMode.Stiffness);
-
-            var schemaName = System.IO.Path.GetFileNameWithoutExtension(fileName);
-            var schema = new CScore.Fem.FemSchema
-            {
-               Tag        = schemaName,
-               SourceType = "lira",
-            };
-            db.SaveFemSchema(schema);
-
-            var meshNodes = CScore.Import.LiraSchemaConverter.ToFemMeshNodes(raw, schema.Id);
-            var meshElements = CScore.Import.LiraSchemaConverter.ToFemMeshBarElements(raw, schema.Id)
-                .Concat(CScore.Import.LiraSchemaConverter.ToFemMeshShellElements(raw, schema.Id))
-                .ToArray();
-            var memberGroups = CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByStiffness(raw, schema.Id)
-                .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByPlateStiffness(raw, schema.Id))
-                .ToArray();
-
-            SaveImportedSchema(schema, CScore.Fem.Import.FemImportResult.MeshOnly(meshNodes, meshElements, memberGroups));
-            SaveLiraSupports(schema, raw);
-            RefreshFemSchemaTreeCounts(schema);
-
-            int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
-            int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
-            if (barCount > 0) LogService.Warning(Loc.S("LiraBarAxesDefault"));
-            LogService.Info(string.Format(Loc.S("ImportLiraSchemaSuccess"),
-               raw.Nodes.Count, barCount, shellCount, memberGroups.Length));
+            FinishLiraMeshOnlyImport(raw, Path.GetFileNameWithoutExtension(fileName));
          }
-         catch (Exception ex)
-         {
-            System.Windows.MessageBox.Show(ex.Message,
-               Loc.S("ImportLiraErrorTitle"),
-               System.Windows.MessageBoxButton.OK,
-               System.Windows.MessageBoxImage.Error);
-         }
+         catch (Exception ex) { ShowImportError(ex, "ImportLiraErrorTitle"); }
       }
 
       void ImportScadTopologyFromTxt()
@@ -4208,35 +4128,19 @@ namespace OpenCS
          var import = CScore.Import.ScadTextParser.Parse(fileName);
          if (!import.Success)
          {
-            System.Windows.MessageBox.Show(
-               import.Error ?? Loc.S("ImportScadFailed"),
-               Loc.S("ImportScadErrorTitle"),
+            MessageBox.Show(import.Error ?? Loc.S("ImportScadFailed"), Loc.S("ImportScadErrorTitle"),
                MessageBoxButton.OK, MessageBoxImage.Error);
             return;
          }
-
          foreach (var w in import.Warnings)
             LogService.Warning(w);
-
-         var data = import.Data!;
-         var schema = new CScore.Fem.FemSchema
+         try
          {
-            Tag        = Path.GetFileNameWithoutExtension(fileName),
-            SourceType = "scad",
-         };
-         db.SaveFemSchema(schema);
-
-         var meshNodes    = CScore.Import.ScadSchemaConverter.ToFemMeshNodes(data, schema.Id);
-         var meshElements = CScore.Import.ScadSchemaConverter.ToFemMeshElements(data, schema.Id);
-         var memberGroups = CScore.Import.ScadSchemaConverter.ToFemMemberGroups(data, schema.Id);
-
-         SaveImportedSchema(schema, CScore.Fem.Import.FemImportResult.MeshOnly(meshNodes, meshElements, memberGroups));
-         RefreshFemSchemaTreeCounts(schema);
-
-         int barCount   = meshElements.Count(e => e.ElemType == "beam");
-         int shellCount = meshElements.Count(e => e.ElemType == "shell");
-         LogService.Info(string.Format(Loc.S("ImportScadSuccess"),
-            meshNodes.Length, barCount, shellCount, memberGroups.Length, data.Groups.Count));
+            var (schema, done) = FemImport.ImportScadText(import.Data!, Path.GetFileNameWithoutExtension(fileName), null);
+            RefreshFemSchemaTreeCounts(schema);
+            LogService.Info(done);
+         }
+         catch (Exception ex) { ShowImportError(ex, "ImportScadErrorTitle"); }
       }
 
       /// <summary>
@@ -4256,8 +4160,8 @@ namespace OpenCS
          string spr = vm.SprPath, dllDir = vm.DllDirectory;
          // ЖБ-группы читаются всегда (привязки и классы для подбора SCAD); флажок — только группы КЭ «ЖБ: …».
          var options = new Services.Scad.ScadReadOptions(vm.ReadOutputAxes, ConcreteGroups: true);
-         bool concreteAsMemberGroups = vm.ConcreteGroupsAsMemberGroups;
-         bool steelAsMemberGroups = vm.SteelGroupsAsMemberGroups;
+         var saveOptions = new Services.FemSchemaImport.ScadApiImportOptions(vm.ConcreteGroupsAsMemberGroups,
+            vm.SteelGroupsAsMemberGroups, dllDir);
          var cts = BeginBusyWithCancellation(Loc.S("ScadApiImporting"), indeterminate: false);
          var progress = new Progress<double>(f => ReportBusyProgress(f));
          try
@@ -4277,59 +4181,13 @@ namespace OpenCS
                finally { Services.Scad.ScadApiNative.Gate.Release(); }
             }, cts.Token);
 
-            var data = read.Data;
-            var schema = new CScore.Fem.FemSchema
-            {
-               Tag        = Path.GetFileNameWithoutExtension(spr),
-               SourceType = "scad",
-               SourcePath = Path.GetFullPath(spr),
-            };
-            db.SaveFemSchema(schema);
-
-            var meshNodes    = ScadSchemaConverter.ToFemMeshNodes(data, schema.Id);
-            var meshElements = ScadSchemaConverter.ToFemMeshElements(data, schema.Id);
-            var blockGroups  = ScadSchemaConverter.ToFemMemberGroupsByBlocks(data, schema.Id);
-            var concreteGroups = concreteAsMemberGroups
-               ? ScadSchemaConverter.ToFemMemberGroupsByConcreteGroups(data, schema.Id)
-               : [];
-            var steelGroups = steelAsMemberGroups
-               ? ScadSchemaConverter.ToFemMemberGroupsBySteelGroups(data, schema.Id)
-               : [];
-            var memberGroups = ScadSchemaConverter.ToFemMemberGroups(data, schema.Id)
-               .Concat(blockGroups).Concat(concreteGroups).Concat(steelGroups).ToArray();
-            var stiffnesses  = ScadSchemaConverter.ToSchemaStiffnesses(data);
-
-            SaveImportedSchema(schema, CScore.Fem.Import.FemImportResult.MeshOnly(meshNodes, meshElements, memberGroups));
-            db.SaveFemSchemaStiffnesses(schema.Id, stiffnesses);
-            SaveScadConcreteGroups(schema.Id, data.ConcreteGroups);
-            if (data.SteelGroups.Count > 0) SaveScadSteelGroups(schema.Id, data.SteelGroups);
-            SaveScadSteelProfiles(schema.Id, stiffnesses, dllDir);
-            if (data.AssignedRebar != null) SaveScadAssignedRebar(schema.Id, data.AssignedRebar);
-            if (data.AnalysisModel != null)
-            {
-               SaveScadAnalysisModel(schema.Id, data.AnalysisModel);
-               TransferScadLoads(schema, data.AnalysisModel);
-               TransferScadBoundary(schema, data.AnalysisModel, showSummary: true);
-            }
+            var (schema, done, boundary, loads) = FemImport.ImportScadApi(read.Data, spr, saveOptions);
             RefreshFemSchemaTreeCounts(schema);
-
-            foreach (var (type, count) in read.SkippedByType.OrderBy(kv => kv.Key))
-               LogService.Warning(string.Format(Loc.S("ScadApiSkippedType"), type, count));
-            if (read.DeletedElements > 0)
-               LogService.Info(string.Format(Loc.S("ScadApiDeletedElements"), read.DeletedElements));
-            if (read.BarStiffnessesWithoutShape.Count > 0)
-               LogService.Warning(string.Format(Loc.S("ScadApiBarsWithoutShape"),
-                  string.Join(", ", read.BarStiffnessesWithoutShape)));
-            if (read.DegenerateAxisElements > 0)
-               LogService.Warning(string.Format(Loc.S("ScadApiDegenerateAxes"), read.DegenerateAxisElements));
-
-            int barCount   = meshElements.Count(e => e.ElemType == "beam");
-            int shellCount = meshElements.Count(e => e.ElemType == "shell");
-            string done = string.Format(Loc.S("ScadApiImportSuccess"), schema.Tag, meshNodes.Length, barCount,
-               shellCount, memberGroups.Length, blockGroups.Length, concreteGroups.Length, stiffnesses.Length,
-               steelGroups.Length);
+            if (boundary != null) ShowBoundarySummary(schema, boundary, show: true);
+            ReportScadApiRead(read);
             LogService.Info(done);
             EndBusy(done);
+            if (loads != null) AskDesignLoadValues(loads);
          }
          catch (OperationCanceledException)
          {
@@ -4340,17 +4198,28 @@ namespace OpenCS
             EndBusy();
             string msg = ex.Format(Loc.S);
             LogService.Error(msg);
-            System.Windows.MessageBox.Show(msg, Loc.S("ImportScadErrorTitle"),
-               MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(msg, Loc.S("ImportScadErrorTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
          }
          catch (Exception ex)
          {
             EndBusy();
             string msg = string.Format(Loc.S("ScadApiUnexpectedError"), ex.Message);
             LogService.Error(msg + Environment.NewLine + ex);
-            System.Windows.MessageBox.Show(msg, Loc.S("ImportScadErrorTitle"),
-               MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(msg, Loc.S("ImportScadErrorTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
          }
+      }
+
+      /// <summary>Замечания чтения .SPR: пропущенные типы КЭ, удалённые КЭ, стержни без формы сечения, вырожденные оси.</summary>
+      void ReportScadApiRead(Services.Scad.ScadApiReadResult read)
+      {
+         foreach (var (type, count) in read.SkippedByType.OrderBy(kv => kv.Key))
+            LogService.Warning(string.Format(Loc.S("ScadApiSkippedType"), type, count));
+         if (read.DeletedElements > 0)
+            LogService.Info(string.Format(Loc.S("ScadApiDeletedElements"), read.DeletedElements));
+         if (read.BarStiffnessesWithoutShape.Count > 0)
+            LogService.Warning(string.Format(Loc.S("ScadApiBarsWithoutShape"), string.Join(", ", read.BarStiffnessesWithoutShape)));
+         if (read.DegenerateAxisElements > 0)
+            LogService.Warning(string.Format(Loc.S("ScadApiDegenerateAxes"), read.DegenerateAxisElements));
       }
 
       /// <summary>Порог строк РСУ SCAD, выше которого импорт подтверждается пользователем.</summary>
@@ -4892,18 +4761,29 @@ namespace OpenCS
                catch (Exception) { }  // путь .lir нужен только для проверки свежести текстового файла
                return data;
             });
-            var schema = new CScore.Fem.FemSchema { Tag = liraTitle ?? "Схема ЛИРА-САПР (API)", SourceType = "lira" };
-            db.SaveFemSchema(schema);
-            int groupCount = SaveLiraSchemaMesh(schema, raw);
-            // ГУ и нагрузки — из текстового файла схемы (Data\<Title>.txt); нет файла — закрепления и C1 из API.
-            if (await TransferLiraTextAfterImport(schema, raw, liraTitle, liraVersion, lirPath) == null)
-               SaveLiraSupports(schema, raw);
-            else if (raw.PlateFoundationBeyondC1 > 0)
-               LogService.Warning(string.Format(Loc.S("LiraFoundationBeyondC1"), raw.PlateFoundationBeyondC1));
-            SaveLiraSchemaExtras(schema, raw);
-            string done = LiraImportDone(raw, groupCount);
+            var import = FemImport;
+            int groupCount = 0;
+            Services.FemBoundarySummary? boundary = null;
+            Services.FemLoadTransferOutcome? loads = null;
+            var schema = await import.CreateAsync(liraTitle ?? Loc.S("LiraApiSchemaDefaultTag"), "lira", null, async s =>
+            {
+               groupCount = import.SaveLiraMesh(s, raw);
+               // ГУ и нагрузки — из текстового файла схемы (Data\<Title>.txt); нет файла — закрепления и C1 из API.
+               if (await TransferLiraTextAfterImport(import, s, raw, liraTitle, liraVersion, lirPath) is { } text)
+               {
+                  (boundary, loads) = text;
+                  import.WarnFoundationBeyondC1(raw);
+               }
+               else import.SaveLiraSupports(s, raw);
+               import.SaveLiraExtras(s, raw);
+            });
+            RefreshFemSchemaTreeCounts(schema);
+            if (boundary != null) ShowBoundarySummary(schema, boundary, show: true);
+            else ReloadFemMeshSnapshotTree(schema.Id);
+            string done = import.LiraDone(raw, groupCount);
             LogService.Info(done);
             EndBusy(done);
+            if (loads != null) AskDesignLoadValues(loads);
          }
          catch (Exception ex)
          {
@@ -4911,51 +4791,11 @@ namespace OpenCS
             string msg = ex.Message;
             if (msg.Length > 300)
             {
-               LogService.Error("ДИАГНОСТИКА ЛИРА-САПР COM:\n" + msg);
-               msg = msg.Split('\n')[0] + "\n\nПодробности — в журнале событий.";
+               LogService.Error(Loc.S("LiraComDiagnostics") + "\n" + msg);
+               msg = msg.Split('\n')[0] + "\n\n" + Loc.S("SeeEventLogForDetails");
             }
-            System.Windows.MessageBox.Show(msg,
-               Loc.S("ImportLiraErrorTitle"),
-               System.Windows.MessageBoxButton.OK,
-               System.Windows.MessageBoxImage.Error);
+            MessageBox.Show(msg, Loc.S("ImportLiraErrorTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
          }
-      }
-
-      /// <summary>Сетка и группы КЭ (по жёсткостям, блокам, ТЗА) импорта ЛИРЫ в новую схему; возвращает число групп.</summary>
-      int SaveLiraSchemaMesh(CScore.Fem.FemSchema schema, CScore.Import.LiraSchemaData raw)
-      {
-         var meshNodes = CScore.Import.LiraSchemaConverter.ToFemMeshNodes(raw, schema.Id);
-         var meshElements = CScore.Import.LiraSchemaConverter.ToFemMeshBarElements(raw, schema.Id)
-             .Concat(CScore.Import.LiraSchemaConverter.ToFemMeshShellElements(raw, schema.Id))
-             .ToArray();
-         var memberGroups = CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByStiffness(raw, schema.Id)
-             .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByPlateStiffness(raw, schema.Id))
-             .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByConstructiveBlocks(raw, schema.Id))
-             .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByReinforcementTypes(raw, schema.Id))
-             .ToArray();
-         SaveImportedSchema(schema, CScore.Fem.Import.FemImportResult.MeshOnly(meshNodes, meshElements, memberGroups));
-         return memberGroups.Length;
-      }
-
-      /// <summary>Блоки, жёсткости, стальные профили и единицы импорта ЛИРЫ; обновление счётчиков дерева.</summary>
-      void SaveLiraSchemaExtras(CScore.Fem.FemSchema schema, CScore.Import.LiraSchemaData raw)
-      {
-         db.SaveFemSchemaConstructiveBlocks(schema.Id, raw.ConstructiveBlocks);
-         db.SaveFemSchemaStiffnesses(schema.Id, raw.Stiffnesses);
-         SaveLiraSteelProfiles(schema.Id, raw.Stiffnesses);
-         if (raw.Units != null) SaveLiraUnits(schema.Id, raw.Units);
-         RefreshFemSchemaTreeCounts(schema);
-      }
-
-      /// <summary>Итог импорта ЛИРЫ для журнала (оси стержней по умолчанию — предупреждение).</summary>
-      string LiraImportDone(CScore.Import.LiraSchemaData raw, int groupCount)
-      {
-         int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
-         int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
-         if (barCount > 0) LogService.Warning(Loc.S("LiraBarAxesDefault"));
-         string done = string.Format(Loc.S("ImportLiraSchemaSuccess"), raw.Nodes.Count, barCount, shellCount, groupCount);
-         if (raw.ConstructiveBlocks.Count > 0) done += $" ({raw.ConstructiveBlocks.Count} кБ)";
-         return done;
       }
 
       /// <summary>
@@ -5161,139 +5001,38 @@ namespace OpenCS
          }
       }
 
-      /// <summary>
-      /// Разрешить по сортаментам установленной ЛИРЫ (*.profiles.srt) профили стальных жёсткостей (вид 1018) и сохранить
-      /// их при схеме (вложение <see cref="FemSchemaSourceFileKind.LiraSteelProfiles"/>). Нет стальных жёсткостей —
-      /// вложение не создаётся; профили без сортамента — предупреждение в журнал.
-      /// </summary>
-      void SaveLiraSteelProfiles(int schemaId, IEnumerable<CScore.Import.LiraStiffnessRecord> stiffnesses)
-      {
-         var entries = Services.LiraSteelProfileLoader.Resolve(stiffnesses, Services.LiraSteelProfileLoader.SortamentDirectories());
-         if (entries.Count == 0) return;
-         db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.LiraSteelProfiles, "",
-            System.Text.Encoding.UTF8.GetBytes(CScore.Import.SteelProfileIndex.ToJson(entries)));
-         var failed = entries.Where(e => e.Shape == null).ToList();
-         LogService.Info(string.Format(Loc.S("LiraSteelProfilesLoaded"), entries.Count - failed.Count, entries.Count));
-         foreach (var e in failed)
-            LogService.Warning(string.Format(Loc.S("LiraSteelProfileFailed"), e.Num, e.Source, e.Reason));
-      }
+      /// <summary>Запись импорта схем — общая служба окна и консоли; создаётся на вызов (настройки могли смениться).</summary>
+      Services.FemSchemaImport FemImport => new(db, LogService, LiraImportSettings, CalcSettings);
 
-      /// <summary>Сохранить единицы характеристик материалов ЛИРЫ при схеме (вложение <see cref="FemSchemaSourceFileKind.LiraUnits"/>).</summary>
-      void SaveLiraUnits(int schemaId, CScore.Import.LiraUnits units) =>
-         db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.LiraUnits, "",
-            System.Text.Encoding.UTF8.GetBytes(units.ToJson()));
+      void SaveLiraSteelProfiles(int schemaId, IEnumerable<CScore.Import.LiraStiffnessRecord> stiffnesses) =>
+         FemImport.SaveLiraSteelProfiles(schemaId, stiffnesses);
 
-      /// <summary>Сохранить ЖБ-группы SCAD при схеме (вложение <see cref="FemSchemaSourceFileKind.ScadConcreteGroups"/>).</summary>
+      void SaveLiraUnits(int schemaId, CScore.Import.LiraUnits units) => FemImport.SaveLiraUnits(schemaId, units);
+
       void SaveScadConcreteGroups(int schemaId, IReadOnlyCollection<CScore.Import.ScadConcreteGroup> groups) =>
-         db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadConcreteGroups, "",
-            System.Text.Encoding.UTF8.GetBytes(CScore.Import.ScadConcreteGroupIndex.ToJson(groups)));
+         FemImport.SaveScadConcreteGroups(schemaId, groups);
+
+      void SaveScadSteelProfiles(int schemaId, IEnumerable<CScore.Import.LiraStiffnessRecord> stiffnesses, string? prfDirectory) =>
+         FemImport.SaveScadSteelProfiles(schemaId, stiffnesses, prfDirectory);
+
+      void SaveScadAnalysisModel(int schemaId, CScore.Import.ScadAnalysisModel model) => FemImport.SaveScadAnalysisModel(schemaId, model);
+
+      CScore.Import.ScadAnalysisModel? LoadScadAnalysisModel(int schemaId) => FemImport.LoadScadAnalysisModel(schemaId);
 
       /// <summary>
-      /// Разрешить по сортаментам SCAD (PRF из каталога <paramref name="prfDirectory"/>) стальные профили жёсткостей
-      /// STZ и сохранить их при схеме (вложение <see cref="FemSchemaSourceFileKind.ScadSteelProfiles"/>).
-      /// Нет жёсткостей STZ — вложение не создаётся; профили без сортамента — предупреждение в журнал.
+      /// Нагрузки вложения SCAD в сеточный уровень схемы (повторно — с заменой перенесённого ранее, ручное не трогается);
+      /// ΣF загружений — в журнал; результаты постановок сбрасываются. Открытый редактор схемы закрывает вызывающий.
       /// </summary>
-      void SaveScadSteelProfiles(int schemaId, IEnumerable<CScore.Import.LiraStiffnessRecord> stiffnesses, string? prfDirectory)
-      {
-         var entries = Services.Scad.ScadSteelProfileLoader.Resolve(stiffnesses, prfDirectory);
-         if (entries.Count == 0) return;
-         db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadSteelProfiles, "",
-            System.Text.Encoding.UTF8.GetBytes(CScore.Import.SteelProfileIndex.ToJson(entries)));
-         var failed = entries.Where(e => e.Shape == null).ToList();
-         LogService.Info(string.Format(Loc.S("ScadSteelProfilesLoaded"), entries.Count - failed.Count, entries.Count));
-         foreach (var e in failed)
-            LogService.Warning(string.Format(Loc.S("ScadSteelProfileFailed"), e.Num, e.Source, e.Reason));
-      }
-
-      /// <summary>Сохранить закрепления, жёсткие тела и нагрузки SCAD (вложение <see cref="FemSchemaSourceFileKind.ScadAnalysisModel"/>).</summary>
-      void SaveScadAnalysisModel(int schemaId, CScore.Import.ScadAnalysisModel model) =>
-         db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadAnalysisModel, "",
-            System.Text.Encoding.UTF8.GetBytes(model.ToJson()));
-
-      /// <summary>Вложение SCAD схемы (закрепления, жёсткие тела, нагрузки); null — нет или повреждено (в журнал).</summary>
-      CScore.Import.ScadAnalysisModel? LoadScadAnalysisModel(int schemaId)
-      {
-         if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadAnalysisModel) is not { } file) return null;
-         try { return CScore.Import.ScadAnalysisModel.FromJson(System.Text.Encoding.UTF8.GetString(file.Data)); }
-         catch (InvalidDataException ex) { LogService.Error(ex.Message); return null; }
-      }
-
-      /// <summary>
-      /// Переносит нагрузки вложения SCAD в нагрузки сеточного уровня схемы (повторно — с заменой перенесённого ранее,
-      /// ручное не трогается). Журнал: сводка, непереносимое, ΣF загружений для сверки с протоколом SCAD. Результаты
-      /// постановок схемы сбрасываются. Открытый редактор схемы закрывает вызывающий.
-      /// </summary>
-      void TransferScadLoads(CScore.Fem.FemSchema schema, CScore.Import.ScadAnalysisModel model)
-      {
-         var meshNodes = db.GetFemMeshNodes(schema.Id);
-         var elements = db.GetFemMeshElements(schema.Id);
-         var types = elements.GroupBy(e => e.ElemTag, StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.First().ElemType, StringComparer.Ordinal);
-         int next = 0;
-         var result = CScore.Import.ScadLoadTransfer.Transfer(model, types, schema.LoadCases.ToList(),
-            db.GetFemElementLoads(schema.Id), db.GetFemMeshNodeLoads(schema.Id), () => --next);
-         SaveLoadTransfer(schema, result, CScore.Import.ScadLoadTransfer.Origin, "ScadLoadsTotal", meshNodes, elements);
-      }
-
-      /// <summary>
-      /// Записывает итог переноса нагрузок из программы-источника: загружения и нагрузки сеточного уровня. Журнал: сводка,
-      /// непереносимое, ΣF загружений происхождения <paramref name="origin"/> (строка <paramref name="totalKey"/>) для
-      /// сверки с источником. Результаты постановок схемы сбрасываются.
-      /// </summary>
-      void SaveLoadTransfer(CScore.Fem.FemSchema schema, CScore.Import.FemLoadTransferResult result, string origin,
-         string totalKey, IReadOnlyList<CScore.Fem.FemMeshNode> meshNodes, IReadOnlyList<CScore.Fem.FemElement> elements)
-      {
-         SaveLoadTransferResult(schema, result);
-         var resolve = LoadTotalsResolver(schema, result, origin, meshNodes, elements);
-         FinishLoadTransfer(schema, totalKey, resolve());
-      }
-
-      /// <summary>Записывает загружения и нагрузки переноса; сводка и непереносимое — в журнал.</summary>
-      void SaveLoadTransferResult(CScore.Fem.FemSchema schema, CScore.Import.FemLoadTransferResult result)
-      {
-         db.SaveFemLoadCasesAndMeshLoads(schema.Id, result.LoadCases, result.ElementLoads, result.MeshNodeLoads);
-         LogService.Info(result.Report[0]);
-         foreach (var line in result.Report.Skip(1)) LogService.Warning(line);
-      }
-
-      /// <summary>
-      /// Разнесение перенесённых загружений по узлам для ΣF: контекст сетки (с БД) собирается сразу, сам расчёт — в
-      /// возвращённой функции (без БД, можно в фоне).
-      /// </summary>
-      Func<List<(CScore.Fem.FemLoadCase Case, (double Fx, double Fy, double Fz) Total, List<string> Diagnostics)>> LoadTotalsResolver(
-         CScore.Fem.FemSchema schema, CScore.Import.FemLoadTransferResult result, string origin,
-         IReadOnlyList<CScore.Fem.FemMeshNode> meshNodes, IReadOnlyList<CScore.Fem.FemElement> elements)
-      {
-         var mesh = new CScore.Fem.Loads.FemLoadMeshContext(meshNodes.ToList(), elements.ToList(), schema.MemberGroups.ToList(),
-            Services.FemSelfWeightSourceFactory.Create(db, schema.Id));
-         var cases = result.LoadCases.Where(c => c.Origin == origin).ToList();
-         return () => cases.Select(lc =>
-         {
-            var forces = CScore.Fem.Loads.FemLoadCaseNodalForces.Resolve(lc, result.ElementLoads, result.MeshNodeLoads, mesh);
-            return (lc, forces.Total, forces.Diagnostics.Select(d => d.Message).Distinct().Take(10).ToList());
-         }).ToList();
-      }
-
-      /// <summary>ΣF загружений (строка <paramref name="totalKey"/>) — в журнал; результаты постановок сбрасываются.</summary>
-      void FinishLoadTransfer(CScore.Fem.FemSchema schema, string totalKey,
-         IEnumerable<(CScore.Fem.FemLoadCase Case, (double Fx, double Fy, double Fz) Total, List<string> Diagnostics)> totals)
-      {
-         foreach (var (lc, (fx, fy, fz), diagnostics) in totals)
-         {
-            LogService.Info(string.Format(Loc.S(totalKey), lc.Tag, lc.SourceLoadNum, fx / 1e3, fy / 1e3, fz / 1e3));
-            foreach (var d in diagnostics) LogService.Warning($"«{lc.Tag}»: {d}");
-         }
-         int invalidated = InvalidateFemSchemaAnalyses(schema);
-         if (invalidated > 0) LogService.Info(string.Format(Loc.S("ScadLoadsAnalysesInvalidated"), invalidated));
-         AskDesignLoadValues();
-      }
+      void TransferScadLoads(CScore.Fem.FemSchema schema, CScore.Import.ScadAnalysisModel model) =>
+         AskDesignLoadValues(FemImport.TransferScadLoads(schema, model));
 
       /// <summary>
       /// После переноса нагрузок из ЛИРЫ/SCAD: величины источника обычно расчётные — при «нормативных» в настройках
       /// предлагает переключить, иначе сочетания СП 20 учтут γf повторно.
       /// </summary>
-      void AskDesignLoadValues()
+      void AskDesignLoadValues(Services.FemLoadTransferOutcome outcome)
       {
+         if (!outcome.AskDesignLoadValues) return;
          if (CalcSettings.ToSp20LoadValueKind() == CScore.Combinations.Sp20LoadValueKind.Design) return;
          if (MessageBox.Show(Loc.S("ImportDesignLoadValuesQuestion"), Loc.S("Confirmation"),
                 MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
@@ -5303,82 +5042,29 @@ namespace OpenCS
       }
 
       /// <summary>Сбрасывает результаты постановок схемы; возвращает число сброшенных.</summary>
-      int InvalidateFemSchemaAnalyses(CScore.Fem.FemSchema schema)
-      {
-         int invalidated = 0;
-         foreach (var analysis in schema.Analyses.Where(a => a.ResultId != null))
-         {
-            analysis.InvalidateResult();
-            db.SaveFemAnalysis(analysis);
-            invalidated++;
-         }
-         return invalidated;
-      }
+      int InvalidateFemSchemaAnalyses(CScore.Fem.FemSchema schema) => FemImport.InvalidateAnalyses(schema);
 
       /// <summary>
-      /// Переносит ГУ вложения SCAD (закрепления, пружины КЭ 51, жёсткие тела, шарниры стержней, C1 пластин) в сеточный уровень
-      /// схемы с заменой перенесённых раньше; ручные не трогаются. Журнал: сводка, непереносимое, проверки резолвера.
-      /// Результаты постановок сбрасываются. Открытый редактор схемы закрывает вызывающий.
+      /// ГУ вложения SCAD (закрепления, пружины КЭ 51, жёсткие тела, шарниры стержней, C1 пластин) в сеточный уровень
+      /// схемы с заменой перенесённых раньше; ручные не трогаются. Открытый редактор схемы закрывает вызывающий.
       /// </summary>
       /// <param name="showSummary">Открыть окно сводки переноса (импорт и «Дочитать граничные условия»).</param>
-      void TransferScadBoundary(CScore.Fem.FemSchema schema, CScore.Import.ScadAnalysisModel model, bool showSummary = false)
+      void TransferScadBoundary(CScore.Fem.FemSchema schema, CScore.Import.ScadAnalysisModel model, bool showSummary = false) =>
+         ShowBoundarySummary(schema, FemImport.TransferScadBoundary(schema, model), showSummary);
+
+      /// <summary>После переноса ГУ: счётчики дерева и (по <paramref name="show"/>) немодальное окно сводки.</summary>
+      void ShowBoundarySummary(CScore.Fem.FemSchema schema, Services.FemBoundarySummary summary, bool show)
       {
-         var meshNodes = db.GetFemMeshNodes(schema.Id);
-         var elements = db.GetFemMeshElements(schema.Id);
-         var types = elements.GroupBy(e => e.ElemTag, StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.First().ElemType, StringComparer.Ordinal);
-         var result = CScore.Import.ScadBoundaryTransfer.Transfer(model,
-            meshNodes.Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal), types);
-         SaveBoundaryTransfer(schema, result, CScore.Import.ScadBoundaryTransfer.Origin, meshNodes, showSummary);
+         ReloadFemMeshSnapshotTree(schema.Id);
+         if (show && System.Windows.Application.Current?.MainWindow is { IsLoaded: true } owner)
+            new Views.FemBoundarySummaryWindow(summary.Header, summary.Rows, summary.Messages) { Owner = owner }.Show();
       }
 
-      /// <summary>
-      /// Записывает итог переноса ГУ из программы-источника (происхождение <paramref name="origin"/>; ручные ГУ не
-      /// трогаются). Журнал: сводка, непереносимое, проверки резолвера. Результаты постановок сбрасываются.
-      /// </summary>
-      /// <param name="showSummary">Открыть окно сводки переноса.</param>
-      void SaveBoundaryTransfer(CScore.Fem.FemSchema schema, CScore.Import.FemBoundaryTransferResult result, string origin,
-         IReadOnlyList<CScore.Fem.FemMeshNode> meshNodes, bool showSummary)
+      /// <summary>Ошибка импорта: в журнал и окном.</summary>
+      void ShowImportError(Exception ex, string titleKey)
       {
-         var manual = db.ManualMeshNodeTags(schema.Id);
-         int keptManual = result.Supports.Select(x => x.NodeTag)
-            .Concat(result.Springs.Where(x => x.TargetKind == CScore.Fem.FemSpringTargetKinds.MeshNode).Select(x => x.NodeTag))
-            .Where(manual.Contains).Distinct().Count();
-         db.SaveFemBoundary(schema.Id, origin, result.Supports, result.Springs, result.RigidBodies, result.ElementProps);
-         ReloadFemMeshSnapshotTree(schema.Id);
-
-         LogService.Info(result.Report[0]);
-         foreach (var line in result.Report.Skip(1)) LogService.Warning(line);
-         if (keptManual > 0) LogService.Info(string.Format(Loc.S("FemBoundaryManualKept"), keptManual));
-
-         // ГУ КЭ (освобождения, C1) записаны в БД — резолверу нужна сетка после записи. C1 и пружины — с учётом полей
-         // из таблиц и ручных правок: поля переживают повторный импорт ГУ.
-         var effective = FemFieldService.Effective(db, schema.Id);
-         foreach (var d in effective.Diagnostics)
-         {
-            string text = d.Tags.Count > 0 ? $"{d.Message}: {d.Tags.Count}" : d.Message;
-            if (d.Code == "field_recomputed") LogService.Info(text); else LogService.Warning(text);
-         }
-         var resolved = CScore.Fem.FemBoundaryResolver.Resolve(db.GetFemNodes(schema.Id), meshNodes,
-            effective.Elements, db.GetFemMeshNodeSupports(schema.Id), effective.Springs.ToList(), db.GetFemRigidBodies(schema.Id));
-         foreach (var d in resolved.Diagnostics.Take(10))
-            if (d.IsError) LogService.Error(d.Message); else LogService.Warning(d.Message);
-         if (resolved.Diagnostics.Count > 10)
-            LogService.Warning(string.Format(Loc.S("ScadBoundaryMoreDiagnostics"), resolved.Diagnostics.Count - 10));
-
-         int invalidated = InvalidateFemSchemaAnalyses(schema);
-         if (invalidated > 0) LogService.Info(string.Format(Loc.S("ScadBoundaryAnalysesInvalidated"), invalidated));
-
-         if (showSummary && System.Windows.Application.Current?.MainWindow is { IsLoaded: true } owner)
-         {
-            var messages = result.Report.Skip(1).Concat(resolved.Diagnostics.Select(d => d.Message)).ToList();
-            if (keptManual > 0) messages.Insert(0, string.Format(Loc.S("FemBoundaryManualKept"), keptManual));
-            new Views.FemBoundarySummaryWindow(string.Format(Loc.S(origin == CScore.Import.LiraBoundaryTransfer.Origin
-               ? "FemBoundarySummaryHeaderLira" : "FemBoundarySummaryHeader"), schema.Tag), result.Summary, messages)
-            {
-               Owner = owner,
-            }.Show();
-         }
+         LogService.Error(ex.Message);
+         MessageBox.Show(ex.Message, Loc.S(titleKey), MessageBoxButton.OK, MessageBoxImage.Error);
       }
 
       /// <summary>
@@ -5443,28 +5129,14 @@ namespace OpenCS
          }
       }
 
-      /// <summary>
-      /// Повороты сечений импортных стержней схемы по местным осям SCAD, перечитанным из .SPR (v79). Стержни,
-      /// которых в схеме нет, пропускаются; число обновлённых — в журнал.
-      /// </summary>
-      void ApplyScadRodAxes(CScore.Fem.FemSchema schema, CScore.Import.ScadSchemaData data)
-      {
-         var rotations = CScore.Import.ScadSchemaConverter.BeamRotations(data)
-            .ToDictionary(kv => kv.Key.ToString(System.Globalization.CultureInfo.InvariantCulture), kv => kv.Value,
-               StringComparer.Ordinal);
-         int updated = db.ReplaceFemElementBeamRotations(schema.Id, rotations);
-         LogService.Info(string.Format(Loc.S("ScadRodAxesUpdated"), updated, data.RodAxes.Count));
-      }
+      /// <summary>Повороты сечений стержней по осям SCAD (<see cref="Services.FemSchemaImport.ApplyScadRodAxes"/>).</summary>
+      void ApplyScadRodAxes(CScore.Fem.FemSchema schema, CScore.Import.ScadSchemaData data) => FemImport.ApplyScadRodAxes(schema, data);
 
-      /// <summary>Сохранить стальные группы SCAD при схеме (вложение <see cref="FemSchemaSourceFileKind.ScadSteelGroups"/>).</summary>
       void SaveScadSteelGroups(int schemaId, IReadOnlyCollection<CScore.Import.ScadSteelGroup> groups) =>
-         db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadSteelGroups, "",
-            System.Text.Encoding.UTF8.GetBytes(CScore.Import.ScadSteelGroupIndex.ToJson(groups)));
+         FemImport.SaveScadSteelGroups(schemaId, groups);
 
-      /// <summary>Сохранить заданное армирование SCAD при схеме (вложение <see cref="FemSchemaSourceFileKind.ScadAssignedRebar"/>).</summary>
       void SaveScadAssignedRebar(int schemaId, CScore.Import.ScadAssignedRebarFile file) =>
-         db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadAssignedRebar, "",
-            System.Text.Encoding.UTF8.GetBytes(file.ToJson()));
+         FemImport.SaveScadAssignedRebar(schemaId, file);
 
       /// <summary>
       /// Загрузить к схеме SCAD выгрузку плагина «Экспорт для OpenCS» (*.opencs-scad.json — подобранная арматура):
