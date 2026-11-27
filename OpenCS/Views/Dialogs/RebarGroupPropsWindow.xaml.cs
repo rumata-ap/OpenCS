@@ -103,7 +103,7 @@ public partial class RebarGroupPropsWindow : Window
             _ => null
         };
         if (text != null)
-            Clipboard.SetText(text);
+            UiClipboard.Copy(text, this);
         e.Handled = true;
     }
 

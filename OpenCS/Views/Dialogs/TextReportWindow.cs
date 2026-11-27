@@ -31,8 +31,7 @@ public sealed class TextReportWindow : Window
         copy.SetResourceReference(ContentProperty, "Copy");
         copy.Click += (_, _) =>
         {
-            if (!Utilites.UiClipboard.TrySetText(text))
-                MessageBox.Show(this, Utilites.Loc.S("ClipboardBusy"), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            Utilites.UiClipboard.Copy(text, this);
         };
         var close = new Button { Padding = new Thickness(12, 4, 12, 4), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0), IsCancel = true };
         close.SetResourceReference(ContentProperty, "Close");

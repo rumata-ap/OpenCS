@@ -1,4 +1,4 @@
-using System.Windows;
+using System.Runtime.InteropServices;
 
 namespace OpenCS.Services;
 
@@ -6,5 +6,11 @@ namespace OpenCS.Services;
 public sealed class WpfTextClipboardService : ITextClipboardService
 {
     /// <inheritdoc />
-    public void SetText(string text) => Clipboard.SetText(text);
+    /// <remarks>Через <see cref="Utilites.UiClipboard"/> (три попытки); буфер так и не освободился —
+    /// <see cref="ExternalException"/>, как у <c>Clipboard.SetText</c>: вызывающие показывают её сообщение.</remarks>
+    public void SetText(string text)
+    {
+        if (!Utilites.UiClipboard.TrySetText(text))
+            throw new ExternalException(Utilites.Loc.S("ClipboardBusy"));
+    }
 }

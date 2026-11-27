@@ -196,8 +196,7 @@ internal static class FemMemberTreeMenus
         items.Add(new Separator());
         items.Add(Item("FemNodeTreeCopyCoords", () =>
         {
-            try { Clipboard.SetText(FormattableString.Invariant($"{node.X}\t{node.Y}\t{node.Z}")); }
-            catch { /* буфер обмена занят другим процессом (CLIPBRD_E_CANT_OPEN) */ }
+            UiClipboard.Copy(FormattableString.Invariant($"{node.X}\t{node.Y}\t{node.Z}"));
         }));
 
         items.Add(new Separator());

@@ -106,4 +106,24 @@ public sealed class UiLintTests
         File.WriteAllText(Path.Combine(dir, "ui-lint.md"), report.ToString());
         Assert.True(strict.Count == 0, "Закрытые разделы нарушают UiLint:\n" + string.Join("\n", strict));
     }
+
+    /// <summary>
+    /// Текст в буфер обмена — только через <c>UiClipboard</c>: прямой <c>Clipboard.SetText</c> падает, когда буфер занят
+    /// другой программой (CLIPBRD_E_CANT_OPEN), или молчит в своём try/catch.
+    /// </summary>
+    [Fact]
+    public void Clipboard_TextOnlyThroughUiClipboard()
+    {
+        string root = Path.Combine(UiInventory.RepoRoot, "OpenCS");
+        var pattern = new System.Text.RegularExpressions.Regex(@"\bClipboard\.(SetText|SetDataObject|SetData)\s*\(");
+        var offenders = Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
+                        && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
+                        && !f.EndsWith("UiClipboard.cs", StringComparison.OrdinalIgnoreCase))
+            .SelectMany(f => File.ReadLines(f).Select((line, i) => (f, line, i)))
+            .Where(x => pattern.IsMatch(x.line) && !x.line.TrimStart().StartsWith("//", StringComparison.Ordinal))
+            .Select(x => $"{Path.GetRelativePath(UiInventory.RepoRoot, x.f)}:{x.i + 1}")
+            .ToList();
+        Assert.True(offenders.Count == 0, "Clipboard мимо UiClipboard:\n" + string.Join("\n", offenders));
+    }
 }

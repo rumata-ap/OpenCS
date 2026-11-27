@@ -87,7 +87,7 @@ public partial class ContourPropsWindow : Window
             _ => null
         };
         if (text != null)
-            Clipboard.SetText(text);
+            UiClipboard.Copy(text, this);
         e.Handled = true;
     }
 
@@ -103,7 +103,7 @@ public partial class ContourPropsWindow : Window
             ValueOnly(IxyText.Text),
             ValueOnly(IxRadiusText.Text),
             ValueOnly(IyRadiusText.Text));
-        Clipboard.SetText(s);
+        UiClipboard.Copy(s, this);
     }
 
     static double Distance(double x1, double y1, double x2, double y2)

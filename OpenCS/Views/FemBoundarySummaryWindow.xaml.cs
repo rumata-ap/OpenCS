@@ -26,10 +26,6 @@ public partial class FemBoundarySummaryWindow : Window
     /// <summary>Сводка и сообщения — в буфер обмена текстом (таблица через табуляцию).</summary>
     void Copy_Click(object sender, RoutedEventArgs e)
     {
-        try { Clipboard.SetText(_text); }
-        catch (System.Runtime.InteropServices.ExternalException)
-        {
-            MessageBox.Show(this, Utilites.Loc.S("ClipboardBusy"), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
+        Utilites.UiClipboard.Copy(_text, this);
     }
 }

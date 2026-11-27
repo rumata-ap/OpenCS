@@ -584,8 +584,7 @@ namespace OpenCS
       {
          if (LoggerListBox.SelectedItem is LogEntry entry)
          {
-            try { Clipboard.SetText(entry.FormattedMessage); }
-            catch { /* игнорируем ошибки буфера обмена (CLIPBRD_E_CANT_OPEN) */ }
+            Utilites.UiClipboard.Copy(entry.FormattedMessage, this);
          }
       }
    }

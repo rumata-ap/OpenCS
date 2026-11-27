@@ -22,7 +22,6 @@ public partial class StoreyFragmentReportDialog : Window
 
     void Copy_Click(object sender, RoutedEventArgs e)
     {
-        if (!OpenCS.Utilites.UiClipboard.TrySetText(StoreyFragmentReportRows.ToText(_rows)))
-            MessageBox.Show(this, OpenCS.Utilites.Loc.S("ClipboardBusy"), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+        OpenCS.Utilites.UiClipboard.Copy(StoreyFragmentReportRows.ToText(_rows), this);
     }
 }
