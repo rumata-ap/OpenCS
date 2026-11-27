@@ -7938,4 +7938,10 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="MainDbReleaseError">Failed to release the database: {0}</system:String>
    <system:String x:Key="AppHelixLoadFailed">Failed to load HelixToolkit.Wpf (3D schema viewer).&#10;Rebuild OpenCS (Debug) and run OpenCS.exe from the OpenCS\bin\Debug folder.&#10;&#10;{0}</system:String>
    <system:String x:Key="AppUnhandledException">Unhandled exception</system:String>
+   <system:String x:Key="SettingErrBool">Expected true or false.</system:String>
+   <system:String x:Key="SettingErrChoice">Allowed values: {0}.</system:String>
+   <system:String x:Key="SettingErrInteger">Enter a whole number.</system:String>
+   <system:String x:Key="SettingErrRange">Allowed: {0}.</system:String>
+   <system:String x:Key="SettingErrIntList">Point numbers are whole numbers from 1 separated by commas; empty means all points.</system:String>
+   <system:String x:Key="SettingsTabHasErrors">Some values are invalid — fix the fields marked with red text. Settings are not saved.</system:String>
 </ResourceDictionary>

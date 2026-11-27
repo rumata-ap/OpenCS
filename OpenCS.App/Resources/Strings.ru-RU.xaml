@@ -7938,4 +7938,10 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="MainDbReleaseError">Ошибка освобождения базы данных: {0}</system:String>
    <system:String x:Key="AppHelixLoadFailed">Не удалось загрузить HelixToolkit.Wpf (3D-просмотрщик схем).&#10;Пересоберите OpenCS (Debug) и запускайте OpenCS.exe из папки OpenCS\bin\Debug.&#10;&#10;{0}</system:String>
    <system:String x:Key="AppUnhandledException">Необработанное исключение</system:String>
+   <system:String x:Key="SettingErrBool">Нужно значение true или false.</system:String>
+   <system:String x:Key="SettingErrChoice">Допустимые значения: {0}.</system:String>
+   <system:String x:Key="SettingErrInteger">Введите целое число.</system:String>
+   <system:String x:Key="SettingErrRange">Допустимо: {0}.</system:String>
+   <system:String x:Key="SettingErrIntList">Номера точек — целые числа от 1 через запятую; пусто — все точки.</system:String>
+   <system:String x:Key="SettingsTabHasErrors">Есть неверные значения — исправьте поля, отмеченные красным текстом. Настройки не сохранены.</system:String>
 </ResourceDictionary>
