@@ -135,6 +135,12 @@ public sealed class CliFemFragmentsTests : IDisposable
         }
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
 
+        // Выгрузка — «+» как есть, без + (кодировщик CliOutput.Json).
+        await ExportFragments(project, "plus.json");
+        string text = File.ReadAllText(PathOf("plus.json"));
+        Assert.Contains("\"Этаж +3\"", text);
+        Assert.DoesNotContain("\\u002B", text);
+
         var missing = await Run("apply", project, Doc("bad.json", """
             "femFragments": [ { "tag": "Нет", "parent": "Каркас", "storey": { "floor": 5 } } ]
             """));

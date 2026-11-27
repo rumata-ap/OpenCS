@@ -27,11 +27,14 @@ sealed class CliException(int exitCode, string message) : Exception(message)
 /// <summary>Вывод: таблицы и строки «имя: значение» для человека, JSON для программ.</summary>
 static class CliOutput
 {
-    /// <summary>JSON с отступами, кириллица без \u-экранирования.</summary>
+    /// <summary>
+    /// JSON с отступами, кириллица и «+ &lt; &gt; &amp; '» без \u-экранирования: вывод идёт в файл или консоль, не в HTML
+    /// (иначе «+» в «+3,000» выгружается шестнадцатеричной escape-последовательностью символа U+002B).
+    /// </summary>
     public static readonly JsonSerializerOptions Json = new()
     {
         WriteIndented = true,
-        Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
