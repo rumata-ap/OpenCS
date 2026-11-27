@@ -44,36 +44,26 @@ namespace OpenCS.Utilites
 
       /// <summary>Запомненные роли слоёв (имя слоя → роль).</summary>
       [JsonPropertyName("cadLayerRoles")]
-      public Dictionary<string, CScore.Import.Cad.CadLayerRole> SectionLayerRoles { get; set; } = [];
+      public Dictionary<string, CScore.Import.Cad.CadLayerRole> SectionLayerRoles { get; set => field = Layers(value); } = Layers<CScore.Import.Cad.CadLayerRole>(null);
 
       /// <summary>Запомненные материалы слоёв (имя слоя → Id материала проекта).</summary>
       [JsonPropertyName("cadLayerMaterials")]
-      public Dictionary<string, int> SectionLayerMaterials { get; set; } = [];
+      public Dictionary<string, int> SectionLayerMaterials { get; set => field = Layers(value); } = Layers<int>(null);
 
       /// <summary>Диаметр хомутов слоя по умолчанию [мм] — для линий без ширины и подписи.</summary>
       [JsonPropertyName("cadStirrupDiameters")]
-      public Dictionary<string, double> SectionStirrupDiameters { get; set; } = [];
+      public Dictionary<string, double> SectionStirrupDiameters { get; set => field = Layers(value); } = Layers<double>(null);
 
       /// <summary>Шаг хомутов слоя по умолчанию [мм] — для элементов без подписи шага.</summary>
       [JsonPropertyName("cadStirrupSpacings")]
-      public Dictionary<string, double> SectionStirrupSpacings { get; set; } = [];
+      public Dictionary<string, double> SectionStirrupSpacings { get; set => field = Layers(value); } = Layers<double>(null);
+
+      /// <summary>Словарь по имени слоя без учёта регистра (AutoCAD имена слоёв так и сравнивает) — и после чтения из базы.</summary>
+      static Dictionary<string, T> Layers<T>(Dictionary<string, T>? source) =>
+         source == null ? new(StringComparer.OrdinalIgnoreCase) : new(source, StringComparer.OrdinalIgnoreCase);
 
       public static AcadImportSettings Default => new();
 
-      public AcadImportSettings Clone() => new()
-      {
-         ScaleFactor = ScaleFactor,
-         DefaultLayerFilter = DefaultLayerFilter,
-         ArcDiscretizationMode = ArcDiscretizationMode,
-         ArcChordLength = ArcChordLength,
-         ArcSegments = ArcSegments,
-         SectionArcMode = SectionArcMode,
-         SectionArcDeviation = SectionArcDeviation,
-         SectionMergeIdentical = SectionMergeIdentical,
-         SectionLayerRoles = new(SectionLayerRoles, StringComparer.OrdinalIgnoreCase),
-         SectionLayerMaterials = new(SectionLayerMaterials, StringComparer.OrdinalIgnoreCase),
-         SectionStirrupDiameters = new(SectionStirrupDiameters, StringComparer.OrdinalIgnoreCase),
-         SectionStirrupSpacings = new(SectionStirrupSpacings, StringComparer.OrdinalIgnoreCase),
-      };
+      public AcadImportSettings Clone() => SettingsCopy.Deep(this);
    }
 }

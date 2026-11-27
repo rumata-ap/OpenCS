@@ -12,9 +12,6 @@ namespace OpenCS.Utilites
 
       public static CsvExportSettings Default => new();
 
-      public CsvExportSettings Clone() => new()
-      {
-         Delimiter = Delimiter, Encoding = Encoding
-      };
+      public CsvExportSettings Clone() => SettingsCopy.Deep(this);
    }
 }

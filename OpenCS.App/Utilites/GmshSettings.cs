@@ -37,14 +37,5 @@ public sealed class GmshSettings
             ? ArtifactsPath!
             : System.IO.Path.Combine(AppContext.BaseDirectory, "GmshArtifacts");
 
-    public GmshSettings Clone() => new()
-    {
-        ExecutablePath = ExecutablePath,
-        Algorithm = Algorithm,
-        ElementMode = ElementMode,
-        TimeoutSeconds = TimeoutSeconds,
-        KeepArtifacts = KeepArtifacts,
-        ArtifactsPath = ArtifactsPath,
-        SeamToleranceM = SeamToleranceM
-    };
+    public GmshSettings Clone() => SettingsCopy.Deep(this);
 }

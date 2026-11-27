@@ -88,23 +88,6 @@ namespace OpenCS.Utilites
 
       public static PlotSettings Default => new();
 
-      public PlotSettings Clone() => new()
-      {
-         Background = Background, Grid = Grid, Curve = Curve,
-         Fill = Fill, MarkerFill = MarkerFill, Text = Text,
-         Highlight = Highlight,
-         CurveThickness = CurveThickness, MarkerSize = MarkerSize,
-         FontSize = FontSize,
-         ShowGrid = ShowGrid, ShowPointLabels = ShowPointLabels,
-         ShowTooltips = ShowTooltips,
-         ShowAxesValues = ShowAxesValues, AxesAtOrigin = AxesAtOrigin,
-         ShowOriginReferenceAxes = ShowOriginReferenceAxes,
-         AxesColor = AxesColor, AxesFontSize = AxesFontSize,
-         GridThickness = GridThickness, TickCount = TickCount,
-         ScaleX = ScaleX, ScaleY = ScaleY,
-         DxfCanvasBackground = DxfCanvasBackground,
-         CentroidColor = CentroidColor, CentroidSize = CentroidSize,
-         ForceSetColorize = ForceSetColorize
-      };
+      public PlotSettings Clone() => SettingsCopy.Deep(this);
    }
 }

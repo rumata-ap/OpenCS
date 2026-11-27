@@ -24,13 +24,7 @@ namespace OpenCS.Utilites
 
       public static LiraImportSettings Default => new();
 
-      public LiraImportSettings Clone() => new()
-      {
-         TonToKnFactor             = TonToKnFactor,
-         InvertBarBendingMoments   = InvertBarBendingMoments,
-         InvertShellBendingMoments = InvertShellBendingMoments,
-         TextFileDirectory         = TextFileDirectory,
-      };
+      public LiraImportSettings Clone() => SettingsCopy.Deep(this);
 
       public CScore.Import.LiraImportOptions ToOptions() => new()
       {

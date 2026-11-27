@@ -19,12 +19,12 @@ namespace OpenCS.Services
 
       public AcadImporter(double scaleFactor = 0.001,
                           bool arcChordMode = true,
-                          double arcChordLength = 0.01,
+                          double arcChordLengthMm = 10,
                           int arcSegments = 16)
       {
          _scale = scaleFactor;
          _arcChordMode = arcChordMode;
-         _arcChordLength = arcChordLength;
+         _arcChordLength = ChordInDrawingUnits(arcChordLengthMm, scaleFactor);
          _arcSegments = Math.Max(3, arcSegments);
       }
 
@@ -308,6 +308,21 @@ namespace OpenCS.Services
          return result;
       }
 
+      /// <summary>
+      /// Длина хорды в единицах чертежа: в настройках она в мм, а дуги разбираются до масштаба (единица чертежа ×
+      /// <paramref name="scaleFactor"/> = метры). Без перевода чертёж в метрах получал хорду 10 м — дуга одним отрезком.
+      /// </summary>
+      public static double ChordInDrawingUnits(double chordMm, double scaleFactor) =>
+         scaleFactor > 0 ? chordMm / 1000.0 / scaleFactor : chordMm;
+
+      /// <summary>Число отрезков дуги с углом <paramref name="theta"/> и радиусом <paramref name="radius"/> при наибольшей хорде (те же единицы).</summary>
+      public static int ChordSegments(double theta, double radius, double chord)
+      {
+         double maxAngle = 2.0 * Math.Asin(Math.Min(1.0, chord / (2.0 * Math.Abs(radius))));
+         if (maxAngle < 1e-10) maxAngle = Math.PI / 64;
+         return Math.Max(3, (int)Math.Ceiling(Math.Abs(theta) / maxAngle));
+      }
+
       /// <summary>Аппроксимирует дугу отрезками по настройкам дискретизации.</summary>
       List<(double x, double y)> ArcPoints(double x1, double y1, double x2, double y2, double bulge)
       {
@@ -334,17 +349,7 @@ namespace OpenCS.Services
             while (a1 < a2) a1 += 2.0 * Math.PI;
          }
 
-         int segs;
-         if (_arcChordMode)
-         {
-            double maxAngle = 2.0 * Math.Asin(Math.Min(1.0, _arcChordLength / (2.0 * Math.Abs(radius))));
-            if (maxAngle < 1e-10) maxAngle = Math.PI / 64;
-            segs = Math.Max(3, (int)Math.Ceiling(Math.Abs(theta) / maxAngle));
-         }
-         else
-         {
-            segs = _arcSegments;
-         }
+         int segs = _arcChordMode ? ChordSegments(theta, radius, _arcChordLength) : _arcSegments;
 
          var pts = new List<(double x, double y)>(segs + 1);
          for (int j = 0; j <= segs; j++)

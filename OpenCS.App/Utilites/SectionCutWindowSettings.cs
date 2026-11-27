@@ -31,15 +31,5 @@ public sealed class SectionCutWindowSettings
     [JsonPropertyName("exportAsOnScreen")]
     public bool ExportAsOnScreen { get; set; } = true;
 
-    public SectionCutWindowSettings Clone() => new()
-    {
-        Width = Width,
-        Height = Height,
-        Left = Left,
-        Top = Top,
-        ScaleS = ScaleS,
-        ScaleV = ScaleV,
-        ExportFormat = ExportFormat,
-        ExportAsOnScreen = ExportAsOnScreen
-    };
+    public SectionCutWindowSettings Clone() => SettingsCopy.Deep(this);
 }
