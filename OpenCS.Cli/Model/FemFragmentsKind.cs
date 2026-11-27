@@ -567,6 +567,7 @@ sealed class FemFragmentsKind : IModelKind
         if (result.Schema is not { } schema)
             throw new CliException(CliExitCode.Usage, $"{d.Path}: " + string.Join("; ", result.Rows.Where(r => r.IsError).Select(r => r.Message)));
         ctx.LogService.Info(result.LogMessage);
+        if (prepared.Draft.Cuts.Count == 0) ctx.LogService.Warning($"{schema.Tag}: {Loc.S("StoreyFragmentNoCuts")}");
         ApplyCutBc(db, schema, d, overrides);
     }
 

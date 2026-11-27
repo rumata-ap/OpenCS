@@ -4204,6 +4204,8 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="StoreyFragmentLevelsOrder">Level z₁ must be below z₂.</system:String>
     <system:String x:Key="StoreyFragmentNameEmpty">Enter a name for the new schema.</system:String>
     <system:String x:Key="StoreyFragmentNameNumbered">{0} ({1})</system:String>
+    <system:String x:Key="StoreyFragmentWholeSchema">No storeys below or above: the band covers the whole schema — there will be no cuts and the fragment becomes a copy of the parent (no masks or cut boundary conditions needed).</system:String>
+    <system:String x:Key="StoreyFragmentNoCuts">The band covers the whole schema: no cuts, the fragment is a copy of the parent; masks cannot be taken from it.</system:String>
     <system:String x:Key="StoreyFloorLabel">Floor</system:String>
     <system:String x:Key="StoreyFloorRow">{0} · {1} m² · {2}</system:String>
     <system:String x:Key="StoreyFloorMembers">members: {0}</system:String>
@@ -4311,6 +4313,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FragmentCutBcLegend">DOF mode in global axes: “by preset” or an override on top of the preset (highlighted). Changing the preset keeps overrides. Changes are saved immediately.</system:String>
     <system:String x:Key="FragmentCutBcByPreset">by preset ({0})</system:String>
     <system:String x:Key="FragmentCutBcMasksMissingHint">The modes need masks, but none are taken: use “Masks from parent…” or choose the “Isolation” preset.</system:String>
+    <system:String x:Key="FragmentCutBcMasksMissingLateralHint">The lateral faces need masks, but none are taken: use “Masks from parent…” or choose the “Isolation” preset for the lateral faces.</system:String>
     <system:String x:Key="FragmentCutBcObliqueHint">Walls are not along global axes: rotation about the wall normal is not a single DOF and follows the preset.</system:String>
     <system:String x:Key="FragmentCutBcColMember">Member</system:String>
     <system:String x:Key="FragmentCutBcColSide">Side</system:String>

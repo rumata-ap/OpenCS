@@ -261,8 +261,11 @@ public sealed class FragmentCutBcVM : ViewModelBase
     void UpdateHint()
     {
         var parts = new List<string>();
-        if (!_hasMasks && Rows.Any(r => r.Dofs.Any(d => FragmentCutBc.NeedsMask(d.Effective))))
-            parts.Add(Loc.S("FragmentCutBcMasksMissingHint"));
+        var needMasks = _hasMasks ? [] : Rows.Where(r => r.Dofs.Any(d => FragmentCutBc.NeedsMask(d.Effective))).ToList();
+        // Маски нужны только боковым граням — подсказка называет пресет боковых граней («Изоляция» низа и верха их не снимает).
+        if (needMasks.Count > 0)
+            parts.Add(Loc.S(needMasks.All(r => r.Cut.Side == FragmentCutSide.Lateral)
+                ? "FragmentCutBcMasksMissingLateralHint" : "FragmentCutBcMasksMissingHint"));
         if (_oblique) parts.Add(Loc.S("FragmentCutBcObliqueHint"));
         Hint = parts.Count == 0 ? null : string.Join(" ", parts);
     }

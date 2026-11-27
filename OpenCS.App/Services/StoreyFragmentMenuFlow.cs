@@ -37,7 +37,10 @@ public static class StoreyFragmentMenuFlow
             return new(null, [row], string.Format(Loc.S("StoreyFragmentFailed"), parent.Tag, F(request.Z1), F(request.Z2), 1));
         }
         var (schema, draft) = StoreyFragmentService.Commit(db, parent.Id, request, prepared);
-        var rows = StoreyFragmentReportRows.From(draft.Diagnostics);
+        var rows = StoreyFragmentReportRows.From(draft.Diagnostics).ToList();
+        // Полоса или призма захватили всю схему: фрагмент без разрезов — копия родителя, маски с него не снимаются.
+        if (schema is not null && draft.Cuts.Count == 0)
+            rows.Insert(0, new StoreyFragmentReportRow(Loc.S("StoreyFragmentReportWarning"), Loc.S("StoreyFragmentNoCuts"), false));
         string log = schema is null
             ? string.Format(Loc.S("StoreyFragmentFailed"), parent.Tag, F(request.Z1), F(request.Z2), rows.Count(r => r.IsError))
             : string.Format(Loc.S("StoreyFragmentBuilt"), schema.Tag, parent.Tag, F(request.Z1), F(request.Z2),

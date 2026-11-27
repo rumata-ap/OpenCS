@@ -4204,6 +4204,8 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="StoreyFragmentLevelsOrder">Отметка z₁ должна быть ниже z₂.</system:String>
     <system:String x:Key="StoreyFragmentNameEmpty">Задайте имя новой схемы.</system:String>
     <system:String x:Key="StoreyFragmentNameNumbered">{0} ({1})</system:String>
+    <system:String x:Key="StoreyFragmentWholeSchema">Этажей ниже и выше нет: полоса захватывает всю схему — разрезов не будет, фрагмент станет копией родителя (маски и ГУ разрезов не нужны).</system:String>
+    <system:String x:Key="StoreyFragmentNoCuts">Полоса захватила всю схему: разрезов нет, фрагмент — копия родителя; маски с него не снимаются.</system:String>
     <system:String x:Key="StoreyFloorLabel">Перекрытие</system:String>
     <system:String x:Key="StoreyFloorRow">{0} · {1} м² · {2}</system:String>
     <system:String x:Key="StoreyFloorMembers">КонЭ: {0}</system:String>
@@ -4311,6 +4313,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FragmentCutBcLegend">Режим DOF в общих осях: «по пресету» или правка поверх пресета (выделена). Смена пресета правки не трогает. Изменения сохраняются сразу.</system:String>
     <system:String x:Key="FragmentCutBcByPreset">по пресету ({0})</system:String>
     <system:String x:Key="FragmentCutBcMasksMissingHint">Режимы требуют маски, а они не сняты: снимите их командой «Маски из родителя…» или выберите пресет «Изоляция».</system:String>
+    <system:String x:Key="FragmentCutBcMasksMissingLateralHint">Боковым граням нужны маски, а они не сняты: снимите их командой «Маски из родителя…» или выберите для боковых граней пресет «Изоляция».</system:String>
     <system:String x:Key="FragmentCutBcObliqueHint">Стены не вдоль общих осей: поворот вокруг нормали стены не выделяется одним DOF и задаётся по пресету.</system:String>
     <system:String x:Key="FragmentCutBcColMember">КонЭ</system:String>
     <system:String x:Key="FragmentCutBcColSide">Сторона</system:String>

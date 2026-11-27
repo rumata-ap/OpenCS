@@ -130,6 +130,39 @@ public sealed class FragmentAuthoringTests : IDisposable
         Assert.Null(vm.FirstErrorField);
     }
 
+    /// <summary>По ручной проверке: единственное перекрытие выбрано сразу; полоса шире схемы — предупреждение до сборки.</summary>
+    [Fact]
+    public void StoreyVm_SingleLevel_Selected_WholeSchemaWarning()
+    {
+        var level = new StoreyFloorLevel(3, 36, ["S1"], 16, Enumerable.Range(0, 100).Select(i => (long)i).ToHashSet());
+        var vm = new StoreyFragmentDialogVM("Каркас", new StoreyFloorContext([level], 0, 6), null, null, CultureInfo.CurrentCulture);
+        Assert.Same(vm.Levels[0], vm.SelectedLevel);
+        Assert.False(string.IsNullOrEmpty(vm.Name));
+        Assert.Contains(Loc.S("StoreyFragmentWholeSchema"), vm.Warning);
+        Assert.NotNull(vm.TryRequest(out _));
+
+        var two = new StoreyFragmentDialogVM("Каркас", new StoreyFloorContext([level, level with { Z = 6 }], 0, 9), null, null,
+            CultureInfo.CurrentCulture);
+        Assert.Null(two.SelectedLevel);
+        two.SelectedLevel = two.Levels[0];
+        Assert.DoesNotContain(Loc.S("StoreyFragmentWholeSchema"), two.Warning);
+    }
+
+    [Fact]
+    public async Task Build_WholeSchemaBand_NoCutsWarningRow()
+    {
+        using var db = new DatabaseService(_path);
+        var parent = StoreyFragmentDbFixture.CreateParent(db);
+        db.LoadAll();
+        var r = await StoreyFragmentMenuFlow.RunAsync(db, parent, new StoreyFragmentRequest(-1, 20, "Весь"));
+        Assert.False(r.IsError, string.Join("; ", r.Rows.Select(x => x.Message)));
+        Assert.Equal(Loc.S("StoreyFragmentNoCuts"), r.Rows[0].Message);
+        Assert.False(r.Rows[0].IsError);
+
+        var band = await StoreyFragmentMenuFlow.RunAsync(db, parent, new StoreyFragmentRequest(1.5, 4.5, "Полоса"));
+        Assert.DoesNotContain(band.Rows, x => x.Message == Loc.S("StoreyFragmentNoCuts"));
+    }
+
     [Theory]
     [InlineData("0,5", "-1", "2.5", "3", true)]
     [InlineData("abc", "0", "0", "1", false)]

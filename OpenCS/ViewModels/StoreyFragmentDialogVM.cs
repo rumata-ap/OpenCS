@@ -58,6 +58,8 @@ public sealed class StoreyFragmentDialogVM : ViewModelBase
             if (StoreyFloorLevels.LevelAt(context.Levels, z) is int index) SelectedLevel = Levels[index];
             else PickMessage = string.Format(Loc.S("StoreyFloorPickNotFound"), Signed(z));
         }
+        // Единственное перекрытие выбирается сразу: иначе оно выглядит выбранным, а «Собрать» просит выбрать.
+        if (_selected is null && Levels.Count == 1) SelectedLevel = Levels[0];
     }
 
     public string ParentTag => _parentTag;
@@ -174,8 +176,12 @@ public sealed class StoreyFragmentDialogVM : ViewModelBase
         AboveText = band.HeightAbove is { } ha
             ? string.Format(Loc.S("StoreyFloorAbove"), F(ha), Signed(band.Z2))
             : string.Format(Loc.S("StoreyFloorAboveEdge"), Signed(band.Z2));
-        Warning = band.CrossedLevelZ.Count == 0 ? ""
-            : string.Format(Loc.S("StoreyFloorCrossed"), string.Join("; ", band.CrossedLevelZ.Select(Signed)));
+        var warnings = new List<string>();
+        if (band.CrossedLevelZ.Count > 0)
+            warnings.Add(string.Format(Loc.S("StoreyFloorCrossed"), string.Join("; ", band.CrossedLevelZ.Select(Signed))));
+        // Ни этажа ниже, ни выше: полоса шире схемы — разрезов не будет, маски и ГУ разрезов не нужны.
+        if (band.Z1 <= _context.ZMin && band.Z2 >= _context.ZMax) warnings.Add(Loc.S("StoreyFragmentWholeSchema"));
+        Warning = string.Join(Environment.NewLine, warnings);
         SetDefaultName(StoreyFragmentForm.DefaultName(_parentTag, _selected.Level.Z, _culture));
     }
 
