@@ -29,16 +29,18 @@ sealed partial class CliApp
     {
         using var session = call.OpenProject();
         var ctx = session.Context;
-        var rows = new List<(int Id, string Tag, string Source, int Nodes, int Members, string Mesh, string? Reason)>();
+        var rows = new List<(int Id, string Tag, string Source, int Nodes, int Members, string Mesh, string? Reason, (int Nodes, int Bars, int Shells) Grid)>();
         foreach (var s in ctx.FemSchemas.OrderBy(s => s.Id))
         {
             var (state, reason) = await MeshState(ctx, s, CancellationToken.None);
-            rows.Add((s.Id, s.Tag, SchemaSource(s), ctx.Db.GetFemNodes(s.Id).Count, ctx.Db.GetFemMembers(s.Id).Count, state, reason));
+            rows.Add((s.Id, s.Tag, SchemaSource(s), ctx.Db.GetFemNodes(s.Id).Count, ctx.Db.GetFemMembers(s.Id).Count, state, reason,
+                ctx.Db.GetFemMeshSnapshotCounts(s.Id)));
         }
         if (call.Json)
             CliOutput.WriteJson(call.Out, rows.Select(r => new
             {
                 r.Id, r.Tag, r.Source, r.Nodes, r.Members, Mesh = r.Mesh, MeshReason = r.Reason,
+                MeshNodes = r.Grid.Nodes, MeshBars = r.Grid.Bars, MeshShells = r.Grid.Shells,
             }).ToList());
         else
             CliOutput.WriteTable(call.Out,
@@ -47,7 +49,8 @@ sealed partial class CliApp
                 rows.Select(r => new[]
                 {
                     r.Id.ToString(), r.Tag, r.Source, r.Nodes.ToString(), r.Members.ToString(),
-                    Loc.S("CliMesh_" + r.Mesh) + (r.Reason is { } why ? $" ({why})" : ""),
+                    Loc.S("CliMesh_" + r.Mesh) + (r.Reason is { } why ? $" ({why})" : "")
+                        + (r.Grid.Nodes > 0 ? string.Format(Loc.S("CliMeshCounts"), r.Grid.Nodes, r.Grid.Bars + r.Grid.Shells) : ""),
                 }));
         return CliExitCode.Ok;
     }

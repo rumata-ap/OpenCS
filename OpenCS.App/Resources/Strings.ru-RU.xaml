@@ -6275,6 +6275,36 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliOptSheet">Лист книги Excel: имя или номер с 1</system:String>
    <system:String x:Key="CliOptLiraMode">Таблица HTML ЛИРА-САПР: rsu, rsn, loadcases</system:String>
    <system:String x:Key="CliErrImport">Импорт не выполнен: {0}</system:String>
+   <system:String x:Key="CliCmdImportSchema">Расчётная схема ЛИРЫ или SCAD: текст ЛИРЫ, .lir, CSV ЛИРЫ, текст SCAD; в Windows — также схема, открытая в ЛИРЕ (--lira-api), и проект SCAD .SPR</system:String>
+   <system:String x:Key="CliArgSchemaFile">Файл схемы (.txt ЛИРЫ или SCAD, .lir, .csv узлов ЛИРЫ, .spr); не нужен с --lira-api</system:String>
+   <system:String x:Key="CliOptSchemaFormat">Формат файла: auto (по расширению и содержимому), lira-text, lir, lira-csv, scad-txt, scad-spr</system:String>
+   <system:String x:Key="CliOptLiraApi">Схема, открытая в запущенной ЛИРЕ (COM; только Windows); ГУ и нагрузки — из её текстового файла</system:String>
+   <system:String x:Key="CliOptCsvElements">CSV ЛИРЫ: файл КЭ (вместе с файлом узлов — аргументом)</system:String>
+   <system:String x:Key="CliOptCsvBarStiffness">CSV ЛИРЫ: жёсткости стержней (необязательно)</system:String>
+   <system:String x:Key="CliOptCsvPlateStiffness">CSV ЛИРЫ: жёсткости пластин (необязательно)</system:String>
+   <system:String x:Key="CliOptScadDll">Каталог SCADAPIX.dll (иначе — из настроек проекта или поиском установки SCAD)</system:String>
+   <system:String x:Key="CliOptNoOutputAxes">SCAD .SPR: не читать оси выдачи усилий пластин</system:String>
+   <system:String x:Key="CliOptNoConcreteGroups">SCAD .SPR: не создавать группы КЭ по ЖБ-группам</system:String>
+   <system:String x:Key="CliOptNoSteelGroups">SCAD .SPR: не создавать группы КЭ по стальным группам</system:String>
+   <system:String x:Key="CliErrSchemaFileWithApi">С --lira-api файл схемы не указывается: читается схема, открытая в ЛИРЕ.</system:String>
+   <system:String x:Key="CliErrSchemaFileRequired">Укажите файл схемы или --lira-api.</system:String>
+   <system:String x:Key="CliErrLiraApiWindowsOnly">Чтение схемы через API ЛИРЫ доступно только в Windows. Без COM: текстовый файл ЛИРЫ (Data\&lt;Title&gt;.txt), файл .lir или CSV ЛИРЫ.</system:String>
+   <system:String x:Key="CliErrScadSprWindowsOnly">Чтение проекта SCAD .SPR (SCADAPIX.dll) доступно только в Windows. Без DLL: текстовый файл SCAD (топология).</system:String>
+   <system:String x:Key="CliErrSchemaFormatUnknown">Формат «{0}» не распознан по расширению — укажите --format ({1}).</system:String>
+   <system:String x:Key="CliErrCsvElementsRequired">Для CSV ЛИРЫ нужен файл КЭ: --elements-file.</system:String>
+   <system:String x:Key="CliErrScadDllNotFound">SCADAPIX.dll не найдена — укажите каталог SCAD: --scad-dll.</system:String>
+   <system:String x:Key="CliErrLiraApi">ЛИРА не ответила через API: {0}. Запущена ли ЛИРА и открыта ли в ней схема?</system:String>
+   <system:String x:Key="CliImportLoadValuesNormative">Нагрузки источника — расчётные, а в настройках проекта величины нагрузок — нормативные: сочетания СП 20 учтут γf повторно. Переключите в настройках на «расчётные».</system:String>
+   <system:String x:Key="CliMeshCounts" xml:space="preserve"> · узлов {0}, КЭ {1}</system:String>
+   <system:String x:Key="CliErrLirRead">Файл .lir «{0}» не прочитан: {1}. Импортируйте текстовый файл схемы ЛИРЫ (Data\&lt;Title&gt;.txt).</system:String>
+   <system:String x:Key="CliLirSkippedElements">КЭ, которые разборщик .lir не перенёс (число узлов не 2–4: пружины, объёмные и нераспознанные): {0}.</system:String>
+   <system:String x:Key="CliLirPartial">Файл .lir прочитан разборщиком OpenCS — формат разобран не полностью: перенесены узлы, КЭ, жёсткости и закрепления. Нагрузки, шарниры, жёсткие вставки и упругие связи не переносятся — для полной схемы импортируйте текстовый файл ЛИРЫ ({0}.txt) или дочитайте их командами import boundary / import loads.</system:String>
+   <system:String x:Key="CliLirPartialNoSupports">Файл .lir прочитан разборщиком OpenCS — формат разобран не полностью: перенесены узлы, КЭ и жёсткости; закреплений в файле не найдено. Нагрузки, закрепления, шарниры, жёсткие вставки и упругие связи не переносятся — для полной схемы импортируйте текстовый файл ЛИРЫ ({0}.txt) или дочитайте их командами import boundary / import loads.</system:String>
+   <system:String x:Key="CliImportedSchema">Схема #{0} «{1}»: узлов {2}, стержней {3}, пластин {4}, групп {5}</system:String>
+   <system:String x:Key="CliImportBoundaryHeader">Граничные условия (перенесено / не перенесено):</system:String>
+   <system:String x:Key="CliImportBoundaryRow" xml:space="preserve">  {0}: {1} / {2} {3}{4}</system:String>
+   <system:String x:Key="CliImportLoadsHeader">Загружения, ΣF (кН):</system:String>
+   <system:String x:Key="CliImportLoadRow" xml:space="preserve">  «{0}»: Fx = {1:0.###}, Fy = {2:0.###}, Fz = {3:0.###}</system:String>
    <system:String x:Key="CliErrImportFormat">Формат файла не поддерживается: {0} (CSV, TSV, TXT, XLSX, XLS, DOCX, HTM, HTML)</system:String>
    <system:String x:Key="CliErrNoRowsForElements">Нет строк для КЭ {0}</system:String>
    <system:String x:Key="CliImportedSet">Набор #{0} «{1}»: строк {2}</system:String>

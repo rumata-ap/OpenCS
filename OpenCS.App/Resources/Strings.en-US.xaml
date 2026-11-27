@@ -6275,6 +6275,36 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliOptSheet">Excel sheet: name or number from 1</system:String>
    <system:String x:Key="CliOptLiraMode">ЛИРА-САПР HTML table: rsu, rsn, loadcases</system:String>
    <system:String x:Key="CliErrImport">Import failed: {0}</system:String>
+   <system:String x:Key="CliCmdImportSchema">LIRA or SCAD model: LIRA text, .lir, LIRA CSV, SCAD text; on Windows also the model open in LIRA (--lira-api) and a SCAD .SPR project</system:String>
+   <system:String x:Key="CliArgSchemaFile">Model file (.txt LIRA or SCAD, .lir, LIRA nodes .csv, .spr); not used with --lira-api</system:String>
+   <system:String x:Key="CliOptSchemaFormat">File format: auto (by extension and content), lira-text, lir, lira-csv, scad-txt, scad-spr</system:String>
+   <system:String x:Key="CliOptLiraApi">Model open in running LIRA (COM; Windows only); supports and loads from its text file</system:String>
+   <system:String x:Key="CliOptCsvElements">LIRA CSV: elements file (nodes file is the argument)</system:String>
+   <system:String x:Key="CliOptCsvBarStiffness">LIRA CSV: bar stiffnesses (optional)</system:String>
+   <system:String x:Key="CliOptCsvPlateStiffness">LIRA CSV: plate stiffnesses (optional)</system:String>
+   <system:String x:Key="CliOptScadDll">SCADAPIX.dll folder (otherwise from project settings or the SCAD installation)</system:String>
+   <system:String x:Key="CliOptNoOutputAxes">SCAD .SPR: do not read plate force output axes</system:String>
+   <system:String x:Key="CliOptNoConcreteGroups">SCAD .SPR: do not create element groups from RC groups</system:String>
+   <system:String x:Key="CliOptNoSteelGroups">SCAD .SPR: do not create element groups from steel groups</system:String>
+   <system:String x:Key="CliErrSchemaFileWithApi">With --lira-api no model file is given: the model open in LIRA is read.</system:String>
+   <system:String x:Key="CliErrSchemaFileRequired">Specify a model file or --lira-api.</system:String>
+   <system:String x:Key="CliErrLiraApiWindowsOnly">Reading a model through the LIRA API is available on Windows only. Without COM: the LIRA text file (Data\&lt;Title&gt;.txt), a .lir file or LIRA CSV.</system:String>
+   <system:String x:Key="CliErrScadSprWindowsOnly">Reading a SCAD .SPR project (SCADAPIX.dll) is available on Windows only. Without the DLL: the SCAD text file (topology).</system:String>
+   <system:String x:Key="CliErrSchemaFormatUnknown">Format of "{0}" not recognised by extension — specify --format ({1}).</system:String>
+   <system:String x:Key="CliErrCsvElementsRequired">LIRA CSV needs the elements file: --elements-file.</system:String>
+   <system:String x:Key="CliErrScadDllNotFound">SCADAPIX.dll not found — specify the SCAD folder: --scad-dll.</system:String>
+   <system:String x:Key="CliErrLiraApi">LIRA did not respond through the API: {0}. Is LIRA running with a model open?</system:String>
+   <system:String x:Key="CliImportLoadValuesNormative">Source loads are design values, but the project settings use characteristic values: SP 20 combinations would apply γf twice. Switch the settings to design values.</system:String>
+   <system:String x:Key="CliMeshCounts" xml:space="preserve"> · {0} nodes, {1} elements</system:String>
+   <system:String x:Key="CliErrLirRead">The .lir file "{0}" could not be read: {1}. Import the LIRA text file instead (Data\&lt;Title&gt;.txt).</system:String>
+   <system:String x:Key="CliLirSkippedElements">Elements the .lir reader did not transfer (node count other than 2–4: springs, solids, unrecognised): {0}.</system:String>
+   <system:String x:Key="CliLirPartial">The .lir file was read by the OpenCS reader — the format is only partly decoded: nodes, elements, stiffnesses and supports were transferred. Loads, hinges, rigid links and springs are not — import the LIRA text file ({0}.txt) for the full model or add them with import boundary / import loads.</system:String>
+   <system:String x:Key="CliLirPartialNoSupports">The .lir file was read by the OpenCS reader — the format is only partly decoded: nodes, elements and stiffnesses were transferred; no supports were found in the file. Loads, supports, hinges, rigid links and springs are not transferred — import the LIRA text file ({0}.txt) for the full model or add them with import boundary / import loads.</system:String>
+   <system:String x:Key="CliImportedSchema">Model #{0} "{1}": {2} nodes, {3} bars, {4} plates, {5} groups</system:String>
+   <system:String x:Key="CliImportBoundaryHeader">Boundary conditions (transferred / not transferred):</system:String>
+   <system:String x:Key="CliImportBoundaryRow" xml:space="preserve">  {0}: {1} / {2} {3}{4}</system:String>
+   <system:String x:Key="CliImportLoadsHeader">Load cases, ΣF (kN):</system:String>
+   <system:String x:Key="CliImportLoadRow" xml:space="preserve">  "{0}": Fx = {1:0.###}, Fy = {2:0.###}, Fz = {3:0.###}</system:String>
    <system:String x:Key="CliErrImportFormat">Unsupported file format: {0} (CSV, TSV, TXT, XLSX, XLS, DOCX, HTM, HTML)</system:String>
    <system:String x:Key="CliErrNoRowsForElements">No rows for elements {0}</system:String>
    <system:String x:Key="CliImportedSet">Force set #{0} «{1}»: {2} rows</system:String>

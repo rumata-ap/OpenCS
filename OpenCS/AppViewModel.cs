@@ -4761,26 +4761,12 @@ namespace OpenCS
                catch (Exception) { }  // путь .lir нужен только для проверки свежести текстового файла
                return data;
             });
-            var import = FemImport;
-            int groupCount = 0;
-            Services.FemBoundarySummary? boundary = null;
-            Services.FemLoadTransferOutcome? loads = null;
-            var schema = await import.CreateAsync(liraTitle ?? Loc.S("LiraApiSchemaDefaultTag"), "lira", null, async s =>
-            {
-               groupCount = import.SaveLiraMesh(s, raw);
-               // ГУ и нагрузки — из текстового файла схемы (Data\<Title>.txt); нет файла — закрепления и C1 из API.
-               if (await TransferLiraTextAfterImport(import, s, raw, liraTitle, liraVersion, lirPath) is { } text)
-               {
-                  (boundary, loads) = text;
-                  import.WarnFoundationBeyondC1(raw);
-               }
-               else import.SaveLiraSupports(s, raw);
-               import.SaveLiraExtras(s, raw);
-            });
+            // ГУ и нагрузки — из текстового файла схемы (Data\<Title>.txt); нет файла — закрепления и C1 из API.
+            var (schema, done, boundary, loads) = await FemImport.ImportLiraApi(raw, liraTitle, liraVersion, lirPath,
+               Services.BackgroundImportWork.Instance);
             RefreshFemSchemaTreeCounts(schema);
             if (boundary != null) ShowBoundarySummary(schema, boundary, show: true);
             else ReloadFemMeshSnapshotTree(schema.Id);
-            string done = import.LiraDone(raw, groupCount);
             LogService.Info(done);
             EndBusy(done);
             if (loads != null) AskDesignLoadValues(loads);

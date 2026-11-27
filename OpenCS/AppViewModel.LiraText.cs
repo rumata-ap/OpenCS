@@ -29,34 +29,6 @@ namespace OpenCS
       }
 
       /// <summary>
-      /// После импорта схемы из API: найти текстовый файл открытой схемы во всех версиях ЛИРЫ и перенести из него ГУ (C1
-      /// пластин — из API) и нагрузки. Файла нет или он от другой схемы — предупреждение, закрепления и C1 — из API (null).
-      /// </summary>
-      async Task<(Services.FemBoundarySummary Boundary, Services.FemLoadTransferOutcome Loads)?> TransferLiraTextAfterImport(
-         Services.FemSchemaImport import, FemSchema schema, LiraSchemaData raw, string? title, int? version, string? lirPath)
-      {
-         var dirs = import.LiraTextDirectories();
-         string? path = import.FindLiraText(title, dirs, version);
-         if (path == null)
-         {
-            LogService.Warning(string.Format(Loc.S("LiraTextNotFound"), LiraTextFileLocator.FileName(title) ?? title ?? "?",
-               dirs.Count == 0 ? LiraTextFileLocator.PublicDocuments : string.Join("; ", dirs.Select(d => d.Path)),
-               Loc.S("LiraBoundaryRefresh"), Loc.S("LiraLoadsTransfer")));
-            return null;
-         }
-         var txt = await import.ReadLiraTextAsync(path, Services.BackgroundImportWork.Instance);
-         if (txt == null) return null;
-         import.WarnIfLiraTextStale(path, lirPath);
-         var match = LiraTextMeshMatch.Compare(txt, db.GetFemMeshNodes(schema.Id), db.GetFemMeshElements(schema.Id));
-         if (!match.Ok)
-         {
-            LogService.Warning(Services.FemSchemaImport.MismatchMessage(schema, path, match));
-            return null;
-         }
-         return await import.ApplyLiraTextToNewSchema(schema, raw, txt, path, Services.BackgroundImportWork.Instance);
-      }
-
-      /// <summary>
       /// Импорт схемы целиком из текстового файла ЛИРЫ — без COM API (ранние версии ЛИРЫ) и без запущенной ЛИРЫ: геометрия
       /// и жёсткости — документы 1, 3, 4, 9 и <c>{13/}</c>, имена и Ro жёсткостей, блоки и C1 пластин —
       /// <c>Work\&lt;Title&gt;.ald</c> (если есть), ГУ и нагрузки — как при импорте из API. Ошибка — схема не создаётся.

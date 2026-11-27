@@ -383,6 +383,59 @@ public sealed class FemSchemaImport(DatabaseService db, ILogService log, LiraImp
     }
 
     /// <summary>
+    /// После импорта схемы из API ЛИРЫ: найти текстовый файл открытой схемы (свой каталог, затем каталоги Data всех
+    /// версий ЛИРЫ) и перенести из него ГУ (C1 пластин — из API) и нагрузки. Файла нет или он от другой схемы —
+    /// предупреждение и null (тогда закрепления и C1 берутся из API).
+    /// </summary>
+    public async Task<(FemBoundarySummary Boundary, FemLoadTransferOutcome Loads)?> TransferLiraTextAfterApiImport(
+        FemSchema schema, LiraSchemaData raw, string? title, int? version, string? lirPath, IImportWork work)
+    {
+        var dirs = LiraTextDirectories();
+        string? path = FindLiraText(title, dirs, version);
+        if (path == null)
+        {
+            _log.Warning(string.Format(Loc.S("LiraTextNotFound"), LiraTextFileLocator.FileName(title) ?? title ?? "?",
+                dirs.Count == 0 ? LiraTextFileLocator.PublicDocuments : string.Join("; ", dirs.Select(d => d.Path)),
+                Loc.S("LiraBoundaryRefresh"), Loc.S("LiraLoadsTransfer")));
+            return null;
+        }
+        var txt = await ReadLiraTextAsync(path, work);
+        if (txt == null) return null;
+        WarnIfLiraTextStale(path, lirPath);
+        var match = LiraTextMeshMatch.Compare(txt, _db.GetFemMeshNodes(schema.Id), _db.GetFemMeshElements(schema.Id));
+        if (!match.Ok)
+        {
+            _log.Warning(MismatchMessage(schema, path, match));
+            return null;
+        }
+        return await ApplyLiraTextToNewSchema(schema, raw, txt, path, work);
+    }
+
+    /// <summary>
+    /// Схема из данных API ЛИРЫ: сетка и группы, ГУ и нагрузки — из текстового файла схемы (нет файла — закрепления и C1
+    /// из API), блоки, жёсткости, профили, единицы. Ошибка — схема удаляется.
+    /// </summary>
+    public async Task<(FemSchema Schema, string Done, FemBoundarySummary? Boundary, FemLoadTransferOutcome? Loads)> ImportLiraApi(
+        LiraSchemaData raw, string? title, int? version, string? lirPath, IImportWork work)
+    {
+        int groupCount = 0;
+        FemBoundarySummary? boundary = null;
+        FemLoadTransferOutcome? loads = null;
+        var schema = await CreateAsync(title ?? Loc.S("LiraApiSchemaDefaultTag"), "lira", null, async s =>
+        {
+            groupCount = SaveLiraMesh(s, raw);
+            if (await TransferLiraTextAfterApiImport(s, raw, title, version, lirPath, work) is { } text)
+            {
+                (boundary, loads) = text;
+                WarnFoundationBeyondC1(raw);
+            }
+            else SaveLiraSupports(s, raw);
+            SaveLiraExtras(s, raw);
+        });
+        return (schema, LiraDone(raw, groupCount), boundary, loads);
+    }
+
+    /// <summary>
     /// Схема целиком из текстового файла ЛИРЫ (без COM): геометрия, жёсткости, блоки, ГУ и нагрузки. Ошибка — схема
     /// удаляется. Файл без геометрии — <see cref="InvalidDataException"/>.
     /// </summary>
