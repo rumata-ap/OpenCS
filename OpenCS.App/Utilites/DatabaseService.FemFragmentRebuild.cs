@@ -120,7 +120,14 @@ namespace OpenCS.Utilites
                .GroupBy(lc => lc.ParentLoadCaseId!.Value).ToDictionary(g => g.Key, g => g.First().Id);
             var lcMap = new Dictionary<int, int>();
             foreach (var lc in oldLoadCases)
-               if (lc.Parent is int p && newLcByParent.TryGetValue(p, out int next)) lcMap[lc.Id] = next;
+               if (lc.Parent is int p && newLcByParent.TryGetValue(CurrentFemLoadCaseId(p), out int next)) lcMap[lc.Id] = next;
+            // Без действующей ссылки (фрагмент до v95, ссылка испорчена прежней записью) — по однозначному тегу среди
+            // ещё не занятых копий.
+            var taken = lcMap.Values.ToHashSet();
+            var freeByTag = schema.LoadCases.Where(lc => !taken.Contains(lc.Id)).GroupBy(lc => lc.Tag, StringComparer.Ordinal)
+               .Where(g => g.Count() == 1).ToDictionary(g => g.Key, g => g.Single().Id, StringComparer.Ordinal);
+            foreach (var g in oldLoadCases.Where(lc => !lcMap.ContainsKey(lc.Id)).GroupBy(lc => lc.Tag, StringComparer.Ordinal))
+               if (g.Count() == 1 && freeByTag.TryGetValue(g.Key, out int byTag)) lcMap[g.Single().Id] = byTag;
             var oldLcTag = oldLoadCases.ToDictionary(x => x.Id, x => x.Tag);
             int MapLc(int id) => lcMap.TryGetValue(id, out int next) ? next : id;
 
@@ -140,9 +147,16 @@ namespace OpenCS.Utilites
                analyses++;
                var probe = new FemAnalysis { LoadExpressionJson = a.Expr, ParamsJson = a.Params };
                var missing = OpenCS.Tasks.FemAnalysisParams.ReferencedLoadCases(probe).Where(id => !lcMap.ContainsKey(id)).ToList();
-               if (missing.Count > 0)
+               // Загружения фрагмента, которым не нашлось копии, — «больше нет в родителе»; Id, которых и во фрагменте не
+               // было (ссылка уже висела до пересборки), — отдельной строкой, без ложного «нет в родителе».
+               var gone = missing.Where(oldLcTag.ContainsKey).ToList();
+               var dangling = missing.Where(id => !oldLcTag.ContainsKey(id)).ToList();
+               if (gone.Count > 0)
                   lost.Add(new("fragment_rebuild_load_cases_lost", string.Format(Loc.S("FragmentRebuildLoadCasesLost"), a.Tag,
-                     string.Join(", ", missing.Select(id => oldLcTag.TryGetValue(id, out var t) ? $"«{t}»" : $"#{id}"))), IsError: false));
+                     string.Join(", ", gone.Select(id => $"«{oldLcTag[id]}»"))), IsError: false));
+               if (dangling.Count > 0)
+                  lost.Add(new("fragment_rebuild_load_cases_dangling", string.Format(Loc.S("FragmentRebuildLoadCasesDangling"), a.Tag,
+                     string.Join(", ", dangling.Select(id => $"#{id}"))), IsError: false));
                string expr = FemLoadExpression.Parse(a.Expr).RemapLoadCases(MapLc).ToJson();
                var parameters = OpenCS.Tasks.FemAnalysisParams.Parse(a.Params);
                parameters.RemapLoadCases(MapLc);

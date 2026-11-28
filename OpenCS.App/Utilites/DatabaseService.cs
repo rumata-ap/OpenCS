@@ -6131,6 +6131,7 @@ namespace OpenCS.Utilites
             }
 
             tx.Commit();
+            NoteFemLoadCaseRenumbering(newLoadCaseIdByOld);
          }
          catch { tx.Rollback(); throw; }
          ForgetFemChecksOfGroups(removedGroupIds);

@@ -121,13 +121,100 @@ public sealed class FragmentRebuildTests : IDisposable
         var r = Rebuild(db, fragment);
         Assert.False(r.IsError, string.Join("; ", r.Rows.Select(x => x.Message)));
         Assert.Equal(2, r.Transfer!.Lost.Count);
-        Assert.Equal(["fragment_rebuild_load_cases_lost", "fragment_rebuild_check_lost"],
+        Assert.Equal(["fragment_rebuild_load_cases_dangling", "fragment_rebuild_check_lost"],
             r.Transfer.Lost.Select(x => x.Code).OrderByDescending(x => x).ToArray());
         Assert.Equal(3, r.Rows.Count);
         Assert.DoesNotContain(r.Rows, x => x.IsError);
         db.LoadAll();
         Assert.DoesNotContain(db.FemChecks, c => c.SchemaId == id);
         Assert.Single(db.GetFemAnalyses(id));
+    }
+
+    /// <summary>
+    /// Ручная проверка 28.11: консоль готовит черновик фрагмента до записи документа, а запись документа пересохраняет
+    /// родителя (Id загружений новые) — ссылки копий вели на старые Id, и пересборка после переименования загружения
+    /// родителя теряла загружения постановки («загружений «Пост», «Врем» больше нет», затем «#5, #6»).
+    /// </summary>
+    [Fact]
+    public void Rebuild_ParentSavedBetweenPrepareAndCommit_LinksFollowAndAnalysisKeepsLoadCases()
+    {
+        using var db = new DatabaseService(_path);
+        var parent = StoreyFragmentDbFixture.CreateParent(db);
+        db.LoadAll();
+        var request = new StoreyFragmentRequest(1.5, 4.5, "Этаж");
+        var prepared = StoreyFragmentService.Prepare(db, parent.Id, request);
+
+        // Родитель пересохранён без изменений — Id его загружений меняются.
+        var session = FemSchemaAuthoring.OpenSession(db, db.FemSchemas.Single(s => s.Id == parent.Id));
+        var before = session.LoadCases.Select(c => c.Id).ToList();
+        Assert.True(FemSchemaAuthoring.Save(db, session, out var diag), string.Join("; ", diag.Select(x => x.Message)));
+        Assert.DoesNotContain(db.GetFemLoadCases(parent.Id), c => before.Contains(c.Id));
+
+        var built = FragmentAuthoring.Commit(db, db.FemSchemas.Single(s => s.Id == parent.Id), request, prepared);
+        Assert.False(built.IsError, string.Join("; ", built.Rows.Select(x => x.Message)));
+        int id = built.Schema!.Id;
+        var parentByTag = db.GetFemLoadCases(parent.Id).ToDictionary(c => c.Tag, c => (int?)c.Id);
+        Assert.All(db.GetFemLoadCases(id), c => Assert.Equal(parentByTag[c.Tag], c.ParentLoadCaseId));
+        Assert.All(built.Schema.LoadCases, c => Assert.Equal(parentByTag[c.Tag], c.ParentLoadCaseId));
+
+        int live = db.GetFemLoadCases(id).Single(c => c.Tag == "Полезная").Id;
+        db.SaveFemAnalysis(new FemAnalysis
+        {
+            SchemaId = id, Tag = "Лин", Kind = FemCsfeaRunner.LinearAnalysisKind,
+            LoadExpressionJson = new FemLoadExpression
+            {
+                Mode = FemLoadExpressionMode.Single, Terms = [new FemLoadTerm { LoadCaseId = live, Coefficient = 1 }],
+            }.ToJson(),
+        });
+        db.LoadAll();
+
+        // Как на ручной проверке: загружение родителя переименовано, затем две пересборки подряд.
+        session = FemSchemaAuthoring.OpenSession(db, db.FemSchemas.Single(s => s.Id == parent.Id));
+        session.LoadCases.Single(c => c.Tag == "Полезная").Tag = "Полезная 2";
+        Assert.True(FemSchemaAuthoring.Save(db, session, out diag), string.Join("; ", diag.Select(x => x.Message)));
+        for (int pass = 0; pass < 2; pass++)
+        {
+            var r = Rebuild(db, db.FemSchemas.Single(s => s.Id == id));
+            Assert.False(r.IsError, string.Join("; ", r.Rows.Select(x => x.Message)));
+            Assert.Empty(r.Transfer!.Lost);
+            var renamed = db.GetFemLoadCases(id).Single(c => c.Tag == "Полезная 2").Id;
+            var analysis = Assert.Single(db.GetFemAnalyses(id));
+            Assert.Equal(renamed, Assert.Single(FemLoadExpression.Parse(analysis.LoadExpressionJson).Terms).LoadCaseId);
+        }
+    }
+
+    /// <summary>Ссылки копий испорчены прежней записью (база с ручной проверки) — пересборка сопоставляет по тегу.</summary>
+    [Fact]
+    public void Rebuild_BrokenParentLinks_MapsByTag()
+    {
+        using var db = new DatabaseService(_path);
+        var parent = StoreyFragmentDbFixture.CreateParent(db);
+        db.LoadAll();
+        int id = BuildFragment(db, parent).Id;
+        int live = db.GetFemLoadCases(id).Single(c => c.Tag == "Полезная").Id;
+        db.SaveFemAnalysis(new FemAnalysis
+        {
+            SchemaId = id, Tag = "Лин", Kind = FemCsfeaRunner.LinearAnalysisKind,
+            LoadExpressionJson = new FemLoadExpression
+            {
+                Mode = FemLoadExpressionMode.Single, Terms = [new FemLoadTerm { LoadCaseId = live, Coefficient = 1 }],
+            }.ToJson(),
+        });
+        using (var c = new SqliteConnection($"Data Source={_path};Pooling=False"))
+        {
+            c.Open();
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = $"UPDATE fem_load_cases SET parent_load_case_id = parent_load_case_id + 100000 WHERE schema_id={id}";
+            Assert.True(cmd.ExecuteNonQuery() > 0);
+        }
+        db.LoadAll();
+
+        var r = Rebuild(db, db.FemSchemas.Single(s => s.Id == id));
+        Assert.False(r.IsError, string.Join("; ", r.Rows.Select(x => x.Message)));
+        Assert.Empty(r.Transfer!.Lost);
+        var analysis = Assert.Single(db.GetFemAnalyses(id));
+        Assert.Equal(db.GetFemLoadCases(id).Single(c => c.Tag == "Полезная").Id,
+            Assert.Single(FemLoadExpression.Parse(analysis.LoadExpressionJson).Terms).LoadCaseId);
     }
 
     [Fact]

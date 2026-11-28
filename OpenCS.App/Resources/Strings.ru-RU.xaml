@@ -4216,6 +4216,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FragmentRebuildReportDone">Фрагмент пересобран</system:String>
     <system:String x:Key="FragmentRebuildReportRefused">Фрагмент не пересобран</system:String>
     <system:String x:Key="FragmentRebuildLoadCasesLost">Постановка «{0}»: загружений {1} больше нет в родителе — поправьте её загружения (расчёт назовёт их).</system:String>
+    <system:String x:Key="FragmentRebuildLoadCasesDangling">Постановка «{0}» ссылается на загружения {1}, которых нет и во фрагменте (ссылка испорчена раньше) — поправьте её загружения.</system:String>
     <system:String x:Key="FragmentRebuildCheckMemberLost">Проверка «{0}» удалена: во фрагменте больше нет КонЭ «{1}».</system:String>
     <system:String x:Key="FragmentRebuildCheckGroupLost">Проверка «{0}» удалена: во фрагменте больше нет группы «{1}».</system:String>
     <system:String x:Key="FragmentRebuildImperfectionLost">Несовершенство «{0}» удалено: загружения «{1}» больше нет в родителе.</system:String>

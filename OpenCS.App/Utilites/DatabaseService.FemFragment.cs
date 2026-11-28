@@ -687,6 +687,10 @@ namespace OpenCS.Utilites
             InsertFemMeshSnapshot(sid, draft.KeptMeshNodes, draft.Members.SelectMany(p => p.KeptElements ?? []).ToList());
 
          var lcMap = new Dictionary<int, int>();
+         // Черновик снят раньше записи; родителя между снимком и записью могли пересохранить (Id загружений новые) —
+         // ссылка ведёт на текущее загружение родителя, а пропавшее загружение ссылки не получает.
+         var parentLcIds = ReadRows("SELECT id FROM fem_load_cases WHERE schema_id=@sid", parentId, r => r.GetInt32(0)).ToHashSet();
+         int? ParentLc(int draftId) => CurrentFemLoadCaseId(draftId) is var cur && parentLcIds.Contains(cur) ? cur : null;
          using (var cmd = _connection.CreateCommand())
          {
             cmd.CommandText = """
@@ -708,8 +712,8 @@ namespace OpenCS.Utilites
                cmd.Parameters.AddWithValue("@gf", (object?)lc.GammaFFav ?? DBNull.Value);
                cmd.Parameters.AddWithValue("@p1", (object?)lc.Psi1 ?? DBNull.Value);
                cmd.Parameters.AddWithValue("@p2", (object?)lc.Psi2 ?? DBNull.Value);
-               // Копия ссылается на загружение родителя (lc.Id черновика — Id родителя): карта для масок.
-               lc.ParentLoadCaseId = lc.Id;
+               // Копия ссылается на загружение родителя (lc.Id черновика — Id родителя на момент снимка): карта для масок.
+               lc.ParentLoadCaseId = ParentLc(lc.Id);
                AddFemLoadCaseExtraParameters(cmd, lc);
                int id = (int)(long)cmd.ExecuteScalar()!;
                lcMap[lc.Id] = id;
@@ -718,7 +722,7 @@ namespace OpenCS.Utilites
                   Id = id, SchemaId = sid, Tag = lc.Tag, LoadType = lc.LoadType, Sp20Type = lc.Sp20Type,
                   Sp20Group = lc.Sp20Group, GammaFUnfav = lc.GammaFUnfav, GammaFFav = lc.GammaFFav, Psi1 = lc.Psi1,
                   Psi2 = lc.Psi2, LongTermShare = lc.LongTermShare, SelfWeightFactor = lc.SelfWeightFactor,
-                  Origin = lc.Origin, SourceLoadNum = lc.SourceLoadNum, ParentLoadCaseId = lc.Id,
+                  Origin = lc.Origin, SourceLoadNum = lc.SourceLoadNum, ParentLoadCaseId = lc.ParentLoadCaseId,
                });
             }
          }

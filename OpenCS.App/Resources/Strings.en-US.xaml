@@ -4216,6 +4216,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FragmentRebuildReportDone">Fragment rebuilt</system:String>
     <system:String x:Key="FragmentRebuildReportRefused">Fragment not rebuilt</system:String>
     <system:String x:Key="FragmentRebuildLoadCasesLost">Analysis "{0}": load cases {1} no longer exist in the parent — fix its load cases (the run will name them).</system:String>
+    <system:String x:Key="FragmentRebuildLoadCasesDangling">Analysis "{0}" refers to load cases {1} that do not exist in the fragment either (the link was broken earlier) — fix its load cases.</system:String>
     <system:String x:Key="FragmentRebuildCheckMemberLost">Check "{0}" removed: member "{1}" is no longer in the fragment.</system:String>
     <system:String x:Key="FragmentRebuildCheckGroupLost">Check "{0}" removed: group "{1}" is no longer in the fragment.</system:String>
     <system:String x:Key="FragmentRebuildImperfectionLost">Imperfection "{0}" removed: load case "{1}" no longer exists in the parent.</system:String>

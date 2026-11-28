@@ -94,6 +94,29 @@ namespace OpenCS.Utilites
                lc.ParentLoadCaseId = newIdByOld.TryGetValue(id, out int mapped) ? mapped : alive.Contains(id) ? id : null;
       }
 
+      /// <summary>
+      /// Перенумерация загружений полными сохранениями схем за время работы с базой: прежний Id → новый. Id загружений —
+      /// AUTOINCREMENT и не повторяются, поэтому карта общая для всех схем.
+      /// </summary>
+      readonly Dictionary<int, int> _loadCaseSuccessor = [];
+
+      /// <summary>Запоминает перенумерацию загружений после успешной записи (<c>SaveFemSchemaEdit</c>).</summary>
+      void NoteFemLoadCaseRenumbering(IReadOnlyDictionary<int, int> newIdByOld)
+      {
+         foreach (var (o, n) in newIdByOld)
+            if (o > 0 && o != n) _loadCaseSuccessor[o] = n;
+      }
+
+      /// <summary>
+      /// Текущий Id загружения, известного по Id из более раннего снимка: схема могла быть пересохранена после снимка
+      /// (консоль готовит черновик фрагмента до записи документа, который пересохраняет родителя).
+      /// </summary>
+      int CurrentFemLoadCaseId(int id)
+      {
+         for (int guard = 0; guard < 10_000 && _loadCaseSuccessor.TryGetValue(id, out int next); guard++) id = next;
+         return id;
+      }
+
       const string LoadCaseKeyKind = "load_case", StageKeyKind = "stage";
 
       /// <summary>
