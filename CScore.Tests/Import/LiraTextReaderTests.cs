@@ -158,7 +158,7 @@ public class LiraTextReaderTests
         Assert.Equal(["GEI 3.06e+06 0.2 0.25 RO 2.5", "WLKE 1 WLKG 1 PLKE 0.6 PLKG 0.6"], s.Stiffnesses[0].Lines);
         Assert.Equal(3, s.Stiffnesses[1].Number);
         Assert.Equal(["459000 8262 1434.37 3005.99 0 0", "RO 0.375", "S0 3.06e+06 25 60"], s.Stiffnesses[1].Lines);
-        Assert.Equal([459000, 8262, 1434.37, 3005.99, 0, 0], s.Stiffnesses[1].NumericValues);
+        Assert.Equal([459000, 8262, 1434.37, 3005.99, 0, 0], s.Stiffnesses[1].NumericValues!);
 
         // Неполная запись координат — недостающие нули.
         Assert.Equal([new(0, 0, 0), new(6, 0, 0), new(0, 1.5, 0)], s.Nodes);

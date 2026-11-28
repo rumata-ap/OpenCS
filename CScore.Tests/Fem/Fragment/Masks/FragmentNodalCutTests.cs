@@ -140,7 +140,8 @@ public sealed class FragmentNodalCutTests
         var (nodes, elements) = Wall(3, 3, 6, 6);
         var t = Compression(nodes, elements, -2000, 3);
         t.SetElementNodeForce(K1, "1", "22", new Dof6(100, 0, 0, 0, 0, 0));
-        t.SetElementNodeForce(K1, "1", "1", t.TryElementNodeForces(K1, "1", out var own) ? own["1"] + new Dof6(-100, 0, 0, 0, 0, 0) : default);
+        Assert.True(t.TryElementNodeForces(K1, "1", out var own));
+        t.SetElementNodeForce(K1, "1", "1", own["1"] + new Dof6(-100, 0, 0, 0, 0, 0));
         t.AddNodeLoad(K1, "22", new Dof6(100, 0, 0, 0, 0, 0));
         if (remote) t.Remote["22"] = ["1"];
         var r = FragmentNodalCut.Compute([WallBottom(0.8, 3)], new FragmentBounds(0.8, 3, null, 1e-3), nodes, elements,

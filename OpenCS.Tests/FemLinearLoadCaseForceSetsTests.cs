@@ -77,7 +77,7 @@ public sealed class FemLinearLoadCaseForceSetsTests
         Assert.Null(group);
         Assert.Equal(1.3, gamma);
         Assert.Null(warn);
-        Assert.Equal(SP20Combinations.ParseForceSetName(result.Sets[0].Set.Tag).Type, NormLoadType.Permanent);
+        Assert.Equal(NormLoadType.Permanent, SP20Combinations.ParseForceSetName(result.Sets[0].Set.Tag).Type);
         Assert.Equal(-2, result.Sets[0].Set.ShellItems[1].Mx, 9);
         Assert.Equal(3, result.Sets.Select(s => s.Set.Num).Distinct().Count());
     }
@@ -173,7 +173,7 @@ public sealed class FemLinearLoadCaseForceSetsTests
         Assert.Equal(["C", "CL", "N", "NL"], reports.Select(r => r.Group)); // A без особых загружений не строится
         Assert.All(reports, r => Assert.Equal(r.Triples, r.Covered));
         Assert.Contains(warnings, w => w.Contains("доля длительной части"));
-        var byType = definitions.GroupBy(d => d.CombinationType).ToDictionary(g => g.Key, g => g.ToList());
+        var byType = definitions.GroupBy(d => d.CombinationType ?? "").ToDictionary(g => g.Key, g => g.ToList());
         Assert.Equal("Огибающая CL 001", byType["CL"][0].Tag);
         // CL: max Mx пластины 102 — G при уменьшении веса 0,9 и Q1 1,4·0,35 = 0,49; Q2 без доли не входит.
         Assert.Contains(byType["CL"], d => Formula(d) == "11:0.9:permanent_reduced|12:0.49:leading");

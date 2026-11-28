@@ -170,7 +170,7 @@ public class CrossSectionPagesVMTests
         Assert.Null(app.CurrentPage);
         Assert.Empty(service.GenerateAndSave(s, def with { HeightM = 0.6 }).Diagnostics);
         app.CurrentCrossSection = s;
-        Assert.False(((IUnsavedChanges)app.CurrentPage.DataContext).IsDirty);
+        Assert.False(((IUnsavedChanges)app.CurrentPage!.DataContext).IsDirty);
 
         // Правка на странице — вопрос; «Отмена» — страница остаётся, перестройки нет.
         ((CrossSectionVM)app.CurrentPage.DataContext).Tag = "Ригель 2";

@@ -36,7 +36,7 @@ public sealed class FemLoadSourcePickerDialogTests
                 var picker = new FemLoadSourcePickerDialog(sources, sources[0], "Стадия 1");
                 Assert.Equal(sources[0], ((FemLoadSourcePickerVM)picker.DataContext).Selected);
                 ShowOffscreen(picker);
-                Assert.Equal(1, picker.CombinationsGrid.Items.Count);
+                Assert.Single(picker.CombinationsGrid.Items);
                 picker.Close();
 
                 var schema = new FemSchema { Id = 1, Tag = "Схема" };
@@ -53,7 +53,7 @@ public sealed class FemLoadSourcePickerDialogTests
                 };
                 var dialog = new FemAnalysisDialog(schema, [], analysis, Sp20GammaDefaults.Standard);
                 ShowOffscreen(dialog);
-                Assert.Equal(1, dialog.StagesGrid.Items.Count);
+                Assert.Single(dialog.StagesGrid.Items);
                 dialog.Close();
             }
             catch (Exception ex) { error = ex; }

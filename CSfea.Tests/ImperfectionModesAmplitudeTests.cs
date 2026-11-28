@@ -170,6 +170,7 @@ public class ImperfectionModesAmplitudeTests
         TestHarness.Check("второй порядок сошёлся", run.Result.Completed, run.Result.Message ?? "");
         if (!run.Result.Completed) return;
         var f = run.LastConvergedFields();
+        Assert.NotNull(f);
         double mMax = Enumerable.Range(0, n).SelectMany(e => new[] { 4, 5, 10, 11 }
             .Select(c => Math.Abs(f.BeamForces[e * RcSecantStepFields.BeamForceComponents + c]))).Max();
         // Справочно для сайта: полусинус — собственная форма, точный ответ y = e₀/(1 − N/N_cr), M = N·y.

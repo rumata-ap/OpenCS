@@ -210,10 +210,10 @@ public sealed class ImportedBarSectionCreatorTests : IDisposable
         var beam = _db.CrossSections.Single(s => s.Id == ids["1"]);
         Assert.StartsWith("25Б1 СТО АСЧМ 20-93", beam.Tag);
         Assert.NotNull(beam.ParametricSteel);
-        Assert.NotNull(beam.ParametricSteel!.Definition.Catalog);       // 25Б1 есть в Sortamenty.db3 → It
+        Assert.NotNull(beam.ParametricSteel!.Definition!.Catalog);       // 25Б1 есть в Sortamenty.db3 → It
         Assert.Equal(MatType.Steel, Assert.Single(beam.Areas).Material!.Type);
         var tube = _db.CrossSections.Single(s => s.Id == ids["3"]);
-        Assert.Equal(CScore.Sp16.SteelProfileKind.Box, tube.ParametricSteel!.Definition.Kind);
+        Assert.Equal(CScore.Sp16.SteelProfileKind.Box, tube.ParametricSteel!.Definition!.Kind);
     }
 
     [Fact]
@@ -337,7 +337,7 @@ public sealed class ImportedBarSectionCreatorTests : IDisposable
         Assert.NotEqual(ids["1"], ids["3"]);
         var tube = _db.CrossSections.Single(s => s.Id == ids["1"]);
         Assert.StartsWith("80 x 3 ГОСТ 30245-94", tube.Tag);
-        Assert.Equal(CScore.Sp16.SteelProfileKind.Box, tube.ParametricSteel!.Definition.Kind);
+        Assert.Equal(CScore.Sp16.SteelProfileKind.Box, tube.ParametricSteel!.Definition!.Kind);
 
         // Повтор — без дублей.
         _db.SetFemElementCrossSections([(mesh.Single(e => e.ElemTag == "3"), null)]);

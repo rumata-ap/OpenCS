@@ -11,19 +11,19 @@ namespace CSfea.Tests;
 public class ShellMeshPatchCSfeaTests
 {
     [Fact]
-    public static void RunAll()
+    public static async Task RunAll()
     {
         TestHarness.Section("ShellMeshPatchPlateSectionResponse (CSfea): реальный Gmsh + линейный решатель");
-        HomogeneousPatch_AxialState_MatchesPointwiseSnapshot().GetAwaiter().GetResult();
-        ControlCheck_HomogeneousPatch_ReportsConsistentWithinTolerance().GetAwaiter().GetResult();
+        await HomogeneousPatch_AxialState_MatchesPointwiseSnapshot();
+        await ControlCheck_HomogeneousPatch_ReportsConsistentWithinTolerance();
 
         TestHarness.Section("ShellMeshPatchPlateSectionResponse (CSfea): precondition-тесты через CreateAsync");
-        AngledRebar_NotAtCenter_Blocked().GetAwaiter().GetResult();
-        FlippedStripFrame_Rejected_ThroughCreateAsync().GetAwaiter().GetResult();
-        PatchNearHullEdge_Outside_Blocked().GetAwaiter().GetResult();
+        await AngledRebar_NotAtCenter_Blocked();
+        await FlippedStripFrame_Rejected_ThroughCreateAsync();
+        await PatchNearHullEdge_Outside_Blocked();
 
         TestHarness.Section("ShellMeshPatchPlateSectionResponse (CSfea): RVE-convergence, независимый sweep RveSizeM × elementSize");
-        RveConvergence_Csfea_IndependentSizeAndDensitySweep().GetAwaiter().GetResult();
+        await RveConvergence_Csfea_IndependentSizeAndDensitySweep();
     }
 
     static async Task RveConvergence_Csfea_IndependentSizeAndDensitySweep()

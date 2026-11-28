@@ -119,7 +119,7 @@ public sealed class ProjectContextExecutorTests : IDisposable
         Assert.Empty(shown);
         Assert.Contains(_ctx.Log.LogEntries, e => e.Level == LogLevel.Warning && e.Message == "CalcTaskCancelled");
         Assert.Equal("end:CalcTaskCancelled", _ctx.BusyHost.Calls[^1]);
-        Assert.Empty(_ctx.Db.CalcResults.Where(r => r.TaskId == task.Id));
+        Assert.DoesNotContain(_ctx.Db.CalcResults, r => r.TaskId == task.Id);
     }
 
     [Fact]
@@ -132,7 +132,7 @@ public sealed class ProjectContextExecutorTests : IDisposable
         await CalcTaskExecutor.RunAsync(_ctx, task);
 
         Assert.Empty(_ctx.BusyHost.Calls);
-        Assert.Empty(_ctx.Db.CalcResults.Where(r => r.TaskId == task.Id));
+        Assert.DoesNotContain(_ctx.Db.CalcResults, r => r.TaskId == task.Id);
     }
 
     // ---------- МКЭ-постановка ----------

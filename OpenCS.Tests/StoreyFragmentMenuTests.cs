@@ -152,7 +152,7 @@ public sealed class StoreyFragmentMenuTests : IDisposable
                     StoreyFragmentMaskFlow.Rows([new FemValidationDiagnostic("fragment_mask_summary", "итог", false)]),
                     "StoreyFragmentMasksReportTitle");
                 ShowOffscreen(report);
-                Assert.Equal(1, report.rowsList.Items.Count);
+                Assert.Single(report.rowsList.Items);
                 report.Close();
             }
             catch (Exception ex) { error = ex; }

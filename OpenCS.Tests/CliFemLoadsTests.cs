@@ -371,7 +371,7 @@ public sealed class CliFemLoadsTests : IDisposable
             session.Undo();
             Assert.Equal(1, session.LoadCases.IndexOf(settle));                                   // на прежнем месте
             Assert.Equal(3, session.LoadDefinitions.Single(d => d.Tag == "РСН1").GetExpression().Terms.Count);
-            Assert.Single(session.KinematicLoads.Where(k => k.Dof == 3));
+            Assert.Single(session.KinematicLoads, k => k.Dof == 3);
 
             // Запись схемы даёт загружениям новые Id — пакет и несовершенства идут следом, роль сохраняется.
             Assert.True(FemSchemaAuthoring.Save(db, session, out _));

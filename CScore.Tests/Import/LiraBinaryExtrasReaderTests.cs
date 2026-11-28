@@ -746,7 +746,7 @@ public class LiraBinaryExtrasReaderTests
         Assert.Equal(-6.0, plate[1].P1, 6);
         Assert.Equal(1e-5, plate[1].P2, 9);
 
-        var bar = Assert.Single(data.BinaryLoads.Where(l => l.TargetId == 5));
+        var bar = Assert.Single(data.BinaryLoads, l => l.TargetId == 5);
         Assert.Equal(88, bar.LoadType);
         Assert.Equal(1, bar.DirectionCode);
         Assert.Equal(17.0, bar.P0, 6);

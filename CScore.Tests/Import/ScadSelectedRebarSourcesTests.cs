@@ -217,7 +217,8 @@ public class ScadSelectedRebarSourcesTests
         var (bars, reason) = ScadBarSectionBuilder.SelectedLayout(Sec(4.14, 4.14, 4.14, 4.14), Profile60, 0.04, 0.04);
 
         Assert.Null(reason);
-        Assert.Equal(4 * 4.14, bars!.Sum(b => b.AreaM2) * 1e4, 9);
+        Assert.NotNull(bars);
+        Assert.Equal(4 * 4.14, bars.Sum(b => b.AreaM2) * 1e4, 9);
         var s1 = bars.Where(b => Math.Abs(b.Y + 0.26) < 1e-9).ToList();
         var s2 = bars.Where(b => Math.Abs(b.Y - 0.26) < 1e-9).ToList();
         Assert.Equal(9, s1.Count);
@@ -240,7 +241,8 @@ public class ScadSelectedRebarSourcesTests
     {
         var (bars, _) = ScadBarSectionBuilder.SelectedLayout(Sec(4.56, 3.56, 4.06, 4.06), Profile60, 0.04, 0.05);
 
-        Assert.Equal(4.56 + 3.56 + 4.06 + 4.06, bars!.Sum(b => b.AreaM2) * 1e4, 9);
+        Assert.NotNull(bars);
+        Assert.Equal(4.56 + 3.56 + 4.06 + 4.06, bars.Sum(b => b.AreaM2) * 1e4, 9);
         Assert.Equal(4.56, bars.Where(b => Math.Abs(b.Y + 0.26) < 1e-9).Sum(b => b.AreaM2) * 1e4, 9);
         Assert.Equal(3.56, bars.Where(b => Math.Abs(b.Y - 0.25) < 1e-9).Sum(b => b.AreaM2) * 1e4, 9);
         // Боковой отступ — min(a1, a2).

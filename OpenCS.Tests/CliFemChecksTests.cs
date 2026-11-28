@@ -451,7 +451,7 @@ public sealed class CliFemChecksTests : IDisposable
         using (var db = Open(project))
         {
             FakeResult(db, db.FemChecks.Single(c => c.Tag == "Ригель / ЖБ"));
-            slsParams = db.FemChecks.Single(c => c.Tag == "Плиты / ПС2").ParamsJson;
+            slsParams = db.FemChecks.Single(c => c.Tag == "Плиты / ПС2").ParamsJson!;
         }
 
         var checks = await Run("list", "checks", project, "--json");

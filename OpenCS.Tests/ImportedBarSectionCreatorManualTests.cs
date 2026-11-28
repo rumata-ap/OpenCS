@@ -161,7 +161,7 @@ public class ImportedBarSectionCreatorManualTests(ITestOutputHelper output)
                 chooseSteel: () => MaterialCatalog.CreateStructuralSteel("С245", CatalogDirectory()), steelCatalog: sortament);
             Print(r);
             foreach (var s in db.CrossSections.Where(s => s.ParametricSteel != null))
-                output.WriteLine($"  МК «{s.Tag}»: {s.ParametricSteel!.Definition.Kind}, каталог {(s.ParametricSteel.Definition.Catalog != null ? "есть" : "нет")}");
+                output.WriteLine($"  МК «{s.Tag}»: {s.ParametricSteel!.Definition!.Kind}, каталог {(s.ParametricSteel.Definition.Catalog != null ? "есть" : "нет")}");
             Assert.Equal(entries.Count(e => e.Shape != null), entries.Count);
             Assert.NotEmpty(r.SteelSections);
         }

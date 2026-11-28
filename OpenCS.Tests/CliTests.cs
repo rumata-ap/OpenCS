@@ -64,8 +64,8 @@ public sealed class CliTests : IDisposable
         Assert.Equal(1, root.GetProperty("crossSections").GetInt32());
         Assert.Equal(1, root.GetProperty("calcTasks").GetInt32());
         Assert.Equal(before, ProjectBytes());
-        Assert.Empty(Directory.GetDirectories(Path.GetTempPath(), "opencs-cli-*")
-            .Where(d => Directory.GetFiles(d, "Проект.db").Length > 0));
+        Assert.DoesNotContain(Directory.GetDirectories(Path.GetTempPath(), "opencs-cli-*"),
+            d => Directory.GetFiles(d, "Проект.db").Length > 0);
     }
 
     [Fact]

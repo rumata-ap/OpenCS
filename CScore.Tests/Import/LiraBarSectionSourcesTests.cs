@@ -96,7 +96,8 @@ public class LiraBarSectionSourcesTests
         var (bars, reason) = LiraBarSectionBuilder.SelectedLayout(areas, Profile, (4, 5, 3));
 
         Assert.Null(reason);
-        Assert.Equal(19.9, bars!.Sum(b => b.AreaM2) * 1e4, 9);
+        Assert.NotNull(bars);
+        Assert.Equal(19.9, bars.Sum(b => b.AreaM2) * 1e4, 9);
         // Углы: a1 = 4 см снизу, a2 = 5 см сверху, a3 = 3 см сбоку; x — вдоль Y1 (ширина), y — вдоль Z1 (высота).
         Assert.Contains(bars, b => Near(b, -B / 2 + 0.03, -H / 2 + 0.04, 1e-4));
         Assert.Contains(bars, b => Near(b, B / 2 - 0.03, -H / 2 + 0.04, 2e-4));

@@ -127,6 +127,8 @@ public unsafe class ScadBoundaryProbeManualTests(ITestOutputHelper output)
                 var joints = new Dictionary<string, int>();
                 var samples = new List<string>();
                 int rodJointDiff = 0;
+                var deBuf = new double[12];
+                var diBuf = new double[12];
                 foreach (uint e in bars)
                 {
                     int combined = 0;
@@ -149,9 +151,8 @@ public unsafe class ScadBoundaryProbeManualTests(ITestOutputHelper output)
                         if (elastic && samples.Count < 5) samples.Add($"КЭ {e} узел {k}: {vals}");
                     }
                     ushort je, ji;
-                    double* de = stackalloc double[12];
-                    double* di = stackalloc double[12];
-                    if (getRodJoint(h, e, &je, &ji, de, di) == 0 && ((je | ji) & 0xFFF) != combined) rodJointDiff++;
+                    fixed (double* de = deBuf, di = diBuf)
+                        if (getRodJoint(h, e, &je, &ji, de, di) == 0 && ((je | ji) & 0xFFF) != combined) rodJointDiff++;
                 }
                 if (joints.Count > 0)
                     W($"  Шарниры (концов {joints.Values.Sum()}): " + string.Join(", ", joints.OrderByDescending(x => x.Value).Select(x => $"{x.Key}×{x.Value}")));

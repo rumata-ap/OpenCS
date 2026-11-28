@@ -664,7 +664,7 @@ public class FemResultLayerTests
                 while (!vm.EnvelopeTask.IsCompleted || !vm.IsEnvelopeShown)
                     window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
                 window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
-                Assert.Equal(1, list.Items.Count);
+                Assert.Single(list.Items);
                 Assert.Same(vm.EnvelopeItems[0], list.SelectedItem);
                 Assert.Same(vm.EnvelopeItems[0], list.SelectionBoxItem);
                 Assert.Same(vm.EnvelopeItems[0], vm.SelectedCaseItem);

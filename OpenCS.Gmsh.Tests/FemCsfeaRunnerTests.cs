@@ -737,7 +737,8 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
             var done = FemCsfeaResultSummary.Parse(full.DataJson)!;
             Assert.Equal(partial.Id, full.Id);
             Assert.Equal("ok", full.Status);
-            Assert.All(done.Batch!, b => Assert.True(b.Done));
+            Assert.NotNull(done.Batch);
+            Assert.All(done.Batch, b => Assert.True(b.Done));
             Assert.Equal(firstRecord, done.Batch[0].RecordN);
             Assert.Equal(3, ctx.Db.GetFemResultStepNumbers(full.Id).Count);
 
@@ -766,7 +767,8 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
             Assert.Equal("ok", result.Status);
             Assert.All(summary.Batch!, b => Assert.Null(b.RecordN));
             Assert.False(new OpenCS.ViewModels.FemCsfeaResultVM(result, ctx.Db, schema, analysis).CanCreateBatchForceSets);
-            Assert.Equal(["C", FemCsfeaBatchGroup.LoadCases], summary.BatchGroups!.Select(g => g.Key));
+            Assert.NotNull(summary.BatchGroups);
+            Assert.Equal(["C", FemCsfeaBatchGroup.LoadCases], summary.BatchGroups.Select(g => g.Key));
             Assert.Equal([2, 1], summary.BatchGroups.Select(g => g.Count));
             var (env, reference) = FemCsfeaEnvelopeCodec.Unpack(ctx.Db.GetFemResultStep(result.Id, summary.BatchGroups[0].RecordN)!);
             Assert.Equal(2, env.Count);

@@ -220,7 +220,7 @@ public class LocTests
     }
 
     [Fact]
-    public void S_IsSafeWhileLanguageSwitches()
+    public async Task S_IsSafeWhileLanguageSwitches()
     {
         var allowed = new HashSet<string>(StringComparer.Ordinal)
         {
@@ -237,7 +237,7 @@ public class LocTests
             for (int i = 0; i < 2000; i++)
                 Loc.SetLanguage((i % 3) switch { 0 => Loc.Russian, 1 => Loc.English, _ => null });
             cts.Cancel();
-            Task.WaitAll(readers);
+            await Task.WhenAll(readers);
         }
         finally
         {

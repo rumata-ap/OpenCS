@@ -31,12 +31,12 @@ public class PlanarMeshCSfeaPatchTests
     static double ExpectedNx => Ftotal / Width; // Н/м
 
     [Fact]
-    public static void RunAll()
+    public static async Task RunAll()
     {
         TestHarness.Section("PlanarMeshSnapshot → CSfea.Core.ShellMesh: реальный осевой sanity-тест (T3/Q4/mixed)");
-        RunForMode(PlanarMeshElementMode.Triangles).GetAwaiter().GetResult();
-        RunForMode(PlanarMeshElementMode.Quads).GetAwaiter().GetResult();
-        RunForMode(PlanarMeshElementMode.Mixed).GetAwaiter().GetResult();
+        await RunForMode(PlanarMeshElementMode.Triangles);
+        await RunForMode(PlanarMeshElementMode.Quads);
+        await RunForMode(PlanarMeshElementMode.Mixed);
     }
 
     static async Task RunForMode(PlanarMeshElementMode mode)
