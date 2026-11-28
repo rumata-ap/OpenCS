@@ -279,12 +279,20 @@ namespace OpenCS
           {
              vm.CurrentFemSchema = schemaTreeVM.Schema;
           }
+          // Разделы «Узлы», «Стержни», «Пластины» схемы, открытой в редакторе, щелчком редактор не закрывают (уход
+          // спрашивал бы о правках); их таблица — из меню («Открыть страницу»).
           else if (e.NewValue is ViewModels.FemNodesSubNode nodesNode)
-             vm.CurrentPage = new Views.FemNodesView(nodesNode, vm);
+          {
+             if (!vm.IsFemEditorOpenFor(nodesNode.Owner.Schema)) vm.CurrentPage = new Views.FemNodesView(nodesNode, vm);
+          }
           else if (e.NewValue is ViewModels.FemBarsSubNode barsNode)
-             vm.CurrentPage = new Views.FemBarsView(barsNode, vm);
+          {
+             if (!vm.IsFemEditorOpenFor(barsNode.Owner.Schema)) vm.CurrentPage = new Views.FemBarsView(barsNode, vm);
+          }
           else if (e.NewValue is ViewModels.FemShellsSubNode shellsNode)
-             vm.CurrentPage = new Views.FemShellsView(shellsNode, vm);
+          {
+             if (!vm.IsFemEditorOpenFor(shellsNode.Owner.Schema)) vm.CurrentPage = new Views.FemShellsView(shellsNode, vm);
+          }
           // Узел или КонЭ схемы, открытой в редакторе, — выделение в редакторе (страница не меняется, правки не под
           // вопросом); иначе — его страница. Страница доступна и из меню («Открыть страницу»).
           else if (e.NewValue is ViewModels.FemMemberTreeItem memberItem)
@@ -381,12 +389,15 @@ namespace OpenCS
                Views.FemMemberTreeMenus.FillNode(menu.Items, nodeItem, vm);
                break;
             case ViewModels.FemNodesSubNode nodes:
+               Views.FemMemberTreeMenus.AddOpenPage(menu.Items, () => vm.CurrentPage = new Views.FemNodesView(nodes, vm));
                Views.FemMemberTreeMenus.FillNodes(menu.Items, nodes.Owner.Schema, vm);
                break;
             case ViewModels.FemBarsSubNode bars:
+               Views.FemMemberTreeMenus.AddOpenPage(menu.Items, () => vm.CurrentPage = new Views.FemBarsView(bars, vm));
                Views.FemMemberTreeMenus.FillCategory(menu.Items, bars.Owner.Schema, bars.Members, vm, shells: false);
                break;
             case ViewModels.FemShellsSubNode shells:
+               Views.FemMemberTreeMenus.AddOpenPage(menu.Items, () => vm.CurrentPage = new Views.FemShellsView(shells, vm));
                Views.FemMemberTreeMenus.FillCategory(menu.Items, shells.Owner.Schema, shells.Members, vm, shells: true);
                break;
             case ViewModels.FemBoundaryGroupItem group:

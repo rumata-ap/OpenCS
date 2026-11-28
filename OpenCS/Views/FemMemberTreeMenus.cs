@@ -272,6 +272,13 @@ internal static class FemMemberTreeMenus
     }
 
     /// <summary>Меню узла «Узлы»: открыть редактор схемы.</summary>
+    /// <summary>«Открыть страницу» раздела (таблица узлов, стержней или пластин) и разделитель — первым пунктом меню.</summary>
+    public static void AddOpenPage(ItemCollection items, Action open)
+    {
+        items.Add(Item("FemTreeOpenPage", open));
+        items.Add(new Separator());
+    }
+
     public static void FillNodes(ItemCollection items, FemSchema schema, AppViewModel app) =>
         items.Add(Item("FemNodeTreeOpenEditor", () => app.CurrentFemSchema = schema));
 

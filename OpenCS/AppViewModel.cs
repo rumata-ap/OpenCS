@@ -476,6 +476,9 @@ namespace OpenCS
          return true;
       }
 
+      /// <summary>Открыт ли сейчас редактор этой схемы (щелчок по разделу дерева тогда не уводит со страницы).</summary>
+      public bool IsFemEditorOpenFor(CScore.Fem.FemSchema schema) => OpenEditorPageOf(schema) != null;
+
       /// <summary>Страница редактора этой схемы, если она сейчас открыта.</summary>
       Views.FemSchemaPage? OpenEditorPageOf(CScore.Fem.FemSchema schema) =>
          activeFemSchemaEditor?.Session.Schema.Id == schema.Id && CurrentPage is Views.FemSchemaPage page ? page : null;
