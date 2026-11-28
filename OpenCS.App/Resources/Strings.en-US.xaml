@@ -343,7 +343,7 @@
     <system:String x:Key="GmshKeepArtifactsLabel">Keep run artifacts</system:String>
     <system:String x:Key="GmshKeepArtifactsTip">When off, the .geo/.msh/log folder is deleted right after a successful mesh build; on failure artifacts are always kept.</system:String>
     <system:String x:Key="GmshArtifactsPathLabel">Gmsh artifacts folder</system:String>
-    <system:String x:Key="GmshArtifactsPathTip">Folder for .geo/.msh/manifest/logs of Gmsh runs. Empty — "GmshArtifacts" next to the OpenCS executable.</system:String>
+    <system:String x:Key="GmshArtifactsPathTip">Folder for .geo/.msh/manifest/logs of Gmsh runs. Empty — "GmshArtifacts" in the user data folder (%LOCALAPPDATA%\OpenCS), not in the program folder.</system:String>
     <system:String x:Key="GmshCheckVersionButton">Check version</system:String>
     <system:String x:Key="GmshVersionResolvedFormat">Found ({0}): version {1}</system:String>
     <system:String x:Key="GmshVersionNotFoundFormat">Not found: {0}</system:String>
@@ -3398,7 +3398,7 @@
     <system:String x:Key="FemAnalysisExeLabel">Path to OpenSees.exe (optional)</system:String>
     <system:String x:Key="FemAnalysisTimeoutLabel">Timeout, s</system:String>
     <system:String x:Key="OpenSeesArtifactsPathLabel">Analysis artifacts folder</system:String>
-    <system:String x:Key="OpenSeesArtifactsPathTip">Folder for generated .tcl scripts, logs, and results of OpenSees runs. Empty — the "OpenSeesArtifacts" folder next to the OpenCS executable.</system:String>
+    <system:String x:Key="OpenSeesArtifactsPathTip">Folder for generated .tcl scripts, logs, and results of OpenSees runs. Empty — the "OpenSeesArtifacts" folder in the user data folder (%LOCALAPPDATA%\OpenCS; %ProgramData%\OpenCS if the profile path has non-ASCII characters), not in the program folder.</system:String>
     <system:String x:Key="OpenSeesArtifactsPathNonAsciiWarning">The path contains Cyrillic or other non-ASCII characters. OpenSees.exe cannot open such paths directly (its Tcl runtime uses the ANSI code page); OpenCS will try to substitute a short Windows path automatically, but this does not work on every drive. Choose a path without Cyrillic/Unicode characters instead (e.g. "C:\OpenSeesArtifacts").</system:String>
     <system:String x:Key="BrowseEllipsis">…</system:String>
     <system:String x:Key="OpenSeesExeFilter">OpenSees.exe|OpenSees.exe|Executable files (*.exe)|*.exe|All files (*.*)|*.*</system:String>

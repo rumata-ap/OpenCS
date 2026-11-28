@@ -21,7 +21,7 @@ public sealed class GmshSettings
     /// разбора snapshot; при ошибке артефакты сохраняются всегда, независимо от флага.</summary>
     public bool KeepArtifacts { get; set; } = true;
 
-    /// <summary>Каталог артефактов запусков Gmsh. Пусто — каталог "GmshArtifacts" рядом с
+    /// <summary>Каталог артефактов запусков Gmsh. Пусто — каталог "GmshArtifacts" в папке данных пользователя (<see cref="UserDataPaths"/>), не рядом с
     /// исполняемым файлом OpenCS (см. ResolveArtifactsPath).</summary>
     public string? ArtifactsPath { get; set; }
 
@@ -30,12 +30,12 @@ public sealed class GmshSettings
     /// всегда 1 мм. Допуск входит в отпечаток сетки: после смены сетки областей устаревают.</summary>
     public double SeamToleranceM { get; set; } = CScore.Fem.FemPlanarMeshPlan.SeamToleranceM;
 
-    /// <summary>Заданный каталог или "GmshArtifacts" рядом с exe; путь другой ОС (проект с Windows на Linux
+    /// <summary>Заданный каталог или "GmshArtifacts" в папке данных пользователя; путь другой ОС (проект с Windows на Linux
     /// и наоборот) считается незаданным.</summary>
     public string ResolveArtifactsPath() =>
         OpenCS.ExternalTools.ExecutableSearch.IsUsablePath(ArtifactsPath)
             ? ArtifactsPath!
-            : System.IO.Path.Combine(AppContext.BaseDirectory, "GmshArtifacts");
+            : UserDataPaths.GmshArtifacts;
 
     public GmshSettings Clone() => SettingsCopy.Deep(this);
 }

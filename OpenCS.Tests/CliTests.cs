@@ -235,9 +235,9 @@ public sealed class CliTests : IDisposable
     {
         string foreign = OperatingSystem.IsWindows() ? "/opt/opencs/artifacts" : @"C:\OpenCS\artifacts";
 
-        Assert.Equal(Path.Combine(AppContext.BaseDirectory, "GmshArtifacts"),
+        Assert.Equal(UserDataPaths.GmshArtifacts,
             new GmshSettings { ArtifactsPath = foreign }.ResolveArtifactsPath());
-        Assert.Equal(Path.Combine(AppContext.BaseDirectory, "OpenSeesArtifacts"),
+        Assert.Equal(UserDataPaths.OpenSeesArtifacts,
             new CalcSettings { OpenSeesArtifactsPath = foreign }.ResolveOpenSeesArtifactsPath());
         Assert.Equal(_dir, new GmshSettings { ArtifactsPath = _dir }.ResolveArtifactsPath());
     }

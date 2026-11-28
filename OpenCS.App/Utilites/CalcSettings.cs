@@ -277,17 +277,17 @@ namespace OpenCS.Utilites
       public int OpenSeesTimeoutSeconds { get; set; } = 120;
 
       /// <summary>Каталог артефактов запусков OpenSees (сгенерированные .tcl, логи, результаты).
-      /// Пусто — каталог "OpenSeesArtifacts" рядом с исполняемым файлом OpenCS.</summary>
+      /// Пусто — каталог "OpenSeesArtifacts" в папке данных пользователя (<see cref="UserDataPaths"/>), не в папке программы.</summary>
       [JsonPropertyName("openSeesArtifactsPath")]
       public string? OpenSeesArtifactsPath { get; set; }
 
       /// <summary>Разрешённый путь к каталогу артефактов OpenSees: заданный пользователем
-      /// или каталог "OpenSeesArtifacts" рядом с исполняемым файлом OpenCS по умолчанию. Путь другой ОС
+      /// или каталог "OpenSeesArtifacts" в папке данных пользователя по умолчанию. Путь другой ОС
       /// (проект с Windows открыт на Linux и наоборот) считается незаданным.</summary>
       public string ResolveOpenSeesArtifactsPath()
          => OpenCS.ExternalTools.ExecutableSearch.IsUsablePath(OpenSeesArtifactsPath)
             ? OpenSeesArtifactsPath!
-            : System.IO.Path.Combine(System.AppContext.BaseDirectory, "OpenSeesArtifacts");
+            : UserDataPaths.OpenSeesArtifacts;
 
       /// <summary>Количество частей, на которое делится неудавшийся шаг нагрузки на каждом уровне
       /// дробления (нелинейный расчёт).</summary>

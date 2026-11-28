@@ -100,12 +100,13 @@ public sealed class GmshSettingsPersistenceTests
     }
 
     [Fact]
-    public void ResolveArtifactsPath_EmptyPath_ReturnsDefaultNextToExecutable()
+    public void ResolveArtifactsPath_EmptyPath_ReturnsUserDataFolderNotProgramFolder()
     {
         var settings = new GmshSettings { ArtifactsPath = null };
 
         var resolved = settings.ResolveArtifactsPath();
 
-        Assert.Equal(Path.Combine(AppContext.BaseDirectory, "GmshArtifacts"), resolved);
+        Assert.Equal(UserDataPaths.GmshArtifacts, resolved);
+        Assert.False(resolved.StartsWith(AppContext.BaseDirectory, StringComparison.OrdinalIgnoreCase));
     }
 }

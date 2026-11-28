@@ -343,7 +343,7 @@
     <system:String x:Key="GmshKeepArtifactsLabel">Сохранять артефакты запуска</system:String>
     <system:String x:Key="GmshKeepArtifactsTip">При выключении папка .geo/.msh/логов удаляется сразу после успешной сборки сетки; при ошибке артефакты сохраняются всегда.</system:String>
     <system:String x:Key="GmshArtifactsPathLabel">Каталог артефактов Gmsh</system:String>
-    <system:String x:Key="GmshArtifactsPathTip">Каталог для .geo/.msh/manifest/логов запусков Gmsh. Пусто — каталог "GmshArtifacts" рядом с исполняемым файлом OpenCS.</system:String>
+    <system:String x:Key="GmshArtifactsPathTip">Каталог для .geo/.msh/manifest/логов запусков Gmsh. Пусто — каталог "GmshArtifacts" в папке данных пользователя (%LOCALAPPDATA%\OpenCS), не в папке программы.</system:String>
     <system:String x:Key="GmshCheckVersionButton">Проверить версию</system:String>
     <system:String x:Key="GmshVersionResolvedFormat">Найден ({0}): версия {1}</system:String>
     <system:String x:Key="GmshVersionNotFoundFormat">Не найден: {0}</system:String>
@@ -3398,7 +3398,7 @@
     <system:String x:Key="FemAnalysisExeLabel">Путь к OpenSees.exe (необязательно)</system:String>
     <system:String x:Key="FemAnalysisTimeoutLabel">Таймаут, с</system:String>
     <system:String x:Key="OpenSeesArtifactsPathLabel">Каталог артефактов расчётов</system:String>
-    <system:String x:Key="OpenSeesArtifactsPathTip">Каталог для сгенерированных .tcl-скриптов, логов и результатов запусков OpenSees. Пусто — каталог "OpenSeesArtifacts" рядом с исполняемым файлом OpenCS.</system:String>
+    <system:String x:Key="OpenSeesArtifactsPathTip">Каталог для сгенерированных .tcl-скриптов, логов и результатов запусков OpenSees. Пусто — каталог "OpenSeesArtifacts" в папке данных пользователя (%LOCALAPPDATA%\OpenCS; если в пути профиля есть кириллица — %ProgramData%\OpenCS), не в папке программы.</system:String>
     <system:String x:Key="OpenSeesArtifactsPathNonAsciiWarning">Путь содержит кириллицу или другие не-ASCII символы. OpenSees.exe не умеет открывать такие пути напрямую (ANSI-кодировка Tcl-рантайма); OpenCS попытается автоматически подставить короткое Windows-имя пути, но это срабатывает не на всех дисках. Рекомендуется выбрать путь без кириллицы/юникода (например, "C:\OpenSeesArtifacts").</system:String>
     <system:String x:Key="BrowseEllipsis">…</system:String>
     <system:String x:Key="OpenSeesExeFilter">OpenSees.exe|OpenSees.exe|Исполняемые файлы (*.exe)|*.exe|Все файлы (*.*)|*.*</system:String>

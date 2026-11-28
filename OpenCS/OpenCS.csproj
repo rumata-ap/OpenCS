@@ -14,7 +14,30 @@
     <!-- Большой автономный комплект копируется только в переносимую сборку. -->
     <BundleTools Condition="'$(BundleTools)' == ''">false</BundleTools>
     <ReportToolsSource Condition="'$(ReportToolsSource)' == ''">$(MSBuildProjectDirectory)\..\ThirdParty\ReportTools</ReportToolsSource>
+    <!-- Консоль opencs кладётся рядом с программой, в подпапку cli\: её получают вместе с папкой программы. -->
+    <BundleCli Condition="'$(BundleCli)' == ''">true</BundleCli>
   </PropertyGroup>
+
+  <ItemGroup Condition="'$(BundleCli)' == 'true'">
+    <!-- Только порядок сборки: сборка консоли в программу не подключается (у неё свой TFM без -windows). -->
+    <ProjectReference Include="..\OpenCS.Cli\OpenCS.Cli.csproj" ReferenceOutputAssembly="false" Private="false" />
+  </ItemGroup>
+
+  <!-- Выход консоли целиком (свои DataSource, runtimes, Sortamenty.db3) — в $(OutDir)cli\, отдельно от библиотек
+       программы: сборки под net10.0 и net10.0-windows в одной папке могли бы подменять одна другую. -->
+  <Target Name="BundleCli" AfterTargets="Build" Condition="'$(BundleCli)' == 'true'">
+    <MSBuild Projects="..\OpenCS.Cli\OpenCS.Cli.csproj" Targets="GetTargetPath">
+      <Output TaskParameter="TargetOutputs" PropertyName="_CliTargetPath" />
+    </MSBuild>
+    <PropertyGroup>
+      <_CliOutputDir>$([System.IO.Path]::GetDirectoryName('$(_CliTargetPath)'))\</_CliOutputDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <_CliFiles Include="$(_CliOutputDir)**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_CliFiles)" DestinationFiles="@(_CliFiles->'$(OutDir)cli\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
 
   <Target Name="BundleReportTools" AfterTargets="Build" Condition="'$(BundleTools)' == 'true'">
     <Error Condition="!Exists('$(ReportToolsSource)\pandoc.exe')"
