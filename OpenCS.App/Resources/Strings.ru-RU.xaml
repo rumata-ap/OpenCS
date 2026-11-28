@@ -4593,6 +4593,8 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemNodePropsApplyLoad">Применить</system:String>
     <system:String x:Key="Fem3DViewIsolated">Изолированно</system:String>
     <system:String x:Key="Fem3DViewSchema">Вся схема</system:String>
+    <system:String x:Key="Fem3DViewIsolatedTip">Показать только этот объект (остальная схема скрыта)</system:String>
+    <system:String x:Key="Fem3DViewSchemaTip">Показать всю схему, объект подсвечен</system:String>
     <system:String x:Key="FemNodesTab">Узлы</system:String>
     <system:String x:Key="FemBarsEditTab">Стержни</system:String>
     <system:String x:Key="FemCreateNodeMode">Создать узел</system:String>

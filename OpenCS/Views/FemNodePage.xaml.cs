@@ -35,9 +35,9 @@ public partial class FemNodePage : UserControl
             };
             _adjacent.SetTags(adjacent.Select(i => i.Member.ElemTag));
         }
-        // Как у групп: сначала узел с примыкающими КонЭ отдельно; свободный узел — сразу на схеме.
+        // Сначала «Вся схема» (примыкающие КонЭ подсвечены, узел — маркером); «Изолированно» — у узла с КонЭ.
         rbIsolated.IsEnabled = _adjacent != null;
-        (_adjacent != null ? rbIsolated : rbSchema).IsChecked = true;
+        rbSchema.IsChecked = true;
     }
 
     /// <summary>Примыкающие КонЭ как временная группа для 3D-вида; null — узел ни к одному КонЭ не относится.</summary>

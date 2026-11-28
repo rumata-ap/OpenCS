@@ -423,6 +423,9 @@ public class Fem3DVM : ViewModelBase
     HashSet<string>? _scopeShellTags;
 
     /// <summary>Пластина <paramref name="tag"/> — элемента страницы: в виде группы — любая, на схеме — подсвеченная.</summary>
+    /// <summary>Вид «Вся схема» с подсвеченной группой (страницы КонЭ, узла, группы).</summary>
+    public bool IsHighlightMode => _highlightMember != null;
+
     public bool IsScopeShell(string tag) => _memberOnly != null || _scopeShellTags?.Contains(tag.Trim()) == true;
 
     (Point3DCollection? Lines, IReadOnlyList<MeshGeometry3D> Shells, int Visible, int Total) _topologyGhost = (null, [], 0, 0);

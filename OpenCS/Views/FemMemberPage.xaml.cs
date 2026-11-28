@@ -25,8 +25,8 @@ public partial class FemMemberPage : UserControl
         DataContext = new FemMemberPageVM(item, app, scope);
         // ПКМ по элементу в 3D — то же меню, что у КонЭ в дереве.
         view3D.ScopeMenuFiller = items => FemMemberTreeMenus.FillMember(items, item, app);
-        // Как у групп: сначала элемент отдельно, «На схеме» — переключателем.
-        rbIsolated.IsChecked = true;
+        // Щелчок в дереве ищет элемент на схеме: сначала «Вся схема» с подсветкой, «Изолированно» — переключателем.
+        rbSchema.IsChecked = true;
     }
 
     /// <summary>

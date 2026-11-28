@@ -118,11 +118,11 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
             <ToolBar Grid.Row="0">
-                <RadioButton x:Name="rbIsolated" Content="{DynamicResource Fem3DViewIsolated}"
+                <RadioButton x:Name="rbIsolated" Content="{DynamicResource Fem3DViewIsolated}" ToolTip="{DynamicResource Fem3DViewIsolatedTip}"
                              IsChecked="True" GroupName="ViewMode"
                              VerticalAlignment="Center" Margin="4,0"
                              Checked="ViewMode_Changed"/>
-                <RadioButton x:Name="rbSchema" Content="{DynamicResource Fem3DViewSchema}"
+                <RadioButton x:Name="rbSchema" Content="{DynamicResource Fem3DViewSchema}" ToolTip="{DynamicResource Fem3DViewSchemaTip}"
                              GroupName="ViewMode"
                              VerticalAlignment="Center" Margin="4,0"
                              Checked="ViewMode_Changed"/>

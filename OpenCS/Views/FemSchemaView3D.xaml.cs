@@ -861,11 +861,18 @@ public partial class FemSchemaView3D : UserControl
                 _planarVisuals.Add(new LinesVisual3D { Points = pv.EdgePoints, Color = Fem3DVM.LockedMemberColor, Thickness = 3.5 });
                 continue;
             }
-            var mat   = new DiffuseMaterial(new SolidColorBrush(Fem3DVM.PlanarRegionMeshColor));
+            // «Вся схема» с подсветкой: пластины группы — цветом подсветки и толстым контуром, остальные — фоном
+            // (как КЭ сетки и стержни в этом режиме); иначе — обычный цвет областей.
+            bool highlighted = VM.IsHighlightMode && VM.IsScopeShell(pv.ElemTag);
+            var fill = !VM.IsHighlightMode ? Fem3DVM.PlanarRegionMeshColor
+                : highlighted ? Fem3DVM.ShellHiColor : Fem3DVM.ShellBgColor;
+            var mat   = new DiffuseMaterial(new SolidColorBrush(fill));
             var model = new GeometryModel3D(pv.Mesh, mat) { BackMaterial = mat };
             _planarVisuals.Add(new ModelVisual3D { Content = model });
 
-            _planarVisuals.Add(new LinesVisual3D { Points = pv.EdgePoints, Color = Colors.SteelBlue, Thickness = 1.2 });
+            _planarVisuals.Add(highlighted
+                ? new LinesVisual3D { Points = pv.EdgePoints, Color = Colors.OrangeRed, Thickness = 3.0 }
+                : new LinesVisual3D { Points = pv.EdgePoints, Color = VM.IsHighlightMode ? Colors.LightGray : Colors.SteelBlue, Thickness = VM.IsHighlightMode ? 0.8 : 1.2 });
         }
         UpdateResultOverlay();
 
