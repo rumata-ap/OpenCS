@@ -562,7 +562,7 @@ public sealed class CrackWidthCore
                 {
                     sigmaMax = sig;
                     epsAtSigmaMax = eps;
-                    rsSer = Math.Abs(area.Material.GetChars(CalcType.N)?.Ft ?? 0.0);
+                    rsSer = Math.Abs(area.Material?.GetChars(CalcType.N)?.Ft ?? 0.0);
                 }
             }
         }

@@ -74,6 +74,7 @@ public static partial class CadComConnector
       try
       {
          ctx.GetRunningObjectTable(out var rot);
+         if (rot == null) return result;
          rot.EnumRunning(out var monikers);
          var m = new IMoniker[1];
          // Один процесс бывает зарегистрирован под несколькими CLSID (версионный и общий ProgID) — повторы

@@ -497,6 +497,8 @@ public sealed class FemSchemaEditorVM : ViewModelBase, IUnsavedChanges
         _app = app;
         _db = app.db;
         _logService = app.LogService;
+        // Сессия — до лямбд, которые к ней обращаются (иначе анализ null видит её неназначенной).
+        Session = new FemSchemaEditSession(schema);
         CreateMembersFromMeshElements = tags => app.CreateFemMembersFromMeshElements(schema, tags);
         BuildStoreyFragmentFromSelection = (nodes, members, meshElems, meshNodes) =>
         {
@@ -525,7 +527,6 @@ public sealed class FemSchemaEditorVM : ViewModelBase, IUnsavedChanges
         _gjBatchPlanner = new FemGjBatchPlanner(gjResolver);
         CrossSections = app.CrossSections;
         AllCalcTasks  = app.CalcTasks;
-        Session = new FemSchemaEditSession(schema);
         LoadSession();
         RefreshCollections();
         Session.Changed += () =>

@@ -32,7 +32,6 @@ namespace OpenCS.Views.Helpers
 
       string _value = "";
       string _default = "#000000";
-      bool _suppress;
 
       /// <summary>Вызывается при вводе/выборе корректного цвета.</summary>
       public event Action<string>? ValueChanged;
@@ -103,7 +102,7 @@ namespace OpenCS.Views.Helpers
             _box.ClearValue(Control.BorderBrushProperty);
             _box.ClearValue(FrameworkElement.ToolTipProperty);
             UpdateResetState();
-            if (!_suppress) ValueChanged?.Invoke(_value);
+            ValueChanged?.Invoke(_value);
          }
          else
          {

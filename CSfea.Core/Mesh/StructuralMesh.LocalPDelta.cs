@@ -152,7 +152,7 @@ public sealed partial class StructuralMesh
         var f = new double[NDof];
         if (_chordBlocks.Length == 0) return f;
         var nodal = NodalImperfection(field);
-        var parts = new double[_chordBlocks.Length][];
+        var parts = new double[]?[_chordBlocks.Length];
         Parallel.For(0, _chordBlocks.Length, new ParallelOptions { MaxDegreeOfParallelism = MaxDegreeOfParallelism },
             k => parts[k] = BlockImperfectionForce(k, field, nodal, uState, shellInPlane));
         Scatter(parts, f, abs);

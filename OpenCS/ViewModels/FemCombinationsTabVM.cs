@@ -43,7 +43,7 @@ public sealed class FemCombinationTermRow(FemCombinationsTabVM owner, int index,
     public FemLoadCase? LoadCase { get; } = loadCase;
     public override object Source => Term;
     public int Number { get; } = number;
-    public string Code => number > 0 ? FemCombinationsTabVM.CaseCode(number) : "";
+    public string Code => Number > 0 ? FemCombinationsTabVM.CaseCode(Number) : "";
     public string Tag => LoadCase?.Tag ?? $"#{Term.LoadCaseId}";
     public string Sp20Type => LoadCase?.Sp20Type ?? "";
 
