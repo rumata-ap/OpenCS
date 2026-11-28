@@ -36,21 +36,11 @@ public partial class FemNodesView : UserControl
 
     void NodesGrid_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
-        var rows = nodesGrid.SelectedItems.OfType<FemNode>().ToList();
-        if (rows.Count == 0) { e.Handled = true; return; }
         var menu = new ContextMenu();
-        if (rows.Count == 1)
-            FemMemberTreeMenus.FillNode(menu.Items, ItemFor(rows[0]), _app);
-        else
+        if (!FemMemberTreeMenus.FillNodeRows(menu.Items, Schema, nodesGrid.SelectedItems.OfType<FemNode>().ToList(), ItemFor, _app))
         {
-            var tags = rows.Select(r => r.NodeTag).ToList();
-            menu.Items.Add(new MenuItem { Header = string.Format(Utilites.Loc.S("FemNodesTableSelected"), tags.Count), IsEnabled = false });
-            menu.Items.Add(new Separator());
-            menu.Items.Add(FemMemberTreeMenus.Item("FemBoundarySelect", () => _app.InFemSchemaEditor(Schema, page => page.SelectInSchema(tags, []))));
-            menu.Items.Add(FemMemberTreeMenus.Item("FemNodeMoveCtx", () => _app.TransformFemFragmentInEditor(Schema, tags, [], copy: false)));
-            menu.Items.Add(FemMemberTreeMenus.Item("FemNodeCopyCtx", () => _app.TransformFemFragmentInEditor(Schema, tags, [], copy: true)));
-            menu.Items.Add(new Separator());
-            menu.Items.Add(FemMemberTreeMenus.Item("FemNodeDeleteCtx", () => _app.InFemSchemaEditor(Schema, page => page.DeleteNodes(tags))));
+            e.Handled = true;
+            return;
         }
         nodesGrid.ContextMenu = menu;
     }

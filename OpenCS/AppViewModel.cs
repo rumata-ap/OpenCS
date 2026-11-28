@@ -4751,6 +4751,16 @@ namespace OpenCS
          }, System.Windows.Threading.DispatcherPriority.Background);
       }
 
+      /// <summary>
+      /// Узел дерева для узла КонЭ схемы (меню строки таблицы узлов работает с ним): загруженный в дерево — он, иначе
+      /// новый у той же схемы дерева. Схемы нет в дереве — null.
+      /// </summary>
+      internal ViewModels.FemNodeTreeItem? FemNodeTreeItemFor(CScore.Fem.FemSchema schema, CScore.Fem.FemNode node)
+      {
+         if (femSchemasGroup?.Schemas.FirstOrDefault(x => x.Schema.Id == schema.Id) is not { } vm) return null;
+         return vm.NodesSubNode.Nodes.FirstOrDefault(i => i.Node.NodeTag == node.NodeTag) ?? new ViewModels.FemNodeTreeItem(node, vm);
+      }
+
       internal void RefreshFemSchemaTreeCounts(CScore.Fem.FemSchema schema)
       {
          var vm = femSchemasGroup?.Schemas.FirstOrDefault(x => x.Schema == schema);

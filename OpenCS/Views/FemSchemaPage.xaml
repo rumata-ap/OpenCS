@@ -68,7 +68,11 @@
                     <Button Content="{DynamicResource FemSaveSchema}" Command="{Binding SaveCommand}"/>
                 </ToolBar>
                 <DataGrid ItemsSource="{Binding Nodes}" AutoGenerateColumns="False" IsReadOnly="False"
-                          SelectionMode="Extended" x:Name="nodesGrid">
+                          SelectionMode="Extended" x:Name="nodesGrid"
+                          ContextMenuOpening="NodesGrid_ContextMenuOpening">
+                    <DataGrid.ContextMenu>
+                        <ContextMenu/>
+                    </DataGrid.ContextMenu>
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="{DynamicResource Tag}" Binding="{Binding NodeTag}" IsReadOnly="True" Width="60"/>
                         <DataGridTextColumn Header="{DynamicResource AxisLabelX}" Binding="{Binding X}" Width="80"/>

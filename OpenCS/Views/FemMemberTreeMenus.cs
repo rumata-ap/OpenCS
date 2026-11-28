@@ -272,6 +272,30 @@ internal static class FemMemberTreeMenus
     }
 
     /// <summary>Меню узла «Узлы»: открыть редактор схемы.</summary>
+    /// <summary>
+    /// Меню строк таблицы узлов КонЭ (страница «Узлы» и вкладка «Узлы» редактора): одна строка — меню узла дерева,
+    /// несколько — выделить, переместить, копировать, удалить. Пусто — false (меню не показывать).
+    /// </summary>
+    public static bool FillNodeRows(ItemCollection items, FemSchema schema, IReadOnlyList<FemNode> rows,
+        Func<FemNode, FemNodeTreeItem> itemFor, AppViewModel app)
+    {
+        if (rows.Count == 0) return false;
+        if (rows.Count == 1)
+        {
+            FillNode(items, itemFor(rows[0]), app);
+            return true;
+        }
+        var tags = rows.Select(r => r.NodeTag).ToList();
+        items.Add(new MenuItem { Header = string.Format(Loc.S("FemNodesTableSelected"), tags.Count), IsEnabled = false });
+        items.Add(new Separator());
+        items.Add(Item("FemBoundarySelect", () => app.InFemSchemaEditor(schema, page => page.SelectInSchema(tags, []))));
+        items.Add(Item("FemNodeMoveCtx", () => app.TransformFemFragmentInEditor(schema, tags, [], copy: false)));
+        items.Add(Item("FemNodeCopyCtx", () => app.TransformFemFragmentInEditor(schema, tags, [], copy: true)));
+        items.Add(new Separator());
+        items.Add(Item("FemNodeDeleteCtx", () => app.InFemSchemaEditor(schema, page => page.DeleteNodes(tags))));
+        return true;
+    }
+
     /// <summary>«Открыть страницу» раздела (таблица узлов, стержней или пластин) и разделитель — первым пунктом меню.</summary>
     public static void AddOpenPage(ItemCollection items, Action open)
     {
