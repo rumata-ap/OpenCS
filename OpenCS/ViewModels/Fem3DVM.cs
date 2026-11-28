@@ -285,6 +285,18 @@ public class Fem3DVM : ViewModelBase
         ShowLoadGlyphs = ShowSectionGlyphs = ShowLoadValues = ShowDirectionGlyphs = show;
     }
 
+    /// <summary>
+    /// Вид без глифов (опоры, пружины, шарниры, жёсткие тела, разрезы, нагрузки, сечения, направления, значения) — до
+    /// загрузки, без перерисовки: страницы КонЭ и узла показывают только геометрию с подсветкой, независимо от основного
+    /// вида схемы; включить слои можно меню глифов.
+    /// </summary>
+    public Fem3DVM WithoutGlyphs()
+    {
+        _showSupportGlyphs = _showSpringGlyphs = _showHingeGlyphs = _showRigidBodyGlyphs = _showFragmentCutGlyphs = false;
+        _showLoadGlyphs = _showSectionGlyphs = _showDirectionGlyphs = _showLoadValues = false;
+        return this;
+    }
+
     FemDiagramLoadSource? _selectedDiagramLoadSource;
     public FemDiagramLoadSource? SelectedDiagramLoadSource
     {

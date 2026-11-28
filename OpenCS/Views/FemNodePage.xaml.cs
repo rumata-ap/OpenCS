@@ -47,11 +47,12 @@ public partial class FemNodePage : UserControl
     void ViewMode_Changed(object sender, RoutedEventArgs e)
     {
         var db = _app.db;
-        view3D.DataContext = _adjacent == null
+        // Только геометрия и метка узла: глифы нагрузок, опор и прочего — выключены (меню глифов включает).
+        view3D.DataContext = (_adjacent == null
             ? new Fem3DVM(_item.Schema, db) { MarkerPoint = _marker }
             : rbIsolated.IsChecked == true
                 ? new Fem3DVM(_adjacent, db) { MarkerPoint = _marker }
-                : new Fem3DVM(_adjacent, db, highlightOnSchema: true) { MarkerPoint = _marker };
+                : new Fem3DVM(_adjacent, db, highlightOnSchema: true) { MarkerPoint = _marker }).WithoutGlyphs();
     }
 
     void Properties_Click(object sender, RoutedEventArgs e) =>

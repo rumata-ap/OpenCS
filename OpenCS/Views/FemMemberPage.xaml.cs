@@ -52,9 +52,10 @@ public partial class FemMemberPage : UserControl
 
     void ViewMode_Changed(object sender, RoutedEventArgs e)
     {
-        view3D.DataContext = rbIsolated.IsChecked == true
+        // Только геометрия с подсветкой: глифы нагрузок, опор и прочего — выключены (меню глифов включает).
+        view3D.DataContext = (rbIsolated.IsChecked == true
             ? new Fem3DVM(_viewGroup, _db)
-            : new Fem3DVM(_viewGroup, _db, highlightOnSchema: true);
+            : new Fem3DVM(_viewGroup, _db, highlightOnSchema: true)).WithoutGlyphs();
     }
 }
 

@@ -62,6 +62,14 @@ public sealed class Fem3DHighlightTests : IDisposable
             var isolated = new Fem3DVM(group, db);
             await isolated.LoadAsync();
             Assert.False(isolated.IsHighlightMode);
+
+            // Страницы КонЭ и узла: вид без глифов, независимо от умолчаний вида схемы.
+            var page = new Fem3DVM(group, db, highlightOnSchema: true).WithoutGlyphs();
+            await page.LoadAsync();
+            Assert.False(page.ShowLoadGlyphs || page.ShowSupportGlyphs || page.ShowSpringGlyphs || page.ShowHingeGlyphs
+                || page.ShowRigidBodyGlyphs || page.ShowFragmentCutGlyphs || page.ShowSectionGlyphs || page.ShowDirectionGlyphs
+                || page.ShowLoadValues);
+            Assert.True(whole.ShowLoadGlyphs && whole.ShowSupportGlyphs);
         });
     }
 }
